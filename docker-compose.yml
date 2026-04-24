@@ -1,0 +1,20 @@
+services:
+  vm107:
+    container_name: vm107-agent-zero
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    ports:
+      - "50081:80"
+    env_file:
+      - .env.local
+    volumes:
+      - ./usr:/a0/usr
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/api/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
