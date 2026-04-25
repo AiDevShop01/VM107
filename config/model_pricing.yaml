@@ -1,21 +1,13 @@
 version: "1.0"
-description: "Per-model token pricing (USD per 1K tokens)"
+description: "Pricing overrides — LiteLLM provides rates for 2,600+ models automatically"
+
+# Only add models here if you need to OVERRIDE LiteLLM's pricing
+# or for models too new to be in LiteLLM's database.
+# Ollama is always $0.00 (handled in code, no entry needed).
+# All other models are looked up from LiteLLM's model_cost database.
 models:
-  deepseek/deepseek-chat:
+  # DeepSeek V4 Flash — too new for LiteLLM (April 2026)
+  # Source: https://api-docs.deepseek.com/quick_start/pricing
+  deepseek/deepseek-v4-flash:
     input_per_1k: 0.00014
     output_per_1k: 0.00028
-  gemini/gemini-2.0-flash:
-    input_per_1k: 0.0001
-    output_per_1k: 0.0004
-  anthropic/claude-sonnet-4-20250514:
-    input_per_1k: 0.003
-    output_per_1k: 0.015
-  openai/gpt-4o:
-    input_per_1k: 0.0025
-    output_per_1k: 0.01
-  ollama/*:
-    input_per_1k: 0.0
-    output_per_1k: 0.0
-default:
-  input_per_1k: 0.0
-  output_per_1k: 0.0
