@@ -17,6 +17,7 @@ from core.boundary.config_resolver import (
     ResolvedBoundaryConfig,
     ConfigResolver
 )
+from core.boundary.execution_boundary import ExecutionBoundary
 
 __all__ = [
     "TokenCounter",
@@ -27,4 +28,5 @@ __all__ = [
     "BoundaryConfig",
     "ResolvedBoundaryConfig",
     "ConfigResolver",
+    "ExecutionBoundary",
 ]

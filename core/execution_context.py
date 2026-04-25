@@ -16,7 +16,23 @@ class BoundaryStatus(Enum):
 
     OK = "ok"
     WARNING = "warning"
-    EXCEEDED = "exceeded"
+    EXCEEDED = "exceeded"  # Keep for backward compat
+    STEP_LIMIT_EXCEEDED = "step_limit_exceeded"
+    TOKEN_LIMIT_EXCEEDED = "token_limit_exceeded"
+    COST_LIMIT_EXCEEDED = "cost_limit_exceeded"
+    TIME_LIMIT_EXCEEDED = "time_limit_exceeded"
+    DAILY_BUDGET_EXCEEDED = "daily_budget_exceeded"
+
+    def is_exceeded(self) -> bool:
+        """Return True if this status represents any exceeded boundary."""
+        return self in (
+            BoundaryStatus.EXCEEDED,
+            BoundaryStatus.STEP_LIMIT_EXCEEDED,
+            BoundaryStatus.TOKEN_LIMIT_EXCEEDED,
+            BoundaryStatus.COST_LIMIT_EXCEEDED,
+            BoundaryStatus.TIME_LIMIT_EXCEEDED,
+            BoundaryStatus.DAILY_BUDGET_EXCEEDED,
+        )
 
 
 @dataclass
