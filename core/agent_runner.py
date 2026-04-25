@@ -31,6 +31,9 @@ from core.interfaces import (
 from core.state_machine import AgentState, InvalidTransitionError, validate_transition
 
 logger = logging.getLogger("agentrunner")
+if not logger.handlers:
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.INFO)
 
 
 class AgentRunner:
