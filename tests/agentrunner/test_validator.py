@@ -2,13 +2,18 @@
 Tests for validation enforcement layer.
 
 Tests format_validation_error() and validate_agent_output() functions
-that provide runtime contract enforcement.
+that provide runtime contract enforcement, plus ValidationExtension integration.
 """
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from pydantic import ValidationError
 
 from core.contracts.validator import format_validation_error, validate_agent_output
 from core.contracts import Hypothesis, BacktestResult, BacktestMetrics
+from core.state_machine import AgentState
+from extensions.python.message_loop_end._90_validation import ValidationExtension
 
 
 class TestFormatValidationError:
@@ -175,3 +180,162 @@ class TestValidateAgentOutput:
         result = validate_agent_output("backtest_result", bt_data)
         assert isinstance(result, BacktestResult)
         assert type(result).__name__ == "BacktestResult"
+
+
+class TestValidationExtension:
+    """Tests for ValidationExtension integration."""
+
+    def test_validation_extension_skip_no_runner(self):
+        """Test that extension gracefully skips when no runner exists."""
+        # Create mock agent with no runner
+        agent = MagicMock()
+        agent.get_data.return_value = None
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Execute should not error
+        import asyncio
+        asyncio.run(ext.execute())
+
+        # Should have called get_data to check for runner
+        agent.get_data.assert_called_once_with("runner")
+
+    def test_validation_extension_skip_not_running(self):
+        """Test that extension skips validation when runner not in RUNNING state."""
+        # Create mock agent with runner in PAUSED state
+        agent = MagicMock()
+        runner = MagicMock()
+        runner.state = AgentState.PAUSED
+        agent.get_data.return_value = runner
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Execute should skip validation
+        import asyncio
+        asyncio.run(ext.execute())
+
+        # Should not have called runner.fail
+        runner.fail.assert_not_called()
+
+    def test_validation_extension_skip_no_contract_type(self):
+        """Test that extension skips when response has no _contract_type."""
+        # Create mock agent with runner in RUNNING state
+        agent = MagicMock()
+        agent.agent_name = "test_agent"
+        runner = MagicMock()
+        runner.state = AgentState.RUNNING
+        agent.get_data.return_value = runner
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Response without _contract_type
+        response = {"some_data": "value"}
+
+        # Execute with response (no _contract_type key)
+        import asyncio
+        asyncio.run(ext.execute(response=response))
+
+        # Should not have called runner.fail
+        runner.fail.assert_not_called()
+
+    @patch("extensions.python.message_loop_end._90_validation.logger")
+    def test_validation_extension_success_logging(self, mock_logger):
+        """Test that valid contract type logs success."""
+        # Create mock agent with runner in RUNNING state
+        agent = MagicMock()
+        agent.agent_name = "test_agent"
+        runner = MagicMock()
+        runner.state = AgentState.RUNNING
+        agent.get_data.return_value = runner
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Valid hypothesis data
+        response = {
+            "_contract_type": "hypothesis",
+            "_contract_data": {
+                "hypothesis": "Price will increase when volume is high",
+                "variables": ["price", "volume"],
+                "confidence": 0.85,
+            },
+        }
+
+        # Execute with valid response
+        import asyncio
+        asyncio.run(ext.execute(response=response))
+
+        # Should have logged success
+        mock_logger.info.assert_called_once()
+        log_call = mock_logger.info.call_args[0][0]
+        log_data = json.loads(log_call)
+        assert log_data["event"] == "validation_success"
+        assert log_data["schema"] == "hypothesis"
+        assert log_data["agent"] == "test_agent"
+
+        # Should not have called runner.fail
+        runner.fail.assert_not_called()
+
+    @patch("extensions.python.message_loop_end._90_validation.logger")
+    def test_validation_extension_failure_logs_and_fails(self, mock_logger):
+        """Test that invalid data logs failure and calls runner.fail()."""
+        # Create mock agent with runner in RUNNING state
+        agent = MagicMock()
+        agent.agent_name = "test_agent"
+        runner = AsyncMock()
+        runner.state = AgentState.RUNNING
+        agent.get_data.return_value = runner
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Invalid hypothesis data (confidence out of range)
+        response = {
+            "_contract_type": "hypothesis",
+            "_contract_data": {
+                "hypothesis": "",  # Too short
+                "variables": [],  # Too few
+                "confidence": 2.0,  # Out of range
+            },
+        }
+
+        # Execute with invalid response
+        import asyncio
+        asyncio.run(ext.execute(response=response))
+
+        # Should have logged failure
+        mock_logger.error.assert_called_once()
+        log_call = mock_logger.error.call_args[0][0]
+        log_data = json.loads(log_call)
+        assert log_data["event"] == "validation_failed"
+        assert log_data["schema"] == "hypothesis"
+        assert "error_details" in log_data
+
+        # Should have called runner.fail
+        runner.fail.assert_called_once()
+        fail_msg = runner.fail.call_args[0][0]
+        assert "validation" in fail_msg.lower()
+
+    @patch("extensions.python.message_loop_end._90_validation.logger")
+    @patch("extensions.python.message_loop_end._90_validation.PrintStyle")
+    def test_validation_extension_graceful_degradation(self, mock_print_style, mock_logger):
+        """Test that exceptions in validation logic are caught and logged."""
+        # Create mock agent that will cause an exception
+        agent = MagicMock()
+        agent.agent_name = "test_agent"
+        agent.get_data.side_effect = Exception("Simulated error")
+
+        # Create extension
+        ext = ValidationExtension(agent=agent)
+
+        # Execute should not raise exception
+        import asyncio
+        asyncio.run(ext.execute())
+
+        # Should have logged error via PrintStyle
+        mock_print_style.error.assert_called_once()
+        error_msg = mock_print_style.error.call_args[0][0]
+        assert "error" in error_msg.lower()
