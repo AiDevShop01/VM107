@@ -174,8 +174,8 @@ class AgentRunner:
 
         # Check execution boundary
         boundary_status = await self.boundary.check(self.execution_context)
-        if boundary_status == BoundaryStatus.EXCEEDED:
-            await self.fail("Execution boundary exceeded")
+        if boundary_status.is_exceeded():
+            await self.fail(f"Execution boundary exceeded: {boundary_status.value}")
             return None
 
         # Check for stalls
