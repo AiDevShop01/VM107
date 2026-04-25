@@ -7,8 +7,24 @@ for enforcing execution limits on agent tasks.
 
 from core.boundary.token_counter import TokenCounter
 from core.boundary.cost_calculator import CostCalculator
+from core.boundary.budget_tracker import (
+    BudgetTrackerInterface,
+    InMemoryBudgetTracker,
+    MongoBudgetTracker
+)
+from core.boundary.config_resolver import (
+    BoundaryConfig,
+    ResolvedBoundaryConfig,
+    ConfigResolver
+)
 
 __all__ = [
     "TokenCounter",
     "CostCalculator",
+    "BudgetTrackerInterface",
+    "InMemoryBudgetTracker",
+    "MongoBudgetTracker",
+    "BoundaryConfig",
+    "ResolvedBoundaryConfig",
+    "ConfigResolver",
 ]

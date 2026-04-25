@@ -1,0 +1,44 @@
+version: "1.0"
+description: "Execution boundary configuration"
+
+default:
+  max_steps: 100
+  max_tokens: 500000
+  max_cost_usd: 1.00
+  max_execution_time_sec: 3600
+  daily_budget_usd: 10.00
+
+environments:
+  research:
+    max_steps: 500
+    max_tokens: 2000000
+    max_cost_usd: 5.00
+    max_execution_time_sec: 7200
+    daily_budget_usd: 50.00
+  staging:
+    max_steps: 200
+    max_tokens: 1000000
+    max_cost_usd: 2.00
+    max_execution_time_sec: 3600
+    daily_budget_usd: 20.00
+  production:
+    max_steps: 100
+    max_tokens: 500000
+    max_cost_usd: 1.00
+    max_execution_time_sec: 1800
+    daily_budget_usd: 10.00
+
+agents:
+  backtester_agent:
+    max_steps: 300
+    max_tokens: 1500000
+    max_cost_usd: 3.00
+    max_execution_time_sec: 7200
+  code_agent:
+    max_steps: 200
+    max_tokens: 1000000
+    max_cost_usd: 2.00
+  idea_agent:
+    max_steps: 50
+    max_tokens: 200000
+    max_cost_usd: 0.50
