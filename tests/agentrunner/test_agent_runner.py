@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -234,7 +234,7 @@ class TestRunStep:
     async def test_run_step_checks_boundary(self, runner):
         """run_step() should call boundary.check()."""
         mock_boundary = MagicMock()
-        mock_boundary.check = MagicMock(return_value=BoundaryStatus.OK)
+        mock_boundary.check = AsyncMock(return_value=BoundaryStatus.OK)
         runner.boundary = mock_boundary
 
         await runner.start()
@@ -246,7 +246,7 @@ class TestRunStep:
     async def test_run_step_transitions_to_failed_on_boundary_exceeded(self, runner):
         """run_step() should transition to FAILED if boundary status is EXCEEDED."""
         mock_boundary = MagicMock()
-        mock_boundary.check = MagicMock(return_value=BoundaryStatus.EXCEEDED)
+        mock_boundary.check = AsyncMock(return_value=BoundaryStatus.EXCEEDED)
         runner.boundary = mock_boundary
 
         await runner.start()
@@ -258,7 +258,7 @@ class TestRunStep:
     async def test_run_step_calls_stall_detector(self, runner):
         """run_step() should call stall_detector.check()."""
         mock_stall_detector = MagicMock()
-        mock_stall_detector.check = MagicMock(return_value=False)
+        mock_stall_detector.check = AsyncMock(return_value=False)
         runner.stall_detector = mock_stall_detector
 
         await runner.start()
