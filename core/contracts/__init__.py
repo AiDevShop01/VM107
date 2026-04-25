@@ -16,6 +16,7 @@ from core.contracts.schemas import (
     Priority,
     StrategySpec,
 )
+from core.contracts.validator import format_validation_error, validate_agent_output
 
 __all__ = [
     "BaseContract",
@@ -30,4 +31,6 @@ __all__ = [
     "Priority",
     "SCHEMA_REGISTRY",
     "validate_message",
+    "format_validation_error",
+    "validate_agent_output",
 ]
