@@ -11,6 +11,10 @@ from langchain_community.vectorstores import FAISS
 from helpers import faiss_monkey_patch
 import faiss
 
+# Backend abstraction for Qdrant/FAISS switching
+from plugins._memory.backend.base import MemoryBackend
+from plugins._memory.backend.factory import create_backend
+
 
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores.utils import (
@@ -59,6 +63,7 @@ class Memory:
         SOLUTIONS = "solutions"
 
     index: dict[str, "MyFaiss"] = {}
+    backends: dict[str, MemoryBackend] = {}  # Backend instances per memory_subdir
 
     @staticmethod
     def _get_embedding_config(agent=None):
@@ -73,6 +78,20 @@ class Memory:
                 type="util",
                 heading=f"Initializing VectorDB in '/{memory_subdir}'",
             )
+
+            # Read plugin config to determine backend type
+            config = plugins.get_plugin_config("_memory", agent)
+            backend_type = config.get("memory_backend", "faiss") if config else "faiss"
+
+            # Initialize backend (for future Qdrant integration)
+            # For now, FAISS path continues unchanged
+            backend = None
+            if backend_type == "qdrant":
+                # Future: Initialize QdrantBackend via factory
+                # This would require EmbeddingService from fingpt_core
+                # For Phase 40-02, we're just setting up the structure
+                pass
+
             db, created = Memory.initialize(
                 log_item,
                 Memory._get_embedding_config(agent),
@@ -80,7 +99,10 @@ class Memory:
                 False,
             )
             Memory.index[memory_subdir] = db
-            wrap = Memory(db, memory_subdir=memory_subdir)
+            if backend:
+                Memory.backends[memory_subdir] = backend
+
+            wrap = Memory(db, memory_subdir=memory_subdir, backend=backend)
             knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
                 memory_subdir, agent.config.knowledge_subdirs or []
             )
@@ -88,9 +110,11 @@ class Memory:
                 await wrap.preload_knowledge(log_item, knowledge_subdirs, memory_subdir)
             return wrap
         else:
+            backend = Memory.backends.get(memory_subdir)
             return Memory(
                 db=Memory.index[memory_subdir],
                 memory_subdir=memory_subdir,
+                backend=backend,
             )
 
     @staticmethod
@@ -110,7 +134,8 @@ class Memory:
                 memory_subdir=memory_subdir,
                 in_memory=False,
             )
-            wrap = Memory(db, memory_subdir=memory_subdir)
+            backend = Memory.backends.get(memory_subdir)
+            wrap = Memory(db, memory_subdir=memory_subdir, backend=backend)
             if preload_knowledge:
                 knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
                     memory_subdir, agent_config.knowledge_subdirs or []
@@ -120,7 +145,8 @@ class Memory:
                         log_item, knowledge_subdirs, memory_subdir
                     )
             Memory.index[memory_subdir] = db
-        return Memory(db=Memory.index[memory_subdir], memory_subdir=memory_subdir)
+        backend = Memory.backends.get(memory_subdir)
+        return Memory(db=Memory.index[memory_subdir], memory_subdir=memory_subdir, backend=backend)
 
     @staticmethod
     async def reload(agent: Agent):
@@ -247,9 +273,11 @@ class Memory:
         self,
         db: MyFaiss,
         memory_subdir: str,
+        backend: MemoryBackend | None = None,
     ):
         self.db = db
         self.memory_subdir = memory_subdir
+        self.backend = backend  # For future Qdrant delegation
 
     async def preload_knowledge(
         self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str

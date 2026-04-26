@@ -1,0 +1,14 @@
+version: "v1"
+feature: ranking
+
+memory:
+  semantic_weight: 0.6
+  recency_weight: 0.3
+  outcome_weight: 0.1
+  recency_decay_hours: 168  # 7 days
+  default_top_k: 3
+
+knowledge:
+  semantic_weight: 0.8
+  diversity_weight: 0.2
+  default_top_k: 5

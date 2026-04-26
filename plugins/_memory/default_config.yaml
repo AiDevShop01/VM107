@@ -14,3 +14,6 @@ memory_memorize_enabled: true
 memory_memorize_consolidation: true
 memory_memorize_replace_threshold: 0.9
 agent_memory_subdir: default
+memory_backend: faiss  # "faiss" or "qdrant"
+qdrant_host: "192.168.1.151"  # dev default
+qdrant_port: 6333
