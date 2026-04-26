@@ -88,10 +88,7 @@ class TestContractToolBase:
             loop_data=mock_loop_data
         )
 
-        with patch('tools.vm_contracts.base.logging.getLogger') as mock_logger:
-            logger = MagicMock()
-            mock_logger.return_value = logger
-
+        with patch('tools.vm_contracts.base.logger') as mock_logger:
             response = await tool.execute()
 
             # Should return Response with break_loop=False
@@ -99,8 +96,8 @@ class TestContractToolBase:
             assert "XAUUSD" in response.message
 
             # Should log success
-            logger.info.assert_called_once()
-            log_call = logger.info.call_args[0][0]
+            mock_logger.info.assert_called_once()
+            log_call = mock_logger.info.call_args[0][0]
             log_data = json.loads(log_call)
             assert log_data["event"] == "tool_execution"
             assert log_data["tool"] == "test_tool"
@@ -114,9 +111,8 @@ class TestContractToolBase:
         class TestTool(ContractTool):
             def _validate_request(self, args):
                 raise ContractValidationError(
-                    message="Invalid timeframe",
-                    error_code="VALIDATION_ERROR",
-                    details={"errors": ["timeframe must be one of: M1, M5, M15..."]}
+                    errors=["timeframe must be one of: M1, M5, M15..."],
+                    message="Invalid timeframe"
                 )
 
             async def _call_vm(self, request):
@@ -134,10 +130,7 @@ class TestContractToolBase:
             loop_data=mock_loop_data
         )
 
-        with patch('tools.vm_contracts.base.logging.getLogger') as mock_logger:
-            logger = MagicMock()
-            mock_logger.return_value = logger
-
+        with patch('tools.vm_contracts.base.logger') as mock_logger:
             response = await tool.execute()
 
             # Should NOT crash - return error Response
@@ -146,8 +139,8 @@ class TestContractToolBase:
             assert "Invalid timeframe" in response.message
 
             # Should log validation failure
-            logger.error.assert_called_once()
-            log_call = logger.error.call_args[0][0]
+            mock_logger.error.assert_called_once()
+            log_call = mock_logger.error.call_args[0][0]
             log_data = json.loads(log_call)
             assert log_data["status"] == "validation_failed"
 
@@ -178,10 +171,7 @@ class TestContractToolBase:
             loop_data=mock_loop_data
         )
 
-        with patch('tools.vm_contracts.base.logging.getLogger') as mock_logger:
-            logger = MagicMock()
-            mock_logger.return_value = logger
-
+        with patch('tools.vm_contracts.base.logger') as mock_logger:
             response = await tool.execute()
 
             # Should NOT crash - return error Response
@@ -190,8 +180,8 @@ class TestContractToolBase:
             assert "VM connection failed" in response.message
 
             # Should log error
-            logger.error.assert_called_once()
-            log_call = logger.error.call_args[0][0]
+            mock_logger.error.assert_called_once()
+            log_call = mock_logger.error.call_args[0][0]
             log_data = json.loads(log_call)
             assert log_data["status"] == "error"
 
@@ -234,7 +224,7 @@ class TestGetOHLCTool:
             "count": 1
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
@@ -287,15 +277,13 @@ class TestGetInstrumentsTool:
                     "symbol": "XAUUSD",
                     "asset_class": "commodity",
                     "enabled": True,
-                    "min_lot": 0.01,
-                    "max_lot": 100.0,
-                    "lot_step": 0.01
+                    "pip_value": 0.01
                 }
             ],
             "count": 1
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
@@ -326,16 +314,16 @@ class TestComputePrimitivesTool:
         tool.client.compute_primitives = AsyncMock(return_value={
             "symbol": "XAUUSD",
             "timeframe": "H1",
-            "layer": 3,
             "bars": [],
             "count": 0
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
-            assert "layer 3" in response.message
+            assert "0 feature bars" in response.message
+            assert "XAUUSD" in response.message
 
 
 class TestGetAccountTool:
@@ -357,11 +345,10 @@ class TestGetAccountTool:
             "account_id": "123",
             "balance": 10000.0,
             "equity": 10000.0,
-            "margin": 0.0,
             "currency": "USD"
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
@@ -389,7 +376,7 @@ class TestGetInstrumentConfigTool:
             "config": {}
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
@@ -416,7 +403,7 @@ class TestGetRecentTradesTool:
             "count": 0
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
@@ -449,7 +436,7 @@ class TestCreatePreTradeEntryTool:
             "created_at": "2026-04-26T00:00:00Z"
         })
 
-        with patch('tools.vm_contracts.base.logging.getLogger'):
+        with patch('tools.vm_contracts.base.logger'):
             response = await tool.execute()
 
             assert response.break_loop is False
