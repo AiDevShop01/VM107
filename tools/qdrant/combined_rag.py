@@ -1,8 +1,9 @@
 """
 CombinedRAGTool for merged memory + knowledge retrieval.
 
-Searches both agent_memory and knowledge_base collections,
+Searches both agent_memory and knowledge_base_v2 collections,
 merges results into token-bounded combined context for LLM prompts.
+Uses multi-vector search with QueryRouter for knowledge retrieval.
 """
 import hashlib
 import json
@@ -20,6 +21,7 @@ from fingpt_core.contracts import (
 )
 from helpers.tool import Response
 from qdrant_client.models import FieldCondition, Filter, MatchValue
+from tools.qdrant.query_router import QueryRouter
 from tools.vm_contracts.base import ContractTool
 
 logger = logging.getLogger("fingpt.tools")
@@ -32,9 +34,11 @@ class CombinedRAGTool(ContractTool):
     """
     Search both memory and knowledge with combined context.
 
-    Searches agent_memory and knowledge_base collections in parallel,
-    applies respective ranking (memory=recency-weighted, knowledge=diversity-weighted),
+    Searches agent_memory and knowledge_base_v2 collections,
+    applies respective ranking (memory=recency-weighted, knowledge=multi-vector diversity-weighted),
     and builds token-bounded combined context for LLM insertion.
+
+    Uses QueryRouter for intent-driven multi-vector knowledge search.
 
     Dependencies (set via class attributes before agent calls tool):
         qdrant_client: QdrantClient instance
@@ -59,6 +63,7 @@ class CombinedRAGTool(ContractTool):
     def __init__(self, *args, **kwargs):
         """Initialize CombinedRAGTool."""
         super().__init__(*args, **kwargs)
+        self.query_router = QueryRouter()
 
     def _validate_request(self, args: dict) -> CombinedRAGRequest:
         """
@@ -77,10 +82,11 @@ class CombinedRAGTool(ContractTool):
 
     async def _call_vm(self, request: CombinedRAGRequest) -> dict:
         """
-        Search both agent_memory and knowledge_base collections.
+        Search both agent_memory and knowledge_base_v2 collections.
 
         Embeds query once (shared), searches both collections, applies
-        respective ranking, builds token-bounded combined context.
+        respective ranking (memory=recency-weighted, knowledge=multi-vector diversity-weighted),
+        builds token-bounded combined context.
 
         Args:
             request: Validated CombinedRAGRequest
@@ -96,7 +102,14 @@ class CombinedRAGTool(ContractTool):
 
         try:
             # Embed query once (shared between both searches)
-            query_vector = await self.embedding_service.embed(request.query)
+            # Handle both single-text and batch embedding interfaces
+            if hasattr(self.embedding_service, 'embed'):
+                # BgeEmbeddingAdapter interface (returns EmbedResponse)
+                embed_response = await self.embedding_service.embed([request.query])
+                query_vector = embed_response.embeddings[0]
+            else:
+                # Fallback for other embedding service interfaces
+                query_vector = await self.embedding_service.embed(request.query)
 
             # Search agent_memory
             memory_results = await self._search_memory(
@@ -123,15 +136,26 @@ class CombinedRAGTool(ContractTool):
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
 
+            # Get embedding model info
+            if hasattr(self.embedding_service, 'MODEL_NAME'):
+                model_name = self.embedding_service.MODEL_NAME
+                dimension = self.embedding_service.VECTOR_DIM
+            elif hasattr(self.embedding_service, 'model_name'):
+                model_name = self.embedding_service.model_name
+                dimension = self.embedding_service.dimension
+            else:
+                model_name = "unknown"
+                dimension = 768
+
             metadata = {
                 "query_hash": query_hash,
                 "project_id": request.project_id,
-                "collections": ["agent_memory", "knowledge_base"],
+                "collections": ["agent_memory", "knowledge_base_v2"],
                 "total_hits": len(memory_results) + len(knowledge_results),
                 "result_count": len(memory_results) + len(knowledge_results),
                 "latency_ms": latency_ms,
-                "embedding_model": self.embedding_service.model_name,
-                "embedding_dimension": self.embedding_service.dimension
+                "embedding_model": model_name,
+                "embedding_dimension": dimension
             }
 
             # Emit structured log
@@ -164,6 +188,17 @@ class CombinedRAGTool(ContractTool):
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
 
+            # Get embedding model info
+            if hasattr(self.embedding_service, 'MODEL_NAME'):
+                model_name = self.embedding_service.MODEL_NAME
+                dimension = self.embedding_service.VECTOR_DIM
+            elif hasattr(self.embedding_service, 'model_name'):
+                model_name = self.embedding_service.model_name
+                dimension = self.embedding_service.dimension
+            else:
+                model_name = "unknown"
+                dimension = 768
+
             return {
                 "memory_results": [],
                 "knowledge_results": [],
@@ -171,12 +206,12 @@ class CombinedRAGTool(ContractTool):
                 "metadata": {
                     "query_hash": query_hash,
                     "project_id": request.project_id,
-                    "collections": ["agent_memory", "knowledge_base"],
+                    "collections": ["agent_memory", "knowledge_base_v2"],
                     "total_hits": 0,
                     "result_count": 0,
                     "latency_ms": latency_ms,
-                    "embedding_model": self.embedding_service.model_name,
-                    "embedding_dimension": self.embedding_service.dimension
+                    "embedding_model": model_name,
+                    "embedding_dimension": dimension
                 }
             }
 
@@ -250,7 +285,11 @@ class CombinedRAGTool(ContractTool):
 
     async def _search_knowledge(self, query_vector: list[float], project_id: str, top_k: int) -> list[dict]:
         """
-        Search knowledge_base collection with diversity-weighted ranking.
+        Search knowledge_base_v2 collection with multi-vector diversity-weighted ranking.
+
+        Uses QueryRouter to determine which embedding space(s) to search based on
+        query intent (extracted from CombinedRAGRequest.query). Performs multi-space
+        search with weighted deduplication.
 
         Args:
             query_vector: Embedded query vector
@@ -260,6 +299,16 @@ class CombinedRAGTool(ContractTool):
         Returns:
             List of knowledge result dicts with scores
         """
+        # Get query from args for intent classification
+        query_text = self.args.get("query", "")
+        search_spaces = self.query_router.get_search_spaces(query_text)
+
+        # Get ranking config (try knowledge_v2 first, fallback to knowledge)
+        ranking_cfg = self.ranking_config.get("knowledge_v2", self.ranking_config.get("knowledge", {}))
+        semantic_weight = ranking_cfg.get("semantic_weight", 0.7)
+        diversity_weight = ranking_cfg.get("diversity_weight", 0.15)
+        max_results_per_space = ranking_cfg.get("max_results_per_space", 10)
+
         # Build OR filter: (project == current_project OR project == "global")
         query_filter = Filter(
             should=[
@@ -274,24 +323,44 @@ class CombinedRAGTool(ContractTool):
             ]
         )
 
-        # Search Qdrant
-        search_results = self.qdrant_client.search(
-            collection_name="knowledge_base",
-            query_vector=query_vector,
-            query_filter=query_filter,
-            limit=top_k
+        # Multi-space search: search each space and merge results
+        all_results = {}  # {point_id: (score, hit)}
+
+        for space_info in search_spaces:
+            space_name = space_info["space"]
+            space_weight = space_info["weight"]
+
+            # Search Qdrant with named vector
+            search_results = self.qdrant_client.search(
+                collection_name="knowledge_base_v2",
+                query_vector=(space_name, query_vector),  # Named vector tuple
+                query_filter=query_filter,
+                limit=max_results_per_space
+            )
+
+            # Process results with space weight
+            for hit in search_results:
+                point_id = hit.id
+                weighted_score = hit.score * space_weight
+
+                # Keep highest weighted score for each point ID (deduplication)
+                if point_id not in all_results or weighted_score > all_results[point_id][0]:
+                    all_results[point_id] = (weighted_score, hit)
+
+        # Convert to list and sort by weighted score descending
+        sorted_results = sorted(
+            all_results.values(),
+            key=lambda x: x[0],
+            reverse=True
         )
 
-        # Apply diversity-weighted ranking
-        semantic_weight = self.ranking_config["knowledge"]["semantic_weight"]
-        diversity_weight = self.ranking_config["knowledge"]["diversity_weight"]
-
-        results = []
-        for idx, hit in enumerate(search_results):
+        # Apply diversity-weighted ranking and take top_k
+        final_results = []
+        for idx, (weighted_score, hit) in enumerate(sorted_results[:top_k]):
             # Diversity boost decreases with rank
             diversity_boost = 1.0 - (idx * 0.1)  # 1.0, 0.9, 0.8, etc.
             final_score = (
-                hit.score * semantic_weight +
+                weighted_score * semantic_weight +
                 diversity_boost * diversity_weight
             )
 
@@ -299,9 +368,9 @@ class CombinedRAGTool(ContractTool):
                 **hit.payload,
                 "score": final_score
             }
-            results.append(result_dict)
+            final_results.append(result_dict)
 
-        return results
+        return final_results
 
     def _build_combined_context(
         self,

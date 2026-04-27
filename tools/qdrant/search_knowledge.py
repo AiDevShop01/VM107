@@ -1,7 +1,8 @@
 """
 SearchKnowledgeTool for semantic knowledge retrieval.
 
-Searches knowledge_base collection with project+global scope filtering.
+Searches knowledge_base_v2 collection with multi-vector named vector routing
+and project+global scope filtering.
 """
 import hashlib
 import json
@@ -17,6 +18,7 @@ from fingpt_core.contracts import (
 )
 from helpers.tool import Response
 from qdrant_client.models import FieldCondition, Filter, MatchValue
+from tools.qdrant.query_router import QueryRouter
 from tools.vm_contracts.base import ContractTool
 
 logger = logging.getLogger("fingpt.tools")
@@ -29,12 +31,16 @@ class SearchKnowledgeTool(ContractTool):
     """
     Search knowledge base with semantic search.
 
+    Searches knowledge_base_v2 collection with multi-vector named vector routing.
+    Uses QueryRouter to determine which embedding space(s) to search, performs
+    multi-space search with weighted deduplication, and applies diversity ranking.
+
     Retrieves global + project-scoped knowledge with diversity ranking.
     Follows ContractTool pattern with validate-request -> call -> validate-response.
 
     Dependencies (set via class attributes before agent calls tool):
         qdrant_client: QdrantClient instance
-        embedding_service: EmbeddingService instance
+        embedding_service: EmbeddingService instance (must support bge-base-en-v1.5)
         ranking_config: Ranking configuration dict from config/ranking.yaml
     """
 
@@ -46,6 +52,7 @@ class SearchKnowledgeTool(ContractTool):
     def __init__(self, *args, **kwargs):
         """Initialize SearchKnowledgeTool."""
         super().__init__(*args, **kwargs)
+        self.query_router = QueryRouter()
 
     def _validate_request(self, args: dict) -> SearchKnowledgeRequest:
         """
@@ -64,7 +71,12 @@ class SearchKnowledgeTool(ContractTool):
 
     async def _call_vm(self, request: SearchKnowledgeRequest) -> dict:
         """
-        Search knowledge_base collection with project+global filter.
+        Search knowledge_base_v2 collection with multi-vector named vector routing.
+
+        Uses QueryRouter to determine which embedding space(s) to search based on
+        query intent. For multi-space queries, searches each space, merges results
+        with weighted scoring, deduplicates by point ID (keeping highest score),
+        and applies diversity-weighted ranking.
 
         Embeds query, builds OR filter (project == current OR project == "global"),
         applies optional topic/source_type filters, searches Qdrant, applies
@@ -83,8 +95,24 @@ class SearchKnowledgeTool(ContractTool):
         timestamp = datetime.utcnow().isoformat() + "Z"
 
         try:
-            # Embed query
-            query_vector = await self.embedding_service.embed(request.query)
+            # Embed query (single embedding used for all spaces)
+            # Handle both single-text and batch embedding interfaces
+            if hasattr(self.embedding_service, 'embed'):
+                # BgeEmbeddingAdapter interface (returns EmbedResponse)
+                embed_response = await self.embedding_service.embed([request.query])
+                query_vector = embed_response.embeddings[0]
+            else:
+                # Fallback for other embedding service interfaces
+                query_vector = await self.embedding_service.embed(request.query)
+
+            # Use QueryRouter to determine which embedding space(s) to search
+            search_spaces = self.query_router.get_search_spaces(request.query)
+
+            # Get ranking config (try knowledge_v2 first, fallback to knowledge)
+            ranking_cfg = self.ranking_config.get("knowledge_v2", self.ranking_config.get("knowledge", {}))
+            semantic_weight = ranking_cfg.get("semantic_weight", 0.7)
+            diversity_weight = ranking_cfg.get("diversity_weight", 0.15)
+            max_results_per_space = ranking_cfg.get("max_results_per_space", 10)
 
             # Build filter: (project == current_project OR project == "global")
             filter_conditions = {
@@ -122,24 +150,46 @@ class SearchKnowledgeTool(ContractTool):
 
             query_filter = Filter(**filter_conditions)
 
-            # Search Qdrant
-            search_results = self.qdrant_client.search(
-                collection_name="knowledge_base",
-                query_vector=query_vector,
-                query_filter=query_filter,
-                limit=request.top_k
+            # Multi-space search: search each space and merge results
+            all_results = {}  # {point_id: (score, hit)}
+            spaces_searched = []
+
+            for space_info in search_spaces:
+                space_name = space_info["space"]
+                space_weight = space_info["weight"]
+                spaces_searched.append(space_name)
+
+                # Search Qdrant with named vector
+                search_results = self.qdrant_client.search(
+                    collection_name="knowledge_base_v2",
+                    query_vector=(space_name, query_vector),  # Named vector tuple
+                    query_filter=query_filter,
+                    limit=max_results_per_space
+                )
+
+                # Process results with space weight
+                for hit in search_results:
+                    point_id = hit.id
+                    weighted_score = hit.score * space_weight
+
+                    # Keep highest weighted score for each point ID (deduplication)
+                    if point_id not in all_results or weighted_score > all_results[point_id][0]:
+                        all_results[point_id] = (weighted_score, hit)
+
+            # Convert to list and sort by weighted score descending
+            sorted_results = sorted(
+                all_results.values(),
+                key=lambda x: x[0],
+                reverse=True
             )
 
-            # Apply diversity-weighted ranking
-            semantic_weight = self.ranking_config["knowledge"]["semantic_weight"]
-            diversity_weight = self.ranking_config["knowledge"]["diversity_weight"]
-
-            results = []
-            for idx, hit in enumerate(search_results):
+            # Apply diversity-weighted ranking and take top_k
+            final_results = []
+            for idx, (weighted_score, hit) in enumerate(sorted_results[:request.top_k]):
                 # Diversity boost decreases with rank
                 diversity_boost = 1.0 - (idx * 0.1)  # 1.0, 0.9, 0.8, etc.
                 final_score = (
-                    hit.score * semantic_weight +
+                    weighted_score * semantic_weight +
                     diversity_boost * diversity_weight
                 )
 
@@ -147,41 +197,53 @@ class SearchKnowledgeTool(ContractTool):
                     **hit.payload,
                     "score": final_score
                 }
-                results.append(result_dict)
+                final_results.append(result_dict)
 
             # Build RetrievalMetadata
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
 
+            # Get embedding model info
+            if hasattr(self.embedding_service, 'MODEL_NAME'):
+                model_name = self.embedding_service.MODEL_NAME
+                dimension = self.embedding_service.VECTOR_DIM
+            elif hasattr(self.embedding_service, 'model_name'):
+                model_name = self.embedding_service.model_name
+                dimension = self.embedding_service.dimension
+            else:
+                model_name = "unknown"
+                dimension = 768
+
             metadata = {
                 "query_hash": query_hash,
                 "project_id": request.project_id,
-                "collections": ["knowledge_base"],
-                "total_hits": len(search_results),
-                "result_count": len(results),
+                "collections": ["knowledge_base_v2"],
+                "total_hits": len(all_results),
+                "result_count": len(final_results),
                 "latency_ms": latency_ms,
-                "embedding_model": self.embedding_service.model_name,
-                "embedding_dimension": self.embedding_service.dimension
+                "embedding_model": model_name,
+                "embedding_dimension": dimension
             }
 
             # Emit structured log
             logger.info(json.dumps({
                 "event": "qdrant_search",
-                "collection": "knowledge_base",
+                "collection": "knowledge_base_v2",
+                "spaces_searched": spaces_searched,
                 "project": request.project_id,
                 "top_k": request.top_k,
-                "result_count": len(results),
+                "result_count": len(final_results),
                 "latency_ms": latency_ms,
                 "timestamp": timestamp
             }))
 
-            return {"results": results, "metadata": metadata}
+            return {"results": final_results, "metadata": metadata}
 
         except Exception as e:
             # Graceful degradation - return empty results
             logger.error(json.dumps({
                 "event": "qdrant_search",
-                "collection": "knowledge_base",
+                "collection": "knowledge_base_v2",
                 "status": "error",
                 "error": str(e),
                 "timestamp": timestamp
@@ -191,17 +253,28 @@ class SearchKnowledgeTool(ContractTool):
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
 
+            # Get embedding model info
+            if hasattr(self.embedding_service, 'MODEL_NAME'):
+                model_name = self.embedding_service.MODEL_NAME
+                dimension = self.embedding_service.VECTOR_DIM
+            elif hasattr(self.embedding_service, 'model_name'):
+                model_name = self.embedding_service.model_name
+                dimension = self.embedding_service.dimension
+            else:
+                model_name = "unknown"
+                dimension = 768
+
             return {
                 "results": [],
                 "metadata": {
                     "query_hash": query_hash,
                     "project_id": request.project_id,
-                    "collections": ["knowledge_base"],
+                    "collections": ["knowledge_base_v2"],
                     "total_hits": 0,
                     "result_count": 0,
                     "latency_ms": latency_ms,
-                    "embedding_model": self.embedding_service.model_name,
-                    "embedding_dimension": self.embedding_service.dimension
+                    "embedding_model": model_name,
+                    "embedding_dimension": dimension
                 }
             }
 
