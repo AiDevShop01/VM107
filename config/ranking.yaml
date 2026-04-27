@@ -12,3 +12,11 @@ knowledge:
   semantic_weight: 0.8
   diversity_weight: 0.2
   default_top_k: 5
+
+knowledge_v2:
+  semantic_weight: 0.7
+  diversity_weight: 0.15
+  recency_weight: 0.15
+  multi_space_strategy: "weighted_merge"  # merge results from multiple spaces
+  max_results_per_space: 10
+  final_top_k: 10
