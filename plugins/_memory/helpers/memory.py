@@ -86,15 +86,74 @@ class Memory:
             # Initialize backend (for future Qdrant integration)
             # For now, FAISS path continues unchanged
             backend = None
+            model_config = Memory._get_embedding_config(agent)
+
             if backend_type == "qdrant":
-                # Future: Initialize QdrantBackend via factory
-                # This would require EmbeddingService from fingpt_core
-                # For Phase 40-02, we're just setting up the structure
-                pass
+                try:
+                    from plugins._memory.backend.embedding_adapter import EmbeddingAdapter
+                    from qdrant_client import QdrantClient
+
+                    # Build langchain embedder (same one FAISS uses)
+                    em_dir = files.get_abs_path("tmp/memory/embeddings")
+                    os.makedirs(em_dir, exist_ok=True)
+                    embeddings_model = models.get_embedding_model(
+                        model_config.provider,
+                        model_config.name,
+                        **model_config.build_kwargs(),
+                    )
+                    embeddings_model_id = files.safe_file_name(
+                        model_config.provider + "_" + model_config.name
+                    )
+                    from langchain.embeddings import CacheBackedEmbeddings
+                    embedder = CacheBackedEmbeddings.from_bytes_store(
+                        embeddings_model,
+                        LocalFileStore(em_dir),
+                        namespace=embeddings_model_id,
+                    )
+
+                    # Wrap for QdrantBackend interface
+                    adapter = EmbeddingAdapter(embedder)
+
+                    # Create QdrantClient
+                    config_dict = dict(config) if config else {}
+                    qdrant_host = config_dict.get("qdrant_host", "192.168.1.151")
+                    qdrant_port = config_dict.get("qdrant_port", 6333)
+                    client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=10)
+
+                    from plugins._memory.backend.qdrant_backend import QdrantBackend
+                    backend = QdrantBackend(
+                        client=client,
+                        embedding_service=adapter,
+                        collection_name="agent_memory",
+                        vector_size=384,  # all-MiniLM-L6-v2
+                    )
+                    PrintStyle.standard(f"Qdrant backend initialized ({qdrant_host}:{qdrant_port})")
+                except Exception as e:
+                    PrintStyle.error(f"Qdrant init failed, falling back to FAISS: {e}")
+                    backend = None
+
+            # Create a separate knowledge backend with bge-base-en-v1.5 (768-dim)
+            # for higher quality embeddings on books, papers, and technical docs
+            knowledge_backend = None
+            if backend:
+                try:
+                    from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
+                    bge_adapter = BgeEmbeddingAdapter()
+                    knowledge_backend = QdrantBackend(
+                        client=backend.client,
+                        embedding_service=bge_adapter,
+                        collection_name="knowledge_base",
+                        vector_size=BgeEmbeddingAdapter.VECTOR_DIM,  # 768
+                    )
+                    PrintStyle.standard(
+                        f"Knowledge backend: bge-base-en-v1.5 ({BgeEmbeddingAdapter.VECTOR_DIM}-dim)"
+                    )
+                except Exception as e:
+                    PrintStyle.error(f"Knowledge backend init failed: {e}")
 
             db, created = Memory.initialize(
                 log_item,
-                Memory._get_embedding_config(agent),
+                model_config,
                 memory_subdir,
                 False,
             )
@@ -102,7 +161,8 @@ class Memory:
             if backend:
                 Memory.backends[memory_subdir] = backend
 
-            wrap = Memory(db, memory_subdir=memory_subdir, backend=backend)
+            wrap = Memory(db, memory_subdir=memory_subdir, backend=backend,
+                          knowledge_backend=knowledge_backend)
             knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
                 memory_subdir, agent.config.knowledge_subdirs or []
             )
@@ -111,10 +171,26 @@ class Memory:
             return wrap
         else:
             backend = Memory.backends.get(memory_subdir)
+            # Rebuild knowledge_backend with bge-base-en-v1.5 (768-dim)
+            knowledge_backend = None
+            if backend:
+                try:
+                    from plugins._memory.backend.qdrant_backend import QdrantBackend
+                    from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
+                    bge_adapter = BgeEmbeddingAdapter()
+                    knowledge_backend = QdrantBackend(
+                        client=backend.client,
+                        embedding_service=bge_adapter,
+                        collection_name="knowledge_base",
+                        vector_size=BgeEmbeddingAdapter.VECTOR_DIM,  # 768
+                    )
+                except Exception:
+                    pass
             return Memory(
                 db=Memory.index[memory_subdir],
                 memory_subdir=memory_subdir,
                 backend=backend,
+                knowledge_backend=knowledge_backend,
             )
 
     @staticmethod
@@ -274,10 +350,12 @@ class Memory:
         db: MyFaiss,
         memory_subdir: str,
         backend: MemoryBackend | None = None,
+        knowledge_backend: "MemoryBackend | None" = None,
     ):
         self.db = db
         self.memory_subdir = memory_subdir
-        self.backend = backend  # For future Qdrant delegation
+        self.backend = backend  # agent_memory collection
+        self.knowledge_backend = knowledge_backend  # knowledge_base collection
 
     async def preload_knowledge(
         self, log_item: LogItem | None, kn_dirs: list[str], memory_subdir: str
@@ -303,16 +381,20 @@ class Memory:
         # preload knowledge folders
         index = self._preload_knowledge_folders(log_item, kn_dirs, index)
 
+        # Use knowledge_backend (knowledge_base collection) if available,
+        # otherwise fall through to the default backend/FAISS
+        kb = self.knowledge_backend
+
         for file in index:
             if index[file]["state"] in ["changed", "removed"] and index[file].get(
                 "ids", []
             ):  # for knowledge files that have been changed or removed and have IDs
-                await self.delete_documents_by_ids(
-                    index[file]["ids"]
+                await self._knowledge_delete(
+                    index[file]["ids"], kb
                 )  # remove original version
             if index[file]["state"] == "changed":
-                index[file]["ids"] = await self.insert_documents(
-                    index[file]["documents"]
+                index[file]["ids"] = await self._knowledge_insert(
+                    index[file]["documents"], kb
                 )  # insert new version
 
         # remove index where state="removed"
@@ -357,12 +439,49 @@ class Memory:
 
         return index
 
+    async def _knowledge_insert(self, docs: list[Document], kb) -> list[str]:
+        """Insert knowledge docs via knowledge_backend (knowledge_base collection)."""
+        if kb:
+            ids = [self._generate_doc_id() for _ in range(len(docs))]
+            timestamp = self.get_timestamp()
+            context = _QdrantContext(self.memory_subdir)
+            items = []
+            for doc, doc_id in zip(docs, ids):
+                doc.metadata["id"] = doc_id
+                doc.metadata["timestamp"] = timestamp
+                if not doc.metadata.get("area", ""):
+                    doc.metadata["area"] = Memory.Area.MAIN.value
+                items.append({
+                    "id": doc_id,
+                    "summary": doc.page_content,
+                    "area": doc.metadata.get("area", Memory.Area.MAIN.value),
+                    "project": self.memory_subdir,
+                    "timestamp": timestamp,
+                })
+            await kb.add(items, context)
+            return ids
+        # Fallback to standard insert (FAISS or agent_memory backend)
+        return await self.insert_documents(docs)
+
+    async def _knowledge_delete(self, ids: list[str], kb) -> None:
+        """Delete knowledge docs via knowledge_backend (knowledge_base collection)."""
+        if kb:
+            context = _QdrantContext(self.memory_subdir)
+            await kb.delete(ids, context)
+            return
+        # Fallback to standard delete
+        await self.delete_documents_by_ids(ids)
+
     def get_document_by_id(self, id: str) -> Document | None:
         return self.db.get_by_ids(id)[0]
 
     async def search_similarity_threshold(
         self, query: str, limit: int, threshold: float, filter: str = ""
     ):
+        # Delegate to Qdrant backend when available
+        if self.backend:
+            return await self._qdrant_search(query, limit, threshold, filter)
+
         comparator = Memory._get_comparator(filter) if filter else None
 
         return await self.db.asearch(
@@ -372,6 +491,102 @@ class Memory:
             score_threshold=threshold,
             filter=comparator,
         )
+
+    async def _qdrant_search(
+        self, query: str, limit: int, threshold: float, filter: str = ""
+    ) -> list[Document]:
+        """Search via QdrantBackend, converting results to Documents.
+
+        Searches both agent_memory and knowledge_base collections,
+        merges results by score, and returns top-k above threshold.
+        """
+        import re
+
+        # Parse area from filter string
+        area = None
+        if filter and "or" not in filter and "area ==" in filter:
+            m = re.search(r"area\s*==\s*['\"](\w+)['\"]", filter)
+            if m:
+                area = m.group(1)
+
+        context = _QdrantContext(self.memory_subdir)
+
+        # Determine which areas to search
+        areas_to_search = None
+        if filter and "or" in filter:
+            areas_to_search = re.findall(r"area\s*==\s*['\"](\w+)['\"]", filter)
+
+        # Collect results from all backends
+        all_results = []
+
+        # Search agent_memory and knowledge_base collections
+        backends_to_search = [self.backend]
+        if self.knowledge_backend:
+            backends_to_search.append(self.knowledge_backend)
+
+        query_preview = query[:120] + "..." if len(query) > 120 else query
+        PrintStyle.info(
+            f"Qdrant search: query={query_preview!r}, "
+            f"threshold={threshold}, limit={limit}, "
+            f"areas={areas_to_search or area}, "
+            f"backends={len(backends_to_search)}"
+        )
+
+        for be in backends_to_search:
+            try:
+                if areas_to_search:
+                    for a in areas_to_search:
+                        hits = await be.search(
+                            query=query, top_k=limit, context=context, area=a,
+                        )
+                        all_results.extend(hits)
+                else:
+                    hits = await be.search(
+                        query=query, top_k=limit, context=context, area=area,
+                    )
+                    all_results.extend(hits)
+            except Exception as e:
+                PrintStyle.error(f"Qdrant backend search error: {e}")
+
+        # Deduplicate by id and sort by score descending
+        seen = set()
+        results = []
+        for r in sorted(all_results, key=lambda x: x.get("score", 0), reverse=True):
+            rid = r.get("id")
+            if rid not in seen:
+                seen.add(rid)
+                results.append(r)
+        results = results[:limit]
+
+        # Log raw scores before threshold filtering
+        if results:
+            scores = [r.get("score", 0) for r in results]
+            PrintStyle.info(
+                f"Qdrant raw scores: {[round(s, 4) for s in scores[:10]]}, "
+                f"threshold={threshold}, passing={sum(1 for s in scores if s >= threshold)}/{len(scores)}"
+            )
+        else:
+            PrintStyle.info("Qdrant search returned 0 raw results")
+
+        # Convert to Documents, filtering by threshold
+        docs = []
+        for item in results:
+            score = item.get("score", 0)
+            if score < threshold:
+                continue
+            doc = Document(
+                page_content=item.get("summary", item.get("content", "")),
+                metadata={
+                    "id": str(item.get("id", "")),
+                    "area": item.get("area", Memory.Area.MAIN.value),
+                    "timestamp": item.get("timestamp", ""),
+                    "score": score,
+                },
+            )
+            docs.append(doc)
+
+        PrintStyle.info(f"Qdrant search returning {len(docs)} docs (from {len(results)} candidates)")
+        return docs
 
     async def delete_documents_by_query(
         self, query: str, threshold: float, filter: str = ""
@@ -388,27 +603,34 @@ class Memory:
             removed += docs
 
             # Extract document IDs and filter based on score
-            # document_ids = [result[0].metadata["id"] for result in docs if result[1] < score_limit]
             document_ids = [result.metadata["id"] for result in docs]
 
             # Delete documents with IDs over the threshold score
             if document_ids:
-                # fnd = self.db.get(where={"id": {"$in": document_ids}})
-                # if fnd["ids"]: self.db.delete(ids=fnd["ids"])
-                # tot += len(fnd["ids"])
-                await self.db.adelete(ids=document_ids)
+                if self.backend:
+                    context = _QdrantContext(self.memory_subdir)
+                    await self.backend.delete(document_ids, context)
+                else:
+                    await self.db.adelete(ids=document_ids)
                 tot += len(document_ids)
 
             # If fewer than K document IDs, break the loop
             if len(document_ids) < k:
                 break
 
-        if tot:
+        if tot and not self.backend:
             self._save_db()  # persist
         return removed
 
     async def delete_documents_by_ids(self, ids: list[str]):
-        # aget_by_ids is not yet implemented in faiss, need to do a workaround
+        if self.backend:
+            # For Qdrant: delete directly by IDs
+            context = _QdrantContext(self.memory_subdir)
+            await self.backend.delete(ids, context)
+            # Return empty list (Qdrant doesn't return deleted docs)
+            return []
+
+        # FAISS path: aget_by_ids workaround
         rem_docs = await self.db.aget_by_ids(
             ids
         )  # existing docs to remove (prevents error)
@@ -436,16 +658,48 @@ class Memory:
                 if not doc.metadata.get("area", ""):
                     doc.metadata["area"] = Memory.Area.MAIN.value
 
-            await self.db.aadd_documents(documents=docs, ids=ids)
-            self._save_db()  # persist
+            # Delegate to Qdrant backend when available
+            if self.backend:
+                context = _QdrantContext(self.memory_subdir)
+                items = [
+                    {
+                        "id": doc.metadata["id"],
+                        "summary": doc.page_content,
+                        "area": doc.metadata.get("area", Memory.Area.MAIN.value),
+                        "project": self.memory_subdir,
+                        "timestamp": doc.metadata.get("timestamp", timestamp),
+                    }
+                    for doc in docs
+                ]
+                await self.backend.add(items, context)
+            else:
+                await self.db.aadd_documents(documents=docs, ids=ids)
+                self._save_db()  # persist
         return ids
 
     async def update_documents(self, docs: list[Document]):
         ids = [doc.metadata["id"] for doc in docs]
-        await self.db.adelete(ids=ids)  # delete originals
-        ins = await self.db.aadd_documents(documents=docs, ids=ids)  # add updated
-        self._save_db()  # persist
-        return ins
+        if self.backend:
+            # Qdrant: delete then re-add (upsert semantics)
+            context = _QdrantContext(self.memory_subdir)
+            await self.backend.delete(ids, context)
+            items = [
+                {
+                    "id": doc.metadata["id"],
+                    "summary": doc.page_content,
+                    "area": doc.metadata.get("area", Memory.Area.MAIN.value),
+                    "project": self.memory_subdir,
+                    "timestamp": doc.metadata.get("timestamp", self.get_timestamp()),
+                }
+                for doc in docs
+            ]
+            await self.backend.add(items, context)
+            return ids
+        else:
+            await self.db.adelete(ids=ids)  # delete originals
+            ins = await self.db.aadd_documents(documents=docs, ids=ids)  # add updated
+            self._save_db()  # persist
+            return ins
 
     def _save_db(self):
         Memory._save_db_file(self.db, self.memory_subdir)
@@ -500,6 +754,19 @@ class Memory:
     @staticmethod
     def get_timestamp():
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+class _QdrantContext:
+    """Lightweight context object for QdrantBackend.
+
+    QdrantBackend reads project_id via:
+        getattr(context, "project_id", None) or getattr(context, "memory_subdir", "default")
+    """
+
+    def __init__(self, memory_subdir: str):
+        self.memory_subdir = memory_subdir
+        self.project_id = memory_subdir
+        self.task_id = None
 
 
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:

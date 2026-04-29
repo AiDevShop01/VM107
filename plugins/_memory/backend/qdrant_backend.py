@@ -1,7 +1,14 @@
-"""Qdrant-based memory backend implementation."""
+"""Qdrant-based memory backend implementation.
+
+Dual-model architecture:
+- agent_memory: 384-dim (all-MiniLM-L6-v2) for chat memories
+- knowledge_base: 768-dim (bge-base-en-v1.5) for books/papers/docs
+- trading_context: 768-dim (bge-base-en-v1.5) for strategy rules
+"""
 
 import logging
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,8 +32,7 @@ class QdrantBackend:
 
     Features:
     - Project-scoped isolation (mandatory filter on all searches)
-    - Three collections: agent_memory, knowledge_base, trading_context
-    - 768-dimensional vectors (BAAI/bge-base-en-v1.5)
+    - Per-collection vector dimensions (384 for agent_memory, 768 for knowledge/trading)
     - Cosine distance for similarity
     - Graceful degradation when Qdrant unavailable
     """
@@ -34,59 +40,55 @@ class QdrantBackend:
     def __init__(
         self,
         client: QdrantClient,
-        embedding_service: Any,  # EmbeddingService from fingpt_core
+        embedding_service: Any,  # EmbeddingService for text-to-vector conversion
         collection_name: str = "agent_memory",
+        vector_size: int = 384,
     ):
         """Initialize QdrantBackend with client and embedding service.
 
         Args:
             client: QdrantClient instance
             embedding_service: EmbeddingService for text-to-vector conversion
-            collection_name: Primary collection to use (default: agent_memory)
+            collection_name: Collection to use
+            vector_size: Vector dimensions (384 for agent_memory, 768 for knowledge/trading)
         """
         self.client = client
         self.embedding_service = embedding_service
         self.collection_name = collection_name
+        self.vector_size = vector_size
 
-        # Create collections if they don't exist
-        self._create_memory_collections()
+        # Create this backend's collection if it doesn't exist
+        self._ensure_collection()
 
-    def _create_memory_collections(self) -> None:
-        """Create 3 Qdrant collections with 768-dim vectors and cosine distance.
+    def _ensure_collection(self) -> None:
+        """Create this backend's Qdrant collection if it doesn't exist.
 
-        Collections:
-        - agent_memory: Agent execution memories
-        - knowledge_base: Uploaded documents and external knowledge
-        - trading_context: Trading-specific context (strategies, rules, etc.)
-
+        Uses self.vector_size for the vector dimension.
         Idempotent: Safe to call multiple times.
         """
-        collections = ["agent_memory", "knowledge_base", "trading_context"]
-
-        for collection in collections:
-            try:
-                if not self.client.collection_exists(collection_name=collection):
-                    self.client.create_collection(
-                        collection_name=collection,
-                        vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-                    )
-                    self._log_structured(
-                        "info",
-                        "collection_created",
-                        {"collection": collection, "vector_size": 768, "distance": "cosine"},
-                    )
-                else:
-                    self._log_structured(
-                        "debug",
-                        "collection_exists",
-                        {"collection": collection},
-                    )
-            except Exception as e:
-                self._log_structured(
-                    "error",
-                    "collection_creation_failed",
-                    {"collection": collection, "error": str(e)},
+        try:
+            if not self.client.collection_exists(collection_name=self.collection_name):
+                self.client.create_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(size=self.vector_size, distance=Distance.COSINE),
                 )
+                self._log_structured(
+                    "info",
+                    "collection_created",
+                    {"collection": self.collection_name, "vector_size": self.vector_size, "distance": "cosine"},
+                )
+            else:
+                self._log_structured(
+                    "debug",
+                    "collection_exists",
+                    {"collection": self.collection_name},
+                )
+        except Exception as e:
+            self._log_structured(
+                "error",
+                "collection_creation_failed",
+                {"collection": self.collection_name, "error": str(e)},
+            )
 
     async def add(self, items: list[dict], context) -> None:
         """Add memory items to Qdrant collection.
@@ -141,9 +143,13 @@ class QdrantBackend:
                     if key in item:
                         payload[key] = item[key]
 
+                # Qdrant requires UUID or unsigned int IDs
+                point_id = self._to_uuid(item["id"])
+                payload["original_id"] = item["id"]  # preserve original for lookups
+
                 points.append(
                     PointStruct(
-                        id=item["id"],
+                        id=point_id,
                         vector=vector,
                         payload=payload,
                     )
@@ -232,19 +238,21 @@ class QdrantBackend:
 
             query_filter = Filter(must=filter_conditions)
 
-            # Search
-            search_results = self.client.search(
+            # Search using query_points (qdrant-client >= 1.12)
+            search_response = self.client.query_points(
                 collection_name=self.collection_name,
-                query_vector=query_vector,
+                query=query_vector,
                 query_filter=query_filter,
                 limit=top_k,
             )
 
             # Convert to dict format
             results = []
-            for hit in search_results:
+            for hit in search_response.points:
+                # Use original_id from payload if available, else UUID
+                original_id = hit.payload.get("original_id", str(hit.id))
                 result = {
-                    "id": hit.id,
+                    "id": original_id,
                     "score": hit.score,
                     **hit.payload,
                 }
@@ -293,9 +301,12 @@ class QdrantBackend:
                 context, "memory_subdir", "default"
             )
 
+            # Convert string IDs to UUIDs (same deterministic hash as add)
+            uuid_ids = [self._to_uuid(id_str) for id_str in ids]
+
             self.client.delete(
                 collection_name=self.collection_name,
-                points_selector=PointIdsList(points=ids),
+                points_selector=PointIdsList(points=uuid_ids),
             )
 
             self._log_structured(
@@ -368,6 +379,17 @@ class QdrantBackend:
                     "error": str(e),
                 },
             )
+
+    @staticmethod
+    def _to_uuid(id_str: str) -> str:
+        """Convert an arbitrary string ID to a deterministic UUID v5.
+
+        Qdrant requires UUIDs or unsigned ints for point IDs.
+        Agent Zero generates random alphanumeric strings (e.g., 'YZv9zp3X9V').
+        This converts them deterministically so the same string always maps
+        to the same UUID (needed for delete-by-ID to work).
+        """
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, id_str))
 
     def _log_structured(self, level: str, event: str, data: dict) -> None:
         """Emit structured JSON log with ISO 8601 Z suffix.

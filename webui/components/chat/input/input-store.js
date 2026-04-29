@@ -115,6 +115,41 @@ const model = {
     }
   },
 
+  async reloadMemory() {
+    try {
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.PROGRESS,
+        message: "Reloading memory & knowledge...",
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 999,
+        group: "memory_reload",
+        frontendOnly: true,
+      });
+
+      await globalThis.sendJsonData("/plugins/_memory/knowledge_reindex", {
+        ctxid: shortcuts.getCurrentContextId(),
+      });
+
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.SUCCESS,
+        message: "Memory & knowledge reloaded",
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 3,
+        group: "memory_reload",
+        frontendOnly: true,
+      });
+    } catch (e) {
+      shortcuts.frontendNotification({
+        type: shortcuts.NotificationType.ERROR,
+        message: "Error reloading memory",
+        priority: shortcuts.NotificationPriority.NORMAL,
+        displayTime: 5,
+        group: "memory_reload",
+        frontendOnly: true,
+      });
+    }
+  },
+
   async loadKnowledge() {
     try {
       const resp = await shortcuts.callJsonApi(

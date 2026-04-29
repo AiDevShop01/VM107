@@ -29,6 +29,16 @@
         </svg>
         <p>Nudge</p>
       </button>
+
+      <button type="button" class="text-button" @click="$store.chatInput.reloadMemory()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true">
+          <path d="M21.5 2v6h-6"/>
+          <path d="M2.5 22v-6h6"/>
+          <path d="M2.5 11.5a10 10 0 0 1 18.4-4.3L21.5 8"/>
+          <path d="M21.5 12.5a10 10 0 0 1-18.4 4.3L2.5 16"/>
+        </svg>
+        <p>Memory Reload</p>
+      </button>
       <x-extension id="chat-input-bottom-actions-end"></x-extension>
     </div>
   </template>
