@@ -21,6 +21,7 @@ from fingpt_core.contracts import (
 )
 from helpers.tool import Response
 from qdrant_client.models import FieldCondition, Filter, MatchValue
+from tools.graph.graph_search_tool import GraphSearchRequest
 from tools.qdrant.query_router import QueryRouter
 from tools.vm_contracts.base import ContractTool
 
@@ -50,6 +51,7 @@ class CombinedRAGTool(ContractTool):
     qdrant_client = None
     embedding_service = None
     ranking_config = None
+    neo4j_driver = None  # For graph expansion (Phase 40.2)
 
     # Outcome weights for memory ranking
     outcome_weights = {
@@ -125,10 +127,14 @@ class CombinedRAGTool(ContractTool):
                 request.knowledge_top_k
             )
 
+            # Graph expansion (if relationship query detected)
+            graph_results = await self._expand_graph(request.query)
+
             # Build combined context
             combined_context = self._build_combined_context(
                 memory_results,
                 knowledge_results,
+                graph_results,
                 request.max_context_tokens
             )
 
@@ -202,11 +208,12 @@ class CombinedRAGTool(ContractTool):
             return {
                 "memory_results": [],
                 "knowledge_results": [],
+                "graph_results": [],  # Graph expansion also empty on error
                 "combined_context": "No relevant context found.",
                 "metadata": {
                     "query_hash": query_hash,
                     "project_id": request.project_id,
-                    "collections": ["agent_memory", "knowledge_base_v2"],
+                    "collections": ["agent_memory", "knowledge_base_v2", "neo4j_graph"],
                     "total_hits": 0,
                     "result_count": 0,
                     "latency_ms": latency_ms,
@@ -372,32 +379,134 @@ class CombinedRAGTool(ContractTool):
 
         return final_results
 
+    async def _expand_graph(self, query: str) -> list[dict]:
+        """
+        Expand query with Neo4j graph context if relationship query detected.
+
+        Uses QueryRouter to detect relationship keywords, extracts concepts,
+        and runs GraphSearchTool's find_related template for co-occurring entities.
+
+        Graceful degradation:
+        - neo4j_driver is None -> returns empty list
+        - Neo4j connection fails -> returns empty list
+        - No concepts extracted -> returns empty list
+        - Query not relationship-oriented -> returns empty list
+
+        Args:
+            query: User query string
+
+        Returns:
+            List of graph result dicts (empty if no expansion needed)
+        """
+        # Check if graph expansion should be triggered
+        if not self.query_router.should_expand_graph(query):
+            return []
+
+        # Graceful degradation: neo4j_driver is None
+        if self.neo4j_driver is None:
+            return []
+
+        # Extract concepts from query
+        concepts = self.query_router.extract_concepts_from_query(query)
+        if not concepts:
+            return []
+
+        # Query Neo4j for each concept using find_related template
+        all_graph_results = []
+
+        for concept in concepts:
+            try:
+                # Build GraphSearchRequest
+                request = GraphSearchRequest(
+                    template="find_related",
+                    concept_name=concept,
+                    top_k=5  # Smaller top_k for graph results (not overwhelming)
+                )
+
+                # Execute Cypher query via Neo4j driver
+                cypher_query = """
+                    MATCH (a)-[:MENTIONS]-(chunk:Chunk)-[:MENTIONS]-(b)
+                    WHERE a.name = $concept_name
+                      AND a <> b
+                    RETURN DISTINCT b.name AS related_entity,
+                           labels(b) AS entity_type,
+                           count(chunk) AS co_occurrence_count
+                    ORDER BY co_occurrence_count DESC
+                    LIMIT $top_k
+                """
+
+                params = {
+                    "concept_name": request.concept_name,
+                    "top_k": request.top_k
+                }
+
+                with self.neo4j_driver.session() as session:
+                    result = session.run(cypher_query, **params)
+                    records = [dict(record) for record in result]
+
+                # Add source concept to each result
+                for record in records:
+                    record["source_concept"] = concept
+                    all_graph_results.append(record)
+
+            except Exception as e:
+                # Graceful degradation: log error, continue to next concept
+                logger.warning(json.dumps({
+                    "event": "graph_expansion",
+                    "status": "error",
+                    "concept": concept,
+                    "error": str(e),
+                    "timestamp": datetime.utcnow().isoformat() + "Z"
+                }))
+                continue
+
+        return all_graph_results
+
     def _build_combined_context(
         self,
         memory_results: list[dict],
         knowledge_results: list[dict],
+        graph_results: list[dict],
         max_context_tokens: int
     ) -> str:
         """
         Build combined context string within token budget.
 
-        Memory results appear first (more relevant to current task),
-        then knowledge results. Context trimmed by dropping lowest-scored
-        items until within token budget.
+        Context merge order (per CONTEXT.md locked decision):
+        1. VALIDATED RELATIONSHIPS (graph results - facts from Neo4j)
+        2. AGENT MEMORY (recent task-specific context)
+        3. SUPPORTING KNOWLEDGE (Qdrant semantic chunks)
+
+        Context trimmed by dropping lowest-scored items until within token budget.
 
         Args:
             memory_results: Memory search results
             knowledge_results: Knowledge search results
+            graph_results: Graph expansion results (relationship data)
             max_context_tokens: Maximum tokens for combined context
 
         Returns:
             Combined context string
         """
-        if not memory_results and not knowledge_results:
+        if not memory_results and not knowledge_results and not graph_results:
             return "No relevant context found."
 
-        # Build sections
+        # Build sections (graph first, then memory, then knowledge)
         sections = []
+
+        if graph_results:
+            graph_lines = ["=== VALIDATED RELATIONSHIPS ==="]
+            for idx, item in enumerate(graph_results, 1):
+                source = item.get("source_concept", "Unknown")
+                related = item.get("related_entity", "Unknown")
+                co_occur = item.get("co_occurrence_count", 0)
+                entity_type = item.get("entity_type", [])
+                type_str = entity_type[0] if entity_type else "Unknown"
+                graph_lines.append(
+                    f"[{idx}] {source} is related to {related} "
+                    f"(type: {type_str}, co-occurrences: {co_occur})"
+                )
+            sections.append("\n".join(graph_lines))
 
         if memory_results:
             memory_lines = ["=== AGENT MEMORY ==="]
@@ -408,7 +517,7 @@ class CombinedRAGTool(ContractTool):
             sections.append("\n".join(memory_lines))
 
         if knowledge_results:
-            knowledge_lines = ["=== KNOWLEDGE ==="]
+            knowledge_lines = ["=== SUPPORTING KNOWLEDGE ==="]
             for idx, item in enumerate(knowledge_results, 1):
                 text = item.get("text", "")
                 title = item.get("title", "Unknown")
@@ -427,6 +536,8 @@ class CombinedRAGTool(ContractTool):
             return combined
 
         # Trim by dropping lowest-scored items
+        # Graph results always included (they're facts, not scored by relevance)
+        # Only memory and knowledge results are subject to trimming
         all_items = []
         for item in memory_results:
             all_items.append(("memory", item))
@@ -450,6 +561,7 @@ class CombinedRAGTool(ContractTool):
             trimmed = self._build_combined_context(
                 trimmed_memory,
                 trimmed_knowledge,
+                graph_results,  # Graph results always included
                 max_context_tokens
             )
 
@@ -465,6 +577,7 @@ class CombinedRAGTool(ContractTool):
                 return self._build_combined_context(
                     trimmed_memory,
                     trimmed_knowledge,
+                    graph_results,  # Graph results always included
                     max_context_tokens
                 )
 
