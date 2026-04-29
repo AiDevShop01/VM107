@@ -64,6 +64,7 @@ class Memory:
 
     index: dict[str, "MyFaiss"] = {}
     backends: dict[str, MemoryBackend] = {}  # Backend instances per memory_subdir
+    _redis_cache = None  # Singleton RedisEmbeddingCache (shared across all subdirs)
 
     @staticmethod
     def _get_embedding_config(agent=None):
@@ -114,8 +115,23 @@ class Memory:
                     # Wrap for QdrantBackend interface
                     adapter = EmbeddingAdapter(embedder)
 
-                    # Create QdrantClient
+                    # Initialize Redis embedding cache (singleton, shared across subdirs)
                     config_dict = dict(config) if config else {}
+                    if Memory._redis_cache is None:
+                        Memory._redis_cache = _get_redis_cache(config_dict)
+
+                    # Wrap adapter with Redis cache if available
+                    if Memory._redis_cache:
+                        from plugins._memory.backend.cached_adapter import CachedEmbeddingAdapter
+                        adapter = CachedEmbeddingAdapter(
+                            inner_adapter=adapter,
+                            cache=Memory._redis_cache,
+                            model_name=embeddings_model_id,
+                            normalize=True,
+                        )
+                        PrintStyle.standard(f"Redis embedding cache enabled for agent_memory")
+
+                    # Create QdrantClient
                     qdrant_host = config_dict.get("qdrant_host", "192.168.1.151")
                     qdrant_port = config_dict.get("qdrant_port", 6333)
                     client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=10)
@@ -139,6 +155,18 @@ class Memory:
                 try:
                     from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
                     bge_adapter = BgeEmbeddingAdapter()
+
+                    # Wrap with Redis cache if available
+                    if Memory._redis_cache:
+                        from plugins._memory.backend.cached_adapter import CachedEmbeddingAdapter
+                        bge_adapter = CachedEmbeddingAdapter(
+                            inner_adapter=bge_adapter,
+                            cache=Memory._redis_cache,
+                            model_name=BgeEmbeddingAdapter.MODEL_NAME,
+                            normalize=True,
+                        )
+                        PrintStyle.standard(f"Redis embedding cache enabled for knowledge_base")
+
                     knowledge_backend = QdrantBackend(
                         client=backend.client,
                         embedding_service=bge_adapter,
@@ -178,6 +206,17 @@ class Memory:
                     from plugins._memory.backend.qdrant_backend import QdrantBackend
                     from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
                     bge_adapter = BgeEmbeddingAdapter()
+
+                    # Wrap with Redis cache if available
+                    if Memory._redis_cache:
+                        from plugins._memory.backend.cached_adapter import CachedEmbeddingAdapter
+                        bge_adapter = CachedEmbeddingAdapter(
+                            inner_adapter=bge_adapter,
+                            cache=Memory._redis_cache,
+                            model_name=BgeEmbeddingAdapter.MODEL_NAME,
+                            normalize=True,
+                        )
+
                     knowledge_backend = QdrantBackend(
                         client=backend.client,
                         embedding_service=bge_adapter,
@@ -870,3 +909,33 @@ def get_knowledge_subdirs_by_memory_subdir(
 
         default.append(get_project_meta(memory_subdir[9:], "knowledge"))
     return default
+
+
+def _get_redis_cache(config_dict: dict):
+    """Create RedisEmbeddingCache from plugin config with graceful fallback.
+
+    Returns RedisEmbeddingCache instance if Redis is available, None otherwise.
+    """
+    try:
+        from plugins._memory.backend.redis_cache import RedisEmbeddingCache
+
+        redis_url = os.environ.get("REDIS_URL")
+        redis_host = config_dict.get("redis_host", "localhost")
+        redis_port = int(config_dict.get("redis_port", 6379))
+        redis_ttl = int(config_dict.get("redis_ttl", 604800))
+
+        cache = RedisEmbeddingCache(
+            host=redis_host,
+            port=redis_port,
+            ttl=redis_ttl,
+            redis_url=redis_url,
+        )
+        if cache.is_available():
+            return cache
+        return None
+    except ImportError:
+        PrintStyle.error("redis package not installed, embedding cache disabled")
+        return None
+    except Exception as e:
+        PrintStyle.error(f"Redis cache init failed: {e}")
+        return None

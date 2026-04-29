@@ -17,3 +17,6 @@ agent_memory_subdir: default
 memory_backend: qdrant  # "faiss" or "qdrant"
 qdrant_host: "192.168.1.151"  # dev default
 qdrant_port: 6333
+redis_host: "vm107-redis"  # Docker service name
+redis_port: 6379
+redis_ttl: 604800  # 7 days — embeddings are deterministic per model
