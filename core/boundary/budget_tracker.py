@@ -77,13 +77,18 @@ class InMemoryBudgetTracker:
 class MongoBudgetTracker:
     """MongoDB-backed budget tracker with atomic increments and caching."""
 
-    def __init__(self, mongo_uri: str, database: str = "agent_zero"):
+    def __init__(self, mongo_uri: str, database: str = "fingpt_agents"):
         """
         Initialize MongoDB budget tracker.
 
         Args:
             mongo_uri: MongoDB connection URI
-            database: Database name (default: agent_zero)
+            database: Database name (default: fingpt_agents, Phase 41 migration)
+
+        Note:
+            After Phase 41 migration, budget_usage data is stored in fingpt_agents.
+            Historical data from Phase 38 (agent_zero) is migrated via migration 002.
+            Callers can still pass database="agent_zero" for backward compatibility.
         """
         if MongoClient is None:
             raise ImportError(
