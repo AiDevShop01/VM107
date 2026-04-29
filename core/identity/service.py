@@ -14,17 +14,49 @@ except ImportError:
     Database = None
     PyMongoError = Exception
 
-# Import fingpt_core identity utilities via path manipulation
-# (VM107 doesn't have fingpt_core installed directly)
-import sys
-from pathlib import Path
+# Identity resolution logic inlined from fingpt_core.identity
+# (VM107 runs in Docker without fingpt_core installed)
 
-# Add fingpt_core to path if not already there
-fingpt_core_path = Path("/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src")
-if str(fingpt_core_path) not in sys.path:
-    sys.path.insert(0, str(fingpt_core_path))
+VALID_DOMAINS = {"knowledge", "operational", "dataset", "agent"}
 
-from fingpt_core.identity import derive_if_possible
+LEGACY_DOMAIN_MAP = {
+    "concept": "knowledge",
+    "method": "knowledge",
+    "metric": "knowledge",
+    "regime": "knowledge",
+    "person": "knowledge",
+    "org": "knowledge",
+    "event": "knowledge",
+    "time_period": "knowledge",
+    "feature": "operational",
+    "instrument": "operational",
+    "strategy": "operational",
+    "signal": "operational",
+    "dataset": "dataset",
+}
+
+
+def _is_canonical(id_value: str) -> bool:
+    """Check if ID is canonical (3-part format with valid domain)."""
+    if not id_value:
+        return False
+    parts = id_value.split(":", maxsplit=2)
+    if len(parts) < 3:
+        return False
+    return all(p.strip() for p in parts) and parts[0] in VALID_DOMAINS
+
+
+def derive_if_possible(legacy_id: str) -> str | None:
+    """Derive canonical ID from legacy ID if possible."""
+    if _is_canonical(legacy_id):
+        return legacy_id
+    parts = legacy_id.split(":", maxsplit=1)
+    if len(parts) == 2:
+        legacy_type, key = parts
+        if legacy_type in LEGACY_DOMAIN_MAP:
+            domain = LEGACY_DOMAIN_MAP[legacy_type]
+            return f"{domain}:{legacy_type}:{key}"
+    return None
 
 
 class IdentityService:
