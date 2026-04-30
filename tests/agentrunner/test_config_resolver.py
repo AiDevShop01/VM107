@@ -167,3 +167,83 @@ default:
         # Level 5 (default) - lowest priority, used when no overrides
         assert config.max_execution_time_sec == 3600
         assert config.daily_budget_usd == 10.00
+
+    def test_level2_task_config_overrides_when_stricter(self, test_yaml_path):
+        """Level 2 task/goal constraints override when stricter (min logic)."""
+        resolver = ConfigResolver(test_yaml_path)
+
+        # Agent config has max_cost_usd=5.00, task config has 2.00 (stricter)
+        task_cfg = BoundaryConfig(max_cost_usd=2.00, max_tokens=50000)
+        config = resolver.resolve(
+            agent_name="test_agent",
+            environment="research",
+            task_config=task_cfg
+        )
+
+        # Task config should override (stricter limits)
+        assert config.max_cost_usd == 2.00
+        assert config.max_tokens == 50000
+
+        # Other values from agent/environment/default
+        assert config.max_steps == 200  # From agent
+
+    def test_level2_respects_level1_runtime_override(self, test_yaml_path):
+        """Level 1 runtime override still takes priority over Level 2."""
+        resolver = ConfigResolver(test_yaml_path)
+
+        task_cfg = BoundaryConfig(max_cost_usd=2.00)
+        runtime = BoundaryConfig(max_cost_usd=10.00)  # Less strict, but highest priority
+
+        config = resolver.resolve(
+            task_config=task_cfg,
+            runtime_override=runtime
+        )
+
+        # Level 1 (runtime) wins even if less strict
+        assert config.max_cost_usd == 10.00
+
+    def test_level2_skipped_when_task_config_none(self, test_yaml_path):
+        """Level 2 skipped gracefully when task_config is None."""
+        resolver = ConfigResolver(test_yaml_path)
+
+        config = resolver.resolve(
+            agent_name="test_agent",
+            environment="research",
+            task_config=None
+        )
+
+        # Should use agent/environment/default without error
+        assert config.max_cost_usd == 5.00  # From environment
+        assert config.max_tokens == 1000000  # From agent
+
+    def test_level2_with_task_id_but_no_config_logs_warning(self, test_yaml_path, caplog):
+        """Level 2 logs warning when task_id provided but no task_config."""
+        resolver = ConfigResolver(test_yaml_path)
+
+        config = resolver.resolve(
+            task_id="task-123",
+            task_config=None
+        )
+
+        # Should still resolve successfully
+        assert config.max_cost_usd == 1.00  # From default
+
+        # Should log warning
+        assert "task_id provided (task-123) but no task_config" in caplog.text
+
+    def test_level2_applies_min_logic_for_budget_constraints(self, test_yaml_path):
+        """Level 2 uses min() for budget constraints (stricter limit wins)."""
+        resolver = ConfigResolver(test_yaml_path)
+
+        # Environment has max_cost_usd=5.00, task config has 10.00 (less strict)
+        task_cfg = BoundaryConfig(max_cost_usd=10.00, max_tokens=2000000)
+        config = resolver.resolve(
+            environment="research",
+            task_config=task_cfg
+        )
+
+        # Environment limit is stricter, should win
+        assert config.max_cost_usd == 5.00
+
+        # Task config is less strict for tokens, environment wins
+        assert config.max_tokens == 500000  # From default (environment doesn't override tokens)

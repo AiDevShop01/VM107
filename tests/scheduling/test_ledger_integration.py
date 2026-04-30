@@ -4,6 +4,7 @@ Integration tests for MongoTaskLedger and MongoProgressLedger.
 Tests verify Protocol satisfaction, MongoDB integration, and graceful degradation.
 """
 import pytest
+from pathlib import Path
 from datetime import datetime, timezone
 from core.interfaces.task_ledger import (
     TaskLedgerInterface,
@@ -16,6 +17,7 @@ from core.interfaces.progress_ledger import (
     MongoProgressLedger
 )
 from core.execution_context import ExecutionContext, StepResult
+from core.boundary.config_resolver import BoundaryConfig, ConfigResolver
 
 
 class TestTaskLedgerProtocol:
@@ -272,3 +274,90 @@ class TestMongoProgressLedgerFunctionality:
             metadata={}
         )
         await ledger.record_step(result)
+
+
+class TestConfigResolverIntegration:
+    """Test ConfigResolver Level 2 integration with task/goal constraints."""
+
+    @pytest.fixture
+    def boundary_yaml_path(self):
+        """Path to boundary.yaml."""
+        vm107_root = Path(__file__).parent.parent.parent
+        return str(vm107_root / "config" / "boundary.yaml")
+
+    @pytest.fixture
+    def mongo_uri(self):
+        """MongoDB URI for dev environment."""
+        return "mongodb://192.168.1.151:27017/"
+
+    @pytest.fixture
+    def test_database(self):
+        """Test database name."""
+        return "test_fingpt_agents"
+
+    @pytest.fixture
+    def ledger(self, mongo_uri, test_database):
+        """Create MongoTaskLedger instance."""
+        ledger = MongoTaskLedger(mongo_uri, test_database)
+        yield ledger
+        # Cleanup: Drop test database after tests
+        if ledger._mongodb_available:
+            ledger._client.drop_database(test_database)
+
+    @pytest.mark.asyncio
+    async def test_goal_budget_constraints_via_config_resolver(
+        self, ledger, boundary_yaml_path
+    ):
+        """Test goal budget limits flow through ConfigResolver Level 2."""
+        if not ledger._mongodb_available:
+            pytest.skip("MongoDB not available")
+
+        # Setup: Create goal with budget constraints
+        goal_id = "test-goal-budget"
+        task_id = "test-task-budget"
+
+        ledger._goals.insert_one({
+            "_id": goal_id,
+            "name": "Budget-Limited Goal",
+            "budget_max_cost_usd": 5.0,
+            "budget_max_tokens": 100000,
+            "status": "ACTIVE",
+            "created_at": datetime.now(timezone.utc)
+        })
+
+        ledger._tasks.insert_one({
+            "_id": task_id,
+            "goal_id": goal_id,
+            "name": "Budget-Limited Task",
+            "status": "PENDING",
+            "version": 0,
+            "created_at": datetime.now(timezone.utc)
+        })
+
+        # Fetch task plan with goal metadata
+        plan = await ledger.get_plan(task_id)
+        assert "goal" in plan
+
+        # Extract budget constraints from goal
+        goal = plan["goal"]
+        task_config = BoundaryConfig(
+            max_cost_usd=goal["budget_max_cost_usd"],
+            max_tokens=goal["budget_max_tokens"]
+        )
+
+        # Resolve config with task constraints
+        resolver = ConfigResolver(boundary_yaml_path)
+        config = resolver.resolve(
+            task_id=task_id,
+            task_config=task_config,
+            environment="production"
+        )
+
+        # Verify goal budget limits are enforced (min logic)
+        # boundary.yaml production has max_cost_usd=1.0, goal has 5.0
+        # Should use 1.0 (stricter)
+        assert config.max_cost_usd == 1.0
+
+        # boundary.yaml production has max_tokens=500000, goal has 100000
+        # Should use 100000 (stricter)
+        assert config.max_tokens == 100000

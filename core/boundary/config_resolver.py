@@ -52,6 +52,7 @@ class ConfigResolver:
         self,
         agent_name: Optional[str] = None,
         task_id: Optional[str] = None,
+        task_config: Optional[BoundaryConfig] = None,
         environment: Optional[str] = "production",
         runtime_override: Optional[BoundaryConfig] = None
     ) -> ResolvedBoundaryConfig:
@@ -60,7 +61,8 @@ class ConfigResolver:
 
         Args:
             agent_name: Agent name for agent-specific config
-            task_id: Task ID for task-level constraints (future)
+            task_id: Task ID for logging/context (not used for config lookup)
+            task_config: Task/goal budget constraints (populated by caller from goal metadata)
             environment: Environment name (research/staging/production, None = default only)
             runtime_override: Runtime override config (highest priority)
 
@@ -69,10 +71,14 @@ class ConfigResolver:
 
         Priority:
           1. Runtime override (highest)
-          2. Task/goal constraints (placeholder for Phase 42)
+          2. Task/goal constraints (from task_config parameter)
           3. Agent-specific config
           4. Environment config
           5. Default config (lowest)
+
+        Note:
+            task_config should be populated by caller from goal metadata to avoid
+            coupling ConfigResolver to MongoDB. This keeps config resolution pure.
         """
         # Level 5: Default config
         merged = self._raw_config["default"].copy()
@@ -88,10 +94,28 @@ class ConfigResolver:
             merged.update({k: v for k, v in agent_config.items() if v is not None})
 
         # Level 2: Task/goal constraints
-        # TODO: Phase 42 integration with task ledger
-        # if task_id:
-        #     task_config = task_ledger.get_task_config(task_id)
-        #     merged.update({k: v for k, v in task_config.items() if v is not None})
+        if task_config:
+            task_dict = task_config.model_dump(exclude_unset=True)
+            # Apply min() logic for budget constraints (goal limits override if stricter)
+            for key in ["max_cost_usd", "max_tokens"]:
+                if key in task_dict and task_dict[key] is not None:
+                    current_value = merged.get(key)
+                    if current_value is not None:
+                        merged[key] = min(task_dict[key], current_value)
+                    else:
+                        merged[key] = task_dict[key]
+            # Apply other task_config fields normally
+            for key, value in task_dict.items():
+                if key not in ["max_cost_usd", "max_tokens"] and value is not None:
+                    merged[key] = value
+        elif task_id:
+            # Log warning if task_id provided but no task_config
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"task_id provided ({task_id}) but no task_config. "
+                "Level 2 constraints skipped. Caller should populate task_config from goal metadata."
+            )
 
         # Level 1: Runtime override (highest priority)
         if runtime_override:
