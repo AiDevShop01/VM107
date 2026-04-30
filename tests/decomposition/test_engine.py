@@ -93,6 +93,25 @@ tasks:
     estimated_cost_usd: 0.1
 """)
 
+    # Expansion template (different suffixes for runtime expansion)
+    expansion_yaml = templates / "expansion_v1.yaml"
+    expansion_yaml.write_text("""
+template_id: expansion_v1
+goal_type: expansion
+version: 1
+tasks:
+  - task_id_suffix: deep_dive
+    task_type: analysis
+    priority: P2
+    dependencies: []
+    estimated_cost_usd: 2.0
+  - task_id_suffix: validation
+    task_type: review
+    priority: P3
+    dependencies: [deep_dive]
+    estimated_cost_usd: 1.0
+""")
+
     return templates
 
 
@@ -213,16 +232,17 @@ class TestDecompositionEngine:
         }
         existing_tasks = engine.decompose(goal)
 
-        # Expand with new template
+        # Expand with different template (expansion_v1)
         new_tasks = engine.expand_dag(
             goal_id="goal-999",
-            template_id="research_v1",
+            template_id="expansion_v1",
             parent_task_id="goal-999:synthesis",
             existing_tasks=existing_tasks,
         )
 
         # New tasks should have IDs prefixed with goal_id
         assert all("goal-999:" in task["task_id"] for task in new_tasks)
+        assert len(new_tasks) == 2  # deep_dive and validation
 
         # First new task should depend on parent
         assert "goal-999:synthesis" in new_tasks[0]["dependencies"]
