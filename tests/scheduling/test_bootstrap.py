@@ -273,6 +273,8 @@ class TestBootstrapService:
         mock_template_loader
     ):
         """Test warm-up transition increases limits after goals threshold."""
+        from core.scheduling.brain import SchedulerControl
+
         mock_mongo_cache.get.return_value = None
 
         bootstrap = BootstrapService(
@@ -288,7 +290,20 @@ class TestBootstrapService:
         # Cold start defaults to 2 workers
         # After 5 goals, should transition to normal limits
         brain_state = MagicMock()
-        brain_state.scheduler_control.max_concurrent_tasks = 2
+        brain_state.scheduler_control = SchedulerControl(
+            max_concurrent_tasks=2,
+            max_cost_per_cycle=5.0,
+            max_tokens_per_cycle=50000,
+            blocked_goal_ids=[],
+            priority_weights={"P1": 4.0, "P2": 2.0, "P3": 1.0, "P4": 0.5},
+            goal_priority_overrides={},
+            expansion_policy="enabled",
+            preemption_enabled=False,
+            preemption_threshold=2.0,
+            max_preemptions_per_cycle=1,
+            aging_enabled=True,
+            aging_factor=1.0
+        )
 
         updated_control = bootstrap.check_warm_up_transition(
             brain_state=brain_state,
@@ -311,6 +326,8 @@ class TestBootstrapService:
         mock_template_loader
     ):
         """Test warm-up transition increases limits after hours threshold."""
+        from core.scheduling.brain import SchedulerControl
+
         mock_mongo_cache.get.return_value = None
 
         bootstrap = BootstrapService(
@@ -325,7 +342,20 @@ class TestBootstrapService:
 
         # After 24 hours, should transition to normal limits
         brain_state = MagicMock()
-        brain_state.scheduler_control.max_concurrent_tasks = 2
+        brain_state.scheduler_control = SchedulerControl(
+            max_concurrent_tasks=2,
+            max_cost_per_cycle=5.0,
+            max_tokens_per_cycle=50000,
+            blocked_goal_ids=[],
+            priority_weights={"P1": 4.0, "P2": 2.0, "P3": 1.0, "P4": 0.5},
+            goal_priority_overrides={},
+            expansion_policy="enabled",
+            preemption_enabled=False,
+            preemption_threshold=2.0,
+            max_preemptions_per_cycle=1,
+            aging_enabled=True,
+            aging_factor=1.0
+        )
 
         updated_control = bootstrap.check_warm_up_transition(
             brain_state=brain_state,
@@ -348,6 +378,8 @@ class TestBootstrapService:
         mock_template_loader
     ):
         """Test warm-up does NOT transition before thresholds."""
+        from core.scheduling.brain import SchedulerControl
+
         mock_mongo_cache.get.return_value = None
 
         bootstrap = BootstrapService(
@@ -361,7 +393,20 @@ class TestBootstrapService:
         )
 
         brain_state = MagicMock()
-        brain_state.scheduler_control.max_concurrent_tasks = 2
+        brain_state.scheduler_control = SchedulerControl(
+            max_concurrent_tasks=2,
+            max_cost_per_cycle=5.0,
+            max_tokens_per_cycle=50000,
+            blocked_goal_ids=[],
+            priority_weights={"P1": 4.0, "P2": 2.0, "P3": 1.0, "P4": 0.5},
+            goal_priority_overrides={},
+            expansion_policy="enabled",
+            preemption_enabled=False,
+            preemption_threshold=2.0,
+            max_preemptions_per_cycle=1,
+            aging_enabled=True,
+            aging_factor=1.0
+        )
 
         # Not enough goals and not enough time
         updated_control = bootstrap.check_warm_up_transition(
