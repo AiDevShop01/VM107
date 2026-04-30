@@ -1,0 +1,43 @@
+# Learning Goal Task Decomposition Template
+# Defines standard task breakdown for learning goals
+
+template_id: learning_v1
+goal_type: learning
+version: 1
+description: Standard learning workflow - data gather, study, summarize
+
+tasks:
+  - task_id_suffix: data_gather
+    task_type: research
+    priority: P3
+    dependencies: []
+    estimated_cost_usd: 0.40
+    parameters:
+      description: Gather learning materials and resources
+      deliverables:
+        - learning_materials
+        - resource_list
+
+  - task_id_suffix: study
+    task_type: analysis
+    priority: P3
+    dependencies:
+      - data_gather
+    estimated_cost_usd: 1.50
+    parameters:
+      description: Study materials and develop understanding
+      deliverables:
+        - study_notes
+        - key_concepts
+
+  - task_id_suffix: summarize
+    task_type: research
+    priority: P3
+    dependencies:
+      - study
+    estimated_cost_usd: 0.60
+    parameters:
+      description: Summarize learnings and create knowledge artifacts
+      deliverables:
+        - summary
+        - knowledge_entries

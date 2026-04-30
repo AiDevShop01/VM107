@@ -1,0 +1,43 @@
+# Maintenance Goal Task Decomposition Template
+# Defines standard task breakdown for maintenance goals
+
+template_id: maintenance_v1
+goal_type: maintenance
+version: 1
+description: Standard maintenance workflow - check, fix, verify
+
+tasks:
+  - task_id_suffix: check
+    task_type: maintenance
+    priority: P2
+    dependencies: []
+    estimated_cost_usd: 0.25
+    parameters:
+      description: Identify issues requiring maintenance or correction
+      deliverables:
+        - issue_report
+        - severity_assessment
+
+  - task_id_suffix: fix
+    task_type: maintenance
+    priority: P1
+    dependencies:
+      - check
+    estimated_cost_usd: 0.75
+    parameters:
+      description: Apply fixes to resolve identified issues
+      deliverables:
+        - applied_fixes
+        - change_log
+
+  - task_id_suffix: verify
+    task_type: maintenance
+    priority: P2
+    dependencies:
+      - fix
+    estimated_cost_usd: 0.50
+    parameters:
+      description: Verify fixes resolved issues and no regressions occurred
+      deliverables:
+        - verification_report
+        - test_results

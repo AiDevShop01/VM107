@@ -1,0 +1,43 @@
+# Research Goal Task Decomposition Template
+# Defines standard task breakdown for research goals
+
+template_id: research_v1
+goal_type: research
+version: 1
+description: Standard research workflow - data collection, analysis, synthesis
+
+tasks:
+  - task_id_suffix: data_collection
+    task_type: research
+    priority: P2
+    dependencies: []
+    estimated_cost_usd: 0.50
+    parameters:
+      description: Gather relevant data and information for research objective
+      deliverables:
+        - raw_data
+        - source_citations
+
+  - task_id_suffix: analysis
+    task_type: analysis
+    priority: P2
+    dependencies:
+      - data_collection
+    estimated_cost_usd: 1.00
+    parameters:
+      description: Analyze collected data to identify patterns and insights
+      deliverables:
+        - analysis_results
+        - findings
+
+  - task_id_suffix: synthesis
+    task_type: research
+    priority: P2
+    dependencies:
+      - analysis
+    estimated_cost_usd: 0.75
+    parameters:
+      description: Synthesize findings into actionable conclusions
+      deliverables:
+        - summary_report
+        - recommendations

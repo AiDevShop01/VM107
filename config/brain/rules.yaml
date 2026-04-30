@@ -1,0 +1,59 @@
+# Brain Layer Declarative Rules
+# Evaluated each brain cycle to determine mode transitions and behavior adjustments
+# Rules are evaluated in priority order (lower number = higher priority)
+
+version: 1
+
+rules:
+  # Rule 1: Switch to stabilization mode on high failure rate
+  - name: switch_to_stabilization
+    priority: 1  # Highest priority rule
+    condition:
+      field: failure_rate
+      op: ">"
+      value: 0.3
+    action:
+      type: set_mode
+      params:
+        mode: stabilization
+    cooldown_seconds: 300
+
+  # Rule 2: Switch to exploitation mode on high success rate
+  - name: switch_to_exploitation
+    priority: 2
+    condition:
+      field: success_rate
+      op: ">"
+      value: 0.7
+    action:
+      type: set_mode
+      params:
+        mode: exploitation
+    cooldown_seconds: 120
+
+  # Rule 3: Constrain resources on budget pressure
+  - name: constrain_resources_on_budget_pressure
+    priority: 3
+    condition:
+      field: budget_remaining_ratio
+      op: "<"
+      value: 0.2
+    action:
+      type: set_resource_policy
+      params:
+        policy: constrained
+    cooldown_seconds: 600
+
+  # Rule 5: Boost research tasks in exploration mode
+  - name: boost_research_in_exploration
+    priority: 5
+    condition:
+      hook: check_exploration_research_boost
+      params:
+        signals: [low_success_rate, high_entropy, budget_available]
+    action:
+      type: adjust_priority_weight
+      params:
+        task_type: research
+        multiplier: 1.3
+    cooldown_seconds: 60

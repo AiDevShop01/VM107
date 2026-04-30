@@ -1,0 +1,66 @@
+# Brain Layer Bootstrap Configuration
+# Used for cold start initialization when MongoDB has no brain:global document
+# This file defines conservative defaults for first boot
+
+version: 1
+
+# Default mode: exploration (system must learn, no prior knowledge)
+mode: exploration
+
+# Resource policy: normal (not constrained)
+resource_policy: normal
+
+# Scheduler control configuration
+scheduler_control:
+  # Conservative cold start (not 5)
+  max_concurrent_tasks: 2
+
+  # Reduced cost cap for cold start
+  max_cost_per_cycle: 5.0
+
+  # Reduced token cap for cold start
+  max_tokens_per_cycle: 50000
+
+  # Priority weights for task scoring
+  priority_weights:
+    P1: 4.0
+    P2: 2.0
+    P3: 1.0
+    P4: 0.5
+
+  # Goal priority overrides (initially empty)
+  goal_priority_overrides: {}
+
+  # Blocked goal IDs (initially empty)
+  blocked_goal_ids: []
+
+  # Expansion policy: enabled
+  expansion_policy: enabled
+
+  # Preemption settings
+  preemption_enabled: false
+  preemption_threshold: 2.0
+  max_preemptions_per_cycle: 1
+
+  # Aging settings
+  aging_enabled: true
+  aging_factor: 1.0
+
+# Global confidence level
+confidence_global: 0.5
+
+# Mode control parameters
+mode_control:
+  # Minimum time to hold a mode before switching
+  min_hold_seconds: 60
+
+  # Number of confirmation cycles required before switching
+  confirmation_cycles: 3
+
+# Cold start warm-up parameters
+cold_start:
+  # Transition to normal limits after N goals completed
+  warm_up_goals: 5
+
+  # Or after N hours elapsed
+  warm_up_hours: 24

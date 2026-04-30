@@ -1,0 +1,43 @@
+# System Goal Task Decomposition Template
+# Defines standard task breakdown for system-level goals
+
+template_id: system_v1
+goal_type: system
+version: 1
+description: Standard system workflow - diagnose, remediate, confirm
+
+tasks:
+  - task_id_suffix: diagnose
+    task_type: analysis
+    priority: P1
+    dependencies: []
+    estimated_cost_usd: 0.50
+    parameters:
+      description: Diagnose system state and identify root causes
+      deliverables:
+        - diagnostic_report
+        - root_cause_analysis
+
+  - task_id_suffix: remediate
+    task_type: maintenance
+    priority: P1
+    dependencies:
+      - diagnose
+    estimated_cost_usd: 1.00
+    parameters:
+      description: Apply remediation actions to resolve system issues
+      deliverables:
+        - remediation_log
+        - applied_changes
+
+  - task_id_suffix: confirm
+    task_type: analysis
+    priority: P1
+    dependencies:
+      - remediate
+    estimated_cost_usd: 0.40
+    parameters:
+      description: Confirm system is healthy and issues are resolved
+      deliverables:
+        - health_check_report
+        - system_status

@@ -1,0 +1,43 @@
+# Execution Goal Task Decomposition Template
+# Defines standard task breakdown for execution goals
+
+template_id: execution_v1
+goal_type: execution
+version: 1
+description: Standard execution workflow - validate preconditions, execute, verify result
+
+tasks:
+  - task_id_suffix: validate_preconditions
+    task_type: analysis
+    priority: P2
+    dependencies: []
+    estimated_cost_usd: 0.30
+    parameters:
+      description: Validate all preconditions are met before execution
+      deliverables:
+        - validation_report
+        - readiness_check
+
+  - task_id_suffix: execute
+    task_type: execution
+    priority: P1
+    dependencies:
+      - validate_preconditions
+    estimated_cost_usd: 1.00
+    parameters:
+      description: Execute the planned action or operation
+      deliverables:
+        - execution_log
+        - output_artifacts
+
+  - task_id_suffix: verify_result
+    task_type: analysis
+    priority: P2
+    dependencies:
+      - execute
+    estimated_cost_usd: 0.40
+    parameters:
+      description: Verify execution completed successfully and met objectives
+      deliverables:
+        - verification_report
+        - success_metrics
