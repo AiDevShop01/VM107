@@ -2,9 +2,9 @@
 Router pipeline tests — covers ROUTER-PIPELINE-01, ROUTER-FALLBACK-01,
 ROUTER-BRAIN-01, ROUTER-PEAK-01, ROUTER-LOG-01, ROUTER-HOOKS-01.
 
-All tests are xfail (Wave 1 Wave 1 plans implement stubs → remove xfail).
-Wave 0 goal: zero collection errors, correct class/method names so Wave 1
-pytest commands match without renaming.
+Wave 1 plans remove xfail from their owned test groups.
+Plan 02 owns: TestPeakSchedule.test_perth_peak_window_detection, test_from_yaml_constructs
+Plan 05 owns: all remaining xfail tests.
 
 Per-task verification map commands (from VALIDATION.md):
     pytest tests/routing/test_router.py::TestPipeline -x -q
@@ -78,11 +78,63 @@ class TestPeakSchedule:
 
     def test_perth_peak_window_detection(self):
         """Peak detector correctly identifies Australia/Perth timezone windows."""
-        pytest.xfail("Plan 02: peak schedule pending")
+        from core.routing.peak_schedule import PeakSchedule
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        sch = PeakSchedule(timezone="Australia/Perth", windows=["08:00-12:00", "14:00-18:00"])
+        tz = ZoneInfo("Australia/Perth")
+
+        # 09:00 is inside window 08:00-12:00 → peak
+        assert sch.is_peak(datetime(2026, 5, 1, 9, 0, tzinfo=tz)) is True
+        # 13:00 is between the two windows → off-peak
+        assert sch.is_peak(datetime(2026, 5, 1, 13, 0, tzinfo=tz)) is False
+        # 22:00 is after both windows → off-peak
+        assert sch.is_peak(datetime(2026, 5, 1, 22, 0, tzinfo=tz)) is False
+        # 14:30 is inside window 14:00-18:00 → peak
+        assert sch.is_peak(datetime(2026, 5, 1, 14, 30, tzinfo=tz)) is True
 
     def test_peak_hard_shift(self):
         """Peak hours apply hard tier-shift: secondary tier becomes effective primary."""
-        pytest.xfail("Plan 05: peak modifier pending")
+        pytest.xfail("Plan 05: peak modifier integration pending")
+
+    def test_from_yaml_constructs(self):
+        """PeakSchedule.from_yaml() constructs correctly from routing config dict."""
+        from core.routing.peak_schedule import PeakSchedule
+        sch = PeakSchedule.from_yaml({"timezone": "Australia/Perth", "peak_hours": ["09:00-17:00"]})
+        assert len(sch.windows) == 1
+
+    def test_no_windows_always_off_peak(self):
+        """PeakSchedule with no windows always returns False for is_peak()."""
+        from core.routing.peak_schedule import PeakSchedule
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        sch = PeakSchedule(timezone="Australia/Perth", windows=[])
+        tz = ZoneInfo("Australia/Perth")
+        assert sch.is_peak(datetime(2026, 5, 1, 10, 0, tzinfo=tz)) is False
+
+    def test_boundary_excluded_at_end(self):
+        """is_peak() uses start <= t < end (end boundary is excluded)."""
+        from core.routing.peak_schedule import PeakSchedule
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        sch = PeakSchedule(timezone="Australia/Perth", windows=["08:00-12:00"])
+        tz = ZoneInfo("Australia/Perth")
+        # Exactly at 08:00 → peak (inclusive start)
+        assert sch.is_peak(datetime(2026, 5, 1, 8, 0, tzinfo=tz)) is True
+        # Exactly at 12:00 → off-peak (exclusive end)
+        assert sch.is_peak(datetime(2026, 5, 1, 12, 0, tzinfo=tz)) is False
+
+    def test_from_yaml_reads_full_routing_block(self):
+        """PeakSchedule.from_yaml() reads timezone and peak_hours from full routing block."""
+        from core.routing.peak_schedule import PeakSchedule
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        routing_cfg = {"timezone": "Australia/Perth", "peak_hours": ["08:00-12:00", "14:00-18:00"]}
+        sch = PeakSchedule.from_yaml(routing_cfg)
+        tz = ZoneInfo("Australia/Perth")
+        assert sch.is_peak(datetime(2026, 5, 1, 9, 0, tzinfo=tz)) is True
+        assert sch.is_peak(datetime(2026, 5, 1, 13, 0, tzinfo=tz)) is False
 
 
 class TestLogging:
