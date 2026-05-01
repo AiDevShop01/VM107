@@ -120,3 +120,17 @@ def mock_brain_layer():
 def mock_logger():
     """stdlib logging.Logger stub."""
     return MagicMock()
+
+
+@pytest.fixture
+def real_affinity():
+    """
+    AffinityMap loaded from the actual VM107 conf/model_routing.yaml.
+
+    Used by Plan 05 tests that need real model catalog + budget_caps data
+    to verify ModelRouter pipeline behavior end-to-end.
+    """
+    from pathlib import Path
+    from core.routing.affinity import AffinityMap
+    yaml_path = Path(__file__).parents[2] / "conf" / "model_routing.yaml"
+    return AffinityMap.from_yaml(str(yaml_path))

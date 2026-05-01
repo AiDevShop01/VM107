@@ -1,15 +1,15 @@
 """
-ModelRouter — deterministic, policy-driven LLM model selection engine.
+ModelRouter — deterministic 8-step routing pipeline.
 
-Implements the 8-step routing pipeline locked in CONTEXT.md:
-    1. Load context        (task + goal + brain via AgentRunner.execution_context)
-    2. Budget gate         (HARD STOP if goal.spent_today >= goal.max_budget)
-    3. Select candidates   (affinity_map[agent_id or 'default'][task_type or 'default'])
-    4. Brain-mode filter   (hard filter for stabilization; soft re-rank for exploration/exploitation)
-    5. Latency filter      (drop models exceeding context.latency_sla_ms)
-    6. Peak/off-peak       (peak: hard tier-shift; off-peak: quality_weight boost)
-    7. Build fallback chain ({primary, fallback: [secondary, local]})
-    8. Log decision        (mandatory structured JSON per call)
+CONTEXT.md locked order:
+  1. Load context  (RouterContext from caller)
+  2. Budget gate   (HARD STOP) — force_local on breach
+  3. Select candidates from affinity map
+  4. Brain-mode filter (hard for stabilization, soft for exploration/exploitation)
+  5. Latency filter (drop models > ctx.latency_sla_ms)
+  6. Peak/off-peak modifier (hard tier-shift in peak; soft quality boost off-peak)
+  7. Build {primary, fallback: [secondary, local]} chain
+  8. Log decision (mandatory; write to MongoDB router_decisions + stdout)
 
 Anti-patterns (NEVER):
     - LLM-driven model selection (router is deterministic, always)
@@ -17,17 +17,17 @@ Anti-patterns (NEVER):
     - Modifying agent.py or models.py (extension-only)
     - Hard filter in exploration mode (kills discovery)
     - Soft filter in stabilization mode (defeats safety)
-
-Implementation plan:
-    - Steps 1-8 stubs: Plan 02 (affinity + scoring), Plan 03 (budget gate),
-      Plan 04 (alert pipeline), Plan 05 (full pipeline + hooks wiring)
 """
 from __future__ import annotations
 
+import json
 import logging
+import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from core.routing.schemas import RouterContext, RoutingDecision
+from core.routing import scoring as _scoring
 
 if TYPE_CHECKING:
     from core.routing.affinity import AffinityMap
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from core.routing.budget_gate import BudgetGate
     from core.routing.peak_schedule import PeakSchedule
 
-logger = logging.getLogger("router")
+logger = logging.getLogger("router.model_router")
 
 
 class ModelRouter:
@@ -49,45 +49,42 @@ class ModelRouter:
     - Time-of-day peak/off-peak schedule (YAML)
     - Latency SLA constraints
 
-    All public methods raise NotImplementedError until Wave 1 plans implement them.
-    Imports succeed immediately so Wave 1 test files can reference class/method names.
-
     Constructor args:
-        affinity_map: Loaded affinity YAML (agent_id -> task_type -> model chain)
-        budget_gate: Redis-backed budget check + breach handler
-        alert_pipeline: Multi-sink alert fan-out (stdout + MongoDB + Brain + external)
-        peak_schedule: Timezone-aware peak window detector
-        mode_weights: Dict of {mode: {quality: float, cost: float, latency: float}}
-        model_catalog: Dict of {model_id: {tier, quality_score, latency_ms}}
-        signal_accumulator: Phase 42 SignalAccumulator for cost_pressure signals
-        mongo_client: MongoDB client for decision log writes
-        logger: Optional logger override (defaults to module logger)
+        affinity:        Loaded AffinityMap (agent_id -> task_type -> model chain)
+        budget_gate:     Redis-backed budget check + breach handler
+        alert_pipeline:  Multi-sink alert fan-out (stdout + MongoDB + Brain + external)
+        peak_schedule:   Timezone-aware peak window detector
+        mongo_client:    MongoDB client for decision log writes (optional; degrades gracefully)
+        logger:          Optional logger override (defaults to module logger)
     """
 
     def __init__(
         self,
-        affinity_map: "AffinityMap",
+        affinity: "AffinityMap",
         budget_gate: "BudgetGate",
         alert_pipeline: "AlertPipeline",
         peak_schedule: "PeakSchedule",
-        mode_weights: dict,
-        model_catalog: dict,
-        signal_accumulator: Any,
-        mongo_client: Any,
+        mongo_client: Any = None,
         logger: logging.Logger | None = None,
     ) -> None:
-        self.affinity_map = affinity_map
+        self.affinity = affinity
         self.budget_gate = budget_gate
         self.alert_pipeline = alert_pipeline
         self.peak_schedule = peak_schedule
-        self.mode_weights = mode_weights
-        self.model_catalog = model_catalog
-        self.signal_accumulator = signal_accumulator
-        self.mongo_client = mongo_client
-        self._logger = logger or globals()["logger"]
+        self.mongo = mongo_client
+        self.log = logger or globals()["logger"]
 
     @classmethod
-    def from_yaml(cls, path: str) -> "ModelRouter":
+    def from_yaml(
+        cls,
+        path: str,
+        *,
+        redis_client: Any,
+        mongo_client: Any,
+        signal_accumulator: Any,
+        external_notifier: Any = None,
+        logger: logging.Logger | None = None,
+    ) -> "ModelRouter":
         """
         Construct ModelRouter from a model_routing.yaml config file.
 
@@ -95,13 +92,39 @@ class ModelRouter:
         config-driven defaults. For production use via the before_main_llm_call
         extension (lazy-init pattern: agent.get_data/set_data "model_router").
 
-        Args:
-            path: Absolute path to model_routing.yaml
+        IMPORTANT: budget_caps from affinity is injected into BudgetGate so that
+        BudgetGate.get_agent_type_aggregate / get_system_aggregate return the
+        correct max_usd from the YAML config (Plan 03 contract).
 
-        Raises:
-            NotImplementedError: Until Plan 02 implements full construction.
+        Args:
+            path:               Absolute path to model_routing.yaml
+            redis_client:       Synchronous redis-py client
+            mongo_client:       pymongo MongoClient
+            signal_accumulator: Phase 42 SignalAccumulator for cost_pressure signals
+            external_notifier:  Optional ExternalNotifier stub (Phase 44+ for Slack etc.)
+            logger:             Optional logger override
         """
-        raise NotImplementedError("Phase 43 Plan 02: ModelRouter.from_yaml() pending")
+        from core.routing.affinity import AffinityMap
+        from core.routing.budget_gate import BudgetGate
+        from core.routing.alert_pipeline import AlertPipeline
+        from core.routing.peak_schedule import PeakSchedule
+
+        affinity = AffinityMap.from_yaml(path)
+        # Pass affinity.budget_caps so BudgetGate aggregate getters return correct max_usd
+        budget_gate = BudgetGate(
+            redis_client,
+            mongo_client,
+            logger,
+            budget_caps=affinity.budget_caps,
+        )
+        alert_pipeline = AlertPipeline(
+            mongo_client,
+            signal_accumulator,
+            external_notifier,
+            logger,
+        )
+        peak = PeakSchedule.from_yaml(affinity.raw["routing"])
+        return cls(affinity, budget_gate, alert_pipeline, peak, mongo_client, logger)
 
     def decide(self, ctx: RouterContext) -> RoutingDecision:
         """
@@ -117,120 +140,245 @@ class ModelRouter:
 
         Returns:
             RoutingDecision with primary + fallback chain and structured reason list.
-
-        Raises:
-            NotImplementedError: Until Plan 05 implements full pipeline.
         """
-        raise NotImplementedError("Phase 43 Plan 05: ModelRouter.decide() pending")
+        t0 = time.perf_counter()
+        reason: list[str] = []
+
+        # -------------------------------------------------------------------
+        # Step 1: Context loaded by caller (already in ctx).
+        # -------------------------------------------------------------------
+        reason.append(f"task_type={ctx.task_type}")
+        reason.append(f"agent={ctx.agent_id}")
+
+        # -------------------------------------------------------------------
+        # Step 2: Budget gate (HARD STOP)
+        # -------------------------------------------------------------------
+        if ctx.goal_id and ctx.goal_id.strip():
+            allow, gate_reason = self.budget_gate.check(ctx.goal_id, ctx.priority)
+        else:
+            allow, gate_reason = True, "no_goal"
+
+        reason.append(f"budget={gate_reason}")
+        # force_local is True if P1 bypass with force_local semantics, OR if blocked
+        force_local = ("force_local" in gate_reason) or (not allow)
+
+        if not allow:
+            # Hard stop: return local-only chain immediately (skip steps 3-7)
+            local_models = self._select_local_only(ctx)
+            decision = self._finalize(
+                ctx,
+                primary=local_models[0] if local_models else "ollama/llama3.2",
+                fallback=local_models[1:] if len(local_models) > 1 else [],
+                reason=reason,
+                peak=False,
+                mode=ctx.brain_context.get("mode", "exploration"),
+                force_local=True,
+                t0=t0,
+            )
+            self._log_decision(decision)
+            return decision
+
+        # -------------------------------------------------------------------
+        # Step 3: Select candidates from affinity map
+        # -------------------------------------------------------------------
+        chain = self.affinity.lookup(ctx.agent_id, ctx.task_type)
+        candidates: list[str] = []
+        for tier in ("primary", "secondary", "local"):
+            candidates.extend(chain[tier])
+        reason.append(f"affinity={ctx.agent_id}.{ctx.task_type}")
+
+        # -------------------------------------------------------------------
+        # Step 4: Brain-mode filter (hard for stabilization, soft for others)
+        # -------------------------------------------------------------------
+        mode = ctx.brain_context.get("mode", "exploration")
+        if mode == "stabilization":
+            before = len(candidates)
+            candidates = [m for m in candidates if self.affinity.is_stabilization_safe(m)]
+            reason.append(f"stabilization_filter:{before}->{len(candidates)}")
+            if not candidates:
+                # Pathological: no safe model at all — fall through to local tier
+                candidates = list(chain["local"])
+                reason.append("stabilization_fallthrough_to_local")
+        else:
+            # exploration or exploitation — soft preference (retain full set, weights adjusted later)
+            reason.append(f"mode={mode}_soft")
+
+        # -------------------------------------------------------------------
+        # Step 5: Latency filter (drop models exceeding ctx.latency_sla_ms)
+        # -------------------------------------------------------------------
+        before_lat = len(candidates)
+        latency_filtered = [
+            m for m in candidates
+            if self._meta_for(m).get("latency_ms", 5000) <= ctx.latency_sla_ms
+        ]
+        if not latency_filtered:
+            # SLA too strict — relax to local tier (always fastest)
+            candidates = list(chain["local"]) or candidates
+            reason.append("latency_relaxed_to_local")
+        else:
+            candidates = latency_filtered
+            reason.append(f"latency_filter:{before_lat}->{len(candidates)}")
+
+        # -------------------------------------------------------------------
+        # Step 6: Peak/off-peak modifier
+        # -------------------------------------------------------------------
+        peak = self.peak_schedule.is_peak()
+        # Start with mode weights from affinity config
+        weights = dict(self.affinity.mode_weights.get(mode, {"quality": 0.6, "cost": 0.25, "latency": 0.15}))
+
+        if peak:
+            # HARD tier-shift: drop primary tier from "primary slot" (kept in fallback)
+            non_primary = [c for c in candidates if self._meta_for(c).get("tier") != "primary"]
+            if non_primary:
+                candidates = non_primary
+            reason.append("peak_hard_shift")
+        else:
+            # SOFT boost: quality weight × 1.25 (other weights re-normalized)
+            boosted_q = min(weights["quality"] * 1.25, 0.99)
+            remaining = 1.0 - boosted_q
+            cost_w = weights.get("cost", 0.25)
+            lat_w = weights.get("latency", 0.15)
+            denom = cost_w + lat_w
+            if denom > 0:
+                weights["quality"] = boosted_q
+                weights["cost"] = cost_w / denom * remaining
+                weights["latency"] = lat_w / denom * remaining
+            reason.append("offpeak_quality_boost")
+
+        # If force_local from p1_bypass_force_local, restrict to local tier only
+        if force_local:
+            local_only = [c for c in candidates if self._meta_for(c).get("tier") == "local"]
+            if not local_only:
+                local_only = list(chain["local"])
+            candidates = local_only
+            reason.append("force_local")
+
+        # -------------------------------------------------------------------
+        # Step 7: Build fallback chain (score candidates, pick primary, ensure local)
+        # -------------------------------------------------------------------
+        # Score and rank candidates
+        scored = sorted(
+            ((self._composite(m, weights), m) for m in candidates),
+            key=lambda x: x[0],
+            reverse=True,
+        )
+        ordered = [m for _, m in scored]
+
+        # primary = top score
+        primary = ordered[0]
+        fallback: list[str] = []
+        primary_tier = self._meta_for(primary).get("tier")
+
+        # Build fallback: prefer tier diversity
+        seen_tiers = {primary_tier}
+        for m in ordered[1:]:
+            if m == primary:
+                continue
+            m_tier = self._meta_for(m).get("tier")
+            if m_tier in seen_tiers and m_tier != "local":
+                continue  # prefer tier diversity; local may repeat
+            fallback.append(m)
+            seen_tiers.add(m_tier)
+            if len(fallback) >= 2:
+                break
+
+        # Guarantee: chain MUST contain a local tier model
+        all_in_chain = [primary, *fallback]
+        if not any(self._meta_for(x).get("tier") == "local" for x in all_in_chain):
+            local_candidates = list(chain["local"])
+            if local_candidates and local_candidates[0] not in all_in_chain:
+                fallback.append(local_candidates[0])
+
+        # Cap fallback at 2 (CONTEXT.md: 3-tier chain {primary, fallback:[secondary, local]})
+        fallback = fallback[:2]
+
+        # -------------------------------------------------------------------
+        # Step 8: Log decision (MANDATORY)
+        # -------------------------------------------------------------------
+        decision = self._finalize(
+            ctx,
+            primary=primary,
+            fallback=fallback,
+            reason=reason,
+            peak=peak,
+            mode=mode,
+            force_local=force_local,
+            t0=t0,
+        )
+        self._log_decision(decision)
+        return decision
 
     # -----------------------------------------------------------------------
-    # Private pipeline steps (8 steps — each owned by a specific Wave 1 plan)
+    # Private helpers
     # -----------------------------------------------------------------------
 
-    def _load_context(self, ctx: RouterContext) -> dict:
-        """
-        Step 1: Extract goal + brain context for downstream steps.
+    def _meta_for(self, model_id: str) -> dict:
+        """Safe metadata lookup — returns {} for unknown models."""
+        try:
+            return self.affinity.get_model_meta(model_id)
+        except (KeyError, AttributeError):
+            return {}
 
-        Reads: goal.max_budget_usd, goal.enqueue_blocked, brain_context.mode,
-               brain_context.resource_policy.
+    def _composite(self, model_id: str, weights: dict) -> float:
+        """Compute composite score for a model given weights."""
+        q = _scoring.compute_quality_score(model_id, self.affinity.models)
+        c = _scoring.compute_cost_score(model_id, self.affinity.models)
+        la = _scoring.compute_latency_score(model_id, self.affinity.models)
+        return _scoring.compute_composite(q, c, la, weights)
 
-        Raises:
-            NotImplementedError: Until Plan 05 implements context loading.
-        """
-        raise NotImplementedError("Phase 43 Plan 05: _load_context() pending")
+    def _select_local_only(self, ctx: RouterContext) -> list[str]:
+        """Return local-tier models from affinity lookup (used for hard-stop path)."""
+        chain = self.affinity.lookup(ctx.agent_id, ctx.task_type)
+        return list(chain.get("local", []))
 
-    def _budget_gate(self, ctx: RouterContext, goal_data: dict) -> tuple[bool, str]:
-        """
-        Step 2: Hard budget gate — check Redis aggregate for goal spend.
-
-        Returns (allowed, reason). If not allowed, caller returns local-only chain
-        immediately without running steps 3-7.
-
-        Raises:
-            NotImplementedError: Until Plan 03 implements budget gate.
-        """
-        raise NotImplementedError("Phase 43 Plan 03: _budget_gate() pending")
-
-    def _select_candidates(self, ctx: RouterContext) -> list[dict]:
-        """
-        Step 3: Select model candidates from affinity map.
-
-        Lookup: affinity[agent_id][task_type] -> affinity[agent_id][default] -> affinity[default][default]
-        Each fallback path logged in reason[].
-
-        Returns list of candidate dicts with {model_id, tier, quality_score, latency_ms}.
-
-        Raises:
-            NotImplementedError: Until Plan 02 implements affinity lookup.
-        """
-        raise NotImplementedError("Phase 43 Plan 02: _select_candidates() pending")
-
-    def _apply_brain_filter(self, candidates: list[dict], brain_context: dict) -> list[dict]:
-        """
-        Step 4: Apply brain-mode filter to candidate set.
-
-        stabilization: HARD FILTER — drop 'expensive' and 'unsafe' tier models.
-        exploration:   SOFT PREFERENCE — retain all, bias quality weight up.
-        exploitation:  SOFT PREFERENCE — retain all, bias cost/latency weight.
-
-        Router READS brain.mode. Router NEVER writes Brain state.
-
-        Raises:
-            NotImplementedError: Until Plan 05 implements brain filter.
-        """
-        raise NotImplementedError("Phase 43 Plan 05: _apply_brain_filter() pending")
-
-    def _apply_latency_filter(self, candidates: list[dict], latency_sla_ms: int) -> list[dict]:
-        """
-        Step 5: Drop models exceeding context.latency_sla_ms.
-
-        Local tier is never dropped regardless of latency (guarantees fallback).
-
-        Raises:
-            NotImplementedError: Until Plan 02 implements latency filter.
-        """
-        raise NotImplementedError("Phase 43 Plan 02: _apply_latency_filter() pending")
-
-    def _apply_peak_modifier(self, candidates: list[dict], peak: bool, mode: str) -> list[dict]:
-        """
-        Step 6: Apply peak/off-peak modifier to candidate scores.
-
-        peak=True:  HARD tier-shift — candidates restricted to secondary tier (expensive
-                    primary models dropped). Cost ceiling guaranteed during peak hours.
-        peak=False: SOFT quality boost — quality_weight *= 1.2-1.3 to favor better models
-                    when cost pressure is lower.
-
-        Peak MUST preserve full primary->secondary->local chain even under cost pressure.
-
-        Raises:
-            NotImplementedError: Until Plan 02 implements peak modifier.
-        """
-        raise NotImplementedError("Phase 43 Plan 02: _apply_peak_modifier() pending")
-
-    def _build_fallback_chain(self, candidates: list[dict], peak: bool) -> dict:
-        """
-        Step 7: Build {primary, fallback: [secondary, local]} chain.
-
-        Local tier always present in fallback (guarantees agent can always respond).
-        Chain integrity preserved even in peak mode.
-
-        Returns: {"primary": model_id, "fallback": [secondary_id, local_id]}
-
-        Raises:
-            NotImplementedError: Until Plan 05 implements chain builder.
-        """
-        raise NotImplementedError("Phase 43 Plan 05: _build_fallback_chain() pending")
+    def _finalize(
+        self,
+        ctx: RouterContext,
+        primary: str,
+        fallback: list[str],
+        reason: list[str],
+        peak: bool,
+        mode: str,
+        force_local: bool,
+        t0: float,
+    ) -> RoutingDecision:
+        """Construct the RoutingDecision from pipeline results."""
+        elapsed_ms = (time.perf_counter() - t0) * 1000.0
+        return RoutingDecision(
+            task_id=ctx.task_id,
+            goal_id=ctx.goal_id or "",
+            agent_id=ctx.agent_id,
+            task_type=ctx.task_type,
+            primary=primary,
+            fallback=fallback,
+            reason=reason,
+            decision_time_ms=elapsed_ms,
+            selected_model=primary,
+            peak=peak,
+            mode=mode,
+            force_local=force_local,
+        )
 
     def _log_decision(self, decision: RoutingDecision) -> None:
         """
-        Step 8: Write mandatory structured decision log to MongoDB + stdout.
+        Step 8 (mandatory): emit structured JSON log to stdout + persist to MongoDB.
 
-        Mandatory fields (8): task_id, goal_id, agent_id, task_type, selected_model,
-        fallback[], reason[], decision_time_ms.
-
-        MongoDB target: router_decisions collection (created by migration 005).
-
-        Raises:
-            NotImplementedError: Until Plan 05 implements decision logging.
+        8 required fields: task_id, goal_id, agent_id, task_type,
+                           selected_model, fallback, reason, decision_time_ms.
         """
-        raise NotImplementedError("Phase 43 Plan 05: _log_decision() pending")
+        payload = decision.model_dump(mode="json")
+        self.log.info(json.dumps({"event": "router_decision", **payload}))
+        if self.mongo is not None:
+            try:
+                self.mongo.fingpt_agents.router_decisions.insert_one(
+                    {
+                        **decision.model_dump(mode="python"),
+                        "created_at": datetime.now(timezone.utc),
+                    }
+                )
+            except Exception as e:
+                self.log.warning(
+                    json.dumps(
+                        {"event": "router_decision_mongo_error", "error": str(e)}
+                    )
+                )
