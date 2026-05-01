@@ -13,6 +13,8 @@ import pytest
 import yaml
 from pathlib import Path
 
+from core.routing.affinity import AffinityMap
+
 # Path to the model_routing.yaml skeleton (relative to VM107 root)
 YAML_PATH = Path(__file__).parents[2] / "conf" / "model_routing.yaml"
 
@@ -46,16 +48,79 @@ def test_mode_weights_sum():
         )
 
 
+def test_lookup_agent_zero_analysis():
+    """AffinityMap.lookup() returns correct chain for known agent_zero + analysis."""
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    chain = am.lookup("agent_zero", "analysis")
+    assert "anthropic/claude-4-sonnet-20250514" in chain["primary"]
+    assert chain["local"]   # never empty
+
+
 def test_default_fallback_chain_lookup():
     """AffinityMap.lookup() returns correct chain for known (agent_id, task_type) pair."""
-    pytest.xfail("Plan 02: AffinityMap.lookup() pending")
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    chain = am.lookup("agent_zero", "execution")
+    assert "openai/gpt-4o" in chain["primary"]
+    assert isinstance(chain["secondary"], list)
+    assert isinstance(chain["local"], list)
+    assert chain["local"]  # never empty
 
 
 def test_unknown_agent_falls_back_to_default():
     """AffinityMap.lookup() uses affinity['default']['default'] for unknown agent_id."""
-    pytest.xfail("Plan 02: AffinityMap default fallback pending")
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    chain = am.lookup("future_agent_xyz", "any_task")
+    assert "openai/gpt-4o" in chain["primary"]   # default.default
 
 
 def test_unknown_task_type_falls_back_to_agent_default():
     """AffinityMap.lookup() uses affinity[agent_id]['default'] for unknown task_type."""
-    pytest.xfail("Plan 02: AffinityMap inner default pending")
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    chain = am.lookup("agent_zero", "custom_research_unknown")
+    assert "anthropic/claude-4-sonnet-20250514" in chain["primary"]   # agent_zero.default
+
+
+def test_invalid_mode_weights_raises(tmp_path):
+    """AffinityMap.from_yaml() raises ValueError when any mode_weights row sums != 1.0."""
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("""
+version: "1.0"
+routing: {timezone: "UTC", peak_hours: []}
+mode_weights:
+  exploration: {quality: 0.5, cost: 0.5, latency: 0.5}
+  exploitation: {quality: 0.4, cost: 0.4, latency: 0.2}
+  stabilization: {quality: 0.2, cost: 0.3, latency: 0.5}
+models: {}
+affinity: {default: {default: {primary: ["x"], secondary: ["y"], local: ["z"]}}}
+""")
+    with pytest.raises(ValueError, match="mode_weights"):
+        AffinityMap.from_yaml(str(bad))
+
+
+def test_local_tier_always_present():
+    """affinity[agent][task].local is never empty for any entry in the catalog."""
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    for agent_id, blk in am.affinity.items():
+        for tt, chain in blk.items():
+            assert chain["local"], f"affinity[{agent_id}][{tt}].local is empty"
+
+
+def test_budget_caps_loaded():
+    """budget_caps block is loaded from YAML and values match locked spec."""
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    assert am.budget_caps["agent_types"]["agent_zero"]["max_usd_per_day"] == 5.00
+    assert am.budget_caps["agent_types"]["default"]["max_usd_per_day"] == 1.00
+    assert am.budget_caps["system"]["max_usd_per_day"] == 50.00
+
+
+def test_lookup_returns_dict_shape():
+    """lookup() always returns {primary: list, secondary: list, local: list} shape."""
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    for agent_id in ("agent_zero", "unknown_agent"):
+        for task_type in ("analysis", "unknown_task"):
+            chain = am.lookup(agent_id, task_type)
+            assert set(chain.keys()) == {"primary", "secondary", "local"}
+            assert isinstance(chain["primary"], list)
+            assert isinstance(chain["secondary"], list)
+            assert isinstance(chain["local"], list)
+            assert chain["local"]  # local is always non-empty
