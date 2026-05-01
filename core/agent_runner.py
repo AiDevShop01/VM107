@@ -91,17 +91,37 @@ class AgentRunner:
         """Get current agent state (read-only)."""
         return self._state
 
-    async def start(self) -> None:
+    async def start(self, task: Any = None) -> None:
         """
         Start execution (IDLE -> RUNNING).
 
         Initializes execution context with start time.
+
+        Args:
+            task: Optional task object. If provided and self.agent is set, stashes
+                  routing context on agent.data so the before_main_llm_call extension
+                  can pass it to ModelRouter.decide() on the first LLM call.
 
         Raises:
             InvalidTransitionError: If not in IDLE state
         """
         await self.transition(AgentState.RUNNING, "Starting execution")
         self.execution_context.start_time = time.time()
+
+        # Phase 43 router_context injection
+        # Stash task scheduling context on agent.data so the before_main_llm_call
+        # extension reads it via agent.get_data("router_context") and passes it to
+        # ModelRouter.decide(). ExecutionContext (Phase 36) does not carry goal_id,
+        # agent_id, task_type, or priority — these come from the scheduling layer.
+        if task is not None and self.agent is not None:
+            self.agent.set_data("router_context", {
+                "task_id": getattr(task, "task_id", None) or getattr(task, "_id", None),
+                "goal_id": getattr(task, "goal_id", None),
+                "agent_id": getattr(task, "agent_id", None) or getattr(self.agent, "agent_name", None),
+                "task_type": getattr(task, "task_type", "default"),
+                "priority": getattr(task, "priority", "P3"),
+                "latency_sla_ms": getattr(task, "latency_sla_ms", 30000),
+            })
 
     async def transition(self, to_state: AgentState, reason: str) -> None:
         """

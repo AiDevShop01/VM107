@@ -1,0 +1,38 @@
+# Phase 43 router config. Edit affinity entries to add Phase 44+ agent blocks.
+# mode_weights MUST sum to 1.0 per mode (validator enforces in Plan 02).
+#
+# Schema version: 1.0
+# Owner: Phase 43 — LLM Model Router
+# Populated by: Plan 02 (affinity map, model catalog, peak_hours)
+#
+# Key constraints (LOCKED per CONTEXT.md):
+#   - affinity[default][default] MUST always exist (double-fallback guarantees)
+#   - mode_weights sum to exactly 1.0 per mode
+#   - Local tier (ollama/*) always present in every fallback chain
+#   - task_type keys are Phase 42 TaskModel.task_type values VERBATIM
+
+version: "1.0"
+
+routing:
+  timezone: "Australia/Perth"
+  peak_hours: []   # populated in Plan 02
+
+mode_weights:
+  exploration:
+    quality: 0.6
+    cost: 0.25
+    latency: 0.15
+  exploitation:
+    quality: 0.4
+    cost: 0.4
+    latency: 0.2
+  stabilization:
+    quality: 0.2
+    cost: 0.3
+    latency: 0.5
+
+models: {}        # tier + quality_score + latency_ms entries — populated in Plan 02
+
+affinity: {}      # agent_zero + default blocks — populated in Plan 02
+
+alert_overrides: {}   # per-goal threshold overrides
