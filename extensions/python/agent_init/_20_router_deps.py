@@ -31,7 +31,7 @@ log = logging.getLogger("router.agent_init")
 
 
 class RouterDeps(Extension):
-    async def execute(self, **kwargs) -> None:
+    def execute(self, **kwargs) -> None:
         if not self.agent:
             return
 
