@@ -2,6 +2,8 @@
 
 {{ include "agent.system.main.role.md" }}
 
+{{ include "agent.system.main.kb_routing.md" }}
+
 {{ include "agent.system.main.specifics.md" }}
 
 {{ include "agent.system.main.environment.md" }}
