@@ -61,7 +61,7 @@ class RouterDeps(Extension):
         except Exception as e:
             log.error(json.dumps({"event": "router_deps_signal_accumulator_failed", "error": str(e)}))
 
-        log.info(json.dumps({
+        log.warning(json.dumps({
             "event": "router_deps_wired",
             "mongo": bool(self.agent.get_data("mongo_client")),
             "redis": bool(self.agent.get_data("redis_client")),

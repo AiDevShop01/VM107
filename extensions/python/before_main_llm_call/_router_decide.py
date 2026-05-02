@@ -37,6 +37,32 @@ def _get_or_init_router(agent):
         redis_client = agent.get_data("redis_client")
         mongo_client = agent.get_data("mongo_client")
         signal_accumulator = agent.get_data("signal_accumulator")
+
+        # Fallback: construct deps from env if agent_init didn't wire them.
+        # Triggers for resumed chats where Agent was restored from cache (persist_chat.py:245)
+        # rather than freshly constructed via Agent.__init__ → agent_init.
+        if not redis_client:
+            try:
+                import redis
+                redis_client = redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
+                agent.set_data("redis_client", redis_client)
+            except Exception as e:
+                log.error(json.dumps({"event": "router_lazy_redis_failed", "error": str(e)}))
+        if not mongo_client:
+            try:
+                from pymongo import MongoClient
+                mongo_client = MongoClient(os.environ["MONGODB_URI"], retryWrites=True, w="majority", serverSelectionTimeoutMS=5000)
+                agent.set_data("mongo_client", mongo_client)
+            except Exception as e:
+                log.error(json.dumps({"event": "router_lazy_mongo_failed", "error": str(e)}))
+        if not signal_accumulator:
+            try:
+                from core.scheduling.signals import SignalAccumulator
+                signal_accumulator = SignalAccumulator()
+                agent.set_data("signal_accumulator", signal_accumulator)
+            except Exception as e:
+                log.error(json.dumps({"event": "router_lazy_signal_failed", "error": str(e)}))
+
         if not (redis_client and mongo_client and signal_accumulator):
             log.warning(
                 json.dumps(
