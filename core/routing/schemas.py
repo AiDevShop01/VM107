@@ -45,6 +45,9 @@ class RouterContext(BaseModel):
     priority: Literal["P1", "P2", "P3", "P4"]
     latency_sla_ms: int = Field(default=30000, ge=0)
     brain_context: dict = Field(default_factory=dict)
+    # Phase 43.1: routing path — "chat" for brain/thinking calls, "utility" for agent hands calls.
+    # Default "chat" preserves Phase 43 semantics — NO behavior change on existing paths.
+    path: Literal["chat", "utility"] = "chat"
 
 
 class RoutingDecision(BaseModel):
@@ -82,6 +85,9 @@ class RoutingDecision(BaseModel):
     peak: bool = False
     mode: str = "exploration"
     force_local: bool = False
+    # Phase 43.1: routing path — mirrors RouterContext.path for log correlation.
+    # Default "chat" preserves Phase 43 semantics.
+    path: Literal["chat", "utility"] = "chat"
 
 
 class CostRecord(BaseModel):
@@ -109,6 +115,9 @@ class CostRecord(BaseModel):
     latency_ms: int = Field(ge=0)
     goal_id: str
     agent_id: str
+    # Phase 43.1: routing path for cost-separation dashboard queries.
+    # Default "chat" provides backward-compatibility for records written pre-43.1.
+    path: Literal["chat", "utility"] = "chat"
 
 
 class AlertEvent(BaseModel):

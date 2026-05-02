@@ -143,3 +143,36 @@ affinity:
       local:     ["deepseek/deepseek-v4-flash"]
 
 alert_overrides: {}   # per-goal threshold overrides (Plan 04 reads this)
+
+
+# ===== Phase 43.1 additions (utility-path routing) =====
+# Schema: extend in place — DO NOT refactor existing affinity:/mode_weights:/peak_hours:/budget_caps:/models: keys.
+# CRITICAL: utility: block is REQUIRED — AffinityMap.from_yaml raises KeyError when missing.
+# NEVER silently fall back from utility to chat affinity (defeats cost separation).
+
+cost_thresholds:
+  cheap_usd_per_1k_output: 0.005
+  expensive_usd_per_1k_output: 0.02
+
+latency_sla_ms:
+  research:   5000
+  analysis:   4000
+  validation: 3000
+  execution:  2000
+  default:    3000
+
+utility:
+  default:
+    primary:   ["deepseek/deepseek-v4-flash"]
+    secondary: ["deepseek/deepseek-v4-flash"]
+    local:     ["ollama/llama3.2"]
+  overrides:
+    execution:
+      primary:   ["ollama/llama3.2"]
+      secondary: ["ollama/qwen2.5:14b"]
+      local:     ["ollama/llama3.2"]
+      allow_chat_models: false
+    synthesis:
+      # synthesis falls back to chat affinity routing for this task_type (preserves cost-first weights though)
+      allow_chat_models: true
+    # research, analysis, validation use utility.default

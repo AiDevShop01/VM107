@@ -72,6 +72,23 @@ class AffinityMap:
         # Plan 05's alert evaluation for agent_type + system scopes.
         self.budget_caps = raw.get("budget_caps", {"agent_types": {}, "system": {}})
 
+        # Phase 43.1: utility-path config — REQUIRED block (no silent fallback to chat affinity).
+        # Missing utility: block = error at YAML load. CONTEXT.md anti-pattern: silent fallback
+        # defeats cost separation intent.
+        self.utility_config = raw.get("utility")
+        if self.utility_config is None:
+            raise KeyError(
+                "model_routing.yaml missing required 'utility:' block — utility path cannot route. "
+                "Add utility.default chain at minimum (Phase 43.1 ROUTER-UTIL-CONFIG-01)."
+            )
+        if "default" not in self.utility_config:
+            raise KeyError(
+                "model_routing.yaml utility: block missing required 'default:' sub-block — "
+                "utility tasks have no fallback chain."
+            )
+        self.cost_thresholds = dict(raw.get("cost_thresholds") or {})
+        self._latency_sla_ms_config = dict(raw.get("latency_sla_ms") or {})
+
     @classmethod
     def from_yaml(cls, path: str) -> "AffinityMap":
         """
@@ -179,3 +196,47 @@ class AffinityMap:
     def is_stabilization_safe(self, model_id: str) -> bool:
         """Return True if model is in the stabilization_safe_models list."""
         return model_id in self.stabilization_safe
+
+    # ---- Phase 43.1 utility-path accessors ----
+
+    def utility_lookup(self, task_type: str) -> dict:
+        """Look up utility model chain for task_type.
+
+        Fallback ladder (NEVER falls through to affinity[chat] chain —
+        per CONTEXT.md anti-pattern: that defeats cost separation):
+            1. utility.overrides[task_type]  — task-specific override
+            2. utility.default               — utility default chain
+
+        Args:
+            task_type: Task type string (verbatim from TaskModel.task_type)
+
+        Returns:
+            Dict with primary/secondary/local lists and optional allow_chat_models flag.
+
+        Raises:
+            KeyError: If utility.default is missing (config error caught at load time,
+                      but also raised here for safety if config is mutated post-init).
+        """
+        overrides = self.utility_config.get("overrides", {}) or {}
+        chain = overrides.get(task_type) or self.utility_config.get("default")
+        if chain is None:
+            raise KeyError(
+                f"utility config missing 'default' block — cannot route utility task_type={task_type!r}"
+            )
+        return dict(chain)
+
+    def get_utility_latency_sla(self, task_type: str) -> int:
+        """Return utility-path latency SLA in ms for task_type.
+
+        Falls back to 'default' SLA (3000ms) for unknown task types.
+
+        Args:
+            task_type: Task type string (e.g. "execution", "research")
+
+        Returns:
+            Latency SLA in milliseconds.
+        """
+        return int(
+            self._latency_sla_ms_config.get(task_type)
+            or self._latency_sla_ms_config.get("default", 3000)
+        )
