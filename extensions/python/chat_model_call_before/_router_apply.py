@@ -75,10 +75,12 @@ class ModelRouterApply(Extension):
             return  # router didn't stash a decision; honor the default model
 
         try:
-            from models import get_chat_model, ModelType
+            from models import get_chat_model
             provider, name = _split_model_id(decision.primary)
+            # Note: get_chat_model signature is (provider, name, model_config=None, **kwargs).
+            # Passing type=ModelType.CHAT leaks into **kwargs → LiteLLM request body →
+            # "Object of type ModelType is not JSON serializable" downstream.
             new_model = get_chat_model(
-                type=ModelType.CHAT,
                 provider=provider,
                 name=name,
             )
