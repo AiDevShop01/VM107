@@ -11,6 +11,11 @@ CONTEXT.md locked order:
   7. Build {primary, fallback: [secondary, local]} chain
   8. Log decision (mandatory; write to MongoDB router_decisions + stdout)
 
+Phase 43.1 extension:
+  - decide() now branches on ctx.path ("chat" or "utility")
+  - Chat path refactored into _decide_chat() — behavior IDENTICAL to Phase 43
+  - Utility path in _decide_utility() — cost-first weights, hard drop, aggressive latency
+
 Anti-patterns (NEVER):
     - LLM-driven model selection (router is deterministic, always)
     - Per-call MongoDB queries (use Redis aggregates)
@@ -48,6 +53,10 @@ class ModelRouter:
     - Brain-mode filters (reads Brain, never writes it)
     - Time-of-day peak/off-peak schedule (YAML)
     - Latency SLA constraints
+
+    Phase 43.1: decide() branches on ctx.path:
+    - "chat"    → _decide_chat()    (Phase 43 behavior, unchanged)
+    - "utility" → _decide_utility() (cost-first weights, hard drop expensive, no off-peak boost)
 
     Constructor args:
         affinity:        Loaded AffinityMap (agent_id -> task_type -> model chain)
@@ -130,28 +139,30 @@ class ModelRouter:
         """
         Run the 8-step routing pipeline and return a model selection decision.
 
-        This is the primary entry point called by the before_main_llm_call extension.
-        The returned RoutingDecision is stored in loop_data.params_temporary and
-        applied by the chat_model_call_before extension via call_data["model"].
+        Phase 43.1: branches on ctx.path after the shared Steps 1-2 (budget gate).
+        Chat path unchanged (refactored into _decide_chat). Utility path new.
 
         Args:
             ctx: Immutable routing context (task_id, goal_id, agent_id, task_type,
-                 priority, latency_sla_ms, brain_context)
+                 priority, latency_sla_ms, brain_context, path)
 
         Returns:
             RoutingDecision with primary + fallback chain and structured reason list.
+            path field on RoutingDecision mirrors ctx.path.
         """
         t0 = time.perf_counter()
         reason: list[str] = []
 
         # -------------------------------------------------------------------
         # Step 1: Context loaded by caller (already in ctx).
+        # Phase 43.1: path tag prepended so every reason chain is self-describing.
         # -------------------------------------------------------------------
+        reason.append(f"path={ctx.path}")
         reason.append(f"task_type={ctx.task_type}")
         reason.append(f"agent={ctx.agent_id}")
 
         # -------------------------------------------------------------------
-        # Step 2: Budget gate (HARD STOP)
+        # Step 2: Budget gate (HARD STOP) — identical for both paths
         # -------------------------------------------------------------------
         if ctx.goal_id and ctx.goal_id.strip():
             allow, gate_reason = self.budget_gate.check(ctx.goal_id, ctx.priority)
@@ -178,6 +189,26 @@ class ModelRouter:
             self._log_decision(decision)
             return decision
 
+        # -------------------------------------------------------------------
+        # Steps 3-7: BRANCH on path (Phase 43.1)
+        # -------------------------------------------------------------------
+        if ctx.path == "utility":
+            return self._decide_utility(ctx, reason, force_local, t0)
+        return self._decide_chat(ctx, reason, force_local, t0)
+
+    # -----------------------------------------------------------------------
+    # Path: Chat (Phase 43 behavior — exactly preserved, extracted from decide())
+    # -----------------------------------------------------------------------
+
+    def _decide_chat(
+        self, ctx: RouterContext, reason: list[str], force_local: bool, t0: float
+    ) -> RoutingDecision:
+        """
+        Steps 3-7 for the chat path.
+
+        Extracted from Phase 43's decide() with ZERO behavior changes.
+        Mode weights from YAML, optional off-peak quality boost, stabilization hard filter.
+        """
         # -------------------------------------------------------------------
         # Step 3: Select candidates from affinity map
         # -------------------------------------------------------------------
@@ -220,7 +251,7 @@ class ModelRouter:
             reason.append(f"latency_filter:{before_lat}->{len(candidates)}")
 
         # -------------------------------------------------------------------
-        # Step 6: Peak/off-peak modifier
+        # Step 6: Peak/off-peak modifier (chat path: off-peak quality boost allowed)
         # -------------------------------------------------------------------
         peak = self.peak_schedule.is_peak()
         # Start with mode weights from affinity config
@@ -256,7 +287,6 @@ class ModelRouter:
         # -------------------------------------------------------------------
         # Step 7: Build fallback chain (score candidates, pick primary, ensure local)
         # -------------------------------------------------------------------
-        # Score and rank candidates
         scored = sorted(
             ((self._composite(m, weights), m) for m in candidates),
             key=lambda x: x[0],
@@ -309,6 +339,142 @@ class ModelRouter:
         return decision
 
     # -----------------------------------------------------------------------
+    # Path: Utility (Phase 43.1 — cost-first weights, hard drop, no off-peak boost)
+    # -----------------------------------------------------------------------
+
+    def _decide_utility(
+        self, ctx: RouterContext, reason: list[str], force_local: bool, t0: float
+    ) -> RoutingDecision:
+        """
+        Steps 3-7 for the utility path.
+
+        Key differences from _decide_chat:
+        1. Candidates from utility: YAML block (NEVER chat affinity — defeats cost separation)
+        2. allow_chat_models=true override: use chat affinity chain but WITH utility weights
+        3. HARD DROP models above cost_thresholds.expensive_usd_per_1k_output (utility-only)
+        4. Brain mode SOFT ONLY — no hard stabilization filter (utility is always cheap)
+        5. Latency filter uses ctx.latency_sla_ms (utility SLA, e.g. 2000ms for execution)
+        6. Peak: tier-shift still applies; off-peak does NOT boost quality_weight (LOCKED)
+        7. Scoring always uses FIXED {quality: 0.2, cost: 0.5, latency: 0.3} weights
+        """
+        # -------------------------------------------------------------------
+        # Step 3: Get utility candidates (from utility: YAML block)
+        # NEVER falls through to affinity[chat] — anti-pattern per CONTEXT.md
+        # -------------------------------------------------------------------
+        chain = self.affinity.utility_lookup(ctx.task_type)
+        reason.append(f"utility_{ctx.task_type}")
+
+        # Override escape hatch: allow_chat_models=true uses chat affinity chain
+        # with utility cost-first weights (preserves cost discipline)
+        if chain.get("allow_chat_models"):
+            chain = self.affinity.lookup(ctx.agent_id, ctx.task_type)
+            reason.append("allow_chat_models_override")
+
+        candidates: list[str] = []
+        for tier in ("primary", "secondary", "local"):
+            tier_models = chain.get(tier) or []
+            candidates.extend(tier_models)
+
+        # -------------------------------------------------------------------
+        # Step 3b: HARD DROP expensive models (utility-only filter, not in chat path)
+        # -------------------------------------------------------------------
+        expensive_threshold = self.affinity.cost_thresholds.get("expensive_usd_per_1k_output", 0.02)
+        before_drop = len(candidates)
+        affordable = [
+            m for m in candidates
+            if self._meta_for(m).get("cost_per_1k_output_usd", 0.0) <= expensive_threshold
+        ]
+        if not affordable:
+            # Pathological: all models expensive — force local
+            candidates = list(chain.get("local") or []) or candidates
+            reason.append("cost_filter_forced_local")
+        else:
+            candidates = affordable
+            reason.append(f"cost_filter:{before_drop}->{len(candidates)}")
+
+        # -------------------------------------------------------------------
+        # Step 4: Brain mode — SOFT ONLY for utility path
+        # Hard filter in stabilization would break execution capability.
+        # Utility is already cheap by design, so mode rarely changes selection.
+        # -------------------------------------------------------------------
+        mode = ctx.brain_context.get("mode", "exploration")
+        reason.append(f"mode={mode}_util_soft")
+
+        # -------------------------------------------------------------------
+        # Step 5: Aggressive latency filter using ctx.latency_sla_ms
+        # ctx.latency_sla_ms was set by utility hook from get_utility_latency_sla()
+        # e.g. 2000ms for execution, 3000ms for default
+        # -------------------------------------------------------------------
+        before_lat = len(candidates)
+        lat_filtered = [
+            m for m in candidates
+            if self._meta_for(m).get("latency_ms", 5000) <= ctx.latency_sla_ms
+        ]
+        # If all filtered out, relax to local tier (fastest option)
+        candidates = lat_filtered or list(chain.get("local") or []) or candidates
+        reason.append(f"latency_filter:{before_lat}->{len(candidates)}")
+
+        # -------------------------------------------------------------------
+        # Step 6: Peak modifier — tier-shift on peak; off-peak NO quality boost (LOCKED)
+        # Utility stays cost-first regardless of time of day (CONTEXT.md)
+        # -------------------------------------------------------------------
+        peak = self.peak_schedule.is_peak()
+        # FIXED cost-first weights — never use mode_weights on utility path
+        weights = {"quality": 0.2, "cost": 0.5, "latency": 0.3}
+
+        if peak:
+            # HARD tier-shift: prefer non-primary (even cheaper) during peak
+            non_primary = [c for c in candidates if self._meta_for(c).get("tier") != "primary"]
+            if non_primary:
+                candidates = non_primary
+            reason.append("peak_hard_shift")
+        else:
+            # LOCKED: off-peak does NOT boost quality_weight on utility path
+            # Utility stays cost-first regardless of clock
+            reason.append("offpeak_no_boost_utility")
+
+        # If force_local from p1_bypass_force_local, restrict to local tier only
+        if force_local:
+            local_only = [c for c in candidates if self._meta_for(c).get("tier") == "local"]
+            if not local_only:
+                local_only = list(chain.get("local") or [])
+            candidates = local_only or candidates
+            reason.append("force_local")
+
+        # -------------------------------------------------------------------
+        # Step 7: Build fallback chain with cost-first weights
+        # -------------------------------------------------------------------
+        if not candidates:
+            # Safety: nothing survived filters — use any local model
+            candidates = list(chain.get("local") or ["ollama/llama3.2"])
+
+        scored = sorted(
+            ((self._composite(m, weights), m) for m in candidates),
+            key=lambda x: x[0],
+            reverse=True,
+        )
+        ordered = [m for _, m in scored]
+
+        primary = ordered[0]
+        fallback: list[str] = ordered[1:3]  # up to 2 fallbacks
+
+        # -------------------------------------------------------------------
+        # Step 8: Log decision (MANDATORY — same MongoDB write as chat path)
+        # -------------------------------------------------------------------
+        decision = self._finalize(
+            ctx,
+            primary=primary,
+            fallback=fallback,
+            reason=reason,
+            peak=peak,
+            mode=mode,
+            force_local=force_local,
+            t0=t0,
+        )
+        self._log_decision(decision)
+        return decision
+
+    # -----------------------------------------------------------------------
     # Private helpers
     # -----------------------------------------------------------------------
 
@@ -328,7 +494,14 @@ class ModelRouter:
 
     def _select_local_only(self, ctx: RouterContext) -> list[str]:
         """Return local-tier models from affinity lookup (used for hard-stop path)."""
-        chain = self.affinity.lookup(ctx.agent_id, ctx.task_type)
+        # Use utility lookup for utility path, chat lookup for chat path
+        if ctx.path == "utility":
+            try:
+                chain = self.affinity.utility_lookup(ctx.task_type)
+            except KeyError:
+                chain = {"local": ["ollama/llama3.2"]}
+        else:
+            chain = self.affinity.lookup(ctx.agent_id, ctx.task_type)
         return list(chain.get("local", []))
 
     def _finalize(
@@ -357,6 +530,7 @@ class ModelRouter:
             peak=peak,
             mode=mode,
             force_local=force_local,
+            path=ctx.path,  # Phase 43.1: path mirrors ctx.path on every RoutingDecision
         )
 
     def _log_decision(self, decision: RoutingDecision) -> None:
