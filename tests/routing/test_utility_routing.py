@@ -660,6 +660,102 @@ class TestCostRecord:
         assert mock_agent.get_data("_util_router_pending_decision") is None
 
 
-@pytest.mark.xfail(reason="Plan 03 e2e checkpoint after VM107 rebuild")
+@pytest.mark.integration
 class TestE2E:
-    def test_utility_call_logged_with_path_utility(self): assert False
+    """E2E integration tests — require live MongoDB and Redis (run inside vm107-agent-zero container).
+
+    These tests verify that after Phase 43.1 deploy:
+      - router_decisions collection has documents with path='utility'
+      - agent_runs collection has documents with path='utility'
+      - Compound indexes (path_created_at) exist on both collections
+      - Migration 006 is recorded in migrations_applied
+
+    To run against live infra:
+        docker exec -w /a0 vm107-agent-zero python -m pytest tests/routing/test_utility_routing.py::TestE2E -x -q
+
+    These tests are skipped when MONGODB_URI is not available (unit test environments).
+    They are NOT marked xfail — after Plan 03 container rebuild they should pass once a
+    utility call has been triggered via the VM107 UI.
+    """
+
+    def test_migration_006_applied(self):
+        """Migration 006 recorded in migrations_applied collection."""
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            pytest.skip("MONGODB_URI not set — skipping live e2e test")
+        try:
+            import pymongo
+        except ImportError:
+            pytest.skip("pymongo not installed")
+
+        c = pymongo.MongoClient(mongo_uri)
+        record = c["fingpt_agents"]["migrations_applied"].find_one({"_id": "006_router_path_field"})
+        assert record is not None, "Migration 006 not found in migrations_applied"
+        assert record.get("phase") == "43.1", f"Unexpected phase: {record.get('phase')}"
+
+    def test_path_created_at_index_on_router_decisions(self):
+        """path_created_at compound index exists on router_decisions."""
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            pytest.skip("MONGODB_URI not set — skipping live e2e test")
+        try:
+            import pymongo
+        except ImportError:
+            pytest.skip("pymongo not installed")
+
+        c = pymongo.MongoClient(mongo_uri)
+        idx_names = {i["name"] for i in c["fingpt_agents"]["router_decisions"].list_indexes()}
+        assert "path_created_at" in idx_names, f"path_created_at index missing; found: {idx_names}"
+
+    def test_path_created_at_index_on_agent_runs(self):
+        """path_created_at compound index exists on agent_runs."""
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            pytest.skip("MONGODB_URI not set — skipping live e2e test")
+        try:
+            import pymongo
+        except ImportError:
+            pytest.skip("pymongo not installed")
+
+        c = pymongo.MongoClient(mongo_uri)
+        idx_names = {i["name"] for i in c["fingpt_agents"]["agent_runs"].list_indexes()}
+        assert "path_created_at" in idx_names, f"path_created_at index missing; found: {idx_names}"
+
+    def test_utility_call_logged_with_path_utility(self):
+        """At least one router_decisions document has path='utility' after UI trigger.
+
+        Run AFTER triggering a utility call via VM107 UI (chat compaction, memory
+        summarization, sub-task, etc). Fails if no utility calls have been made yet.
+        """
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            pytest.skip("MONGODB_URI not set — skipping live e2e test")
+        try:
+            import pymongo
+        except ImportError:
+            pytest.skip("pymongo not installed")
+
+        c = pymongo.MongoClient(mongo_uri)
+        count = c["fingpt_agents"]["router_decisions"].count_documents({"path": "utility"})
+        assert count > 0, (
+            "No utility-path router_decisions found. "
+            "Trigger a utility call via VM107 UI (chat compaction, memory summarization, or sub-task) "
+            "then re-run this test."
+        )
+
+    def test_utility_cost_record_persisted(self):
+        """At least one agent_runs document has path='utility' after UI trigger."""
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            pytest.skip("MONGODB_URI not set — skipping live e2e test")
+        try:
+            import pymongo
+        except ImportError:
+            pytest.skip("pymongo not installed")
+
+        c = pymongo.MongoClient(mongo_uri)
+        count = c["fingpt_agents"]["agent_runs"].count_documents({"path": "utility"})
+        assert count > 0, (
+            "No utility-path agent_runs found. "
+            "Trigger a utility call via VM107 UI then re-run this test."
+        )
