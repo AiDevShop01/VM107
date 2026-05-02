@@ -111,8 +111,11 @@ class ModelRouterLogCost(Extension):
         try:
             mongo = self.agent.get_data("mongo_client")
             if mongo is not None:
+                import uuid as _uuid
                 mongo.fingpt_agents.agent_runs.insert_one(
                     {
+                        "_id": str(_uuid.uuid4()),
+                        "schema_version": 1,
                         **record.model_dump(mode="python"),
                         "created_at": datetime.now(timezone.utc),
                     }

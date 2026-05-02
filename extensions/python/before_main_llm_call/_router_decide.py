@@ -102,6 +102,11 @@ def _build_router_context(agent):
         ec_task_id = "unknown"
 
     task_id = ctx_data.get("task_id", ec_task_id)
+    # UI-driven calls have no scheduler task_id; generate a unique one per call so
+    # the unique index on router_decisions.task_id doesn't reject repeat conversations.
+    if task_id == "unknown":
+        import uuid as _uuid
+        task_id = f"ui-{_uuid.uuid4().hex[:12]}"
     # Brain context: set by Phase 42 brain integration on agent.data; empty dict = exploration default
     brain_ctx = agent.get_data("brain_context") or {}
 

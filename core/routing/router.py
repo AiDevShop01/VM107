@@ -370,8 +370,10 @@ class ModelRouter:
         self.log.info(json.dumps({"event": "router_decision", **payload}))
         if self.mongo is not None:
             try:
+                import uuid as _uuid
                 self.mongo.fingpt_agents.router_decisions.insert_one(
                     {
+                        "_id": str(_uuid.uuid4()),
                         **decision.model_dump(mode="python"),
                         "created_at": datetime.now(timezone.utc),
                     }

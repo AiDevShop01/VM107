@@ -198,8 +198,12 @@ class AlertPipeline:
 
         # Sink 2: MongoDB router_alerts (always)
         try:
+            import uuid as _uuid
             self.mongo.fingpt_agents.router_alerts.insert_one(
-                event.model_dump(mode="python")
+                {
+                    "_id": str(_uuid.uuid4()),
+                    **event.model_dump(mode="python"),
+                }
             )
             sinks.append("mongo")
         except Exception as exc:
