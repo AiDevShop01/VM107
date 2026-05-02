@@ -104,7 +104,8 @@ def _build_router_context(agent):
     task_id = ctx_data.get("task_id", ec_task_id)
     # UI-driven calls have no scheduler task_id; generate a unique one per call so
     # the unique index on router_decisions.task_id doesn't reject repeat conversations.
-    if task_id == "unknown":
+    # Treat empty string and "unknown" both as "no scheduler task".
+    if not task_id or task_id == "unknown":
         import uuid as _uuid
         task_id = f"ui-{_uuid.uuid4().hex[:12]}"
     # Brain context: set by Phase 42 brain integration on agent.data; empty dict = exploration default
@@ -141,6 +142,12 @@ class ModelRouterSelect(Extension):
             ctx = _build_router_context(self.agent)
             decision = router.decide(ctx)
             loop_data.params_temporary["router_decision"] = decision
+            # Also stash on agent.data because chat_model_call_before /
+            # chat_model_call_after hooks DON'T receive loop_data (agent.py:817, 832
+            # only pass call_data). Without this, apply + log_cost no-op.
+            self.agent.set_data("_router_pending_decision", decision)
+            import time
+            self.agent.set_data("_router_call_start_ms", time.time() * 1000)
         except Exception as e:
             log.error(
                 json.dumps({"event": "router_decide_failed", "error": str(e)})

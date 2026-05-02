@@ -67,6 +67,10 @@ class ModelRouterApply(Extension):
             return
 
         decision = loop_data.params_temporary.get("router_decision")
+        # Fallback: chat_model_call_before doesn't receive loop_data from agent.py:817,
+        # so the loop_data above is the empty default LoopData(). Read from agent.data.
+        if decision is None:
+            decision = self.agent.get_data("_router_pending_decision")
         if decision is None:
             return  # router didn't stash a decision; honor the default model
 

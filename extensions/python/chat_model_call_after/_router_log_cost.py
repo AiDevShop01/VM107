@@ -61,8 +61,15 @@ class ModelRouterLogCost(Extension):
         decision = (
             loop_data.params_temporary.get("router_decision") if loop_data else None
         )
+        # Fallback: chat_model_call_after doesn't receive loop_data from agent.py:832,
+        # so the loop_data above is the empty default LoopData(). Read from agent.data.
+        if decision is None:
+            decision = self.agent.get_data("_router_pending_decision")
         if decision is None:
             return  # router was not active for this call
+        # Clear the pending decision so a subsequent call doesn't reuse this one
+        # if for any reason _router_decide.py doesn't stash a new decision.
+        self.agent.set_data("_router_pending_decision", None)
 
         router = self.agent.get_data("model_router")
         if router is None:
@@ -76,7 +83,9 @@ class ModelRouterLogCost(Extension):
         # ----------------------------------------------------------------
         # Token + cost estimation (tiktoken estimate, follows Phase 38 pattern)
         # ----------------------------------------------------------------
-        call_start = loop_data.params_temporary.get("_router_call_start_ms", 0) if loop_data else 0
+        call_start = (loop_data.params_temporary.get("_router_call_start_ms", 0) if loop_data else 0) \
+            or self.agent.get_data("_router_call_start_ms") \
+            or 0
         latency_ms = int((time.time() * 1000) - call_start) if call_start else 0
 
         try:
