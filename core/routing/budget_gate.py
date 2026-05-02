@@ -308,18 +308,19 @@ class BudgetGate:
         Returns updated goal aggregate (hgetall of the goal key after increment).
         """
         try:
-            # Redis goal aggregate
-            gkey = REDIS_KEY_GOAL.format(goal_id=goal_id)
-            self.redis.hincrbyfloat(gkey, "spent_usd", cost_usd)
-            self.redis.expire(gkey, REDIS_TTL_SECONDS)
+            # Redis goal aggregate (only when a goal context exists)
+            if goal_id:
+                gkey = REDIS_KEY_GOAL.format(goal_id=goal_id)
+                self.redis.hincrbyfloat(gkey, "spent_usd", cost_usd)
+                self.redis.expire(gkey, REDIS_TTL_SECONDS)
 
-            # Redis agent_type aggregate
+            # Redis agent_type aggregate (always — applies to UI calls too)
             akey = REDIS_KEY_AGENT.format(agent_type=agent_type)
             self.redis.hincrbyfloat(akey, "spent_usd", cost_usd)
             self.redis.hset(akey, mapping={"date": _today_iso()})
             self.redis.expire(akey, REDIS_TTL_SECONDS)
 
-            # Redis system aggregate
+            # Redis system aggregate (always)
             self.redis.hincrbyfloat(REDIS_KEY_SYSTEM, "spent_usd", cost_usd)
             self.redis.hset(REDIS_KEY_SYSTEM, mapping={"date": _today_iso()})
             self.redis.expire(REDIS_KEY_SYSTEM, REDIS_TTL_SECONDS)
@@ -330,20 +331,21 @@ class BudgetGate:
                 "error": str(e),
             }))
 
-        # Mongo write-through
-        try:
-            self.mongo.fingpt_agents.agent_goals.update_one(
-                {"goal_id": goal_id},
-                {"$inc": {"budget_spent_today": cost_usd}},
-            )
-        except Exception as e:
-            self.log.warning(json.dumps({
-                "event": "increment_spend_mongo_error",
-                "goal_id": goal_id,
-                "error": str(e),
-            }))
+        # Mongo write-through (only when goal context exists — else there's no doc to update)
+        if goal_id:
+            try:
+                self.mongo.fingpt_agents.agent_goals.update_one(
+                    {"goal_id": goal_id},
+                    {"$inc": {"budget_spent_today": cost_usd}},
+                )
+            except Exception as e:
+                self.log.warning(json.dumps({
+                    "event": "increment_spend_mongo_error",
+                    "goal_id": goal_id,
+                    "error": str(e),
+                }))
 
-        return self._hgetall_str(REDIS_KEY_GOAL.format(goal_id=goal_id))
+        return self._hgetall_str(REDIS_KEY_GOAL.format(goal_id=goal_id)) if goal_id else {}
 
     # ---- Aggregate getters (consumed by Plan 05's multi-scope alert evaluation) ----
 

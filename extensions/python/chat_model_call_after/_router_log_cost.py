@@ -145,10 +145,9 @@ class ModelRouterLogCost(Extension):
 
             # increment_spend touches goal + agent_type + system Redis keys in one call;
             # returns the updated goal aggregate HGETALL for immediate threshold evaluation.
-            if goal_id:
-                updated_goal = router.budget_gate.increment_spend(goal_id, agent_id, cost_usd)
-            else:
-                updated_goal = {}
+            # Always call it — agent_type + system aggregates apply even for goal-less UI
+            # calls; budget_gate.increment_spend handles empty goal_id gracefully.
+            updated_goal = router.budget_gate.increment_spend(goal_id, agent_id, cost_usd)
 
             # ----- Scope 1: per-goal -----
             # max_usd comes from the goal document (warmed into Redis by BudgetGate._warm_from_mongo).
