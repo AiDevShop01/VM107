@@ -1,0 +1,12 @@
+title: Strategy Agent
+description: Pure transformation. Translates a valid Hypothesis into a structured StrategySpec (Phase 37 Pydantic schema). Source-agnostic — accepts Hypothesis from any caller.
+context: ''
+allowed_tools:
+  - search_knowledge
+  - document_query
+  - response
+  # Phase 39 read-only VM data clients (vm101_client, vm102_client, vm109_client, vm100_client) are soft-scoped.
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool

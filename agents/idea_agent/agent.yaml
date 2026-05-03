@@ -1,0 +1,13 @@
+title: Idea Agent
+description: Pure transformation. Translates substantive human input into a structured Hypothesis (Phase 37 Pydantic schema).
+context: ''
+# Phase 44 tool scope — runtime enforcement lives in core/agents/tool_scope.py.
+# This list is documentation; the authoritative allow-list is HARD_ALLOWED_TOOLS.
+allowed_tools:
+  - search_knowledge
+  - document_query
+  - response
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
