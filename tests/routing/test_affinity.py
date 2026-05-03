@@ -105,14 +105,12 @@ def test_local_tier_always_present():
             assert chain["local"], f"affinity[{agent_id}][{tt}].local is empty"
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-02 (affinity blocks not yet added)", strict=False)
 def test_new_agent_blocks():
     """
     idea_agent and strategy_agent blocks exist in affinity map and resolve
     without falling back to default.
 
-    After Plan 44-02 Task 3 adds these blocks to conf/model_routing.yaml,
-    this test graduates from xfail to a concrete pass.
+    Graduates from xfail (Plan 44-01 stub) to concrete pass (Plan 44-02 Task 3).
 
     Verification:
     - am.affinity["idea_agent"] key exists
@@ -130,6 +128,24 @@ def test_new_agent_blocks():
     assert set(strat_chain.keys()) == {"primary", "secondary", "local"}
     assert idea_chain["local"]
     assert strat_chain["local"]
+    # Both should resolve to DeepSeek Flash (Phase 44 initial pin)
+    assert idea_chain["primary"] == ["deepseek/deepseek-v4-flash"]
+    assert strat_chain["primary"] == ["deepseek/deepseek-v4-flash"]
+
+
+def test_budget_caps_for_new_agents():
+    """
+    idea_agent and strategy_agent budget_caps entries exist with correct max_usd_per_day.
+
+    Plan 44-02 Task 3 adds these entries to conf/model_routing.yaml budget_caps.
+    """
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    assert am.budget_caps["agent_types"]["idea_agent"]["max_usd_per_day"] == 2.00
+    assert am.budget_caps["agent_types"]["strategy_agent"]["max_usd_per_day"] == 2.00
+    # Existing entries unchanged
+    assert am.budget_caps["agent_types"]["agent_zero"]["max_usd_per_day"] == 5.00
+    assert am.budget_caps["agent_types"]["default"]["max_usd_per_day"] == 1.00
+    assert am.budget_caps["system"]["max_usd_per_day"] == 50.00
 
 
 def test_budget_caps_loaded():

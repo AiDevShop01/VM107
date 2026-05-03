@@ -39,8 +39,10 @@ mode_weights:
 # Per-goal caps live on the goal document (budget_max_cost_usd) — NOT here.
 budget_caps:
   agent_types:
-    agent_zero: {max_usd_per_day: 5.00}
-    default:    {max_usd_per_day: 1.00}
+    agent_zero:     {max_usd_per_day: 5.00}
+    idea_agent:     {max_usd_per_day: 2.00}   # Phase 44 — cheap model pin, low initial cap
+    strategy_agent: {max_usd_per_day: 2.00}   # Phase 44 — may raise if VM clients amplify cost
+    default:        {max_usd_per_day: 1.00}
   system:
     max_usd_per_day: 50.00
 
@@ -135,6 +137,39 @@ affinity:
       primary:   ["deepseek/deepseek-v4-flash"]
       secondary: ["deepseek/deepseek-v4-flash"]
       local:     ["deepseek/deepseek-v4-flash"]
+  # Phase 44 — Idea Agent. Pure transformation: text -> Hypothesis.
+  # All tiers pinned to DeepSeek Flash (only active cloud LLM 2026-05-03).
+  # Quality upgrade deferred until cost/quality data justifies switching to Anthropic/OpenAI.
+  idea_agent:
+    chat:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    utility:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    default:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+
+  # Phase 44 — Strategy Agent. Pure transformation: Hypothesis -> StrategySpec.
+  # All tiers pinned to DeepSeek Flash (same rationale as idea_agent).
+  strategy_agent:
+    chat:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    utility:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    default:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+
   # Phase 43.2 — production canary for failover infrastructure.
   # Primary is intentionally unreachable (DNS NXDOMAIN); secondary MUST succeed via fallback.
   # Schedule: daily 03:00 Australia/Perth (Dagster canary_failover_check asset — Plan 04).
