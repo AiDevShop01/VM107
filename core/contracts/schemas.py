@@ -11,7 +11,7 @@ Defines the 5 core agent output types:
 Plus the A2AMessage envelope for agent-to-agent communication.
 """
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
@@ -28,11 +28,17 @@ class Hypothesis(BaseContract):
 
     Represents a testable market hypothesis with associated variables
     and confidence level.
+
+    Phase 44 additions (additive — backward-compat defaults):
+    - source_envelope_id: Optional[str] — provenance link to Idea Agent envelope
+    - schema_version: int — strict version checking per CONTEXT.md § A2A Envelope Structure
     """
 
     hypothesis: str = Field(..., min_length=10)
     variables: list[str] = Field(..., min_length=1)
     confidence: float = Field(..., ge=0.0, le=1.0)
+    source_envelope_id: Optional[str] = None
+    schema_version: int = 1
 
     @field_validator("hypothesis")
     @classmethod
@@ -56,6 +62,9 @@ class StrategySpec(BaseContract):
     Strategy specification from Strategy Agent.
 
     Defines a trading strategy with features, rules, timeframes, and version.
+
+    Phase 44 additions (additive — backward-compat defaults):
+    - schema_version: int — strict version checking per CONTEXT.md § A2A Envelope Structure
     """
 
     name: str
@@ -63,6 +72,7 @@ class StrategySpec(BaseContract):
     rules: list[str] = Field(..., min_length=1)
     timeframes: list[str] = Field(..., min_length=1)
     version: str
+    schema_version: int = 1
 
 
 class CodeModule(BaseContract):
