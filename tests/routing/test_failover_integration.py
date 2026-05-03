@@ -1,9 +1,16 @@
 """Phase 43.2 Plan 04 — execute_with_fallback integration test.
 
-Real LiteLLM call: primary=http://127.0.0.1:1 (deterministic ConnectionError immediately),
+Real LiteLLM call: primary=openai/canary-primary with api_base=http://127.0.0.1:1
+(connection refused -> real InternalServerError -> RETRYABLE -> failover fires),
 secondary=deepseek/deepseek-v4-flash (real call). Validates ALL FOUR layers + the
 a0_retry_attempts=0 keyword forwarding chain (Plan 02 forwards via **call_kwargs which IS
 correct — this test proves it end-to-end before the canary depends on it).
+
+Key design choices:
+  - primary uses openai/ prefix so LiteLLM attempts a real HTTP call (not BadRequestError).
+    api_base=http://127.0.0.1:1 causes connection refused -> InternalServerError (RETRYABLE).
+  - secondary uses DEEPSEEK_API_KEY from env to make a real API call.
+  - api_key injected per-model in call_fn closure to bypass ModelConfig path.
 """
 
 from __future__ import annotations
@@ -25,12 +32,14 @@ class TestE2EUnreachable:
         reason="Requires DEEPSEEK_API_KEY env var for real fallback model call",
     )
     @pytest.mark.asyncio
-    async def test_unreachable_primary_real_fallover(self, capfd):
-        """Configure primary=http://127.0.0.1:1, secondary=deepseek/deepseek-v4-flash.
-        Real LiteLLM acompletion call -> real ConnectionError -> real failover.
+    async def test_unreachable_primary_real_fallover(self, capfd, caplog):
+        """Configure primary=openai/canary-primary with api_base=http://127.0.0.1:1,
+        secondary=deepseek/deepseek-v4-flash.
+        Real LiteLLM acompletion call -> real connection refused -> InternalServerError
+        (RETRYABLE) -> real failover.
         Asserts ALL FOUR layers:
-          1. Execution: secondary actually invoked (response != error)
-          2. Reason chain: ['primary_failed:...', 'fallback_to:deepseek-v4-flash', 'completed:deepseek-v4-flash']
+          1. Execution: secondary actually invoked (response is non-empty)
+          2. Reason chain: ['primary_failed:InternalServerError', 'fallback_to:deepseek/...', 'completed:deepseek/...']
           3. agent.data stash: model=deepseek/deepseek-v4-flash, chain_index=1, fallback_used=True
           4. Stdout logs: 'model_failure' and 'model_success' events present
 
@@ -44,7 +53,7 @@ class TestE2EUnreachable:
         from models import LiteLLMChatWrapper
 
         # Construct a real LiteLLMChatWrapper instance.
-        # Constructor signature: LiteLLMChatWrapper(model, provider, model_config=None, **kwargs)
+        # Constructor signature: LiteLLMChatWrapper(model, provider, model_config=None)
         # It sets model_name = f"{provider}/{model}"; failover will swap model_name via setattr.
         wrapper = LiteLLMChatWrapper(
             model="canary-primary",
@@ -52,30 +61,47 @@ class TestE2EUnreachable:
             model_config=None,
         )
 
+        deepseek_api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+
         decision = RoutingDecision(
             task_id="integration-test-1",
             goal_id="integration-test",
             agent_id="test_agent",
             task_type="validation",
-            primary="http://127.0.0.1:1/v1/chat",
+            primary="openai/canary-primary",
             fallback=["deepseek/deepseek-v4-flash"],
             reason=[],
             decision_time_ms=0.0,
-            selected_model="http://127.0.0.1:1/v1/chat",
+            selected_model="openai/canary-primary",
             force_local=False,
             path="chat",
         )
 
         agent_data: dict = {}
 
+        # Set caplog level to INFO to capture model_success events (logged at INFO level).
+        # model_failure is at WARNING, model_success is at INFO — both need to be captured.
+        import logging
+        caplog.set_level(logging.INFO, logger="router.failover")
+
         # call_fn closure — forwards **kwargs to wrapper.unified_call.
         # CRITICAL: a0_retry_attempts=0 must flow through here exactly once.
         # The wrapper accepts **kwargs so it flows through cleanly.
+        # Per-model kwargs injection:
+        #   - primary (canary-primary): api_base=http://127.0.0.1:1 -> connection refused
+        #     -> InternalServerError (RETRYABLE) -> failover fires
+        #   - secondary (deepseek): api_key from env
         async def call_fn(**kwargs):
+            call_kw = dict(kwargs)
+            if "canary-primary" in wrapper.model_name:
+                call_kw["api_base"] = "http://127.0.0.1:1"
+                call_kw["api_key"] = "canary-invalid-key"
+            elif "deepseek" in wrapper.model_name and deepseek_api_key:
+                call_kw.setdefault("api_key", deepseek_api_key)
             return await wrapper.unified_call(
                 system_message="",
                 user_message="Reply with exactly: ok",
-                **kwargs,
+                **call_kw,
             )
 
         # Execute via failover wrapper with timeout to prevent CI hang.
@@ -90,7 +116,7 @@ class TestE2EUnreachable:
                 set_model_name=lambda m: setattr(wrapper, "model_name", m),
                 agent_data=agent_data,
                 decision_id="integration-test-1",
-                a0_retry_attempts=0,           # MUST forward cleanly through call_fn -> unified_call
+                a0_retry_attempts=0,  # MUST forward cleanly through call_fn -> unified_call
             ),
             timeout=30,
         )
@@ -126,14 +152,18 @@ class TestE2EUnreachable:
             f"actual model should be deepseek: {result_stash}"
         )
 
-        # ===== Layer 4: Stdout structured logs =====
+        # ===== Layer 4: Structured log events (model_failure + model_success) =====
+        # failover_executor.py uses Python logging (log.warning / log.info) with
+        # json.dumps payloads. In production, these are captured by the container log
+        # driver. In tests, pytest captures them via the logging plugin (caplog).
+        # We combine stdout/stderr (capfd) and caplog.text to ensure we catch both paths.
         captured = capfd.readouterr()
-        combined = captured.out + captured.err
+        combined = captured.out + captured.err + caplog.text
         assert '"event": "model_failure"' in combined, (
-            f"Missing model_failure stdout event. Output: {combined[:500]}"
+            f"Missing model_failure structured log event. Combined output: {combined[:800]}"
         )
         assert '"event": "model_success"' in combined, (
-            f"Missing model_success stdout event. Output: {combined[:500]}"
+            f"Missing model_success structured log event. Combined output: {combined[:800]}"
         )
 
         # ===== EXTRA: a0_retry_attempts forwarding sanity =====

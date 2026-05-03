@@ -141,7 +141,10 @@ affinity:
   # Field names MUST match AffinityMap.lookup() iteration: ('primary', 'secondary', 'local').
   canary_agent:
     validation:
-      primary:   ["http://invalid.example/v1/chat"]
+      # primary uses openai/ prefix so LiteLLM attempts a real HTTP call (not BadRequestError).
+      # The canary script overrides api_base to http://127.0.0.1:1 (port 1 = connection refused)
+      # which produces a real APIConnectionError — a RETRYABLE error that fires failover.
+      primary:   ["openai/canary-probe"]
       secondary: ["deepseek/deepseek-v4-flash"]
       local:     ["deepseek/deepseek-v4-flash"]
 
