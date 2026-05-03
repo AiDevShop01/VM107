@@ -105,6 +105,33 @@ def test_local_tier_always_present():
             assert chain["local"], f"affinity[{agent_id}][{tt}].local is empty"
 
 
+@pytest.mark.xfail(reason="Implementation pending in Plan 44-02 (affinity blocks not yet added)", strict=False)
+def test_new_agent_blocks():
+    """
+    idea_agent and strategy_agent blocks exist in affinity map and resolve
+    without falling back to default.
+
+    After Plan 44-02 Task 3 adds these blocks to conf/model_routing.yaml,
+    this test graduates from xfail to a concrete pass.
+
+    Verification:
+    - am.affinity["idea_agent"] key exists
+    - am.affinity["strategy_agent"] key exists
+    - lookup("idea_agent", "default") resolves to a chain, not the global default
+    - lookup("strategy_agent", "default") resolves to a chain, not the global default
+    """
+    am = AffinityMap.from_yaml(str(YAML_PATH))
+    assert "idea_agent" in am.affinity, "idea_agent block missing from model_routing.yaml"
+    assert "strategy_agent" in am.affinity, "strategy_agent block missing from model_routing.yaml"
+    # Lookups should succeed and return a valid chain shape
+    idea_chain = am.lookup("idea_agent", "default")
+    strat_chain = am.lookup("strategy_agent", "default")
+    assert set(idea_chain.keys()) == {"primary", "secondary", "local"}
+    assert set(strat_chain.keys()) == {"primary", "secondary", "local"}
+    assert idea_chain["local"]
+    assert strat_chain["local"]
+
+
 def test_budget_caps_loaded():
     """budget_caps block is loaded from YAML and values match locked spec."""
     am = AffinityMap.from_yaml(str(YAML_PATH))
