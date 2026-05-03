@@ -4,6 +4,15 @@ Reads stashed RoutingDecision from loop_data.params_temporary, mutates
 call_data["model"] to the chosen LiteLLMChatWrapper instance, and attaches
 the fallback chain to call_data for reference by other extensions.
 
+Phase 43.2 extension: monkey-patches call_data["model"].unified_call with
+execute_with_fallback wrapper so the fallback chain is ACTUALLY executed on
+retryable errors (previously it was decoration only).
+
+Wire-site (confirmed Plan 01 agent.py:821 inspection):
+  call_data["model"].unified_call(...) is the call site in agent.py.
+  Replacing this method on the instance is safe — LiteLLMChatWrapper has
+  model_config = ConfigDict(extra="allow", validate_assignment=False).
+
 RESEARCH.md Open Question 2 — RESOLVED:
   LiteLLMChatWrapper.unified_call() does NOT accept a fallbacks= kwarg. It
   constructs its own acompletion() call with a custom retry loop (see models.py
@@ -11,10 +20,7 @@ RESEARCH.md Open Question 2 — RESOLVED:
   through unified_call(). Therefore:
   - We mutate call_data["model"] to the primary LiteLLMChatWrapper.
   - We attach call_data["router_fallback_chain"] with the ordered model IDs.
-  - Provider-level failover relies on LiteLLM's existing retry (max_retries
-    from a0_retry_attempts env/config). The router's secondary/local models
-    serve as a semantic fallback — future work can wire explicit multi-model
-    retry if provider failover proves insufficient.
+  - Phase 43.2 wires execute_with_fallback monkey-patch for actual failover.
   - This is documented in 43-05-SUMMARY.md under LiteLLM Fallback API Finding.
 
 Graceful no-op when:
@@ -22,6 +28,7 @@ Graceful no-op when:
   - self.agent is None
   - router_decision not in params_temporary (router skipped / init failed)
   - get_chat_model() raises (unknown provider/model: log, skip swap)
+  - call_data["model"] is not LiteLLMChatWrapper (failover skipped with warning)
 """
 import json
 import logging
@@ -97,6 +104,65 @@ class ModelRouterApply(Extension):
                     }
                 )
             )
+
+            # ----------------------------------------------------------------
+            # Phase 43.2: Install execute_with_fallback monkey-patch.
+            #
+            # Replace call_data["model"].unified_call with a wrapper that
+            # iterates [primary] + fallback chain on retryable errors.
+            #
+            # Wire-site confirmed: agent.py:821 calls
+            #   call_data["model"].unified_call(messages=..., ...)
+            # Replacing the method on the instance is safe (extra="allow").
+            #
+            # CRITICAL: wrapper forces a0_retry_attempts=0 to disable Agent Zero's
+            # internal retry loop (models.py:508). Otherwise: 3 chain × 3 internal
+            # retries = 9 LLM calls instead of 3 (Pitfall 1 from RESEARCH.md).
+            # ----------------------------------------------------------------
+            try:
+                from models import LiteLLMChatWrapper
+                if isinstance(call_data["model"], LiteLLMChatWrapper):
+                    from core.routing.failover_executor import execute_with_fallback
+                    chain = [decision.primary] + (decision.fallback or [])
+                    original_unified_call = call_data["model"].unified_call
+                    wrapper_instance = call_data["model"]
+                    agent_ref = self.agent
+                    decision_ref = decision
+
+                    async def _failover_unified_call(**kw):
+                        # Force a0_retry_attempts=0 — disables Agent Zero internal retry (Pitfall 1)
+                        kw["a0_retry_attempts"] = 0
+                        return await execute_with_fallback(
+                            call_fn=original_unified_call,
+                            chain=chain,
+                            decision=decision_ref,
+                            set_model_name=lambda m: setattr(wrapper_instance, "model_name", m),
+                            agent_data=agent_ref.data if agent_ref else None,
+                            decision_id=getattr(decision_ref, "task_id", ""),
+                            **kw,
+                        )
+
+                    call_data["model"].unified_call = _failover_unified_call
+                    log.debug(json.dumps({
+                        "event": "router_failover_patch_installed",
+                        "chain": chain,
+                        "task_id": decision.task_id,
+                    }))
+                else:
+                    # Type guard: unexpected model type — skip failover, log warning
+                    log.warning(json.dumps({
+                        "event": "router_failover_skipped",
+                        "reason": "call_data['model'] is not LiteLLMChatWrapper",
+                        "actual_type": type(call_data["model"]).__name__,
+                    }))
+            except Exception as patch_err:
+                # Failover patch failure is non-fatal: agent falls back to default model
+                # (the call_data["model"] swap already happened above)
+                log.warning(json.dumps({
+                    "event": "router_failover_patch_error",
+                    "error": str(patch_err),
+                }))
+
         except Exception as e:
             log.error(
                 json.dumps(

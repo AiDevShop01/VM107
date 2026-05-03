@@ -100,17 +100,44 @@ class ModelRouterLogCost(Extension):
             tokens, cost_usd = 0, 0.0
 
         # ----------------------------------------------------------------
+        # Phase 43.2: Read failover result from agent.data cross-hook carrier.
+        #
+        # execute_with_fallback stashes {model, chain_index, fallback_used, attempt_count}
+        # on success. If present, use the ACTUAL model called (not decision.primary).
+        # If absent (failover wrapper not installed or primary succeeded in legacy mode),
+        # default to decision.primary with chain_index=0, fallback_used=False.
+        # Clear the stash after reading to prevent bleed between calls.
+        # ----------------------------------------------------------------
+        failover_result = self.agent.get_data("_router_failover_result")
+        if failover_result:
+            actual_model = failover_result.get("model", decision.primary)
+            chain_index = failover_result.get("chain_index", 0)
+            fallback_used = failover_result.get("fallback_used", False)
+            attempt_count = failover_result.get("attempt_count", 1)
+            # Clear carrier so subsequent calls don't reuse stale result
+            self.agent.set_data("_router_failover_result", None)
+        else:
+            # Legacy path (failover wrapper not installed) or primary succeeded with no stash
+            actual_model = decision.primary
+            chain_index = 0
+            fallback_used = False
+            attempt_count = 1
+
+        # ----------------------------------------------------------------
         # Build CostRecord
         # ----------------------------------------------------------------
         from core.routing.schemas import CostRecord
         record = CostRecord(
             task_id=task_id,
-            model=decision.primary,
+            model=actual_model,           # Phase 43.2: ACTUAL model called (not decision.primary)
             tokens=tokens,
             cost_usd=cost_usd,
             latency_ms=latency_ms,
             goal_id=goal_id,
             agent_id=agent_id,
+            chain_index=chain_index,      # Phase 43.2: 0 = primary, N = Nth fallback
+            fallback_used=fallback_used,  # Phase 43.2: True iff chain_index > 0
+            attempt_count=attempt_count,  # Phase 43.2: total attempts made
         )
         log.info(json.dumps({"event": "router_cost_record", **record.model_dump(mode="json")}))
 

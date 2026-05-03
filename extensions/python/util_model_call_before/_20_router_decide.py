@@ -161,6 +161,72 @@ class UtilModelRouterDecide(Extension):
                         heading=f"util_router_apply_failed: could not set model_name={decision.primary!r}: {e}"
                     )
 
+            # ----------------------------------------------------------------
+            # Phase 43.2: Install execute_with_fallback monkey-patch (utility path).
+            #
+            # Same pattern as chat-side _router_apply.py. Replaces
+            # call_data["model"].unified_call with a wrapper that iterates
+            # [primary] + fallback chain on retryable errors.
+            #
+            # Wire-site: agent.py calls call_data["model"].unified_call(...)
+            # for utility calls too — same wire-site, same monkey-patch approach.
+            #
+            # CRITICAL: wrapper forces a0_retry_attempts=0 to disable Agent Zero's
+            # internal retry loop (models.py:508). Pitfall 1 prevention.
+            # ----------------------------------------------------------------
+            try:
+                from models import LiteLLMChatWrapper
+                import json as _json
+                import logging as _logging
+                _log = _logging.getLogger("router.util_model_call_before")
+
+                if isinstance(call_data["model"], LiteLLMChatWrapper):
+                    from core.routing.failover_executor import execute_with_fallback
+                    chain = [decision.primary] + (decision.fallback or [])
+                    original_unified_call = call_data["model"].unified_call
+                    wrapper_instance = call_data["model"]
+                    agent_ref = self.agent
+                    decision_ref = decision
+
+                    async def _util_failover_unified_call(**kw):
+                        # Force a0_retry_attempts=0 — disables Agent Zero internal retry (Pitfall 1)
+                        kw["a0_retry_attempts"] = 0
+                        return await execute_with_fallback(
+                            call_fn=original_unified_call,
+                            chain=chain,
+                            decision=decision_ref,
+                            set_model_name=lambda m: setattr(wrapper_instance, "model_name", m),
+                            agent_data=agent_ref.data if agent_ref else None,
+                            decision_id=getattr(decision_ref, "task_id", ""),
+                            **kw,
+                        )
+
+                    call_data["model"].unified_call = _util_failover_unified_call
+                    _log.debug(_json.dumps({
+                        "event": "router_failover_patch_installed",
+                        "path": "utility",
+                        "chain": chain,
+                        "task_id": decision.task_id,
+                    }))
+                else:
+                    # Type guard: unexpected model type — skip failover, log warning
+                    import json as _json2
+                    import logging as _logging2
+                    _log2 = _logging2.getLogger("router.util_model_call_before")
+                    _log2.warning(_json2.dumps({
+                        "event": "router_failover_skipped",
+                        "path": "utility",
+                        "reason": "call_data['model'] is not LiteLLMChatWrapper",
+                        "actual_type": type(call_data["model"]).__name__,
+                    }))
+            except Exception as patch_err:
+                # Failover patch failure is non-fatal: agent continues without failover
+                if hasattr(self.agent, "log") and hasattr(self.agent.log, "log"):
+                    self.agent.log.log(
+                        type="warning",
+                        heading=f"util_router_failover_patch_error: {patch_err}"
+                    )
+
         # Stash decision + start time for util_model_call_after
         # (util hooks don't receive loop_data, so agent.data is the carrier)
         self.agent.set_data("_util_router_pending_decision", decision)

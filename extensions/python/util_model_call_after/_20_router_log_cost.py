@@ -103,6 +103,29 @@ class UtilModelRouterLogCost(Extension):
             cost_usd = 0.0  # Cost extraction is Phase 43.2 normalization layer; degrade gracefully
 
         # ----------------------------------------------------------------
+        # Phase 43.2: Read failover result from agent.data cross-hook carrier.
+        #
+        # execute_with_fallback stashes {model, chain_index, fallback_used, attempt_count}
+        # on success. If present, use the ACTUAL model called (not decision.primary).
+        # If absent (failover wrapper not installed), default to decision.primary.
+        # Clear the stash after reading to prevent bleed between calls.
+        # ----------------------------------------------------------------
+        failover_result = self.agent.get_data("_router_failover_result")
+        if failover_result:
+            actual_model = failover_result.get("model", decision.primary)
+            chain_index = failover_result.get("chain_index", 0)
+            fallback_used = failover_result.get("fallback_used", False)
+            attempt_count = failover_result.get("attempt_count", 1)
+            # Clear carrier so subsequent calls don't reuse stale result
+            self.agent.set_data("_router_failover_result", None)
+        else:
+            # Legacy path (failover wrapper not installed) or primary succeeded with no stash
+            actual_model = decision.primary
+            chain_index = 0
+            fallback_used = False
+            attempt_count = 1
+
+        # ----------------------------------------------------------------
         # 1. CostRecord write to MongoDB agent_runs with path='utility'
         #    Phase 43 conventions: _id = str(uuid4()), schema_version = 1
         # ----------------------------------------------------------------
@@ -122,13 +145,16 @@ class UtilModelRouterLogCost(Extension):
                     "task_id": ctx_dict.get("task_id"),
                     "goal_id": ctx_dict.get("goal_id", ""),
                     "agent_id": ctx_dict.get("agent_id", "agent_zero"),
-                    "model": decision.primary,
+                    "model": actual_model,      # Phase 43.2: ACTUAL model called (not decision.primary)
                     "tokens_in": tokens_in,
                     "tokens_out": tokens_out,
                     "tokens": tokens_total,
                     "cost_usd": cost_usd,
                     "latency_ms": latency_ms,
-                    "path": "utility",  # Phase 43.1: cost-separation field
+                    "path": "utility",          # Phase 43.1: cost-separation field
+                    "chain_index": chain_index,      # Phase 43.2: 0 = primary, N = Nth fallback
+                    "fallback_used": fallback_used,  # Phase 43.2: True iff chain_index > 0
+                    "attempt_count": attempt_count,  # Phase 43.2: total attempts made
                     "created_at": datetime.now(timezone.utc),
                 }
                 # Use dot notation (same as chat-side hook and agent_init pattern)
