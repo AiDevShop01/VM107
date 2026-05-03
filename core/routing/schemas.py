@@ -88,6 +88,13 @@ class RoutingDecision(BaseModel):
     # Phase 43.1: routing path — mirrors RouterContext.path for log correlation.
     # Default "chat" preserves Phase 43 semantics.
     path: Literal["chat", "utility"] = "chat"
+    # Phase 43.2: failover chain tracking (safe defaults for backward-compat with old docs).
+    # chain_index=0 means primary succeeded; N means Nth fallback succeeded.
+    # fallback_used is denormalized for fast Mongo queries ($eq True).
+    # attempt_count=1 means no failover occurred.
+    chain_index: int = 0
+    fallback_used: bool = False
+    attempt_count: int = 1
 
 
 class CostRecord(BaseModel):
@@ -118,6 +125,12 @@ class CostRecord(BaseModel):
     # Phase 43.1: routing path for cost-separation dashboard queries.
     # Default "chat" provides backward-compatibility for records written pre-43.1.
     path: Literal["chat", "utility"] = "chat"
+    # Phase 43.2: failover chain tracking (same 3 fields as RoutingDecision, same defaults).
+    # Allows MongoDB queries like {fallback_used: true} to surface failover events.
+    # ONE CostRecord per call (the success only); per-attempt failures go to stdout events.
+    chain_index: int = 0
+    fallback_used: bool = False
+    attempt_count: int = 1
 
 
 class AlertEvent(BaseModel):

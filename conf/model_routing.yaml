@@ -135,6 +135,15 @@ affinity:
       primary:   ["deepseek/deepseek-v4-flash"]
       secondary: ["deepseek/deepseek-v4-flash"]
       local:     ["deepseek/deepseek-v4-flash"]
+  # Phase 43.2 — production canary for failover infrastructure.
+  # Primary is intentionally unreachable (DNS NXDOMAIN); secondary MUST succeed via fallback.
+  # Schedule: daily 03:00 Australia/Perth (Dagster canary_failover_check asset — Plan 04).
+  # Field names MUST match AffinityMap.lookup() iteration: ('primary', 'secondary', 'local').
+  canary_agent:
+    validation:
+      primary:   ["http://invalid.example/v1/chat"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
 
 alert_overrides: {}   # per-goal threshold overrides (Plan 04 reads this)
 

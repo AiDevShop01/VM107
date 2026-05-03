@@ -1,0 +1,14 @@
+# VM107 pre-commit hooks (Phase 43.2 — first line of forbidden-pattern enforcement).
+# Companion: tests/lint/test_no_direct_llm_calls.py runs in CI as the hard gate.
+
+repos:
+  - repo: local
+    hooks:
+      - id: no-direct-llm-calls
+        name: "Forbid direct LiteLLM/Pydantic-parse calls outside allowlist"
+        language: python
+        entry: python scripts/check_forbidden_patterns.py
+        pass_filenames: true
+        types: [python]
+        # Performance: pass_filenames=true means this scans ONLY staged Python files,
+        # not the whole codebase. Zero penalty on commits without .py changes.
