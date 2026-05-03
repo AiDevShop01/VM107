@@ -1,14 +1,10 @@
 """
-Phase 44 Wave 0 — invocation module test scaffolds.
+Phase 44 Plan 03 — invocation module tests (graduated from Wave 0 xfail stubs).
 
-Tests against core.agents.invocation (created in Plan 44-03 Task 1).
-All tests are xfail(strict=False) until that plan implements the module.
+Tests against core.agents.invocation implemented in Plan 44-03 Task 1.
+All xfail markers removed — tests are concrete GREEN passes.
 
-Test names MUST match 44-VALIDATION.md "Per-Task Verification Map" exactly so
-downstream plans' <automated> verify commands resolve.
-
-Pre-classifier tests (is_substantive) will graduate to concrete passes in
-Plan 44-03 when core.agents.invocation is written.
+Test names match 44-VALIDATION.md "Per-Task Verification Map" exactly.
 """
 from __future__ import annotations
 
@@ -26,28 +22,35 @@ import pytest
 # Pre-classifier tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_pre_classifier():
     """
     is_substantive() returns True for strategy keywords, False for chitchat.
 
-    Graduates in Plan 44-03 Task 1 when core.agents.invocation is created.
+    Per CONTEXT.md § Coordinator Role + Behavior:
+      SUBSTANTIVE_KEYWORDS = {"strategy", "idea", "hypothesis", "trade", "setup", "pattern"}
+      Case-insensitive, empty string → False.
     """
     from core.agents.invocation import is_substantive
 
+    # Positive cases — must contain at least one keyword
     assert is_substantive("design a strategy for momentum") is True
-    assert is_substantive("hello there") is False
     assert is_substantive("what is a good trade idea?") is True
+    assert is_substantive("STRATEGY for SPY") is True          # case-insensitive
+    assert is_substantive("I have a HYPOTHESIS about gaps") is True
+    assert is_substantive("setup for breakout") is True
+    assert is_substantive("pattern recognition") is True
+
+    # Negative cases — no keyword
+    assert is_substantive("hello there") is False
     assert is_substantive("thanks") is False
+    assert is_substantive("") is False
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_chitchat_no_dispatch():
     """
-    Pre-classifier returning False short-circuits without call_subordinate.
+    Pre-classifier returning False short-circuits without calling _call_subordinate_sync.
 
     Asserts that non-substantive input does NOT trigger agent delegation.
-    Graduates in Plan 44-03 Task 1.
     """
     from unittest.mock import patch
     from core.agents.invocation import is_substantive, route_coordinator_input
@@ -62,12 +65,12 @@ def test_chitchat_no_dispatch():
 # Typed wrapper tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_run_idea_returns_hypothesis(valid_hypothesis):
     """
-    run_idea(text) returns a Hypothesis instance.
+    run_idea(text) returns a Hypothesis instance with source_envelope_id populated
+    when db is None (no persistence).
 
-    Graduates in Plan 44-03 Task 1 when typed wrappers are implemented.
+    The mock simulates a valid Hypothesis JSON response from the subordinate agent.
     """
     from unittest.mock import patch
     from core.agents.invocation import run_idea
@@ -81,12 +84,11 @@ def test_run_idea_returns_hypothesis(valid_hypothesis):
     assert isinstance(result, Hypothesis)
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_run_strategy_returns_spec(valid_hypothesis):
     """
     run_strategy(valid_hypothesis) returns a StrategySpec instance.
 
-    Graduates in Plan 44-03 Task 1.
+    The mock simulates a valid StrategySpec JSON response from the subordinate agent.
     """
     from unittest.mock import patch
     from core.agents.invocation import run_strategy
@@ -106,48 +108,80 @@ def test_run_strategy_returns_spec(valid_hypothesis):
     assert isinstance(result, StrategySpec)
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_idea_retry_once_then_fail(valid_hypothesis):
     """
-    Retry-once on degraded result behavior for Idea Agent:
-    - Two consecutive PlainTextResults → raises IdeaAgentDegradedError
-    - First degraded then valid → returns Hypothesis after one retry
+    Retry-once-then-fail: two consecutive PlainTextResults → IdeaAgentDegradedError.
 
-    Graduates in Plan 44-03 Task 1.
+    Per CONTEXT.md § Idea Agent:
+      'If retry also fails → return failure to Coordinator → task fails (fail-fast).'
+    Mock confirms exactly 2 calls to _call_subordinate_sync.
     """
     from unittest.mock import patch
     from core.agents.invocation import run_idea, IdeaAgentDegradedError
-    from core.agents.structured_output import PlainTextResult
 
-    # Both calls return plain text → raises
+    # Both calls return unstructured text — safe_parse returns PlainTextResult each time
     degraded_response = "I cannot structure this output right now."
-    with patch("core.agents.invocation._call_subordinate_sync", return_value=degraded_response):
+    with patch("core.agents.invocation._call_subordinate_sync", return_value=degraded_response) as mock_call:
         with pytest.raises(IdeaAgentDegradedError):
             run_idea("strategy idea text")
+        # Exactly 2 calls: initial + exactly one retry
+        assert mock_call.call_count == 2
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
+def test_idea_retry_succeeds_on_second(valid_hypothesis):
+    """
+    First call garbage → retry triggered → second call valid Hypothesis JSON → returns Hypothesis.
+    Mock confirms exactly 2 calls (initial + 1 retry).
+    """
+    from unittest.mock import patch, call
+    from core.agents.invocation import run_idea
+    from core.contracts.schemas import Hypothesis
+
+    hypothesis_json = valid_hypothesis.model_dump_json()
+    degraded_response = "I could not structure output."
+
+    call_responses = [degraded_response, hypothesis_json]
+    call_index = [0]
+
+    def side_effect(*args, **kwargs):
+        i = call_index[0]
+        call_index[0] += 1
+        return call_responses[i]
+
+    with patch("core.agents.invocation._call_subordinate_sync", side_effect=side_effect) as mock_call:
+        result = run_idea("substantive text with strategy idea")
+
+    assert isinstance(result, Hypothesis)
+    assert mock_call.call_count == 2  # initial + 1 retry
+
+
 def test_strategy_rejects_invalid_hypothesis():
     """
-    run_strategy() raises TypeError or InvalidInputError when passed a non-Hypothesis.
+    run_strategy() raises InvalidInputError when passed a non-Hypothesis.
 
-    Graduates in Plan 44-03 Task 1.
+    Per CONTEXT.md § Strategy Agent:
+      'assert isinstance(input, Hypothesis). Reject anything else with InvalidInputError
+       — NO auto-wrapping/auto-calling Idea Agent.'
+    Mock call_count == 0 — no LLM call triggered.
     """
-    from core.agents.invocation import run_strategy
+    from unittest.mock import patch
+    from core.agents.invocation import run_strategy, InvalidInputError
 
-    with pytest.raises((TypeError, Exception)):
-        run_strategy("not a hypothesis")
+    with patch("core.agents.invocation._call_subordinate_sync") as mock_call:
+        with pytest.raises((InvalidInputError, TypeError)):
+            run_strategy("just a string")
+        # BEFORE any subordinate call
+        assert mock_call.call_count == 0
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_degraded_blocked(valid_hypothesis):
     """
     PlainTextResult from Idea Agent NEVER passes to Strategy Agent.
 
-    Asserts the call chain raises before strategy invocation on degraded.
-    Graduates in Plan 44-03 Task 1.
+    Both attempts on Idea Agent degrade → IdeaAgentDegradedError raised.
+    Strategy Agent must not be called (all mock calls are for idea_agent).
     """
-    from unittest.mock import patch, call
+    from unittest.mock import patch
     from core.agents.invocation import run_idea, IdeaAgentDegradedError
 
     degraded_response = "Sorry, could not structure output."
@@ -161,12 +195,11 @@ def test_degraded_blocked(valid_hypothesis):
         assert c.args[0] == "idea_agent", "strategy_agent should not have been called"
 
 
-@pytest.mark.xfail(reason="Implementation pending in Plan 44-03", strict=False)
 def test_concurrency_default_sequential():
     """
-    MAX_PARALLEL_SUBAGENTS == 1 (sequential default per CONTEXT.md).
+    MAX_PARALLEL_SUBAGENTS == 1 (sequential default per CONTEXT.md § Concurrency).
 
-    Graduates in Plan 44-03 Task 1 when the constant is defined.
+    Phase 44 ships sequential only. Parallel infrastructure deferred to Phase 45+.
     """
     from core.agents.invocation import MAX_PARALLEL_SUBAGENTS
 
