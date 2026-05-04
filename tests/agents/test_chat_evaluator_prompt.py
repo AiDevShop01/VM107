@@ -8,7 +8,6 @@ prompt file for the trade-evaluator role.
 import pytest
 
 
-@pytest.mark.xfail(reason="Wave 0 stub — implementation in 47-03")
 def test_no_delegation():
     """The chat_evaluator prompt file does NOT instruct the model to use call_subordinate. It is a separate file from agent.system.main.specifics.md (which is the thin-orchestrator routing prompt)."""
     from pathlib import Path
