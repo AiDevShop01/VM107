@@ -150,7 +150,58 @@ class TestDowngrade:
 # ===========================================================================
 
 
-@pytest.mark.xfail(reason="Wave 0 stub — implementation in 47-02")
 def test_migration_009_index_created():
-    """Migration 009_journal_id_field creates a sparse compound index {journal_id: 1, timestamp: -1}."""
-    raise AssertionError("not yet implemented")
+    """Migration 009_journal_id_field up() calls create_index with sparse compound index."""
+    from unittest.mock import MagicMock, call
+    import importlib.util
+    from pathlib import Path
+
+    # Load migration module directly (bypasses discovery for isolation)
+    script_path = Path(__file__).parent.parent / "core" / "migrations" / "scripts" / "009_journal_id_field.py"
+    spec = importlib.util.spec_from_file_location("migration_009", script_path)
+    mig = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig)
+
+    INDEX_NAME = "journal_id_1_timestamp_-1"
+
+    # --- up() test ---
+    db = MagicMock()
+    col = db["agent_envelopes"]
+    # list_indexes() returns empty — index does not exist yet
+    col.list_indexes.return_value = []
+
+    mig.up(db)
+
+    # Assert create_index was called with the correct sparse compound index
+    col.create_index.assert_called_once_with(
+        [("journal_id", 1), ("timestamp", -1)],
+        name=INDEX_NAME,
+        sparse=True,
+    )
+
+    # --- idempotent: up() skips if index already exists ---
+    db2 = MagicMock()
+    col2 = db2["agent_envelopes"]
+    col2.list_indexes.return_value = [{"name": INDEX_NAME}]
+
+    mig.up(db2)
+
+    col2.create_index.assert_not_called()
+
+    # --- down() test ---
+    db3 = MagicMock()
+    col3 = db3["agent_envelopes"]
+    col3.list_indexes.return_value = [{"name": INDEX_NAME}]
+
+    mig.down(db3)
+
+    col3.drop_index.assert_called_once_with(INDEX_NAME)
+
+    # --- idempotent down(): skips if index already gone ---
+    db4 = MagicMock()
+    col4 = db4["agent_envelopes"]
+    col4.list_indexes.return_value = []
+
+    mig.down(db4)
+
+    col4.drop_index.assert_not_called()
