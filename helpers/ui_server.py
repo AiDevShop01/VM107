@@ -114,6 +114,47 @@ class UiServerRuntime:
         if self._routes_registered:
             return
 
+        # Phase 47: Register parametric trade-AI URL rules BEFORE register_api_route.
+        # register_api_route adds a catch-all /api/<path:path> rule that would
+        # consume these URLs if registered after. async def accepted directly by
+        # Flask+ASGI (per OQ-4 in 47-01-NOTES.md).
+        _app = self.webapp
+        _lock = self.lock
+
+        async def _trade_ai_chat_dispatch(journal_id: str):
+            from api.v1.trades.ai.chat import TradeAiChat
+            from helpers.api import requires_api_key
+            instance = TradeAiChat(_app, _lock)
+
+            async def _call():
+                return await instance.handle_request(request=request)
+
+            # Apply X-API-KEY gate (TradeAiChat.requires_api_key() = True).
+            return await requires_api_key(_call)()
+
+        async def _trade_ai_history_dispatch(journal_id: str):
+            from api.v1.trades.ai.history import TradeAiHistory
+            from helpers.api import requires_api_key
+            instance = TradeAiHistory(_app, _lock)
+
+            async def _call():
+                return await instance.handle_request(request=request)
+
+            return await requires_api_key(_call)()
+
+        self.webapp.add_url_rule(
+            "/api/v1/trades/<journal_id>/ai/chat",
+            "trade_ai_chat",
+            _trade_ai_chat_dispatch,
+            methods=["POST"],
+        )
+        self.webapp.add_url_rule(
+            "/api/v1/trades/<journal_id>/ai/history",
+            "trade_ai_history",
+            _trade_ai_history_dispatch,
+            methods=["GET"],
+        )
+
         handlers = UiRouteHandlers(self)
         self._route_handlers = handlers
         self.webapp.add_url_rule(
