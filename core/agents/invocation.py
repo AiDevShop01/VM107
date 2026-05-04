@@ -130,10 +130,10 @@ def _call_subordinate_sync(
         RuntimeError: If Agent Zero bootstrap fails.
     """
     # Late imports — avoid circular dependency: agent.py imports core; core must not
-    # import agent.py at module level. See Research § 10 anti-pattern.
+    # import agent.py at module level.
     try:
-        from agent import Agent  # type: ignore[import]
-        from agent_context import AgentContext  # type: ignore[import]
+        from agent import Agent, AgentContext, UserMessage  # type: ignore[import]
+        from initialize import initialize_agent  # type: ignore[import]
     except ImportError:
         # In unit-test environments, agent.py is not importable.
         # Tests mock _call_subordinate_sync directly — this path is never reached.
@@ -143,17 +143,26 @@ def _call_subordinate_sync(
         )
 
     # Build minimal AgentContext using Agent Zero's profile system.
-    # The profile parameter maps to agents/<profile>/ directory.
-    # Agent Zero extensions (router, structured output) activate automatically.
-    ctx = AgentContext.new(profile=profile, name=f"sub_{profile}_{uuid.uuid4().hex[:8]}")
-    sub = ctx.agent0
+    # Mirrors tools/call_subordinate.py:Delegation pattern, adapted for the
+    # standalone HTTP-entry-point case (no parent agent context to inherit from).
+    config = initialize_agent()
+    config.profile = profile  # override default profile
+
+    ctx = AgentContext(config=config, name=f"sub_{profile}_{uuid.uuid4().hex[:8]}")
+    sub = ctx.agent0  # AgentContext.__init__ creates agent0 internally
 
     # Inject routing agent_id for affinity map lookup (CONTEXT § Agent Identity).
     from core.agents.tool_scope import resolve_agent_id_from_profile
     sub.data["agent_id"] = resolve_agent_id_from_profile(profile)
 
+    # Add the user message to subordinate's history, then run its monologue.
+    # Agent.monologue() takes no arguments — the message must be in history.
+    sub.hist_add_user_message(UserMessage(message=message, attachments=[]))
+
     import asyncio
-    raw = asyncio.get_event_loop().run_until_complete(sub.monologue(message))
+    # Called from a worker thread (Flask endpoint dispatches via run_in_executor),
+    # so asyncio.run() is safe — creates a fresh event loop in this thread.
+    raw = asyncio.run(sub.monologue())
 
     # Capture router telemetry after monologue but before after-hooks clear it.
     # See Research § 13 OQ-4 and Phase 43.2 _router_log_cost.py carrier pattern.
@@ -209,7 +218,16 @@ def run_idea(
     attempt = 0
     while attempt < 2:
         attempt += 1
-        _sub_result = _call_subordinate_sync("idea_agent", input_text)
+        try:
+            _sub_result = _call_subordinate_sync("idea_agent", input_text)
+        except RuntimeError as e:
+            # Bootstrap or runtime failure inside Agent Zero — won't recover via retry.
+            # Surface as IdeaAgentDegradedError so callers get a typed exception and
+            # the endpoint's failure-path persists an envelope.
+            log.error("idea_agent bootstrap/runtime failure: %s", e, exc_info=True)
+            raise IdeaAgentDegradedError(
+                error_chain=[f"runtime_failure: {type(e).__name__}: {e}"]
+            ) from e
         if isinstance(_sub_result, tuple):
             raw, telemetry = _sub_result
         else:
@@ -310,9 +328,15 @@ def run_strategy(
     attempt = 0
     while attempt < 2:
         attempt += 1
-        _sub_result = _call_subordinate_sync(
-            "strategy_agent", hypothesis.model_dump_json()
-        )
+        try:
+            _sub_result = _call_subordinate_sync(
+                "strategy_agent", hypothesis.model_dump_json()
+            )
+        except RuntimeError as e:
+            log.error("strategy_agent bootstrap/runtime failure: %s", e, exc_info=True)
+            raise StrategyAgentDegradedError(
+                error_chain=[f"runtime_failure: {type(e).__name__}: {e}"]
+            ) from e
         if isinstance(_sub_result, tuple):
             raw, telemetry = _sub_result
         else:
