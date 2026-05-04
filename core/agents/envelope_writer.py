@@ -27,6 +27,7 @@ def build_envelope(
     telemetry: dict,
     status: str,  # "success" | "failure" | "degraded"
     source_envelope_id: Optional[str] = None,
+    journal_id: Optional[str] = None,
 ) -> AgentEnvelope:
     """Construct an AgentEnvelope from a subordinate invocation result + telemetry.
 
@@ -39,6 +40,8 @@ def build_envelope(
         telemetry: Router telemetry dict with model_used, reason_chain, cost, fallback_used.
         status: Invocation outcome — "success", "failure", or "degraded".
         source_envelope_id: Idea envelope_id for Strategy envelope provenance chain.
+        journal_id: Phase 47 journal-anchored chat thread identifier (None for non-chat
+            invocations; sparse-indexed in MongoDB).
 
     Returns:
         AgentEnvelope ready for persistence.
@@ -53,6 +56,7 @@ def build_envelope(
         cost=telemetry.get("cost", {}),
         reason_chain=list(telemetry.get("reason_chain", [])),
         source_envelope_id=source_envelope_id,
+        journal_id=journal_id,
         status=status,  # type: ignore[arg-type]  # Pydantic validates Literal
     )
 

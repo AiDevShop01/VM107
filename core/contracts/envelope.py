@@ -55,6 +55,7 @@ class AgentEnvelope(BaseModel):
     cost: dict  # {tokens, cost_usd, latency_ms}
     reason_chain: list[str]
     source_envelope_id: Optional[str] = None
+    journal_id: Optional[str] = None
     schema_version: int = 1
     status: Literal["success", "failure", "degraded"]
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
