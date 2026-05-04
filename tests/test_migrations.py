@@ -143,3 +143,14 @@ class TestDowngrade:
         import inspect
         sig = inspect.signature(first_migration.module.downgrade)
         assert "context" in sig.parameters
+
+
+# ===========================================================================
+# Phase 47 Wave 0 stubs — flip to passing in 47-02
+# ===========================================================================
+
+
+@pytest.mark.xfail(reason="Wave 0 stub — implementation in 47-02")
+def test_migration_009_index_created():
+    """Migration 009_journal_id_field creates a sparse compound index {journal_id: 1, timestamp: -1}."""
+    raise AssertionError("not yet implemented")
