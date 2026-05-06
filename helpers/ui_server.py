@@ -155,6 +155,24 @@ class UiServerRuntime:
             methods=["GET"],
         )
 
+        async def _trade_ai_evaluation_dispatch(journal_id: str):
+            from api.v1.trades.ai.evaluation import TradeAiEvaluation
+            from helpers.api import requires_api_key
+            instance = TradeAiEvaluation(_app, _lock)
+
+            async def _call():
+                return await instance.handle_request(request=request)
+
+            # Apply X-API-KEY gate (TradeAiEvaluation.requires_api_key() = True).
+            return await requires_api_key(_call)()
+
+        self.webapp.add_url_rule(
+            "/api/v1/trades/<journal_id>/ai/evaluation",
+            "trade_ai_evaluation",
+            _trade_ai_evaluation_dispatch,
+            methods=["POST"],
+        )
+
         handlers = UiRouteHandlers(self)
         self._route_handlers = handlers
         self.webapp.add_url_rule(
