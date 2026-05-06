@@ -44,3 +44,23 @@ class StrategyAgentDegradedError(_AgentDegradedError):
 
     def __init__(self, error_chain: list[str] | None = None) -> None:
         super().__init__("strategy_agent", error_chain or [])
+
+
+class EvaluationContractViolation(_AgentDegradedError):
+    """Raised when the evaluation runner degrades on both initial call and retry.
+
+    Both attempts returned PlainTextResult from safe_parse. VM107 ApiHandler
+    catches this and returns 502 with structured error body. No Postgres row
+    created. Failure envelope IS persisted before the raise.
+
+    The runner sets `envelope_id` after writing the failure envelope so the
+    ApiHandler can echo it in the 502 response (per CONTEXT-fail-fast lock).
+    """
+
+    def __init__(
+        self,
+        error_chain: list[str] | None = None,
+        envelope_id: str | None = None,
+    ) -> None:
+        super().__init__("evaluation_runner", error_chain or [])
+        self.envelope_id: str | None = envelope_id
