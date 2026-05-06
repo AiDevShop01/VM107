@@ -1,10 +1,9 @@
 """
-Phase 47.1-01 — Wave 0 xfail scaffolding for evaluation_runner.py.
+Phase 47.1-02 — evaluation_runner.py tests (graduated from Wave 0 xfail stubs).
 
-Tests specification for VM107 evaluation runner unit behaviours.
-All tests are xfail (Wave 0) until Plan 47.1-02 ships the target module.
+Tests for VM107 evaluation runner unit behaviours.
+All tests graduated to GREEN by Plan 47.1-02 / Task 2.
 
-Graduated to GREEN by: 47.1-02 / Task 2
 Target module: core.agents.evaluation_runner
 
 Test count: 9 (per 47.1-VALIDATION.md Per-Task Verification Map)
@@ -20,7 +19,10 @@ Test count: 9 (per 47.1-VALIDATION.md Per-Task Verification Map)
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import sys
+import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -32,27 +34,88 @@ if str(_VM107_ROOT) not in sys.path:
 
 
 # ---------------------------------------------------------------------------
+# Shared test helpers
+# ---------------------------------------------------------------------------
+
+_CANNED_VALID_JSON = json.dumps({
+    "recommendation": "enter",
+    "confidence": 0.82,
+    "score": 74,
+    "max_score": 100,
+    "direction": "long",
+    "instrument": "XAUUSD",
+    "check_results": {
+        "htf_alignment": "pass",
+        "compression_pause": "pass",
+        "displacement_candle": "unclear",
+        "location_quality": "pass",
+        "rr_acceptable": "pass",
+    },
+    "reasoning_summary": "Strong HTF alignment with clean displacement. Location quality confirmed.",
+    "risks": ["Upcoming NFP data could reverse momentum", "Spread widening near session open"],
+    "invalidations": ["Price closes below 2618 structure low", "HTF bearish shift confirmed"],
+    "next_action": "Enter at 2625 limit, SL 2612, TP 2645. Risk 1%.",
+})
+
+_PLAIN_TEXT_RESPONSE = "I cannot produce structured JSON right now, sorry."
+
+_COMMON_KWARGS = dict(
+    journal_id="journal-abc",
+    conversation_id="journal-abc",
+    strategy_id=None,
+    user_id="user-1",
+    context_block={"instrument": "XAUUSD", "timeframe": "15M"},
+)
+
+
+def _make_mock_db():
+    """Return a minimal mock db that satisfies evaluation_runner queries."""
+    envelopes_col = MagicMock()
+    envelopes_col.find.return_value = iter([])
+    envelopes_col.find_one.return_value = None
+    envelopes_col.insert_one.return_value = MagicMock()
+    db = MagicMock()
+    db.__getitem__ = MagicMock(
+        side_effect=lambda name: envelopes_col if name == "agent_envelopes" else MagicMock()
+    )
+    db._col = envelopes_col
+    return db
+
+
+# ---------------------------------------------------------------------------
 # Test 1: Success path returns PreTradeEvaluation instance
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_success_returns_evaluation():
     """Given mock LLM returns valid JSON for PreTradeEvaluation schema,
     run_pre_trade_evaluation() returns a PreTradeEvaluation instance with
     recommendation populated.
 
-    Graduated to GREEN by: 47.1-02 / Task 2
     CONTEXT-strict-json requirement.
+    Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+    from core.contracts.schemas import PreTradeEvaluation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        evaluation, envelope_id, task_id = asyncio.run(
+            run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
+        )
+
+    assert isinstance(evaluation, PreTradeEvaluation)
+    assert evaluation.recommendation == "enter"
+    assert evaluation.instrument == "XAUUSD"
+    assert envelope_id  # non-empty string
+    assert task_id.startswith("eval-")
 
 
 # ---------------------------------------------------------------------------
 # Test 2: Two PlainTextResult responses raise EvaluationContractViolation
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_two_plain_text_raises_contract_violation():
     """Mock safe_parse to return PlainTextResult twice.
 
@@ -61,16 +124,26 @@ def test_two_plain_text_raises_contract_violation():
     CONTEXT-fail-fast requirement.
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    from core.agents.invocation_exceptions import EvaluationContractViolation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+    from core.agents.invocation_exceptions import EvaluationContractViolation
+
+    db = _make_mock_db()
+    # LLM always returns plain text
+    mock_llm = AsyncMock(return_value=_PLAIN_TEXT_RESPONSE)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        with pytest.raises(EvaluationContractViolation) as exc_info:
+            asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
+
+    exc = exc_info.value
+    assert hasattr(exc, "envelope_id"), "EvaluationContractViolation must have envelope_id"
+    assert exc.envelope_id is not None, "envelope_id must be set after failure envelope written"
 
 
 # ---------------------------------------------------------------------------
 # Test 3: First PlainTextResult triggers retry, second success passes
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_first_plain_text_triggers_retry():
     """Mock LLM/safe_parse: first call returns PlainTextResult, second returns
     valid evaluation.
@@ -80,15 +153,26 @@ def test_first_plain_text_triggers_retry():
     CONTEXT-fail-fast requirement (retry-once-then-fail).
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+    from core.contracts.schemas import PreTradeEvaluation
+
+    db = _make_mock_db()
+    # First call: plain text (causes degraded); second call: valid JSON (success)
+    mock_llm = AsyncMock(side_effect=[_PLAIN_TEXT_RESPONSE, _CANNED_VALID_JSON])
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        evaluation, envelope_id, task_id = asyncio.run(
+            run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
+        )
+
+    assert isinstance(evaluation, PreTradeEvaluation)
+    assert mock_llm.call_count == 2, f"Expected 2 LLM calls (retry once), got {mock_llm.call_count}"
 
 
 # ---------------------------------------------------------------------------
 # Test 4: Successful run persists envelope with status="success"
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_success_envelope_persisted():
     """After successful run, assert write_envelope called once with
     status="success" and journal_id set.
@@ -96,15 +180,33 @@ def test_success_envelope_persisted():
     CONTEXT-mongo-provenance requirement.
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        evaluation, envelope_id, task_id = asyncio.run(
+            run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
+        )
+
+    # Envelope is written via db["agent_envelopes"].insert_one
+    envelopes_col = db["agent_envelopes"]
+    assert envelopes_col.insert_one.called, "insert_one must have been called to persist envelope"
+
+    # Check the inserted doc contains status=success and journal_id
+    call_args = envelopes_col.insert_one.call_args_list
+    assert len(call_args) >= 1, "At least one envelope must be persisted"
+    # Find the success envelope (last insert for a clean successful run)
+    success_docs = [args[0][0] for args in call_args if args[0][0].get("status") == "success"]
+    assert len(success_docs) >= 1, "At least one success envelope must be persisted"
+    assert success_docs[0]["journal_id"] == "journal-abc"
 
 
 # ---------------------------------------------------------------------------
 # Test 5: Contract violation persists failure envelope BEFORE raising
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_failure_envelope_on_contract_violation():
     """After 2× PlainTextResult, assert write_envelope called with
     status="failure" BEFORE EvaluationContractViolation is raised.
@@ -113,16 +215,26 @@ def test_failure_envelope_on_contract_violation():
     CONTEXT-mongo-provenance requirement.
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    from core.agents.invocation_exceptions import EvaluationContractViolation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+    from core.agents.invocation_exceptions import EvaluationContractViolation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_PLAIN_TEXT_RESPONSE)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        with pytest.raises(EvaluationContractViolation):
+            asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
+
+    envelopes_col = db["agent_envelopes"]
+    call_args = envelopes_col.insert_one.call_args_list
+    failure_docs = [args[0][0] for args in call_args if args[0][0].get("status") == "failure"]
+    assert len(failure_docs) >= 1, "At least one failure envelope must be persisted before raise"
 
 
 # ---------------------------------------------------------------------------
 # Test 6: History is read from Mongo, NOT received in request body
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_history_read_from_mongo():
     """Assert db["agent_envelopes"].find called with
     {"journal_id": journal_id, "agent_id": "agent_zero"} filter.
@@ -131,22 +243,34 @@ def test_history_read_from_mongo():
     CONTEXT-evaluation-runner requirement (Critical Finding #3 from RESEARCH).
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
+
+    envelopes_col = db["agent_envelopes"]
+    envelopes_col.find.assert_called_once()
+    call_kwargs = envelopes_col.find.call_args
+    # The first positional arg is the filter dict
+    filter_arg = call_kwargs[0][0] if call_kwargs[0] else call_kwargs[1].get("filter", {})
+    assert filter_arg.get("journal_id") == "journal-abc"
+    assert filter_arg.get("agent_id") == "agent_zero"
 
 
 # ---------------------------------------------------------------------------
 # Test 7: Prompt file loads cleanly
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 creates pre_trade_evaluation.md prompt")
 def test_prompt_file_loads():
     """Assert pre_trade_evaluation.md exists at
     agents/agent0/prompts/agent.system.main.pre_trade_evaluation.md
     and is non-empty.
 
     CONTEXT-prompt-file-mode-b requirement.
-    Graduated to GREEN by: 47.1-02 / Task 1 (prompt file creation)
+    Graduated to GREEN by: 47.1-02 / Task 2
     """
     prompt_path = (
         _VM107_ROOT
@@ -155,19 +279,16 @@ def test_prompt_file_loads():
         / "prompts"
         / "agent.system.main.pre_trade_evaluation.md"
     )
-    # When Plan 47.1-02 ships the prompt file, this assertion becomes the real check.
-    # For Wave 0 stub: always fail so xfail registers.
-    assert prompt_path.exists() and prompt_path.stat().st_size > 0, (
-        f"Wave 0 stub — prompt file not yet created at {prompt_path}"
-    )
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    assert prompt_path.exists(), f"Prompt file not found at {prompt_path}"
+    assert prompt_path.stat().st_size > 0, "Prompt file must be non-empty"
+    content = prompt_path.read_text(encoding="utf-8")
+    assert "{schema_json}" in content, "Prompt file must contain {schema_json} placeholder"
 
 
 # ---------------------------------------------------------------------------
 # Test 8: System fields are injected by runner (not from LLM JSON)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_system_fields_injected():
     """After successful safe_parse, returned evaluation has evaluation_id (UUID),
     trade_id, conversation_id, source_envelope_id, created_at populated by the
@@ -177,15 +298,28 @@ def test_system_fields_injected():
     CONTEXT-evaluation-runner requirement.
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        evaluation, envelope_id, task_id = asyncio.run(
+            run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
+        )
+
+    assert evaluation.trade_id == "journal-abc", f"trade_id must be journal_id, got {evaluation.trade_id!r}"
+    assert evaluation.conversation_id == "journal-abc", f"conversation_id must equal journal_id, got {evaluation.conversation_id!r}"
+    assert evaluation.evaluation_id != "", "evaluation_id must be populated by runner"
+    assert evaluation.created_at is not None, "created_at must be set by runner"
+    # source_envelope_id is "" when no prior envelope exists in Mongo (find_one returns None)
+    assert isinstance(evaluation.source_envelope_id, str)
 
 
 # ---------------------------------------------------------------------------
 # Test 9: evaluation_id is UUID format
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Wave 0 stub — Plan 47.1-02 implements evaluation_runner.py")
 def test_evaluation_id_is_uuid_format():
     """Assert that evaluation_id on returned PreTradeEvaluation is a valid UUID.
 
@@ -193,5 +327,20 @@ def test_evaluation_id_is_uuid_format():
     CONTEXT-evaluation-runner requirement (parity test per VALIDATION.md count).
     Graduated to GREEN by: 47.1-02 / Task 2
     """
-    from core.agents.evaluation_runner import run_pre_trade_evaluation  # noqa: F401
-    pytest.fail("Wave 0 stub — implement in Plan 47.1-02")
+    from core.agents.evaluation_runner import run_pre_trade_evaluation
+
+    db = _make_mock_db()
+    mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
+
+    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+        evaluation, envelope_id, task_id = asyncio.run(
+            run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
+        )
+
+    # Validate UUID format — uuid.UUID() raises ValueError if invalid
+    try:
+        parsed = uuid.UUID(evaluation.evaluation_id)
+    except ValueError as e:
+        pytest.fail(f"evaluation_id is not a valid UUID: {evaluation.evaluation_id!r} — {e}")
+
+    assert str(parsed) == evaluation.evaluation_id, "evaluation_id must be canonical UUID string"
