@@ -1,0 +1,23 @@
+id: model_2_option_1_short
+version: 1
+description: Momentum continuation short strategy
+
+criteria:
+  - name: HTF trend alignment
+    required: true
+  - name: compression present
+    required: true
+  - name: breakout with displacement
+    required: true
+  - name: continuation structure
+    required: true
+  - name: liquidity sweep
+    required: preferred
+
+hard_rejects:
+  - name: breakout into HVN
+  - name: no displacement
+  - name: against HTF trend
+
+scoring:
+  max_score: 7
