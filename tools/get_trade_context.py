@@ -37,18 +37,25 @@ class GetTradeContext(ContractTool):
 
     async def _call_vm(self, request: GetTradeContextRequest) -> dict:
         client = VM100Client(profile=RetryProfile.FAST_FAIL)
-        # Honour the test surface: tests stub `client.get_trade(trade_id)`.
-        # Production VM100Client has no `get_trade` yet; fall back to the
-        # generic `.get()` against the existing trade-detail endpoint.
-        if hasattr(client, "get_trade"):
-            trade: dict[str, Any] = await client.get_trade(request.trade_id)  # type: ignore[attr-defined]
-        else:
-            trade = await client.get(f"api/v1/trades/{request.trade_id}")
+        trade: dict[str, Any] = {}
+        try:
+            if hasattr(client, "get_trade"):
+                trade = await client.get_trade(request.trade_id)  # type: ignore[attr-defined]
+            else:
+                trade = await client.get(f"api/v1/trades/{request.trade_id}")
+        except Exception:
+            # Graceful per-section degradation (CONTEXT.md). DRAFT journals
+            # have no executed Trade row; the LLM is sometimes given the
+            # journal_id as a stand-in for trade_id. Return the request
+            # surface with empty/None fields rather than raising — the
+            # LLM still gets a usable response shape and Tier-1 has the
+            # high-level metadata.
+            trade = {}
 
         return {
             "trade_id": request.trade_id,
-            "instrument": trade["instrument"],
-            "direction": trade["direction"],
+            "instrument": trade.get("instrument"),
+            "direction": trade.get("direction"),
             "strategy_id": trade.get("strategy_id"),
             "entry_price": trade.get("entry_price"),
             "stop_loss_price": trade.get("stop_loss_price"),
