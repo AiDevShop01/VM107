@@ -1,14 +1,18 @@
-"""Phase 47.2-01 Wave 0 — xfail stub for the get_liquidity_context REAL tool.
+"""Phase 47.2-04 — graduated GREEN test for the get_liquidity_context REAL tool.
 
 Target module: tools.get_liquidity_context
-Plan 04 will graduate this xfail spec to GREEN by shipping the
-ContractTool subclass that reads Phase 27 layer-6 liquidity primitives
-(FVG zones, equal highs/lows, imbalance zones).
+
+Reads Phase 27 layer-6 liquidity primitives directly from parquet
+(no VM102 HTTP — Phase 27 has no read endpoint per RESEARCH Critical
+Finding #3). Response shape: fvg_zones, equal_highs, equal_lows,
+imbalance_zones.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -17,18 +21,102 @@ if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
 
 
-@pytest.mark.xfail(
-    reason="Wave 0 stub — Plan 04 implements tools/get_liquidity_context.py",
-    strict=False,
-)
 @pytest.mark.asyncio
-async def test_reads_layer_6(mock_polars_scan):
+async def test_reads_layer_6(monkeypatch, tmp_path):
     """get_liquidity_context._call_vm reads parquet at primitives/layer_6/...
 
-    Response shape must include fvg_zones, equal_highs, equal_lows, imbalance_zones.
+    Response must include fvg_zones, equal_highs, equal_lows, imbalance_zones
+    bucketed by `event_type` from the underlying parquet rows.
     """
-    from tools.get_liquidity_context import GetLiquidityContext  # noqa: F401
+    from tools.get_liquidity_context import GetLiquidityContext
 
-    pytest.fail(
-        "Wave 0 stub — Plan 04 implements tools.get_liquidity_context layer-6 read"
+    # Build a fake data lake with one layer_6 partition.
+    data_lake = tmp_path / "lake"
+    partition = (
+        data_lake
+        / "primitives"
+        / "layer_6"
+        / "instrument=EURUSD"
+        / "timeframe=M5"
+        / "year=2026"
+        / "month=05"
     )
+    partition.mkdir(parents=True, exist_ok=True)
+    (partition / "part-0.parquet").write_bytes(b"")
+
+    monkeypatch.setenv("FINGPT_DATA_LAKE_PATH", str(data_lake))
+
+    fake_vm100 = MagicMock()
+    fake_vm100.get_trade = AsyncMock(return_value={"instrument": "EURUSD"})
+
+    # Build the canonical mixed-event parquet rows the tool will bucket.
+    fake_rows = [
+        {
+            "timestamp": "2026-05-01T00:00:00Z",
+            "event_type": "fvg",
+            "upper": 1.10,
+            "lower": 1.099,
+            "direction": "bullish",
+            "filled": False,
+        },
+        {
+            "timestamp": "2026-05-01T00:05:00Z",
+            "event_type": "equal_high",
+            "price": 1.105,
+            "swept": False,
+        },
+        {
+            "timestamp": "2026-05-01T00:10:00Z",
+            "event_type": "equal_low",
+            "price": 1.090,
+            "swept": True,
+        },
+        {
+            "timestamp": "2026-05-01T00:15:00Z",
+            "event_type": "imbalance",
+            "upper": 1.108,
+            "lower": 1.103,
+            "label": "imbalance",
+        },
+    ]
+
+    def _fake_scan(files, hive_partitioning=False, **kwargs):  # noqa: ARG001
+        fake_lf = MagicMock(name="fake_lf")
+        fake_lf.sort.return_value = fake_lf
+        fake_lf.head.return_value = fake_lf
+        fake_df = MagicMock(name="fake_collected_df")
+        fake_df.height = len(fake_rows)
+        fake_df.to_dicts.return_value = list(fake_rows)
+        fake_lf.collect.return_value = fake_df
+        return fake_lf
+
+    monkeypatch.setattr("polars.scan_parquet", _fake_scan, raising=False)
+
+    with patch("tools.get_liquidity_context.VM100Client", return_value=fake_vm100):
+        tool = GetLiquidityContext(
+            agent=MagicMock(),
+            name="get_liquidity_context",
+            method=None,
+            args={"trade_id": "abc", "timeframe": "M5"},
+            message="",
+            loop_data=None,
+        )
+        response = await tool.execute(trade_id="abc", timeframe="M5")
+
+    payload = json.loads(response.message)
+    assert payload["trade_id"] == "abc"
+    assert payload["instrument"] == "EURUSD"
+    assert payload["timeframe"] == "M5"
+
+    assert len(payload["fvg_zones"]) == 1
+    assert payload["fvg_zones"][0]["upper"] == 1.10
+    assert payload["fvg_zones"][0]["direction"] == "bullish"
+
+    assert len(payload["equal_highs"]) == 1
+    assert payload["equal_highs"][0]["price"] == 1.105
+
+    assert len(payload["equal_lows"]) == 1
+    assert payload["equal_lows"][0]["swept"] is True
+
+    assert len(payload["imbalance_zones"]) == 1
+    assert payload["imbalance_zones"][0]["label"] == "imbalance"
