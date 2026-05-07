@@ -120,3 +120,176 @@ async def test_reads_layer_6(monkeypatch, tmp_path):
 
     assert len(payload["imbalance_zones"]) == 1
     assert payload["imbalance_zones"][0]["label"] == "imbalance"
+
+
+# =============================================================================
+# Phase 47.2.1 Wave 0 — xfail specs for the refactored tool (instrument input,
+# no Polars, no FS, VM102Client.get_liquidity).
+#
+# Graduates to GREEN when Plan 47.2.1-05 ships the rewritten tool body.
+# =============================================================================
+
+
+_pytestmark_wave0 = pytest.mark.xfail(
+    reason=(
+        "Wave 0: refactored get_liquidity_context (instrument input, no Polars, no FS, "
+        "VM102Client.get_liquidity) ships in Plan 47.2.1-05."
+    ),
+    strict=False,
+)
+
+
+@_pytestmark_wave0
+@pytest.mark.asyncio
+async def test_calls_vm102_no_polars():
+    """Refactored tool calls VM102Client.get_liquidity; never imports/uses Polars."""
+    from tools.get_liquidity_context import GetLiquidityContext
+
+    fake_client = MagicMock()
+    fake_client.get_liquidity = AsyncMock(
+        return_value={
+            "status": "ok",
+            "data": {
+                "instrument": "EURUSD",
+                "timeframe": "M5",
+                "fvg_zones": [],
+                "equal_highs": [],
+                "equal_lows": [],
+                "imbalance_zones": [],
+            },
+            "meta": None,
+        }
+    )
+    fake_client.close = AsyncMock()
+
+    with patch("tools.get_liquidity_context.VM102Client", return_value=fake_client):
+        tool = GetLiquidityContext(
+            agent=MagicMock(),
+            name="get_liquidity_context",
+            method=None,
+            args={"instrument": "EURUSD", "timeframe": "M5"},
+            message="",
+            loop_data=None,
+        )
+        await tool.execute(instrument="EURUSD", timeframe="M5")
+
+    fake_client.get_liquidity.assert_called_once()
+    kwargs = fake_client.get_liquidity.call_args.kwargs
+    assert kwargs.get("instrument") == "EURUSD"
+    assert "trade_id" not in kwargs
+
+
+@_pytestmark_wave0
+@pytest.mark.asyncio
+async def test_silent_lookback_clamp():
+    """lookback_bars=9999 → clamped to 500 before client call."""
+    from tools.get_liquidity_context import GetLiquidityContext
+
+    fake_client = MagicMock()
+    fake_client.get_liquidity = AsyncMock(
+        return_value={
+            "status": "ok",
+            "data": {
+                "instrument": "EURUSD",
+                "timeframe": "M5",
+                "fvg_zones": [],
+                "equal_highs": [],
+                "equal_lows": [],
+                "imbalance_zones": [],
+            },
+            "meta": None,
+        }
+    )
+    fake_client.close = AsyncMock()
+
+    with patch("tools.get_liquidity_context.VM102Client", return_value=fake_client):
+        tool = GetLiquidityContext(
+            agent=MagicMock(),
+            name="get_liquidity_context",
+            method=None,
+            args={"instrument": "EURUSD", "timeframe": "M5", "lookback_bars": 9999},
+            message="",
+            loop_data=None,
+        )
+        await tool.execute(instrument="EURUSD", timeframe="M5", lookback_bars=9999)
+
+    kwargs = fake_client.get_liquidity.call_args.kwargs
+    assert kwargs.get("lookback_bars") == 500
+
+
+@_pytestmark_wave0
+def test_request_rejects_trade_id():
+    """Passing trade_id (legacy) → ContractValidationError (extra=forbid)."""
+    from fingpt_core.contracts.errors import ContractValidationError
+
+    from tools.get_liquidity_context import GetLiquidityContext
+
+    tool = GetLiquidityContext(
+        agent=MagicMock(),
+        name="get_liquidity_context",
+        method=None,
+        args={"trade_id": "abc", "timeframe": "M5"},
+        message="",
+        loop_data=None,
+    )
+    with pytest.raises(ContractValidationError):
+        tool._validate_request({"trade_id": "abc", "timeframe": "M5"})
+
+
+@_pytestmark_wave0
+@pytest.mark.asyncio
+async def test_transport_failure_synthesizes_not_available():
+    """httpx.ConnectError from client → tool synthesizes status:not_available envelope."""
+    import httpx
+
+    from tools.get_liquidity_context import GetLiquidityContext
+
+    fake_client = MagicMock()
+    fake_client.get_liquidity = AsyncMock(
+        side_effect=httpx.ConnectError("VM102 unreachable")
+    )
+    fake_client.close = AsyncMock()
+
+    with patch("tools.get_liquidity_context.VM102Client", return_value=fake_client):
+        tool = GetLiquidityContext(
+            agent=MagicMock(),
+            name="get_liquidity_context",
+            method=None,
+            args={"instrument": "EURUSD", "timeframe": "M5"},
+            message="",
+            loop_data=None,
+        )
+        response = await tool.execute(instrument="EURUSD", timeframe="M5")
+
+    payload = json.loads(response.message)
+    assert payload["status"] == "not_available"
+    assert payload["data"] is None
+    assert payload["meta"] is not None
+    assert payload["meta"]["tool"] == "get_liquidity_context"
+
+
+@_pytestmark_wave0
+@pytest.mark.asyncio
+async def test_malformed_envelope_from_vm102_raises():
+    """VM102 returns INVALID shape (status=not_available + data=[]) → ContractValidationError."""
+    from fingpt_core.contracts.errors import ContractValidationError
+
+    from tools.get_liquidity_context import GetLiquidityContext
+
+    fake_client = MagicMock()
+    fake_client.get_liquidity = AsyncMock(
+        return_value={"status": "not_available", "data": [], "meta": {"tool": "x"}}
+    )
+    fake_client.close = AsyncMock()
+
+    with patch("tools.get_liquidity_context.VM102Client", return_value=fake_client):
+        tool = GetLiquidityContext(
+            agent=MagicMock(),
+            name="get_liquidity_context",
+            method=None,
+            args={"instrument": "EURUSD", "timeframe": "M5"},
+            message="",
+            loop_data=None,
+        )
+        with pytest.raises(ContractValidationError):
+            await tool.execute(instrument="EURUSD", timeframe="M5")
