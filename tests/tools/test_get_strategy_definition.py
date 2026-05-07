@@ -1,13 +1,14 @@
-"""Phase 47.2-01 Wave 0 — xfail stubs for the get_strategy_definition REAL tool.
+"""Phase 47.2-04 — graduated GREEN tests for the get_strategy_definition REAL tool.
 
 Target module: tools.get_strategy_definition
-Plan 04 will graduate these xfail specs to GREEN by wrapping the Plan 03
-strategy_loader (YAML → StrategyDefinition) inside a ContractTool subclass.
+Wave 0 stubs graduated per Plan 04: happy path, unknown strategy, malformed YAML.
 """
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,43 +17,60 @@ if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
 
 
-@pytest.mark.xfail(
-    reason="Wave 0 stub — Plan 04 implements tools/get_strategy_definition.py",
-    strict=False,
-)
-@pytest.mark.asyncio
-async def test_loads_known_strategy(tmp_strategies_dir):
-    """Loading 'model_2_option_1_short' returns a StrategyDefinition with non-empty criteria."""
-    from tools.get_strategy_definition import GetStrategyDefinition  # noqa: F401
+def _make_tool(strategy_id: str):
+    from tools.get_strategy_definition import GetStrategyDefinition
 
-    pytest.fail(
-        "Wave 0 stub — Plan 04 implements tools.get_strategy_definition happy path"
+    return GetStrategyDefinition(
+        agent=MagicMock(),
+        name="get_strategy_definition",
+        method=None,
+        args={"strategy_id": strategy_id},
+        message="",
+        loop_data=None,
     )
 
 
-@pytest.mark.xfail(
-    reason="Wave 0 stub — Plan 04 implements tools/get_strategy_definition.py",
-    strict=False,
-)
 @pytest.mark.asyncio
-async def test_unknown_strategy(tmp_strategies_dir):
-    """Loading an unknown strategy returns an error Response (StrategyNotFoundError)."""
-    from tools.get_strategy_definition import GetStrategyDefinition  # noqa: F401
+async def test_loads_known_strategy():
+    """Loading 'model_2_option_1_short' returns a serialised StrategyDefinition."""
+    tool = _make_tool("model_2_option_1_short")
+    response = await tool.execute(strategy_id="model_2_option_1_short")
 
-    pytest.fail(
-        "Wave 0 stub — Plan 04 implements tools.get_strategy_definition unknown-id branch"
-    )
+    assert response.break_loop is False
+    payload = json.loads(response.message)
+    assert payload["id"] == "model_2_option_1_short"
+    assert payload["version"] == 1
+    assert isinstance(payload["criteria"], list) and payload["criteria"]
+    assert isinstance(payload["hard_rejects"], list) and payload["hard_rejects"]
 
 
-@pytest.mark.xfail(
-    reason="Wave 0 stub — Plan 04 implements tools/get_strategy_definition.py",
-    strict=False,
-)
 @pytest.mark.asyncio
-async def test_malformed_yaml(tmp_strategies_dir):
-    """Loading a malformed YAML returns an error Response (MalformedStrategyError)."""
-    from tools.get_strategy_definition import GetStrategyDefinition  # noqa: F401
+async def test_unknown_strategy():
+    """Unknown strategy_id surfaces a non-fatal error Response (StrategyNotFoundError)."""
+    from core.agents.strategy_loader import StrategyNotFoundError
 
-    pytest.fail(
-        "Wave 0 stub — Plan 04 implements tools.get_strategy_definition malformed-yaml branch"
-    )
+    tool = _make_tool("does_not_exist_strategy")
+    with patch(
+        "tools.get_strategy_definition.load_strategy",
+        side_effect=StrategyNotFoundError("missing"),
+    ):
+        response = await tool.execute(strategy_id="does_not_exist_strategy")
+
+    assert response.break_loop is False
+    assert "missing" in response.message or "not found" in response.message.lower()
+
+
+@pytest.mark.asyncio
+async def test_malformed_yaml():
+    """Malformed YAML surfaces a non-fatal error Response (MalformedStrategyError)."""
+    from core.agents.strategy_loader import MalformedStrategyError
+
+    tool = _make_tool("broken_strategy")
+    with patch(
+        "tools.get_strategy_definition.load_strategy",
+        side_effect=MalformedStrategyError("schema validation failed"),
+    ):
+        response = await tool.execute(strategy_id="broken_strategy")
+
+    assert response.break_loop is False
+    assert "schema validation failed" in response.message
