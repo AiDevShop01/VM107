@@ -1,40 +1,27 @@
 ### get_primitives:
 
-Reads pre-computed market primitives from parquet for a trade.
+Read computed structural primitives (BOS/CHoCH/displacement/compression/exhaustion patterns) for an instrument and timeframe. Returns the most recent N bars per requested layer with embedded status:
 
-V1 layer scope (LOCKED — anything else is rejected):
-- L1: Volatility / Range — ATR, candle range, body ratio
-- L2: Structure — swing highs/lows, BOS/CHoCH, failed structure
-- L4: Compression — range contraction, volatility squeeze, inside bars
-- L6: Liquidity — equal highs/lows, FVG, imbalance zones
+- `status: "ok"` + populated layers → here is what we found (zero rows is valid — empty is not the same as missing)
+- `status: "not_available"` → the primitives partition for this instrument×timeframe is unbuilt or VM102 is unreachable
 
-Direct parquet read; idempotent; no recompute side-effects. NO support
-for L3, L5, L7+. Asking for those raises a contract validation error.
+Use this when the trader's question references structure (BOS, CHoCH, displacement candles), pattern context, or recent swing points.
 
-args:
-- `trade_id`: trade identifier (required)
-- `timeframe`: one of M1, M5, M15, M30, H1, H4, D1 (required)
-- `layers`: subset of `[1, 2, 4, 6]` (optional, default = all four)
-- `lookback_bars`: integer 1..2000 (optional, default = 200)
-
-returns a typed JSON payload with `trade_id`, `instrument`, `timeframe`,
-and `layers` (one entry per requested layer with `count` and `bars`).
-
-DO NOT:
-- request layers outside `{1, 2, 4, 6}` — V1 will reject the call
-- call this tool blindly — pull only the layers your reasoning actually
-  needs (CONTEXT.md "Prefer minimal sufficient context")
-
-example:
-~~~json
-{
-  "thoughts": ["I need structure + compression context for this short setup."],
-  "headline": "Reading L2 + L4 primitives",
   "tool_name": "get_primitives",
   "tool_args": {
-    "trade_id": "abc-123",
+    "instrument": "EURUSD",
     "timeframe": "M5",
-    "layers": [2, 4]
+    "layers": [1, 2, 4, 6],
+    "lookback_bars": 100
   }
-}
-~~~
+
+Args:
+- `instrument` (required): symbol from Tier-1 context (e.g., "EURUSD", "BTCUSDT")
+- `timeframe` (required): one of M1, M5, M15, M30, H1, H4, D1
+- `layers` (optional): subset of [1, 2, 4, 6]. Default = all four.
+- `lookback_bars` (optional): how many bars back to read, 1..500, default 100.
+
+Notes:
+- Pure data tool — no side effects, idempotent.
+- Lookback values above 500 are silently clamped to 500.
+- On transport failure, returns `status: "not_available"` with `meta.planned_phase` describing what would unblock.

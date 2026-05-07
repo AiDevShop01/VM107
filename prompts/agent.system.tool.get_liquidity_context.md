@@ -1,36 +1,25 @@
 ### get_liquidity_context:
 
-Reads Phase 27 layer-6 liquidity primitives — FVG zones, equal highs/lows,
-imbalance zones — for a trade. Direct parquet read; idempotent; no
-recompute side-effects.
+Read ACTIVE liquidity zones (FVG, equal highs/lows, imbalance) for an instrument and timeframe. "Active" means not yet swept/filled/invalidated/expired per Phase 28 event engine. Embedded status:
 
-args:
-- `trade_id`: trade identifier (required)
-- `timeframe`: one of M1, M5, M15, M30, H1, H4, D1 (required)
-- `lookback_bars`: integer (optional, default = 200)
+- `status: "ok"` + populated zone arrays → here is what's currently in play (empty arrays = looked, no active zones)
+- `status: "not_available"` → liquidity zones layer or Phase 28 lifecycle data is unbuilt for this instrument×timeframe
 
-returns a typed JSON payload with `trade_id`, `instrument`, `timeframe`,
-and four bucketed lists:
-- `fvg_zones`: `{timestamp, upper, lower, direction, filled}`
-- `equal_highs`: `{timestamp, price, swept}`
-- `equal_lows`: `{timestamp, price, swept}`
-- `imbalance_zones`: `{timestamp, upper, lower, label}`
+Use this when the trader's question references liquidity zones, FVGs, equal highs/lows, supply/demand near entry.
 
-DO NOT:
-- call this when you only need basic structure — `get_primitives`
-  with `layers=[2]` is cheaper if you don't need FVG / equal highs/lows
-- assume liquidity is always populated — empty lists are valid
-  (e.g., new instruments without enough history)
-
-example:
-~~~json
-{
-  "thoughts": ["Check liquidity above the swing high before this short — is there a clean target?"],
-  "headline": "Reading liquidity context",
   "tool_name": "get_liquidity_context",
   "tool_args": {
-    "trade_id": "abc-123",
-    "timeframe": "M5"
+    "instrument": "EURUSD",
+    "timeframe": "M5",
+    "lookback_bars": 100
   }
-}
-~~~
+
+Args:
+- `instrument` (required): symbol from Tier-1 context
+- `timeframe` (required): one of M1, M5, M15, M30, H1, H4, D1
+- `lookback_bars` (optional): 1..500, default 100
+
+Notes:
+- Active-only — historical/swept zones are intentionally excluded (V1 scope).
+- Pure data tool — no side effects, idempotent.
+- Lookback values above 500 are silently clamped to 500.

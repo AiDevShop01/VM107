@@ -1,12 +1,9 @@
-"""Phase 47.2.1 Wave 0 — CI grep test asserting Polars is GONE from VM107.
+"""Phase 47.2.1 — CI grep test asserting Polars is GONE from VM107.
 
-XFAIL until Plan 47.2.1-05 Task 2:
-  1. Drops `polars` line from VM107/requirements.txt
-  2. Removes `import polars as pl` from VM107/tools/get_primitives.py
-  3. REMOVES the pytestmark = pytest.mark.xfail(...) decorator below
-
-After Plan 05 Task 2 ships, this test becomes a regular GREEN regression
-guard for all future phases — preventing accidental Polars re-introduction.
+Plan 47.2.1-05 Task 2 graduated this from xfail to a regular GREEN regression
+guard. The xfail decorator that previously sat at module level has been
+removed; future phases must not re-introduce Polars into VM107/tools/ or
+VM107/core/.
 
 Specs (3):
 - test_no_import_polars_in_tools  — AST walk over VM107/tools/*.py
@@ -21,16 +18,6 @@ import pathlib
 import re
 
 import pytest
-
-# CRITICAL: Plan 47.2.1-05 Task 2 MUST remove this decorator.
-pytestmark = pytest.mark.xfail(
-    reason=(
-        "Wave 0: VM107/tools/get_primitives.py still imports polars. "
-        "Plan 47.2.1-05 Task 2 removes the import AND this xfail marker so this "
-        "test becomes a regular green regression guard."
-    ),
-    strict=False,
-)
 
 
 _VM107_ROOT = pathlib.Path(__file__).resolve().parents[2]
