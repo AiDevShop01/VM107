@@ -81,6 +81,13 @@ async def _call_llm_direct(
         Exception — propagated to caller on LLM failure (triggers 502 path).
     """
     from litellm import acompletion  # type: ignore[import]
+    from models import get_api_key  # type: ignore[import]
+
+    # Resolve API key from Agent Zero's dotenv convention (API_KEY_DEEPSEEK).
+    # LiteLLM expects DEEPSEEK_API_KEY env var by default; Agent Zero stores
+    # under API_KEY_<SERVICE>. Pass api_key= explicitly to bridge.
+    service = model.split("/", 1)[0] if "/" in model else model
+    api_key = get_api_key(service)
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -89,6 +96,7 @@ async def _call_llm_direct(
     response = await acompletion(
         model=model,
         messages=messages,
+        api_key=api_key if api_key and api_key != "None" else None,
     )
     response_text: str = response.choices[0].message.content or ""
     telemetry = {

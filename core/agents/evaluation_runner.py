@@ -83,10 +83,18 @@ async def _call_llm_structured(messages: list[dict], model: str = EVAL_MODEL) ->
     This function is a module-level symbol so tests can patch it directly:
         patch("core.agents.evaluation_runner._call_llm_structured", new=mock)
     """
+    # Resolve API key from Agent Zero's dotenv convention (API_KEY_DEEPSEEK).
+    # LiteLLM expects DEEPSEEK_API_KEY env var by default; Agent Zero stores
+    # under API_KEY_<SERVICE>. Pass api_key= explicitly to bridge.
+    from models import get_api_key  # type: ignore[import]
+    service = model.split("/", 1)[0] if "/" in model else model
+    api_key = get_api_key(service)
+
     response = await litellm.acompletion(
         model=model,
         messages=messages,
         response_format={"type": "json_object"},
+        api_key=api_key if api_key and api_key != "None" else None,
     )
     content = response.choices[0].message.content or ""
     return content
