@@ -1,138 +1,122 @@
-"""get_liquidity_context — read Phase 27 layer-6 liquidity primitives from parquet.
+"""get_liquidity_context — typed VM102 read of ACTIVE liquidity zones.
 
-Phase 47.2 Tier-2 real tool. Phase 27 has NO HTTP read endpoint
-(RESEARCH Critical Finding #3) — direct parquet read for FVG zones,
-equal highs/lows, imbalance zones. Idempotent + stateless.
+Phase 47.2.1: NO Polars, NO filesystem reads, NO _resolve_instrument hop.
+Pure transport: validates request -> calls VM102 -> validates response.
 
-The underlying layer_6 parquet is row-keyed by `event_type` (one of
-`fvg`, `equal_high`, `equal_low`, `imbalance`). The tool buckets rows
-into the four typed sub-models from
-`fingpt_core.contracts.agents.liquidity_context`.
+LLM-callable: get_liquidity_context(instrument, timeframe, lookback_bars?).
+
+Architecture (Phase 47.2.1 lock):
+  * Tools take `instrument` directly from Tier-1 context (CONTEXT.md §5);
+    the VM107->VM100 resolve hop is gone.
+  * "Active-only" filtering is computed server-side by VM102 (Phase 28
+    left-anti join against the events stream — see Plan 04 for details).
+  * On transport failure (httpx.ConnectError / TimeoutException / 5xx),
+    the tool synthesizes a `not_available` envelope rather than raising
+    so the LLM never sees a transport exception (CONTEXT.md §2 trigger #1).
+  * lookback_bars > 500 is silently clamped to 500 BEFORE Pydantic
+    validation (defense in depth — VM102 also enforces 422; CONTEXT.md §3,
+    OQ-6).
+  * Plan 02's `@model_validator` on the response envelope catches malformed
+    VM102 payloads at the boundary (OQ-8).
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from typing import Any
+import httpx
 
-import polars as pl
-
-from fingpt_core.clients import RetryProfile, VM100Client
+from fingpt_core.clients import RetryProfile, VM102Client
 from fingpt_core.contracts.agents.liquidity_context import (
     GetLiquidityContextRequest,
     GetLiquidityContextResponse,
 )
-from fingpt_core.contracts.base import BaseContract
 from fingpt_core.contracts.errors import ContractValidationError
 
 from tools.vm_contracts.base import ContractTool
 
 
-class GetLiquidityContext(ContractTool):
-    """LLM-callable: get_liquidity_context(trade_id, timeframe, lookback_bars?)."""
+LOOKBACK_HARD_CAP = 500  # CONTEXT.md §3 lock
 
-    def _validate_request(self, args: dict) -> BaseContract:
+
+class GetLiquidityContext(ContractTool):
+    """LLM-callable typed read of active liquidity zones."""
+
+    def _validate_request(self, args: dict) -> GetLiquidityContextRequest:
+        # Defense in depth — silent clamp BEFORE Pydantic le=500 fires.
+        # The LLM should never see HTTP 422 from a misbehaving lookback;
+        # it would just retry with the same value (CONTEXT.md §3, OQ-6).
+        if "lookback_bars" in args and isinstance(
+            args["lookback_bars"], (int, float)
+        ):
+            if args["lookback_bars"] > LOOKBACK_HARD_CAP:
+                args = {**args, "lookback_bars": LOOKBACK_HARD_CAP}
+
         try:
             return GetLiquidityContextRequest(**args)
         except Exception as e:  # noqa: BLE001
-            raise ContractValidationError(errors=[str(e)], message=str(e))
+            # extra=forbid will reject legacy `trade_id` here (Critical Finding 4)
+            raise ContractValidationError(errors=[str(e)], message=str(e)) from e
 
     async def _call_vm(self, request: GetLiquidityContextRequest) -> dict:
-        instrument = await self._resolve_instrument(request.trade_id)
-        data_lake = os.getenv("FINGPT_DATA_LAKE_PATH", "/mnt/parquet_prod")
-        base = Path(data_lake) / "primitives" / "layer_6"
-        instrument_dir = (
-            base
-            / f"instrument={instrument}"
-            / f"timeframe={request.timeframe}"
-        )
-
-        empty: dict[str, Any] = {
-            "trade_id": request.trade_id,
-            "instrument": instrument,
-            "timeframe": request.timeframe,
-            "fvg_zones": [],
-            "equal_highs": [],
-            "equal_lows": [],
-            "imbalance_zones": [],
-        }
-
-        if not instrument_dir.exists():
-            return empty
-
-        files = list(instrument_dir.glob("year=*/month=*/*.parquet"))
-        if not files:
-            return empty
-
+        client = VM102Client(profile=RetryProfile.FAST_FAIL)
         try:
-            df = (
-                pl.scan_parquet(
-                    [str(f) for f in files], hive_partitioning=True
-                )
-                .sort("timestamp", descending=True)
-                .head(request.lookback_bars)
-                .collect()
+            return await client.get_liquidity(
+                instrument=request.instrument,
+                timeframe=request.timeframe,
+                lookback_bars=request.lookback_bars,
             )
-        except Exception:
-            return empty
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            # VM102 unreachable → honest not_available (CONTEXT.md §2 trigger #1)
+            return self._synthesize_not_available(
+                request, message=str(e), reason_kind="transport",
+            )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code >= 500:
+                return self._synthesize_not_available(
+                    request, message=str(e), reason_kind="server_error",
+                )
+            # 4xx other than 422-misuse: still bubble up — caller must fix args
+            raise
+        finally:
+            await client.close()
 
-        bars = df.to_dicts()
-        fvg = [b for b in bars if b.get("event_type") == "fvg"]
-        eq_high = [b for b in bars if b.get("event_type") == "equal_high"]
-        eq_low = [b for b in bars if b.get("event_type") == "equal_low"]
-        imb = [b for b in bars if b.get("event_type") == "imbalance"]
-
-        return {
-            "trade_id": request.trade_id,
-            "instrument": instrument,
-            "timeframe": request.timeframe,
-            "fvg_zones": [
-                {
-                    "timestamp": b["timestamp"],
-                    "upper": b["upper"],
-                    "lower": b["lower"],
-                    "direction": b.get("direction", "bullish"),
-                    "filled": b.get("filled", False),
-                }
-                for b in fvg
-            ],
-            "equal_highs": [
-                {
-                    "timestamp": b["timestamp"],
-                    "price": b["price"],
-                    "swept": b.get("swept", False),
-                }
-                for b in eq_high
-            ],
-            "equal_lows": [
-                {
-                    "timestamp": b["timestamp"],
-                    "price": b["price"],
-                    "swept": b.get("swept", False),
-                }
-                for b in eq_low
-            ],
-            "imbalance_zones": [
-                {
-                    "timestamp": b["timestamp"],
-                    "upper": b["upper"],
-                    "lower": b["lower"],
-                    "label": b.get("label", "imbalance"),
-                }
-                for b in imb
-            ],
-        }
-
-    def _validate_response(self, data: dict) -> BaseContract:
+    def _validate_response(self, data: dict) -> GetLiquidityContextResponse:
         try:
             return GetLiquidityContextResponse(**data)
         except Exception as e:  # noqa: BLE001
-            raise ContractValidationError(errors=[str(e)], message=str(e))
+            # Plan 02 @model_validator catches malformed envelopes from VM102.
+            # CONTEXT.md OQ-8 — boundary enforcement.
+            raise ContractValidationError(errors=[str(e)], message=str(e)) from e
 
-    async def _resolve_instrument(self, trade_id: str) -> str:
-        client = VM100Client(profile=RetryProfile.FAST_FAIL)
-        if hasattr(client, "get_trade"):
-            trade = await client.get_trade(trade_id)  # type: ignore[attr-defined]
-        else:
-            trade = await client.get(f"api/v1/trades/{trade_id}")
-        return trade["instrument"]
+    @staticmethod
+    def _synthesize_not_available(
+        request: GetLiquidityContextRequest,
+        message: str,
+        reason_kind: str = "transport",
+    ) -> dict:
+        """Construct an envelope passing the Plan 02 invariant.
+
+        reason_kind:
+            "transport"    — httpx.ConnectError / TimeoutException
+            "server_error" — VM102 returned 5xx
+        """
+        return {
+            "status": "not_available",
+            "data": None,
+            "meta": {
+                "planned_phase": (
+                    "VM102 reachable + liquidity partitions present for "
+                    f"{request.instrument} {request.timeframe}"
+                ),
+                "tool": "get_liquidity_context",
+                "would_provide": [
+                    "fvg_zones",
+                    "equal_highs",
+                    "equal_lows",
+                    "imbalance_zones",
+                ],
+                "impact_on_decision": "HIGH",
+                "unblocks_when": [
+                    "VM102 backend healthy",
+                    f"liquidity partitions exist for {request.instrument} {request.timeframe}",
+                ],
+            },
+        }

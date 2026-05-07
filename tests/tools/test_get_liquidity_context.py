@@ -1,11 +1,16 @@
-"""Phase 47.2-04 — graduated GREEN test for the get_liquidity_context REAL tool.
+"""Phase 47.2.1-05 — graduated GREEN tests for the refactored get_liquidity_context tool.
 
 Target module: tools.get_liquidity_context
 
-Reads Phase 27 layer-6 liquidity primitives directly from parquet
-(no VM102 HTTP — Phase 27 has no read endpoint per RESEARCH Critical
-Finding #3). Response shape: fvg_zones, equal_highs, equal_lows,
-imbalance_zones.
+The tool is a pure typed transport against VM102 (no Polars, no filesystem,
+no VM100 hop). Takes `instrument` directly from Tier-1 context. Active-only
+filtering is computed server-side by VM102 (Plan 04 — left-anti join against
+the Phase 28 events stream).
+
+Note: The legacy `test_reads_layer_6` GREEN test from Phase 47.2-04 has been
+DELETED — it tested the deprecated `trade_id` + Polars + VM100 hop path that
+no longer exists. Its behavior is now covered by `test_calls_vm102_no_polars`
+plus the embedded-status envelope round-trip in test_chat_to_vm102_smoke.py.
 """
 from __future__ import annotations
 
@@ -19,107 +24,6 @@ import pytest
 _VM107_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
-
-
-@pytest.mark.asyncio
-async def test_reads_layer_6(monkeypatch, tmp_path):
-    """get_liquidity_context._call_vm reads parquet at primitives/layer_6/...
-
-    Response must include fvg_zones, equal_highs, equal_lows, imbalance_zones
-    bucketed by `event_type` from the underlying parquet rows.
-    """
-    from tools.get_liquidity_context import GetLiquidityContext
-
-    # Build a fake data lake with one layer_6 partition.
-    data_lake = tmp_path / "lake"
-    partition = (
-        data_lake
-        / "primitives"
-        / "layer_6"
-        / "instrument=EURUSD"
-        / "timeframe=M5"
-        / "year=2026"
-        / "month=05"
-    )
-    partition.mkdir(parents=True, exist_ok=True)
-    (partition / "part-0.parquet").write_bytes(b"")
-
-    monkeypatch.setenv("FINGPT_DATA_LAKE_PATH", str(data_lake))
-
-    fake_vm100 = MagicMock()
-    fake_vm100.get_trade = AsyncMock(return_value={"instrument": "EURUSD"})
-
-    # Build the canonical mixed-event parquet rows the tool will bucket.
-    fake_rows = [
-        {
-            "timestamp": "2026-05-01T00:00:00Z",
-            "event_type": "fvg",
-            "upper": 1.10,
-            "lower": 1.099,
-            "direction": "bullish",
-            "filled": False,
-        },
-        {
-            "timestamp": "2026-05-01T00:05:00Z",
-            "event_type": "equal_high",
-            "price": 1.105,
-            "swept": False,
-        },
-        {
-            "timestamp": "2026-05-01T00:10:00Z",
-            "event_type": "equal_low",
-            "price": 1.090,
-            "swept": True,
-        },
-        {
-            "timestamp": "2026-05-01T00:15:00Z",
-            "event_type": "imbalance",
-            "upper": 1.108,
-            "lower": 1.103,
-            "label": "imbalance",
-        },
-    ]
-
-    def _fake_scan(files, hive_partitioning=False, **kwargs):  # noqa: ARG001
-        fake_lf = MagicMock(name="fake_lf")
-        fake_lf.sort.return_value = fake_lf
-        fake_lf.head.return_value = fake_lf
-        fake_df = MagicMock(name="fake_collected_df")
-        fake_df.height = len(fake_rows)
-        fake_df.to_dicts.return_value = list(fake_rows)
-        fake_lf.collect.return_value = fake_df
-        return fake_lf
-
-    monkeypatch.setattr("polars.scan_parquet", _fake_scan, raising=False)
-
-    with patch("tools.get_liquidity_context.VM100Client", return_value=fake_vm100):
-        tool = GetLiquidityContext(
-            agent=MagicMock(),
-            name="get_liquidity_context",
-            method=None,
-            args={"trade_id": "abc", "timeframe": "M5"},
-            message="",
-            loop_data=None,
-        )
-        response = await tool.execute(trade_id="abc", timeframe="M5")
-
-    payload = json.loads(response.message)
-    assert payload["trade_id"] == "abc"
-    assert payload["instrument"] == "EURUSD"
-    assert payload["timeframe"] == "M5"
-
-    assert len(payload["fvg_zones"]) == 1
-    assert payload["fvg_zones"][0]["upper"] == 1.10
-    assert payload["fvg_zones"][0]["direction"] == "bullish"
-
-    assert len(payload["equal_highs"]) == 1
-    assert payload["equal_highs"][0]["price"] == 1.105
-
-    assert len(payload["equal_lows"]) == 1
-    assert payload["equal_lows"][0]["swept"] is True
-
-    assert len(payload["imbalance_zones"]) == 1
-    assert payload["imbalance_zones"][0]["label"] == "imbalance"
 
 
 # =============================================================================
@@ -269,27 +173,28 @@ async def test_transport_failure_synthesizes_not_available():
 
 
 @_pytestmark_wave0
-@pytest.mark.asyncio
-async def test_malformed_envelope_from_vm102_raises():
-    """VM102 returns INVALID shape (status=not_available + data=[]) → ContractValidationError."""
+def test_malformed_envelope_from_vm102_raises():
+    """VM102 returns INVALID shape (status=not_available + data=[]) → _validate_response raises ContractValidationError.
+
+    Note: ContractTool.execute() catches ContractValidationError and returns a
+    Response object with break_loop=False (agent-friendly). The boundary
+    enforcement contract is on `_validate_response` itself — that's what this
+    test asserts. Per Plan 02 model_validator, status="not_available" + data=[]
+    is the ambiguous shape forbidden by CONTEXT.md §2 invalid shape #1.
+    """
     from fingpt_core.contracts.errors import ContractValidationError
 
     from tools.get_liquidity_context import GetLiquidityContext
 
-    fake_client = MagicMock()
-    fake_client.get_liquidity = AsyncMock(
-        return_value={"status": "not_available", "data": [], "meta": {"tool": "x"}}
+    tool = GetLiquidityContext(
+        agent=MagicMock(),
+        name="get_liquidity_context",
+        method=None,
+        args={"instrument": "EURUSD", "timeframe": "M5"},
+        message="",
+        loop_data=None,
     )
-    fake_client.close = AsyncMock()
-
-    with patch("tools.get_liquidity_context.VM102Client", return_value=fake_client):
-        tool = GetLiquidityContext(
-            agent=MagicMock(),
-            name="get_liquidity_context",
-            method=None,
-            args={"instrument": "EURUSD", "timeframe": "M5"},
-            message="",
-            loop_data=None,
+    with pytest.raises(ContractValidationError):
+        tool._validate_response(
+            {"status": "not_available", "data": [], "meta": {"tool": "x"}}
         )
-        with pytest.raises(ContractValidationError):
-            await tool.execute(instrument="EURUSD", timeframe="M5")

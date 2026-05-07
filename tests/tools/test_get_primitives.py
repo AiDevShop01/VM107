@@ -1,15 +1,17 @@
-"""Phase 47.2-04 — graduated GREEN tests for the get_primitives REAL tool.
+"""Phase 47.2.1-05 — graduated GREEN tests for the refactored get_primitives tool.
 
 Target module: tools.get_primitives
 
-V1 layer scope (per 47.2-CONTEXT.md):
-  L1 — Volatility & Range
-  L2 — Structure
-  L4 — Compression
-  L6 — Liquidity (Phase 27 already shipped)
+The tool is a pure typed transport against VM102 (no Polars, no filesystem,
+no VM100 hop). Takes `instrument` directly from Tier-1 context.
 
-Layers 3, 5, 7+ are out-of-scope and must raise ContractValidationError
-at request validation time (Pydantic Literal on GetPrimitivesV1Request).
+V1 layer scope (per 47.2-CONTEXT.md, unchanged): {1, 2, 4, 6}. Other layers
+are rejected at the Pydantic Literal boundary on GetPrimitivesV1Request.
+
+Note: The legacy `test_reads_layers_1_2_4_6` GREEN test from Phase 47.2-04
+has been DELETED — it tested the deprecated `trade_id` + Polars + VM100 hop
+path that no longer exists. Its behavior is now covered by `test_calls_vm102_no_polars`
+plus the embedded-status envelope round-trip in test_chat_to_vm102_smoke.py.
 """
 from __future__ import annotations
 
@@ -24,83 +26,6 @@ if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
 
 
-@pytest.mark.asyncio
-async def test_reads_layers_1_2_4_6(monkeypatch, tmp_path):
-    """get_primitives request with layers=[1,2,4,6] reads parquet for each layer."""
-    from tools.get_primitives import GetPrimitives
-
-    # Fake data lake on tmp_path with one parquet stub per V1 layer.
-    data_lake = tmp_path / "lake"
-    for layer in (1, 2, 4, 6):
-        partition = (
-            data_lake
-            / "primitives"
-            / f"layer_{layer}"
-            / "instrument=EURUSD"
-            / "timeframe=M5"
-            / "year=2026"
-            / "month=05"
-        )
-        partition.mkdir(parents=True, exist_ok=True)
-        (partition / "part-0.parquet").write_bytes(b"")  # placeholder
-
-    monkeypatch.setenv("FINGPT_DATA_LAKE_PATH", str(data_lake))
-
-    # Mock the VM100 client used by _resolve_instrument so we don't hit network.
-    fake_vm100 = MagicMock()
-    fake_vm100.get_trade = AsyncMock(return_value={"instrument": "EURUSD"})
-
-    # Mock polars.scan_parquet to return a fake LazyFrame with predictable height.
-    layers_seen: list[int] = []
-
-    def _fake_scan(files, hive_partitioning=False, **kwargs):  # noqa: ARG001
-        # Identify which layer we're scanning by inspecting the file path.
-        sample = str(files[0]) if files else ""
-        for layer in (1, 2, 4, 6):
-            if f"layer_{layer}" in sample:
-                layers_seen.append(layer)
-                break
-        fake_lf = MagicMock(name=f"fake_lf_{sample}")
-        fake_lf.sort.return_value = fake_lf
-        fake_lf.head.return_value = fake_lf
-        fake_df = MagicMock(name="fake_collected_df")
-        fake_df.height = 3
-        fake_df.to_dicts.return_value = [{"timestamp": "2026-05-01T00:00:00Z"}]
-        fake_lf.collect.return_value = fake_df
-        return fake_lf
-
-    monkeypatch.setattr("polars.scan_parquet", _fake_scan, raising=False)
-
-    with patch("tools.get_primitives.VM100Client", return_value=fake_vm100):
-        tool = GetPrimitives(
-            agent=MagicMock(),
-            name="get_primitives",
-            method=None,
-            args={"trade_id": "abc", "timeframe": "M5", "layers": [1, 2, 4, 6]},
-            message="",
-            loop_data=None,
-        )
-        response = await tool.execute(
-            trade_id="abc", timeframe="M5", layers=[1, 2, 4, 6]
-        )
-
-    # All four layers should have been read.
-    assert sorted(layers_seen) == [1, 2, 4, 6], (
-        f"Expected scans for layers 1/2/4/6, got {sorted(layers_seen)}"
-    )
-
-    # Response message contains the contract dump — sanity-check structure.
-    import json
-
-    payload = json.loads(response.message)
-    assert payload["trade_id"] == "abc"
-    assert payload["instrument"] == "EURUSD"
-    assert payload["timeframe"] == "M5"
-    assert {layer["layer"] for layer in payload["layers"]} == {1, 2, 4, 6}
-    for layer_block in payload["layers"]:
-        assert layer_block["count"] == 3
-
-
 def test_excludes_other_layers():
     """Layers outside {1,2,4,6} are rejected at the Pydantic boundary."""
     from fingpt_core.contracts.errors import ContractValidationError
@@ -111,14 +36,14 @@ def test_excludes_other_layers():
         agent=MagicMock(),
         name="get_primitives",
         method=None,
-        args={"trade_id": "abc", "timeframe": "M5", "layers": [3]},
+        args={"instrument": "EURUSD", "timeframe": "M5", "layers": [3]},
         message="",
         loop_data=None,
     )
 
     with pytest.raises(ContractValidationError):
         tool._validate_request(
-            {"trade_id": "abc", "timeframe": "M5", "layers": [3]}
+            {"instrument": "EURUSD", "timeframe": "M5", "layers": [3]}
         )
 
 
@@ -269,27 +194,28 @@ async def test_transport_failure_synthesizes_not_available():
 
 
 @_pytestmark_wave0
-@pytest.mark.asyncio
-async def test_malformed_envelope_from_vm102_raises():
-    """Mocked VM102 returns INVALID shape (status=not_available + data=[]) → ContractValidationError."""
+def test_malformed_envelope_from_vm102_raises():
+    """VM102 returns INVALID shape (status=not_available + data=[]) → _validate_response raises ContractValidationError.
+
+    Note: ContractTool.execute() catches ContractValidationError and returns a
+    Response object with break_loop=False (agent-friendly). The boundary
+    enforcement contract is on `_validate_response` itself — that's what this
+    test asserts. Per Plan 02 model_validator, status="not_available" + data=[]
+    is the ambiguous shape forbidden by CONTEXT.md §2 invalid shape #1.
+    """
     from fingpt_core.contracts.errors import ContractValidationError
 
     from tools.get_primitives import GetPrimitives
 
-    fake_client = MagicMock()
-    fake_client.get_primitives_v1 = AsyncMock(
-        return_value={"status": "not_available", "data": [], "meta": {"tool": "x"}}
+    tool = GetPrimitives(
+        agent=MagicMock(),
+        name="get_primitives",
+        method=None,
+        args={"instrument": "EURUSD", "timeframe": "M5"},
+        message="",
+        loop_data=None,
     )
-    fake_client.close = AsyncMock()
-
-    with patch("tools.get_primitives.VM102Client", return_value=fake_client):
-        tool = GetPrimitives(
-            agent=MagicMock(),
-            name="get_primitives",
-            method=None,
-            args={"instrument": "EURUSD", "timeframe": "M5"},
-            message="",
-            loop_data=None,
+    with pytest.raises(ContractValidationError):
+        tool._validate_response(
+            {"status": "not_available", "data": [], "meta": {"tool": "x"}}
         )
-        with pytest.raises(ContractValidationError):
-            await tool.execute(instrument="EURUSD", timeframe="M5")
