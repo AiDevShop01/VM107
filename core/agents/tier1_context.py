@@ -3,29 +3,37 @@
 Deterministic, zero-latency curated context built server-side BEFORE
 the Coordinator LLM enters tool dispatch. Replaces the Wave 1 inline
 context payload (trader pasted instrument/timeframe/strategy_id) with
-authoritative fetch from VM100/Postgres/Mongo.
+authoritative fetch from VM100.
 
 CONTEXT.md lock — payload shape:
   {
     trade_id, instrument, direction, strategy_id,
     last_evaluation (optional summary),
-    journal_metadata { timeframe, checklist_snapshot_text, entry, SL, TP }
+    journal_metadata { timeframe, entry_price, stop_loss_price, take_profit_price, ... }
   }
 
-Per-section graceful degradation: if one underlying source fails, return
-partial dict with that section as None. NEVER raise on the chat path.
+Per-section graceful degradation: if the VM100 fetch fails, return a
+minimal stub (all top-level keys present with None) so the chat path
+continues with empty context rather than failing the entire turn.
 
 Tier-1 is a deterministic floor — NOT a tool call. Runs server-side
 inside chat.py:process() before _call_coordinator_monologue, so the
 context arrives in the FIRST user message the LLM sees with zero LLM
 round-trip cost. Tier-2 tools (Plan 04) handle on-demand data fetches.
+
+Implementation note: this module deliberately uses stdlib httpx instead
+of fingpt_core.clients.VM100Client because VM107's runtime container
+does NOT install fingpt_core. The internal endpoint
+GET /api/journal/internal/journal/{id}/tier1-context returns the
+curated bundle in one JOIN — no auth (docker network only).
 """
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
-from fingpt_core.clients import RetryProfile, VM100Client
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,19 @@ _EMPTY_TIER1: dict[str, Any] = {
 }
 
 
+def _vm100_internal_base_url() -> str:
+    """Resolve VM100 internal base URL.
+
+    Honors VM100_INTERNAL_URL first; falls back to VM100_API_URL; finally
+    defaults to host.docker.internal:8000 (Mac dev compose pattern).
+    """
+    return (
+        os.environ.get("VM100_INTERNAL_URL")
+        or os.environ.get("VM100_API_URL")
+        or "http://host.docker.internal:8000"
+    )
+
+
 async def build_tier1_context(journal_id: str) -> dict[str, Any]:
     """Build curated Tier-1 context for the Coordinator chat path.
 
@@ -50,56 +71,43 @@ async def build_tier1_context(journal_id: str) -> dict[str, Any]:
         Curated dict per CONTEXT.md lock. Always includes top-level keys
         (with None values where data is unavailable).
     """
-    client = VM100Client(profile=RetryProfile.FAST_FAIL)
+    url = (
+        f"{_vm100_internal_base_url().rstrip('/')}"
+        f"/api/journal/internal/journal/{journal_id}/tier1-context"
+    )
 
-    # Section 1: journal + trade lookup (LOAD-BEARING — if this fails,
-    # return a minimal stub so the chat path continues with empty context
-    # rather than failing the entire turn).
-    journal: dict | None = None
-    trade: dict | None = None
     try:
-        journal = await client.get_journal(journal_id)
-        trade_id = (journal or {}).get("trade_id") or journal_id
-        trade = await client.get_trade(trade_id)
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=3.0)) as client:
+            response = await client.get(url)
+        if response.status_code == 404:
+            logger.info(
+                "tier1_context: VM100 reports journal not found for journal_id=%s — "
+                "returning empty stub",
+                journal_id,
+            )
+            return dict(_EMPTY_TIER1)
+        response.raise_for_status()
+        bundle = response.json()
     except Exception as exc:
         logger.warning(
-            "tier1_context: journal/trade fetch failed for journal_id=%s — "
+            "tier1_context: VM100 fetch failed for journal_id=%s — "
             "returning minimal stub: %s",
-            journal_id, exc,
+            journal_id,
+            exc,
         )
         return dict(_EMPTY_TIER1)
 
-    # Section 2: last evaluation (graceful — None on any failure).
-    last_eval: dict | None = None
-    try:
-        eval_record = await client.get_current_evaluation(journal_id)
-        if eval_record:
-            last_eval = {
-                "evaluation_id": eval_record.get("evaluation_id"),
-                "recommendation": eval_record.get("recommendation"),
-                "score": eval_record.get("score"),
-                "confidence": eval_record.get("confidence"),
-                "created_at": eval_record.get("created_at"),
-            }
-    except Exception as exc:
-        logger.debug(
-            "tier1_context: last evaluation fetch failed (graceful) for "
-            "journal_id=%s: %s",
-            journal_id, exc,
-        )
-        last_eval = None
-
-    return {
-        "trade_id": trade.get("id") or journal.get("trade_id"),
-        "instrument": trade.get("instrument"),
-        "direction": trade.get("direction"),
-        "strategy_id": trade.get("strategy_id"),
-        "last_evaluation": last_eval,
-        "journal_metadata": {
-            "timeframe": trade.get("timeframe"),
-            "checklist_snapshot_text": journal.get("checklist_snapshot_text"),
-            "entry_price": trade.get("entry_price"),
-            "stop_loss_price": trade.get("stop_loss_price"),
-            "take_profit_price": trade.get("take_profit_price"),
-        },
-    }
+    # Server already returns the curated shape. Defensive merge against
+    # the empty stub so missing keys never raise downstream.
+    merged = dict(_EMPTY_TIER1)
+    merged.update(
+        {
+            "trade_id": bundle.get("trade_id"),
+            "instrument": bundle.get("instrument"),
+            "direction": bundle.get("direction"),
+            "strategy_id": bundle.get("strategy_id"),
+            "last_evaluation": bundle.get("last_evaluation"),
+            "journal_metadata": bundle.get("journal_metadata") or {},
+        }
+    )
+    return merged
