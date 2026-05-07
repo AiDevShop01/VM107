@@ -1,0 +1,72 @@
+id: get_primitives
+type: tool
+status: real
+shipped: 47.2.1
+planned_phase: null
+
+short_description: >
+  Typed read of computed structural primitives (BOS/CHoCH/displacement/compression/
+  exhaustion) per instrument×timeframe×layer with embedded ok-vs-not_available status.
+
+long_description: |
+  get_primitives is a pure-transport Tier-2 tool. It calls VM102's
+  GET /api/v1/primitives endpoint and returns the embedded-status response
+  shape locked by Phase 47.2.1. The tool does NOT compute primitives itself
+  and never reads parquet directly — that's VM102's responsibility.
+
+  The Coordinator should call this when the trader's question references
+  structural context: BOS/CHoCH points, displacement candles, compression
+  ranges, exhaustion patterns, or recent swing levels.
+
+  Embedded status semantics (Phase 47.2.1 lock):
+    - status="ok" + populated layers: data partition exists, here are the bars
+    - status="ok" + empty layers: partition exists but no rows match the filter
+      (this is INFORMATIVE, not a failure — record it as a true negative signal)
+    - status="not_available": VM102 unreachable OR all requested layer partitions
+      missing for this instrument×timeframe — confidence rule must engage
+
+  The tool silently clamps lookback_bars > 500 before contract validation;
+  VM102 also enforces 1..500 with HTTP 422 (defense in depth).
+
+  Limitations / edge cases:
+    - Layer parametric — adding a new layer is a metadata/datasets.json change
+      on VM102, NOT a code change here
+    - Per-layer graceful degradation: if layer 1 missing but layer 2 present,
+      response is status="ok" with layer_1.count=0 + layer_2.count=N
+    - Only when ALL requested layers are missing does the envelope flip to
+      status="not_available"
+
+location:
+  source: VM107/tools/get_primitives.py
+  endpoint: VM102/api/v1/primitives
+  contracts:
+    request: fingpt_core.contracts.features.primitives_v1.GetPrimitivesV1Request
+    response: fingpt_core.contracts.features.primitives_v1.GetPrimitivesV1Response
+  computed_by: fingpt_pipelines.primitives (Phases 23/24/25)
+  consumed_by: [agent_zero]
+
+api_structure: |
+  Args:
+    instrument (str, required) — e.g., "EURUSD"
+    timeframe (str, required) — one of M1/M5/M15/M30/H1/H4/D1
+    layers (list[int], optional, default=[1,2,4,6]) — subset of [1,2,4,6]
+    lookback_bars (int, optional, default=100) — 1..500
+
+  Returns: GetPrimitivesV1Response with embedded status
+
+  Raises:
+    ContractValidationError — request shape invalid (e.g., legacy trade_id arg)
+                              or VM102 returned malformed envelope
+    VMResponseError — VM102 returned 4xx other than 422-bound-violation
+
+impact_on_decision: HIGH
+unblocks_when:
+  - VM102 backend healthy
+  - primitives_l1/l2/l4/l6 partitions exist for instrument×timeframe
+related_capabilities: [get_liquidity_context, get_trade_context]
+tags: [primitives, structure, displacement, compression, vm102, phase_47_2_1]
+
+hard_scoped: false
+allowed_agent_profiles: [agent_zero]
+
+last_changed: 2026-05-07
