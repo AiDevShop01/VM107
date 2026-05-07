@@ -33,6 +33,7 @@ from flask import Response, request as flask_request
 from helpers.api import ApiHandler, Input, Output
 from helpers.mongo import get_mongo_db
 from core.agents.envelope_writer import build_envelope, write_envelope
+from core.agents.tier1_context import build_tier1_context
 
 log = logging.getLogger(__name__)
 
@@ -55,18 +56,53 @@ def _load_chat_evaluator_prompt() -> str:
 
 
 def _build_user_prompt(message: str, context: dict, journal_id: str) -> str:
-    """Build a structured user prompt with inline context block."""
+    """Build a structured user prompt with Tier-1 context block.
+
+    Phase 47.2 (LOCKED): `context` is the curated dict produced by
+    `core.agents.tier1_context.build_tier1_context(journal_id)` — NOT the
+    inline payload sent by the frontend. Top-level keys are:
+      trade_id, instrument, direction, strategy_id, last_evaluation,
+      journal_metadata { timeframe, checklist_snapshot_text, entry_price,
+                         stop_loss_price, take_profit_price }
+    """
+    journal_metadata = context.get("journal_metadata") or {}
+
     parts: list[str] = [f"Journal ID: {journal_id}"]
     if context.get("instrument"):
         parts.append(f"Instrument: {context['instrument']}")
-    timeframe = context.get("timeframe")
+    if context.get("direction"):
+        parts.append(f"Direction: {context['direction']}")
+    timeframe = journal_metadata.get("timeframe")
     if timeframe and timeframe != "NA":
         parts.append(f"Timeframe: {timeframe}")
     if context.get("strategy_id"):
         parts.append(f"Strategy: {context['strategy_id']}")
-    snapshot = context.get("checklist_snapshot_text")
+
+    entry_price = journal_metadata.get("entry_price")
+    stop_loss_price = journal_metadata.get("stop_loss_price")
+    take_profit_price = journal_metadata.get("take_profit_price")
+    if entry_price is not None:
+        parts.append(f"Entry: {entry_price}")
+    if stop_loss_price is not None:
+        parts.append(f"Stop loss: {stop_loss_price}")
+    if take_profit_price is not None:
+        parts.append(f"Take profit: {take_profit_price}")
+
+    last_eval = context.get("last_evaluation")
+    if last_eval:
+        rec = last_eval.get("recommendation") or "n/a"
+        score = last_eval.get("score")
+        confidence = last_eval.get("confidence") or "n/a"
+        score_str = str(score) if score is not None else "n/a"
+        parts.append(
+            f"\nLast formal evaluation: recommendation={rec}, "
+            f"score={score_str}, confidence={confidence}"
+        )
+
+    snapshot = journal_metadata.get("checklist_snapshot_text")
     if snapshot:
         parts.append(f"\nChecklist snapshot:\n{snapshot}")
+
     parts.append(f"\nTrader's message:\n{message}")
     return "\n".join(parts)
 
@@ -229,7 +265,19 @@ class TradeAiChat(ApiHandler):
                 mimetype="application/json",
             )
 
-        context: dict = input.get("context") or {}
+        # Phase 47.2 (LOCKED): the chat handler builds Tier-1 context server-side
+        # from journal_id. The inline `context` payload (Wave 1 frontend pattern)
+        # is accepted for backward-compat but IGNORED for prompt build — Tier-1
+        # owns context retrieval now. Plan 08 strips inline context from the
+        # frontend; this 1-release window keeps the body schema compatible.
+        inline_context = input.get("context")
+        if inline_context:
+            log.debug(
+                "Phase 47.2: inline context payload received but ignored — "
+                "Tier-1 builder owns context retrieval. journal_id=%s",
+                journal_id,
+            )
+        context: dict = await build_tier1_context(journal_id)
         task_id = f"chat-{uuid.uuid4().hex}"
         db = get_mongo_db()
         start = time.perf_counter()

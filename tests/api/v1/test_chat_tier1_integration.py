@@ -11,6 +11,10 @@ These specs prove:
      (REAL data), NOT the inline FAKE payload.
   2. test_inline_context_not_passed_to_prompt — the value bound to `context`
      in process() is build_tier1_context(journal_id)'s result.
+
+Note: VM107 uses namespace-package layout for `api/`, so
+`unittest.mock.patch("api.v1.trades.ai.chat.X")` confuses pkgutil. We
+import the chat module directly and use `patch.object` instead.
 """
 from __future__ import annotations
 
@@ -25,6 +29,23 @@ import pytest
 _VM107_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
+
+
+def _load_chat_module():
+    """Load the chat module by absolute file path.
+
+    The tests/ tree contains tests/api/v1/__init__.py which Python's import
+    system treats as the same `api.v1` package as the production code. This
+    shadowing prevents `from api.v1.trades.ai import chat`. Workaround: load
+    the chat module directly from its file location via importlib.
+    """
+    import importlib.util
+
+    chat_path = _VM107_ROOT / "api" / "v1" / "trades" / "ai" / "chat.py"
+    spec = importlib.util.spec_from_file_location("_chat_under_test", chat_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 _FAKE_TIER1 = {
@@ -43,7 +64,7 @@ _FAKE_TIER1 = {
 }
 
 
-def _make_flask_app():
+def _make_flask_app(chat_module):
     """Minimal Flask test app mirroring production dispatch (X-API-KEY gate)."""
     from flask import Flask, request as flask_request
 
@@ -52,10 +73,9 @@ def _make_flask_app():
     lock = threading.RLock()
 
     async def _chat_dispatch(journal_id: str):
-        from api.v1.trades.ai.chat import TradeAiChat
         from helpers.api import requires_api_key
 
-        instance = TradeAiChat(app, lock)
+        instance = chat_module.TradeAiChat(app, lock)
 
         async def _call():
             return await instance.handle_request(request=flask_request)
@@ -72,7 +92,7 @@ def _make_flask_app():
 
 
 def _mock_envelope(**kwargs):
-    """Stand-in for build_envelope that returns a MagicMock with the right attrs."""
+    """Stand-in for build_envelope returning a MagicMock with the right attrs."""
     env = MagicMock()
     env.task_id = kwargs["task_id"]
     env.envelope_id = "env-test-id"
@@ -83,10 +103,24 @@ def _mock_envelope(**kwargs):
     return env
 
 
+def _mongo_db_stub():
+    """Stand-in for the Mongo db handle: empty find/find_one."""
+    return MagicMock(
+        **{
+            "__getitem__.return_value": MagicMock(
+                find_one=MagicMock(return_value=None),
+                find=MagicMock(return_value=iter([])),
+                insert_one=MagicMock(),
+            )
+        }
+    )
+
+
 def test_inline_context_ignored():
     """POST chat with inline {context: {instrument: 'FAKE'}}. Tier-1 patched
     to return REAL data. _build_user_prompt MUST receive the Tier-1 dict
     (REAL), not the inline FAKE payload."""
+    chat_module = _load_chat_module()
     captured = {}
 
     def _capture_prompt(message, context, journal_id):
@@ -95,38 +129,16 @@ def test_inline_context_ignored():
         captured["journal_id"] = journal_id
         return "rendered prompt"
 
-    app = _make_flask_app()
+    app = _make_flask_app(chat_module)
 
-    with patch(
-        "helpers.settings.get_settings",
-        return_value={"mcp_server_token": "test-key"},
-    ), patch(
-        "api.v1.trades.ai.chat.get_mongo_db",
-        return_value=MagicMock(
-            **{
-                "__getitem__.return_value": MagicMock(
-                    find_one=MagicMock(return_value=None),
-                    find=MagicMock(return_value=iter([])),
-                    insert_one=MagicMock(),
-                )
-            }
-        ),
-    ), patch(
-        "api.v1.trades.ai.chat.build_envelope",
-        side_effect=_mock_envelope,
-    ), patch(
-        "api.v1.trades.ai.chat.write_envelope",
-        return_value="env-test-id",
-    ), patch(
-        "api.v1.trades.ai.chat.build_tier1_context",
-        new=AsyncMock(return_value=dict(_FAKE_TIER1)),
-    ), patch(
-        "api.v1.trades.ai.chat._build_user_prompt",
-        side_effect=_capture_prompt,
-    ), patch(
-        "api.v1.trades.ai.chat._call_coordinator_monologue",
-        new=AsyncMock(return_value=("ok", {"fallback_used": False})),
-    ):
+    with patch("helpers.settings.get_settings", return_value={"mcp_server_token": "test-key"}), \
+         patch.object(chat_module, "get_mongo_db", return_value=_mongo_db_stub()), \
+         patch.object(chat_module, "build_envelope", side_effect=_mock_envelope), \
+         patch.object(chat_module, "write_envelope", return_value="env-test-id"), \
+         patch.object(chat_module, "build_tier1_context", new=AsyncMock(return_value=dict(_FAKE_TIER1))), \
+         patch.object(chat_module, "_build_user_prompt", side_effect=_capture_prompt), \
+         patch.object(chat_module, "_call_coordinator_monologue",
+                      new=AsyncMock(return_value=("ok", {"fallback_used": False}))):
         with app.test_client() as client:
             rv = client.post(
                 "/api/v1/trades/journal-xyz/ai/chat",
@@ -152,6 +164,7 @@ def test_inline_context_ignored():
 def test_inline_context_not_passed_to_prompt():
     """Even when the request omits inline context entirely, the chat handler
     still binds context to build_tier1_context(journal_id)'s return value."""
+    chat_module = _load_chat_module()
     captured = {}
 
     def _capture_prompt(message, context, journal_id):
@@ -161,38 +174,16 @@ def test_inline_context_not_passed_to_prompt():
 
     tier1_mock = AsyncMock(return_value=dict(_FAKE_TIER1))
 
-    app = _make_flask_app()
+    app = _make_flask_app(chat_module)
 
-    with patch(
-        "helpers.settings.get_settings",
-        return_value={"mcp_server_token": "test-key"},
-    ), patch(
-        "api.v1.trades.ai.chat.get_mongo_db",
-        return_value=MagicMock(
-            **{
-                "__getitem__.return_value": MagicMock(
-                    find_one=MagicMock(return_value=None),
-                    find=MagicMock(return_value=iter([])),
-                    insert_one=MagicMock(),
-                )
-            }
-        ),
-    ), patch(
-        "api.v1.trades.ai.chat.build_envelope",
-        side_effect=_mock_envelope,
-    ), patch(
-        "api.v1.trades.ai.chat.write_envelope",
-        return_value="env-test-id",
-    ), patch(
-        "api.v1.trades.ai.chat.build_tier1_context",
-        new=tier1_mock,
-    ), patch(
-        "api.v1.trades.ai.chat._build_user_prompt",
-        side_effect=_capture_prompt,
-    ), patch(
-        "api.v1.trades.ai.chat._call_coordinator_monologue",
-        new=AsyncMock(return_value=("ok", {"fallback_used": False})),
-    ):
+    with patch("helpers.settings.get_settings", return_value={"mcp_server_token": "test-key"}), \
+         patch.object(chat_module, "get_mongo_db", return_value=_mongo_db_stub()), \
+         patch.object(chat_module, "build_envelope", side_effect=_mock_envelope), \
+         patch.object(chat_module, "write_envelope", return_value="env-test-id"), \
+         patch.object(chat_module, "build_tier1_context", new=tier1_mock), \
+         patch.object(chat_module, "_build_user_prompt", side_effect=_capture_prompt), \
+         patch.object(chat_module, "_call_coordinator_monologue",
+                      new=AsyncMock(return_value=("ok", {"fallback_used": False}))):
         with app.test_client() as client:
             rv = client.post(
                 "/api/v1/trades/journal-xyz/ai/chat",
