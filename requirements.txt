@@ -72,3 +72,6 @@ cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
 werkzeug>=3.0.3  # security floor: RCE CWE-94
 # Phase 43.2 — structured output Stage 2 repair
 json-repair>=0.59,<1.0
+
+# Phase 47.2 — Tier-2 tools read VM102 primitives + liquidity from parquet directly
+polars>=1.0

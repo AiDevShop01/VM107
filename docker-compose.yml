@@ -25,8 +25,18 @@ services:
       - "50081:80"
     env_file:
       - .env.local
+    environment:
+      # Make fingpt_core importable from VM107 tools/Tier-1 builder.
+      # Mounted from sibling Dagster repo at the path below.
+      PYTHONPATH: /a0_extras:/a0
     volumes:
       - ./usr:/a0/usr
+      # Vendor fingpt_core source (read-only) so the Phase 39/47.2 typed
+      # tool layer (`from fingpt_core.clients import ...`,
+      # `from fingpt_core.contracts.* import ...`) actually imports inside
+      # the running container. Without this mount every Tier-2/Tier-3 tool
+      # silently fails at agent.get_tool() with ModuleNotFoundError.
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
     depends_on:
       vm107-redis:
         condition: service_healthy
