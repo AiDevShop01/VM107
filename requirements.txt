@@ -3,6 +3,11 @@ ansio==0.0.1
 browser-use==0.5.11
 docker==7.1.0
 duckduckgo-search==6.1.12
+# Phase 47-07/47.1: pin pyreqwest-impersonate to last version with prebuilt
+# aarch64 wheels — duckduckgo-search 6.1.12 has an unbounded constraint and
+# uv was resolving to 0.5.5 which fails to compile boring-sys-imp from source.
+# 0.5.3 has prebuilt wheels for both aarch64 and x86_64 linux.
+pyreqwest-impersonate==0.5.3
 faiss-cpu==1.11.0
 fastmcp==2.13.1
 fasta2a==0.5.0
