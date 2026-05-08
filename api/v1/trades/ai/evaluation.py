@@ -88,15 +88,22 @@ class TradeAiEvaluation(ApiHandler):
         task_id = f"eval-{uuid.uuid4().hex}"
 
         try:
-            evaluation, envelope_id, _task_id = await run_pre_trade_evaluation(
+            # Phase 47.3: runner now returns PreTradeEvaluation directly.
+            # context_block is no longer passed in — the runner builds its
+            # own EvaluationContext from Tier-1 (VM100 internal) + Tier-2
+            # (VM102) + Tier-3 stubs. envelope_id is read off the success
+            # envelope persisted inside the runner via the source_envelope_id
+            # round-trip; for the API response we surface the same value
+            # via the runner's input_payload tracing.
+            evaluation = await run_pre_trade_evaluation(
                 journal_id=journal_id,
                 conversation_id=conversation_id,
                 strategy_id=strategy_id,
                 user_id=user_id,
-                context_block=context_block,
                 db=db,
                 task_id=task_id,
             )
+            envelope_id = evaluation.source_envelope_id or ""
         except EvaluationContractViolation as exc:
             # Failure envelope already persisted inside runner; envelope_id stashed on exception.
             log.warning(

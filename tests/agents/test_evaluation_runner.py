@@ -1,10 +1,11 @@
 """
-Phase 47.1-02 — evaluation_runner.py tests (graduated from Wave 0 xfail stubs).
+Phase 47.1-02 — evaluation_runner.py tests.
 
-Tests for VM107 evaluation runner unit behaviours.
-All tests graduated to GREEN by Plan 47.1-02 / Task 2.
-
-Target module: core.agents.evaluation_runner
+Phase 47.3-06 update: the runner now returns ``PreTradeEvaluation`` directly
+(no tuple), drops ``context_block`` from kwargs (resolved internally via
+Tier-1), and orchestrates Framework().run BEFORE the LLM call. These legacy
+47.1 tests are kept for the LLM retry-once-then-fail and envelope-persistence
+guarantees that are still in scope.
 
 Test count: 9 (per 47.1-VALIDATION.md Per-Task Verification Map)
   1. test_success_returns_evaluation
@@ -20,6 +21,7 @@ Test count: 9 (per 47.1-VALIDATION.md Per-Task Verification Map)
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import sys
 import uuid
@@ -31,6 +33,102 @@ import pytest
 _VM107_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
+
+
+def _make_tier1():
+    return {
+        "trade_id": "journal-abc",
+        "instrument": "XAUUSD",
+        "direction": "long",
+        "strategy_id": None,
+        "last_evaluation": None,
+        "journal_metadata": {"timeframe": "15M"},
+    }
+
+
+def _make_primitives_unav():
+    from fingpt_core.contracts.agents.not_available import NotAvailableMeta
+    from fingpt_core.contracts.features.primitives_v1 import GetPrimitivesV1Response
+
+    return GetPrimitivesV1Response(
+        status="not_available",
+        data=None,
+        meta=NotAvailableMeta(
+            planned_phase="VM102 healthy",
+            tool="get_primitives",
+            would_provide=["layer_bars"],
+            impact_on_decision="HIGH",
+            unblocks_when=["VM102 reachable"],
+        ),
+    )
+
+
+def _make_liquidity_unav():
+    from fingpt_core.contracts.agents.not_available import NotAvailableMeta
+    from fingpt_core.contracts.agents.liquidity_context import (
+        GetLiquidityContextResponse,
+    )
+
+    return GetLiquidityContextResponse(
+        status="not_available",
+        data=None,
+        meta=NotAvailableMeta(
+            planned_phase="VM102 healthy",
+            tool="get_liquidity_context",
+            would_provide=["fvg_zones"],
+            impact_on_decision="HIGH",
+            unblocks_when=["VM102 reachable"],
+        ),
+    )
+
+
+def _make_news_stub():
+    from fingpt_core.contracts.agents.not_available import NotAvailableResponse
+
+    return NotAvailableResponse(
+        planned_phase="Phase 31",
+        tool="get_news_context",
+        would_provide=["scheduled_events"],
+        impact_on_decision="HIGH",
+        unblocks_when=["Phase 31 complete"],
+    )
+
+
+def _make_macro_stub():
+    from fingpt_core.contracts.agents.not_available import NotAvailableResponse
+
+    return NotAvailableResponse(
+        planned_phase="Phase 32",
+        tool="get_macro_context",
+        would_provide=["scheduled_macro"],
+        impact_on_decision="HIGH",
+        unblocks_when=["Phase 32 complete"],
+    )
+
+
+@contextlib.contextmanager
+def _patched_runner_deps():
+    """Apply tier-1 / Tier-2 / Tier-3 stubs the legacy tests rely on.
+
+    Lets the LLM mock + db mock remain the only behaviour each test cares about.
+    """
+    with patch(
+        "core.agents.evaluation_runner.build_tier1_context",
+        new=AsyncMock(return_value=_make_tier1()),
+    ), patch(
+        "core.agents.evaluation_runner._fetch_primitives",
+        new=AsyncMock(return_value=_make_primitives_unav()),
+    ), patch(
+        "core.agents.evaluation_runner._fetch_liquidity",
+        new=AsyncMock(return_value=_make_liquidity_unav()),
+    ), patch(
+        "core.agents.evaluation_runner._fetch_news_stub",
+        new=AsyncMock(return_value=_make_news_stub()),
+    ), patch(
+        "core.agents.evaluation_runner._fetch_macro_stub",
+        new=AsyncMock(return_value=_make_macro_stub()),
+    ):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +162,6 @@ _COMMON_KWARGS = dict(
     conversation_id="journal-abc",
     strategy_id=None,
     user_id="user-1",
-    context_block={"instrument": "XAUUSD", "timeframe": "15M"},
 )
 
 
@@ -100,16 +197,20 @@ def test_success_returns_evaluation():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
-        evaluation, envelope_id, task_id = asyncio.run(
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
+        evaluation = asyncio.run(
             run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
         )
 
     assert isinstance(evaluation, PreTradeEvaluation)
-    assert evaluation.recommendation == "enter"
+    # Phase 47.3: framework owns recommendation; LLM said 'enter' but with
+    # all Tier-2 not_available the framework forces 'avoid' (band <50).
+    assert evaluation.recommendation == "avoid"
+    # Tier-1 echo: instrument is sourced from build_tier1_context, not from
+    # the LLM's JSON.
     assert evaluation.instrument == "XAUUSD"
-    assert envelope_id  # non-empty string
-    assert task_id.startswith("eval-")
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +232,9 @@ def test_two_plain_text_raises_contract_violation():
     # LLM always returns plain text
     mock_llm = AsyncMock(return_value=_PLAIN_TEXT_RESPONSE)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
         with pytest.raises(EvaluationContractViolation) as exc_info:
             asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
 
@@ -160,8 +263,10 @@ def test_first_plain_text_triggers_retry():
     # First call: plain text (causes degraded); second call: valid JSON (success)
     mock_llm = AsyncMock(side_effect=[_PLAIN_TEXT_RESPONSE, _CANNED_VALID_JSON])
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
-        evaluation, envelope_id, task_id = asyncio.run(
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
+        evaluation = asyncio.run(
             run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
         )
 
@@ -185,8 +290,10 @@ def test_success_envelope_persisted():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
-        evaluation, envelope_id, task_id = asyncio.run(
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
+        evaluation = asyncio.run(
             run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
         )
 
@@ -221,7 +328,9 @@ def test_failure_envelope_on_contract_violation():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_PLAIN_TEXT_RESPONSE)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
         with pytest.raises(EvaluationContractViolation):
             asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
 
@@ -248,7 +357,9 @@ def test_history_read_from_mongo():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
         asyncio.run(run_pre_trade_evaluation(**_COMMON_KWARGS, db=db))
 
     envelopes_col = db["agent_envelopes"]
@@ -303,8 +414,10 @@ def test_system_fields_injected():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
-        evaluation, envelope_id, task_id = asyncio.run(
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
+        evaluation = asyncio.run(
             run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
         )
 
@@ -332,8 +445,10 @@ def test_evaluation_id_is_uuid_format():
     db = _make_mock_db()
     mock_llm = AsyncMock(return_value=_CANNED_VALID_JSON)
 
-    with patch("core.agents.evaluation_runner._call_llm_structured", new=mock_llm):
-        evaluation, envelope_id, task_id = asyncio.run(
+    with _patched_runner_deps(), patch(
+        "core.agents.evaluation_runner._call_llm_structured", new=mock_llm
+    ):
+        evaluation = asyncio.run(
             run_pre_trade_evaluation(**_COMMON_KWARGS, db=db)
         )
 
