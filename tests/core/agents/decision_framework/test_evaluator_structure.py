@@ -6,18 +6,13 @@ Status semantics:
   fail:           Structure against direction (BOS counter-trend)
   not_available:  M5 primitives missing/empty
 
-Wave 0 — graduates in Plan 04 (evaluate_structure shipped).
+Plan 04 GREEN.
 """
-import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason="Phase 47.3 — evaluate_structure not yet shipped (Plan 04)",
-    strict=False,
-)
 
 
 def test_structure_pass_recent_bos(ctx_all_pass):
     from core.agents.decision_framework.category_evaluators import evaluate_structure
+
     result = evaluate_structure(ctx_all_pass)
     assert result.name == "Structure"
     assert result.status == "pass"
@@ -27,6 +22,7 @@ def test_structure_pass_recent_bos(ctx_all_pass):
 
 def test_structure_unclear_choch_only(ctx_mixed):
     from core.agents.decision_framework.category_evaluators import evaluate_structure
+
     result = evaluate_structure(ctx_mixed)
     assert result.status == "unclear"
     assert result.score_contribution == 8
@@ -35,11 +31,42 @@ def test_structure_unclear_choch_only(ctx_mixed):
 def test_structure_fail_counter_trend_bos():
     """M5 BOS counter to direction → fail."""
     from core.agents.decision_framework.category_evaluators import evaluate_structure
-    raise NotImplementedError("Plan 04 fills in fail-case context build")
+    from core.agents.decision_framework.context import EvaluationContext
+    from fingpt_core.contracts.features.primitives_v1 import (
+        GetPrimitivesV1Response,
+        LayerBars,
+        PrimitivesData,
+    )
+
+    # Opposing-direction BOS (down BOS while direction=long).
+    layer2 = LayerBars(
+        layer=2,
+        count=2,
+        bars=[
+            {"event_type": "BOS", "direction": "down", "price": 1.0950},
+            {"event_type": "BOS", "direction": "down", "price": 1.0930},
+        ],
+    )
+    primitives_m5 = GetPrimitivesV1Response(
+        status="ok",
+        data=PrimitivesData(instrument="EURUSD", timeframe="M5", layers=[layer2]),
+        meta=None,
+    )
+    ctx = EvaluationContext(
+        journal_id="fail-struct",
+        instrument="EURUSD",
+        direction="long",
+        primitives_m5=primitives_m5,
+    )
+    result = evaluate_structure(ctx)
+    assert result.status == "fail"
+    assert result.score_contribution == 0
+    assert result.max_points == 15
 
 
 def test_structure_not_available_when_m5_missing(ctx_all_not_available):
     from core.agents.decision_framework.category_evaluators import evaluate_structure
+
     result = evaluate_structure(ctx_all_not_available)
     assert result.status == "not_available"
     assert result.score_contribution == 0

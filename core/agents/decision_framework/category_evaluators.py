@@ -516,6 +516,466 @@ def evaluate_liquidity(ctx: EvaluationContext) -> CategoryResult:
     )
 
 
-# === Evaluators 6-9: Plan 04 Task 2 ships these ===
-# evaluate_htf, evaluate_location, evaluate_structure, evaluate_pullback +
-# EVALUATOR_DISPATCH live below — appended in Task 2.
+def evaluate_htf(ctx: EvaluationContext) -> CategoryResult:
+    """HTF context (15 pts) — H1 EMA20 slope alignment + last 3 BOS direction.
+
+    pass: EMA20 slope matches direction AND last HTF_BOS_LOOKBACK H1 BOS in
+          same direction
+    unclear: EMA aligned but recent CHoCH against direction
+    fail: EMA opposes direction OR opposite-direction BOS dominant
+    not_available: H1 primitives missing, no BOS data, or direction
+                   neutral/avoid (HTF check inapplicable).
+    """
+    name = "HTF"
+    max_points, weight_note = safe_resolve_weight(
+        ctx.strategy_id, name, ctx, HTF_MAX_POINTS
+    )
+    override_note = weight_note
+
+    h1 = ctx.primitives_h1
+    if h1 is None or h1.status == "not_available":
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="H1 primitives unavailable",
+            override_applied=override_note,
+        )
+
+    layers = getattr(h1.data, "layers", []) or []
+    layer_ema = next((lb for lb in layers if getattr(lb, "layer", None) == 11), None)
+    layer_struct = next((lb for lb in layers if getattr(lb, "layer", None) == 2), None)
+
+    if layer_ema is None or layer_struct is None:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="H1 L11 (EMA) or L2 (structure) absent",
+            override_applied=override_note,
+        )
+
+    ema_bars = getattr(layer_ema, "bars", []) or []
+    if len(ema_bars) < 5:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="L11 EMA series too short (< 5 bars)",
+            override_applied=override_note,
+        )
+    ema_recent = [
+        b.get("ema20") for b in ema_bars[-5:] if b.get("ema20") is not None
+    ]
+    if len(ema_recent) < 5:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="ema20 missing in L11",
+            override_applied=override_note,
+        )
+
+    direction_sign = 1 if ctx.direction == "long" else (-1 if ctx.direction == "short" else 0)
+    if direction_sign == 0:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="direction is neutral/avoid — HTF check inapplicable",
+            override_applied=override_note,
+        )
+
+    ema_slope_sign = 1 if ema_recent[-1] > ema_recent[0] else -1
+
+    struct_bars = getattr(layer_struct, "bars", []) or []
+    bos_events = [b for b in struct_bars[-50:] if b.get("event_type") == "BOS"]
+    last_bos = (
+        bos_events[-HTF_BOS_LOOKBACK:]
+        if len(bos_events) >= HTF_BOS_LOOKBACK
+        else bos_events
+    )
+    bos_signs = [(1 if b.get("direction") == "up" else -1) for b in last_bos]
+
+    ema_aligned = ema_slope_sign == direction_sign
+    bos_aligned = (
+        len(bos_signs) == HTF_BOS_LOOKBACK
+        and all(s == direction_sign for s in bos_signs)
+    )
+
+    if ema_aligned and bos_aligned:
+        return CategoryResult(
+            name=name,
+            status="pass",
+            score_contribution=max_points,
+            max_points=max_points,
+            threshold_used=f"EMA slope + last {HTF_BOS_LOOKBACK} BOS aligned with {ctx.direction}",
+            override_applied=override_note,
+        )
+
+    # Unclear: EMA aligned but recent CHoCH against direction (last 10 events).
+    choch_recent = [b for b in struct_bars[-10:] if b.get("event_type") == "CHoCH"]
+    if ema_aligned and choch_recent:
+        return CategoryResult(
+            name=name,
+            status="unclear",
+            score_contribution=round(max_points * 0.5),
+            max_points=max_points,
+            threshold_used="EMA aligned but recent CHoCH detected",
+            override_applied=override_note,
+        )
+
+    return CategoryResult(
+        name=name,
+        status="fail",
+        score_contribution=0,
+        max_points=max_points,
+        threshold_used=(
+            f"EMA aligned={ema_aligned}, BOS aligned={bos_aligned}"
+        ),
+        override_applied=override_note,
+    )
+
+
+def evaluate_location(ctx: EvaluationContext) -> CategoryResult:
+    """Location (10 pts) — entry premium/discount within M15 swing range.
+
+    For long: discount = (sh - entry) / range. Higher = better (entry near low).
+    For short: premium = (entry - sl) / range. Higher = better (entry near high).
+
+    pass: discount/premium >= STRONG (0.50)
+    unclear: in [1 - WEAK, STRONG)  i.e. [0.40, 0.50)
+    fail: < 1 - WEAK  i.e. < 0.40
+    not_available: M15 primitives missing, no swing high/low, or zero range.
+    """
+    name = "Location"
+    max_points, weight_note = safe_resolve_weight(
+        ctx.strategy_id, name, ctx, LOCATION_MAX_POINTS
+    )
+    threshold_strong, threshold_weak, t_note = _resolve_override_thresholds(
+        ctx, name, LOCATION_PREMIUM_PCT_STRONG, LOCATION_PREMIUM_PCT_WEAK
+    )
+    override_note = _combine_notes(weight_note, t_note)
+
+    m15 = ctx.primitives_m15
+    if m15 is None or m15.status == "not_available":
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="M15 primitives unavailable",
+            override_applied=override_note,
+        )
+    if ctx.entry_price is None:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="entry_price missing",
+            override_applied=override_note,
+        )
+
+    layers = getattr(m15.data, "layers", []) or []
+    layer2 = next((lb for lb in layers if getattr(lb, "layer", None) == 2), None)
+    if layer2 is None:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="M15 L2 (structure) absent",
+            override_applied=override_note,
+        )
+
+    bars = getattr(layer2, "bars", []) or []
+    swing_highs = [b.get("swing_high") for b in bars[-50:] if b.get("swing_high")]
+    swing_lows = [b.get("swing_low") for b in bars[-50:] if b.get("swing_low")]
+    if not swing_highs or not swing_lows:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="no swing_high/swing_low in M15 L2",
+            override_applied=override_note,
+        )
+
+    sh = max(swing_highs)
+    sl = min(swing_lows)
+    rng = sh - sl
+    if rng <= 0:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="zero swing range",
+            override_applied=override_note,
+        )
+
+    # unclear lower bound = (1 - threshold_weak); for defaults: 1 - 0.60 = 0.40
+    unclear_lower = 1 - threshold_weak
+
+    if ctx.direction == "long":
+        discount = (sh - ctx.entry_price) / rng
+        if discount >= threshold_strong:
+            status, score = "pass", max_points
+        elif discount >= unclear_lower:
+            status, score = "unclear", round(max_points * 0.5)
+        else:
+            status, score = "fail", 0
+        return CategoryResult(
+            name=name,
+            status=status,
+            score_contribution=score,
+            max_points=max_points,
+            threshold_used=f"long discount={discount:.2f} (need >= {threshold_strong})",
+            override_applied=override_note,
+        )
+
+    if ctx.direction == "short":
+        premium = (ctx.entry_price - sl) / rng
+        if premium >= threshold_strong:
+            status, score = "pass", max_points
+        elif premium >= unclear_lower:
+            status, score = "unclear", round(max_points * 0.5)
+        else:
+            status, score = "fail", 0
+        return CategoryResult(
+            name=name,
+            status=status,
+            score_contribution=score,
+            max_points=max_points,
+            threshold_used=f"short premium={premium:.2f} (need >= {threshold_strong})",
+            override_applied=override_note,
+        )
+
+    # Direction neutral/avoid — Location inapplicable.
+    return CategoryResult(
+        name=name,
+        status="not_available",
+        score_contribution=0,
+        max_points=max_points,
+        threshold_used="direction is neutral/avoid — Location inapplicable",
+        override_applied=override_note,
+    )
+
+
+def evaluate_structure(ctx: EvaluationContext) -> CategoryResult:
+    """Structure (15 pts) — M5 BOS in direction within last STRUCTURE_BOS_LOOKBACK bars.
+
+    pass: M5 BOS in direction within last 20 bars (no opposing BOS after)
+    unclear: M5 CHoCH but no clean aligned BOS yet
+    fail: opposing BOS dominant or no aligned BOS + no CHoCH
+    not_available: M5 primitives missing, M5 L2 absent, or direction
+                   neutral/avoid.
+    """
+    name = "Structure"
+    max_points, weight_note = safe_resolve_weight(
+        ctx.strategy_id, name, ctx, STRUCTURE_MAX_POINTS
+    )
+    override_note = weight_note
+
+    m5 = ctx.primitives_m5
+    if m5 is None or m5.status == "not_available":
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="M5 primitives unavailable",
+            override_applied=override_note,
+        )
+    layers = getattr(m5.data, "layers", []) or []
+    layer2 = next((lb for lb in layers if getattr(lb, "layer", None) == 2), None)
+    if layer2 is None:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="M5 L2 absent",
+            override_applied=override_note,
+        )
+
+    direction_sign = 1 if ctx.direction == "long" else (-1 if ctx.direction == "short" else 0)
+    if direction_sign == 0:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="direction is neutral/avoid",
+            override_applied=override_note,
+        )
+
+    bars = getattr(layer2, "bars", []) or []
+    recent = bars[-STRUCTURE_BOS_LOOKBACK:]
+    bos = [b for b in recent if b.get("event_type") == "BOS"]
+    choch = [b for b in recent if b.get("event_type") == "CHoCH"]
+
+    bos_aligned = [
+        b for b in bos if (1 if b.get("direction") == "up" else -1) == direction_sign
+    ]
+    bos_opposing = [
+        b for b in bos if (1 if b.get("direction") == "up" else -1) == -direction_sign
+    ]
+
+    if bos_aligned and not bos_opposing:
+        return CategoryResult(
+            name=name,
+            status="pass",
+            score_contribution=max_points,
+            max_points=max_points,
+            threshold_used=f"M5 BOS in {ctx.direction} within {STRUCTURE_BOS_LOOKBACK} bars",
+            override_applied=override_note,
+        )
+    if choch and not bos_opposing:
+        return CategoryResult(
+            name=name,
+            status="unclear",
+            score_contribution=round(max_points * 0.5),
+            max_points=max_points,
+            threshold_used="M5 CHoCH but no clean aligned BOS yet",
+            override_applied=override_note,
+        )
+    return CategoryResult(
+        name=name,
+        status="fail",
+        score_contribution=0,
+        max_points=max_points,
+        threshold_used="opposing BOS dominant or no structure events",
+        override_applied=override_note,
+    )
+
+
+def evaluate_pullback(ctx: EvaluationContext) -> CategoryResult:
+    """Pullback / Entry Quality (10 pts).
+
+    pass: entry within STRONG ATR (1.0) of nearest active FVG OR M5 BOS line
+    unclear: within WEAK ATR (1.5)
+    fail: outside WEAK
+    not_available: liquidity_m5 + primitives_m5 BOS line both missing, or
+                   entry_price/ATR unknown.
+    """
+    name = "Pullback"
+    max_points, weight_note = safe_resolve_weight(
+        ctx.strategy_id, name, ctx, PULLBACK_MAX_POINTS
+    )
+    threshold_strong, threshold_weak, t_note = _resolve_override_thresholds(
+        ctx, name, PULLBACK_PROXIMITY_ATR_STRONG, PULLBACK_PROXIMITY_ATR_WEAK
+    )
+    override_note = _combine_notes(weight_note, t_note)
+
+    if ctx.entry_price is None:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="entry_price missing",
+            override_applied=override_note,
+        )
+
+    atr = _get_atr_from_m5(ctx)
+    if atr is None or atr <= 0:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="ATR unknown — cannot normalize",
+            override_applied=override_note,
+        )
+
+    distances: list[float] = []
+
+    # FVG zones from liquidity_m5 (per CATEGORY_CAPABILITY_MAP['Pullback'] = M5)
+    liq = ctx.liquidity_m5
+    if liq is not None and liq.status == "ok":
+        for z in (getattr(liq.data, "fvg_zones", None) or []):
+            if not z.get("active", True):
+                continue
+            midpoint = z.get("midpoint")
+            if midpoint is None:
+                high = z.get("high")
+                low = z.get("low")
+                if high is not None and low is not None:
+                    midpoint = (high + low) / 2
+            if midpoint is None:
+                continue
+            distances.append(abs(ctx.entry_price - midpoint) / atr)
+
+    # M5 BOS lines from primitives_m5 L2
+    m5 = ctx.primitives_m5
+    if m5 is not None and m5.status == "ok":
+        layers = getattr(m5.data, "layers", []) or []
+        layer2 = next((lb for lb in layers if getattr(lb, "layer", None) == 2), None)
+        if layer2 is not None:
+            for b in getattr(layer2, "bars", []) or []:
+                if b.get("event_type") == "BOS":
+                    line_price = b.get("price")
+                    if line_price is not None:
+                        distances.append(abs(ctx.entry_price - line_price) / atr)
+
+    if not distances:
+        return CategoryResult(
+            name=name,
+            status="not_available",
+            score_contribution=0,
+            max_points=max_points,
+            threshold_used="no FVG zones nor BOS lines available",
+            override_applied=override_note,
+        )
+
+    nearest = min(distances)
+    if nearest <= threshold_strong:
+        return CategoryResult(
+            name=name,
+            status="pass",
+            score_contribution=max_points,
+            max_points=max_points,
+            threshold_used=f"nearest entry zone at {nearest:.2f} ATR <= {threshold_strong}",
+            override_applied=override_note,
+        )
+    if nearest <= threshold_weak:
+        return CategoryResult(
+            name=name,
+            status="unclear",
+            score_contribution=round(max_points * 0.5),
+            max_points=max_points,
+            threshold_used=f"nearest entry zone at {nearest:.2f} ATR in ({threshold_strong},{threshold_weak}]",
+            override_applied=override_note,
+        )
+    return CategoryResult(
+        name=name,
+        status="fail",
+        score_contribution=0,
+        max_points=max_points,
+        threshold_used=f"nearest entry zone at {nearest:.2f} ATR > {threshold_weak}",
+        override_applied=override_note,
+    )
+
+
+# === Dispatch ============================================================
+# Module-level dict mapping category name → evaluator callable in canonical
+# order (matches framework.CATEGORY_ORDER). Framework.run iterates this via
+# lazy late import.
+EVALUATOR_DISPATCH: dict[str, Callable[[EvaluationContext], CategoryResult]] = {
+    "HTF": evaluate_htf,
+    "Location": evaluate_location,
+    "Liquidity": evaluate_liquidity,
+    "Structure": evaluate_structure,
+    "Momentum": evaluate_momentum,
+    "Compression": evaluate_compression,
+    "Pullback": evaluate_pullback,
+    "RR": evaluate_rr,
+    "News": evaluate_news,
+}
