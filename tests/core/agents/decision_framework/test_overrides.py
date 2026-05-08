@@ -3,19 +3,17 @@
 LOCK 3: Python-only overrides — YAML stays simple; behavior lives in Python
 callables registered via @register_override(strategy_id, category).
 
-Wave 0 — graduates in Plan 03 (registry) + Plan 05 (Model 2 specifics).
+Wave 0 — graduated in Plan 03 (registry + safe_resolve_weight) +
+Plan 05 (Model 2 specifics).
 """
 import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason="Phase 47.3 — overrides module not yet shipped (Plan 03/05)",
-    strict=False,
-)
 
 
 def test_register_override_decorator():
     from core.agents.decision_framework.overrides import (
-        register_override, resolve_override, CategoryWeight,
+        CategoryWeight,
+        register_override,
+        resolve_override,
     )
 
     @register_override("test_strat", "Momentum")
@@ -33,7 +31,8 @@ def test_resolve_override_returns_none_when_unregistered():
 
 def test_duplicate_override_registration_raises():
     from core.agents.decision_framework.overrides import (
-        register_override, CategoryWeight,
+        CategoryWeight,
+        register_override,
     )
 
     @register_override("dup_strat", "Pullback")
@@ -46,6 +45,80 @@ def test_duplicate_override_registration_raises():
             return CategoryWeight()
 
 
+def test_override_exception_skipped_with_log():
+    """When override callable raises, framework MUST skip override and continue."""
+    from core.agents.decision_framework.overrides import (
+        register_override,
+        safe_resolve_weight,
+    )
+
+    @register_override("crash_strat", "Momentum")
+    def _crashing(ctx):
+        raise RuntimeError("boom")
+
+    new_max, note = safe_resolve_weight("crash_strat", "Momentum", None, 15)
+    assert new_max == 15  # default preserved
+    assert note is not None
+    assert "override_failed" in note
+
+
+def test_override_weight_multiplier_max_1():
+    """Risk 8: V1 rule — weight_multiplier <= 1.0; framework rejects > 1."""
+    from core.agents.decision_framework.overrides import (
+        CategoryWeight,
+        register_override,
+        safe_resolve_weight,
+    )
+
+    @register_override("inflate_strat", "Momentum")
+    def _inflating(ctx):
+        return CategoryWeight(weight_multiplier=1.5)
+
+    new_max, note = safe_resolve_weight("inflate_strat", "Momentum", None, 15)
+    assert new_max == 15  # NOT inflated to 22
+    assert note is not None
+    assert "weight_multiplier > 1.0" in note
+
+
+def test_safe_resolve_weight_no_strategy_returns_default():
+    """No strategy_id → default unchanged, no note."""
+    from core.agents.decision_framework.overrides import safe_resolve_weight
+    new_max, note = safe_resolve_weight(None, "Momentum", None, 15)
+    assert new_max == 15
+    assert note is None
+
+
+def test_safe_resolve_weight_unregistered_returns_default():
+    """Strategy id present but no override registered → default unchanged."""
+    from core.agents.decision_framework.overrides import safe_resolve_weight
+    new_max, note = safe_resolve_weight(
+        "no_overrides_strat", "Momentum", None, 15
+    )
+    assert new_max == 15
+    assert note is None
+
+
+def test_safe_resolve_weight_applies_multiplier():
+    """Valid override with multiplier 0.5 + max_points 10 → 5."""
+    from core.agents.decision_framework.overrides import (
+        CategoryWeight,
+        register_override,
+        safe_resolve_weight,
+    )
+
+    @register_override("halve_strat", "Location")
+    def _half(ctx):
+        return CategoryWeight(weight_multiplier=0.5, note="halved")
+
+    new_max, note = safe_resolve_weight("halve_strat", "Location", None, 10)
+    assert new_max == 5
+    assert note == "halved"
+
+
+@pytest.mark.xfail(
+    reason="Phase 47.3 — Plan 05 ships Model 2 Option 1 Short location override",
+    strict=False,
+)
 def test_location_secondary_when_momentum_strong(ctx_override_applied):
     """Plan 05 ships the Model 2 Option 1 Short Location override.
     LOCK 3: weight halves max_points 10 → 5 when momentum is strong."""
@@ -57,25 +130,10 @@ def test_location_secondary_when_momentum_strong(ctx_override_applied):
     assert location.override_applied is not None
 
 
-def test_override_exception_skipped_with_log():
-    """Plan 03: when override callable raises, framework MUST skip override and continue."""
-    from core.agents.decision_framework.overrides import (
-        register_override,
-    )
-
-    @register_override("crash_strat", "Momentum")
-    def _crashing(ctx):
-        raise RuntimeError("boom")
-
-    # Plan 03 ships the try/except wrapper inside evaluator
-    raise NotImplementedError("Plan 03/04 implements safe-call wrapper")
-
-
+@pytest.mark.xfail(
+    reason="Phase 47.3 — Plan 04 ships category evaluators that enforce status invariance",
+    strict=False,
+)
 def test_override_cannot_change_status():
     """LOCK 3: override modifies WEIGHT/THRESHOLDS only — never flips status."""
     raise NotImplementedError("Plan 04/05 implements")
-
-
-def test_override_weight_multiplier_max_1():
-    """Risk 8: V1 rule — weight_multiplier <= 1.0; framework rejects > 1."""
-    raise NotImplementedError("Plan 03 implements")

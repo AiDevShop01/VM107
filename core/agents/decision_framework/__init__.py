@@ -2,24 +2,34 @@
 
 Pure Python rules engine. LLM never decides scoring or category status.
 
-Public surface (populated incrementally across Plans 03/04/05):
-- ``EvaluationContext`` — frozen Pydantic input passed to every category evaluator
-  (Plan 03 — context module).
-- ``derive_recommendation_band`` — score → band mapping (Plan 03 — bands module).
-- ``Framework`` + ``PythonEngineResult`` — orchestrator + result dataclass
-  (Plan 03 Task 2 — framework module).
-- ``register_override`` + ``CategoryWeight`` — strategy-override decorator
-  (Plan 03 Task 2 — overrides module).
-- ``register_hard_reject`` — hard-reject predicate decorator
-  (Plan 03 Task 2 — hard_rejects module).
-
-The full re-export wiring is added by Plan 03 Task 2 once all modules ship.
+Public surface:
+- ``Framework`` + ``PythonEngineResult`` — orchestrator + result dataclass.
+- ``EvaluationContext`` — frozen Pydantic input passed to every category evaluator.
+- ``derive_recommendation_band`` — pure score → band mapping.
+- ``register_override`` + ``CategoryWeight`` — strategy-override decorator + result type.
+- ``register_hard_reject`` — hard-reject predicate decorator.
 """
 
 from core.agents.decision_framework.bands import derive_recommendation_band
 from core.agents.decision_framework.context import EvaluationContext
+from core.agents.decision_framework.framework import (
+    CATEGORY_ORDER,
+    Framework,
+    PythonEngineResult,
+)
+from core.agents.decision_framework.hard_rejects import register_hard_reject
+from core.agents.decision_framework.overrides import (
+    CategoryWeight,
+    register_override,
+)
 
 __all__ = [
+    "Framework",
+    "PythonEngineResult",
+    "CATEGORY_ORDER",
     "EvaluationContext",
     "derive_recommendation_band",
+    "register_override",
+    "CategoryWeight",
+    "register_hard_reject",
 ]
