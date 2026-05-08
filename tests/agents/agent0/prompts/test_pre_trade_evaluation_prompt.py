@@ -6,16 +6,15 @@ modifying score/recommendation/confidence/category_results (Python-owned).
 
 Wave 0 — graduates in Plan 06 (prompt rewrite ships).
 """
-import pytest
 from pathlib import Path
 
-pytestmark = pytest.mark.xfail(
-    reason="Phase 47.3 — prompt rewrite not yet shipped (Plan 06)",
-    strict=False,
+PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent.parent.parent.parent
+    / "agents"
+    / "agent0"
+    / "prompts"
+    / "agent.system.main.pre_trade_evaluation.md"
 )
-
-
-PROMPT_PATH = Path("agents/agent0/prompts/agent.system.main.pre_trade_evaluation.md")
 
 
 def test_prompt_instructs_narrative_only():
