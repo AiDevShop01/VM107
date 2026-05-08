@@ -162,56 +162,18 @@ class A2AMessage(BaseContract):
     requires_response: bool = True
 
 
-class PreTradeEvaluation(BaseContract):
-    """Formal pre-trade evaluation artifact (Phase 47.1 Wave 2).
-
-    System fields (evaluation_id, trade_id, conversation_id, source_envelope_id,
-    created_at, version, is_current, superseded_*, schema_version) default to
-    empty/now/etc. so safe_parse on LLM-only JSON output validates cleanly. The
-    runner injects them via model_copy(update={...}) after safe_parse succeeds.
-
-    LLM-produced fields (no defaults — LLM must supply):
-        instrument, direction, recommendation, confidence, score,
-        check_results, reasoning_summary, risks, invalidations, next_action
-
-    System-injected fields (defaults — LLM does NOT produce these):
-        evaluation_id, trade_id, conversation_id, source_envelope_id,
-        strategy_id, version, is_current, superseded_by, superseded_at,
-        created_at, schema_version
-    """
-
-    # System-injected (defaults so LLM doesn't need to produce these)
-    evaluation_id: str = ""
-    trade_id: str = ""
-    conversation_id: str = ""
-    source_envelope_id: str = ""
-
-    # Strategy linkage (nullable — handled per CONTEXT)
-    strategy_id: Optional[str] = None
-
-    # Setup identifiers (LLM confirms or echoes)
-    instrument: str
-    direction: Literal["long", "short", "neutral", "avoid"]
-
-    # Decision (LLM)
-    recommendation: Literal["enter", "wait", "avoid", "needs_more_confirmation"]
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    score: int = Field(..., ge=0, le=100)
-    max_score: int = 100
-
-    # Assessment (LLM)
-    check_results: dict[str, Literal["pass", "fail", "unclear", "not_available"]]
-    reasoning_summary: str
-    risks: list[str]
-    invalidations: list[str]
-    next_action: str
-
-    # Versioning (system)
-    version: int = 1
-    is_current: bool = True
-    superseded_by: Optional[str] = None
-    superseded_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    # schema_version (system — matches pattern in other contract schemas)
-    schema_version: int = 1
+# Phase 47.3 — PreTradeEvaluation, CategoryResult, and ConfidenceAdjustment
+# moved to ``fingpt_core.contracts.agents.pre_trade_evaluation`` per Phase 39
+# ContractTool discipline (typed contracts shared across VMs live in
+# fingpt_core). This module re-exports the canonical names for backward
+# compatibility — existing
+# ``from core.contracts.schemas import PreTradeEvaluation`` imports keep
+# working.
+#
+# Phase 47.3 additive fields on PreTradeEvaluation: confidence_adjustments,
+# partial_context, category_results, framework_version (CF-4: default 0).
+from fingpt_core.contracts.agents.pre_trade_evaluation import (  # noqa: E402,F401
+    CategoryResult,
+    ConfidenceAdjustment,
+    PreTradeEvaluation,
+)
