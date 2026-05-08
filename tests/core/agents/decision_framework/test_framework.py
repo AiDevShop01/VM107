@@ -16,10 +16,17 @@ import pytest
 
 
 def test_score_aggregation_sums_to_max_100(ctx_all_pass):
-    """All 9 categories pass → score=100, max_score=100."""
+    """All 8 deterministic categories pass → score=95, max_score=100, enter band.
+
+    V1 lock: News evaluator always returns not_available (Tier-3 stubs only)
+    until Phase 47.4+ ships real news/macro feeds. Best achievable score
+    with full Tier-2 ok envelopes is therefore 100 - NEWS_MAX_POINTS(5) = 95.
+    Score >= 80 → recommendation 'enter'. max_score stays at 100 because
+    not_available preserves the original max_points allocation (LOCK 4).
+    """
     from core.agents.decision_framework.framework import Framework
     result = Framework().run(ctx_all_pass)
-    assert result.score == 100
+    assert result.score == 95
     assert result.max_score == 100
     assert result.recommendation == "enter"  # 80+ band
 
