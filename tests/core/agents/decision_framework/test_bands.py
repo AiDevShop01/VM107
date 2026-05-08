@@ -3,17 +3,12 @@
 Bands:
   80+        → enter
   65-79      → wait
-  50-64      → needs_more_confirmation (or avoid; Plan 03 locks final mapping)
+  50-64      → needs_more_confirmation
   <50        → avoid
 
-Wave 0 — graduates in Plan 03 (bands module shipped).
+Wave 0 — graduated in Plan 03 (bands module shipped).
 """
 import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason="Phase 47.3 — bands module not yet shipped (Plan 03)",
-    strict=False,
-)
 
 
 @pytest.mark.parametrize("score, expected_band", [
