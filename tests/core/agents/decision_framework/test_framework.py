@@ -1,6 +1,9 @@
 """Phase 47.3 — Framework.run() aggregator tests.
 
-Wave 0 — graduates in Plan 03 (Framework class shipped).
+Wave 0 — graduates in Plan 03 (Framework class shipped). Module-level xfail
+preserved through Plan 04 because Framework() raised until Plan 05 shipped
+hard-reject predicates for ``model_2_option_1_short.yaml``. Plan 05 graduates
+the module to fully GREEN.
 
 Includes:
 - max_points==100 invariant (OQ-1)
@@ -10,11 +13,6 @@ Includes:
 - CF-5: no-strategy path records risk
 """
 import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason="Phase 47.3 — Framework class not yet shipped (Plan 03)",
-    strict=False,
-)
 
 
 def test_score_aggregation_sums_to_max_100(ctx_all_pass):
@@ -72,8 +70,17 @@ def test_hard_reject_veto_forces_avoid(ctx_hard_reject_fired):
     assert result.score >= 0  # not zeroed
 
 
-def test_no_strategy_skips_hard_rejects_with_risk():
-    """CF-5: ctx.strategy is None → no veto BUT framework records explicit risk."""
+def test_no_strategy_skips_hard_rejects_with_risk(ctx_all_pass):
+    """CF-5: ctx.strategy is None → no veto BUT framework records explicit
+    ``no_strategy_warning`` so the gap is visible to the trader.
+
+    ``ctx_all_pass`` already builds with ``strategy_id=None`` per the Plan 04
+    fixture lock — exercise that path directly.
+    """
     from core.agents.decision_framework.framework import Framework
-    # Build ctx with strategy_id=None
-    raise NotImplementedError("Plan 03 fills in no-strategy fixture")
+
+    result = Framework().run(ctx_all_pass)
+    assert result.no_strategy_warning is not None
+    assert "no strategy" in result.no_strategy_warning.lower()
+    # No veto fired
+    assert result.hard_reject_reasons == []

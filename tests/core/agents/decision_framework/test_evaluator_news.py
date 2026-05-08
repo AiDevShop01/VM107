@@ -54,15 +54,12 @@ def test_news_pass_path_reserved_for_v2():
     assert result.status == "not_available"
 
 
-@pytest.mark.xfail(
-    reason="Phase 47.3 — Framework() boot requires Plan 05 hard-reject predicates",
-    strict=False,
-)
 def test_news_not_available_drives_high_confidence_dock(ctx_partial_context):
     """When News is not_available, downstream confidence rule MUST dock -15
     (HIGH tier) for get_news_context capability.
 
-    Stays xfail until Plan 05 ships predicates so Framework() boots.
+    Plan 05 ships the hard-reject predicates so Framework() boots cleanly
+    and this test graduates to GREEN.
     """
     from core.agents.decision_framework.framework import Framework
 

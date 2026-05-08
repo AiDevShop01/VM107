@@ -477,15 +477,188 @@ def ctx_all_not_available():
 
 @pytest.fixture
 def ctx_hard_reject_fired():
-    """Plan 05 fills (depends on ``no_displacement`` predicate being registered).
+    """Plan 05 — Model 2 Option 1 Short ctx where ``no displacement`` fires.
 
-    Currently kept as NotImplementedError to remain compatible with the
-    existing ``@pytest.mark.xfail`` markers on Plan 05-dependent tests.
+    Strategy: ``model_2_option_1_short`` (loaded from YAML).
+
+    Setup (short trade):
+      - direction='short' so HTF/Structure/Location can resolve.
+      - M5 L1 weak displacement (peak body/atr=0.5) → Momentum=fail →
+        ``no_displacement`` predicate (CF-3 conservative read) FIRES.
+      - Other categories construct so score is high enough that the
+        recommendation band would NOT be ``avoid`` without the veto. This
+        makes ``test_hard_reject_veto_forces_avoid`` meaningful: only the
+        veto explains why recommendation==``avoid``.
     """
-    raise NotImplementedError("Plan 05 will fill in hard-reject fixture")
+    from core.agents.decision_framework.context import EvaluationContext
+    from core.agents.strategy_loader import load_strategy
+
+    direction = "short"
+    entry = 1.1000
+
+    # M5 — fail-displacement L1 (peak body/atr=0.5) so Momentum=fail
+    primitives_m5 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="M5",
+        layers=[
+            _make_layer1(_fail_l1_bars()),
+            _make_layer2(_strong_m5_l2_bars(direction=direction)),
+            _make_layer4(_strong_l4_bars()),
+        ],
+    )
+
+    # M15 — entry near swing high → strong premium for short
+    primitives_m15 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="M15",
+        layers=[
+            _make_layer2(
+                [
+                    {"swing_high": 1.1010},  # close to entry → high premium
+                    {"swing_low": 1.0900},
+                ]
+            ),
+        ],
+    )
+
+    # H1 — BOS + EMA aligned to short
+    primitives_h1 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="H1",
+        layers=[
+            _make_layer2(_strong_h1_l2_bars(direction=direction)),
+            _make_layer11(_strong_h1_l11_bars(direction=direction)),
+        ],
+    )
+
+    liquidity_m15 = _make_liquidity_response(
+        instrument="EURUSD",
+        timeframe="M15",
+        fvg_zones=[
+            {
+                "active": True,
+                "midpoint": entry - 0.0005,
+                "high": entry - 0.0002,
+                "low": entry - 0.0008,
+            },
+        ],
+    )
+    liquidity_m5 = _make_liquidity_response(
+        instrument="EURUSD",
+        timeframe="M5",
+        fvg_zones=[
+            {
+                "active": True,
+                "midpoint": entry - 0.0003,
+                "high": entry - 0.0001,
+                "low": entry - 0.0005,
+            },
+        ],
+    )
+
+    return EvaluationContext(
+        journal_id="ctx_hard_reject",
+        instrument="EURUSD",
+        direction=direction,
+        strategy_id="model_2_option_1_short",
+        strategy=load_strategy("model_2_option_1_short"),
+        entry_price=entry,
+        stop_loss_price=1.1050,  # short → SL above entry
+        take_profit_price=1.0850,  # RR = 0.0150 / 0.0050 = 3.0 (pass)
+        primitives_h1=primitives_h1,
+        primitives_m15=primitives_m15,
+        primitives_m5=primitives_m5,
+        liquidity_m15=liquidity_m15,
+        liquidity_m5=liquidity_m5,
+    )
 
 
 @pytest.fixture
 def ctx_override_applied():
-    """Plan 05 fills (depends on Model 2 Option 1 Short override registered)."""
-    raise NotImplementedError("Plan 05 will fill in override fixture")
+    """Plan 05 — Model 2 Option 1 Short ctx with strong momentum so the
+    Location override fires (max_points 10 → 5).
+
+    Setup:
+      - strategy_id='model_2_option_1_short' so the override is dispatched.
+      - M5 L1 strong displacement (peak body/atr=1.85) so the override sees
+        ``peak > 1.5`` and returns ``CategoryWeight(weight_multiplier=0.5)``.
+      - M15 L2 swing data populated so the Location evaluator can run.
+    """
+    from core.agents.decision_framework.context import EvaluationContext
+    from core.agents.strategy_loader import load_strategy
+
+    direction = "short"
+    entry = 1.1000
+
+    primitives_m5 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="M5",
+        layers=[
+            _make_layer1(_strong_l1_bars()),  # peak body/atr=1.85 → triggers override
+            _make_layer2(_strong_m5_l2_bars(direction=direction)),
+            _make_layer4(_strong_l4_bars()),
+        ],
+    )
+
+    primitives_m15 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="M15",
+        layers=[
+            _make_layer2(
+                [
+                    {"swing_high": 1.1010},
+                    {"swing_low": 1.0900},
+                ]
+            ),
+        ],
+    )
+
+    primitives_h1 = _make_primitives_response(
+        instrument="EURUSD",
+        timeframe="H1",
+        layers=[
+            _make_layer2(_strong_h1_l2_bars(direction=direction)),
+            _make_layer11(_strong_h1_l11_bars(direction=direction)),
+        ],
+    )
+
+    liquidity_m15 = _make_liquidity_response(
+        instrument="EURUSD",
+        timeframe="M15",
+        fvg_zones=[
+            {
+                "active": True,
+                "midpoint": entry - 0.0005,
+                "high": entry - 0.0002,
+                "low": entry - 0.0008,
+            },
+        ],
+    )
+    liquidity_m5 = _make_liquidity_response(
+        instrument="EURUSD",
+        timeframe="M5",
+        fvg_zones=[
+            {
+                "active": True,
+                "midpoint": entry - 0.0003,
+                "high": entry - 0.0001,
+                "low": entry - 0.0005,
+            },
+        ],
+    )
+
+    return EvaluationContext(
+        journal_id="ctx_override",
+        instrument="EURUSD",
+        direction=direction,
+        strategy_id="model_2_option_1_short",
+        strategy=load_strategy("model_2_option_1_short"),
+        entry_price=entry,
+        stop_loss_price=1.1050,
+        take_profit_price=1.0850,
+        primitives_h1=primitives_h1,
+        primitives_m15=primitives_m15,
+        primitives_m5=primitives_m5,
+        liquidity_m15=liquidity_m15,
+        liquidity_m5=liquidity_m5,
+    )

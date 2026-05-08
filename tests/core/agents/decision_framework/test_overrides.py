@@ -115,10 +115,6 @@ def test_safe_resolve_weight_applies_multiplier():
     assert note == "halved"
 
 
-@pytest.mark.xfail(
-    reason="Phase 47.3 — Plan 05 ships Model 2 Option 1 Short location override",
-    strict=False,
-)
 def test_location_secondary_when_momentum_strong(ctx_override_applied):
     """Plan 05 ships the Model 2 Option 1 Short Location override.
     LOCK 3: weight halves max_points 10 → 5 when momentum is strong."""

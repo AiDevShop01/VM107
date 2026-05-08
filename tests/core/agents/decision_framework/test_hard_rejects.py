@@ -131,29 +131,67 @@ def test_predicate_returns_true_collects_name():
     assert "always_fires" in hits
 
 
-@pytest.mark.xfail(
-    reason="Phase 47.3 — Plan 05 ships predicates for model_2_option_1_short.yaml; "
-    "boot-time assertion fires until then (Path A in Plan 03 RESEARCH)",
-    strict=False,
-)
 def test_boot_time_assertion_all_yaml_names_have_predicate():
     """CF-5 + Risk 6 + downstream contract: framework boot MUST fail fast if
     ANY hard_reject name in any strategy YAML lacks a registered predicate.
 
-    Until Plan 05 ships predicates for ``model_2_option_1_short.yaml`` (3
+    Plan 05 ships predicates for ``model_2_option_1_short.yaml`` (3
     hard_rejects: 'breakout into HVN', 'no displacement', 'against HTF
-    trend'), Framework() raises RuntimeError. Plan 05 graduates this test."""
+    trend') so ``Framework()`` boots cleanly."""
     from core.agents.decision_framework.framework import Framework
 
-    Framework()  # MUST NOT raise — graduates with Plan 05
+    Framework()  # MUST NOT raise — Plan 05 ships the 3 predicates
 
 
-@pytest.mark.xfail(
-    reason="Phase 47.3 — Plan 05 ships the conservative-read predicate",
-    strict=False,
-)
 def test_predicate_conservative_read_when_data_missing():
     """CF-3: predicate that depends on Momentum status MUST treat
-    not_available as 'hard_reject fires' (safety bias). Plan 05 implements."""
-    from core.agents.decision_framework.framework import Framework  # noqa: F401
-    raise NotImplementedError("Plan 05 ships the conservative-read predicate")
+    not_available as 'hard_reject fires' (safety bias).
+
+    With Momentum CategoryResult.status='not_available', the
+    ``no displacement`` predicate must return True — we cannot confirm the
+    REQUIRED setup invariant, and the strategy depends on displacement.
+    Better to skip a real trade than execute one where the framework can't
+    confirm the invariant. The alternative read (only fire on fail with real
+    data) would mean partial-context evaluations bypass hard rejects
+    entirely — a worse failure mode.
+    """
+    # Importing the strategy module triggers @register_hard_reject
+    from core.agents.decision_framework.strategies import (
+        model_2_option_1_short,  # noqa: F401
+    )
+    from core.agents.decision_framework.hard_rejects import _HARD_REJECTS
+    from fingpt_core.contracts.agents.pre_trade_evaluation import CategoryResult
+
+    predicate = _HARD_REJECTS[("model_2_option_1_short", "no displacement")]
+
+    # Build a Momentum CategoryResult with status='not_available' (data missing)
+    momentum_na = CategoryResult(
+        name="Momentum",
+        status="not_available",
+        score_contribution=0,
+        max_points=15,
+        threshold_used="M5 primitives missing",
+    )
+    by_name = {"Momentum": momentum_na}
+    # CF-3 conservative read: missing data → fire the reject (safety bias).
+    assert predicate(None, by_name) is True
+
+    # Sanity check: Momentum=fail also fires (the 'real-data' fail path).
+    momentum_fail = CategoryResult(
+        name="Momentum",
+        status="fail",
+        score_contribution=0,
+        max_points=15,
+        threshold_used="peak_body_atr=0.5 <= 1.0",
+    )
+    assert predicate(None, {"Momentum": momentum_fail}) is True
+
+    # Sanity check: Momentum=pass does NOT fire.
+    momentum_pass = CategoryResult(
+        name="Momentum",
+        status="pass",
+        score_contribution=15,
+        max_points=15,
+        threshold_used="peak_body_atr=1.85 > 1.5",
+    )
+    assert predicate(None, {"Momentum": momentum_pass}) is False
