@@ -74,3 +74,24 @@ related_capabilities:
 tags: [phase-55, lifecycle, transition_event, audit_trail, mechanical]
 hard_scoped: true
 last_changed: 2026-05-09
+
+# Phase 56 extensions per CONTEXT §12 (capability registry extended schema)
+name: execution_state_transition
+description: >
+  Triggers on: Execution entity transitioning across the 3-state mechanical
+  machine (PENDING → OPEN → CLOSED). Emitted by
+  ExecutionService.transition_to(). Consumed by CampaignService as input
+  signal (NOT auto-state dictator per CONTEXT §5).
+event_type: execution_state_transition
+category: lifecycle
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.transitions.ExecutionStateTransitionEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+# Note: Phase 55 emitted UPPERCASE event_type strings (EXECUTION_STATE_TRANSITION)
+# on the wire; CONTEXT §12 + Decision §3 naming rules use snake_case lowercase.
+# `event_type_string` (UPPERCASE) records the legacy wire value; `event_type`
+# (lowercase) is the canonical Phase 56 name. Documented in 56-14.

@@ -66,3 +66,22 @@ related_capabilities:
 tags: [phase-55, lifecycle, transition_event, audit_trail]
 hard_scoped: true
 last_changed: 2026-05-09
+
+# Phase 56 extensions per CONTEXT §12 (capability registry extended schema)
+name: idea_state_transition
+description: >
+  Triggers on: Idea entity transitioning between states (CREATED→WATCHLIST,
+  WATCHLIST→CONVERTED, etc.). Emitted by IdeaService.transition_to().
+event_type: idea_state_transition
+category: lifecycle
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.transitions.IdeaStateTransitionEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+# Note: Phase 55 emitted UPPERCASE event_type strings (IDEA_STATE_TRANSITION) on
+# the wire; CONTEXT §12 + Decision §3 naming rules use snake_case lowercase. The
+# `event_type_string` field above (UPPERCASE) records the legacy wire value;
+# `event_type` (lowercase) is the canonical Phase 56 name. Documented in 56-14.
