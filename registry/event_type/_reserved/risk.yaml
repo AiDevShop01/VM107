@@ -1,0 +1,23 @@
+id: risk
+type: event_type_reserved_namespace
+status: reserved_for_future
+shipped: 56
+last_changed: 2026-05-09
+
+# CONTEXT §12 reserved-namespace schema (distinct from active event_type schema)
+category: risk
+producer_phase: 60
+description: >
+  Namespace reserved for Phase 60+ risk monitoring producers. Future event
+  types may include risk_breach_detected, exposure_threshold_crossed,
+  drawdown_alarm_triggered, position_concentration_warning, and similar
+  risk-engine output events. Specific event_type strings + payload shapes
+  finalized only when the producer phase ships (CONTEXT §2).
+phase: 56
+
+# Reserved YAMLs INTENTIONALLY OMIT active-schema fields (name, event_type,
+# payload_schema, version, producer, retention, pii, replayable).
+
+related_capabilities: []
+tags: [phase-56, reserved, risk, namespace_claim]
+hard_scoped: true

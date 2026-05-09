@@ -1,0 +1,24 @@
+id: ai
+type: event_type_reserved_namespace
+status: reserved_for_future
+shipped: 56
+last_changed: 2026-05-09
+
+# CONTEXT §12 reserved-namespace schema (distinct from active event_type schema)
+category: ai
+producer_phase: 60
+description: >
+  Namespace reserved for Phase 60+ AI narration / interpretation events.
+  Future event types may include agent_critique_emitted,
+  llm_interpretation_finalized, narrative_thread_created,
+  causality_hypothesis_formed, and similar AI-output events. Specific
+  event_type strings + payload shapes finalized only when AI producer
+  agents ship (CONTEXT §2).
+phase: 56
+
+# Reserved YAMLs INTENTIONALLY OMIT active-schema fields (name, event_type,
+# payload_schema, version, producer, retention, pii, replayable).
+
+related_capabilities: []
+tags: [phase-56, reserved, ai, namespace_claim]
+hard_scoped: true

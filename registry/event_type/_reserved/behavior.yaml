@@ -1,0 +1,26 @@
+id: behavior
+type: event_type_reserved_namespace
+status: reserved_for_future
+shipped: 56
+last_changed: 2026-05-09
+
+# CONTEXT §12 reserved-namespace schema (distinct from active event_type schema)
+category: behavior
+producer_phase: 60
+description: >
+  Namespace reserved for Phase 60 mentor systems and behavioral pattern
+  detection. Future event types may resolve hesitation_before_entry,
+  hesitation_after_signal, hesitation_after_displacement, fomo_chase_detected,
+  revenge_trade_detected, early_exit_pattern, late_entry_pattern, and similar
+  behavior-causality events. Names like 'hesitation_detected' look atomic
+  today but may resolve into multiple distinct events when real producers
+  exist (CONTEXT §2 — premature taxonomy freezes wrong abstractions). Specific
+  event_type strings + payload shapes finalized only when producers exist.
+phase: 56
+
+# Reserved YAMLs INTENTIONALLY OMIT active-schema fields (name, event_type,
+# payload_schema, version, producer, retention, pii, replayable).
+
+related_capabilities: []
+tags: [phase-56, reserved, behavior, namespace_claim]
+hard_scoped: true
