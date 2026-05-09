@@ -1,0 +1,43 @@
+id: replay_requested
+type: event_type
+status: shipped
+shipped: 56
+planned_phase: null
+last_changed: 2026-05-09
+
+# Phase 56 extended schema per CONTEXT §12
+name: replay_requested
+description: >
+  Triggers on: HTTP /api/internal/events/timeline call (the thin
+  transport adapter on top of ReplayQueryService — CONTEXT §9). Per
+  resolved Open Question 6 — emits ONLY on the HTTP path, NOT on
+  internal Python ReplayQueryService.timeline() calls (which are
+  unbounded library invocations). System category event; observability
+  primitive for replay-engine usage analytics.
+event_type: replay_requested
+category: replay
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.system.ReplayRequestedEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+
+location:
+  source: VM100/backend/journal/routers/internal_router.py
+  contracts:
+    payload: fingpt_core.contracts.events.system.ReplayRequestedEvent
+
+emitted_by: replay_http_endpoint
+
+correlation:
+  pairs_with: replay_completed
+  shared_correlation_id: true
+
+related_capabilities:
+  - replay_query_service
+  - event
+
+tags: [phase-56, replay, system, observability, audit_trail]
+hard_scoped: true

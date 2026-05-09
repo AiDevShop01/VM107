@@ -1,0 +1,45 @@
+id: fill_received
+type: event_type
+status: shipped
+shipped: 56
+planned_phase: null
+last_changed: 2026-05-09
+
+# Phase 56 extended schema per CONTEXT §12
+name: fill_received
+description: >
+  Triggers on: Broker fill confirmation → Execution PENDING→OPEN.
+  Market acknowledgement event paired with order_submitted; emitted
+  via VM101→VM100 sync path or in-process broker integration
+  (G2 second half, CONTEXT §10). Future-extensible to
+  partial_fill_received / fill_rejected when producer-driven.
+event_type: fill_received
+category: execution
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.execution.FillReceivedEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+
+location:
+  source: VM100/backend/journal/services/execution_service.py
+  contracts:
+    payload: fingpt_core.contracts.events.execution.FillReceivedEvent
+
+emitted_by: execution_service
+gap: G2
+
+correlation:
+  pairs_with: order_submitted
+  shared_correlation_id: true   # via Execution.pk per Pitfall 8 Option B
+
+related_capabilities:
+  - execution
+  - execution_service
+  - campaign_service
+  - event
+
+tags: [phase-56, execution, market_ack, gap_g2, audit_trail]
+hard_scoped: true

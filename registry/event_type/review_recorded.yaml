@@ -1,0 +1,40 @@
+id: review_recorded
+type: event_type
+status: shipped
+shipped: 56
+planned_phase: null
+last_changed: 2026-05-09
+
+# Phase 56 extended schema per CONTEXT §12
+name: review_recorded
+description: >
+  Triggers on: Post-trade review completion via the review endpoint.
+  Emitted alongside Campaign CLOSED→ANALYZING→REVIEWED transitions
+  (G4 lifecycle/review wiring, CONTEXT §10). Closes the trading loop
+  by recording reflection + lessons-learned for future replay narration
+  and mentor systems (Phase 60+).
+event_type: review_recorded
+category: lifecycle
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.lifecycle.ReviewRecordedEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+
+location:
+  source: VM100/backend/journal/routers/journal_router.py
+  contracts:
+    payload: fingpt_core.contracts.events.lifecycle.ReviewRecordedEvent
+
+emitted_by: journal_review_endpoint
+gap: G4
+
+related_capabilities:
+  - campaign_service
+  - event
+  - review
+
+tags: [phase-56, lifecycle, review, gap_g4, audit_trail]
+hard_scoped: true

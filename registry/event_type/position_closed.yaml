@@ -1,0 +1,41 @@
+id: position_closed
+type: event_type
+status: shipped
+shipped: 56
+planned_phase: null
+last_changed: 2026-05-09
+
+# Phase 56 extended schema per CONTEXT §12
+name: position_closed
+description: >
+  Triggers on: Execution OPEN→CLOSED transition. Emitted via either
+  user-close path or broker-close sync (G3, CONTEXT §10). Carries
+  realized P&L + close reason + final fill metadata. Campaign may
+  remain MANAGING after close per CONTEXT §5 (intent preservation
+  across mechanical state changes).
+event_type: position_closed
+category: execution
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.execution.PositionClosedEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+
+location:
+  source: VM100/backend/journal/services/execution_service.py
+  contracts:
+    payload: fingpt_core.contracts.events.execution.PositionClosedEvent
+
+emitted_by: execution_service
+gap: G3
+
+related_capabilities:
+  - execution
+  - execution_service
+  - campaign_service
+  - event
+
+tags: [phase-56, execution, position_close, gap_g3, audit_trail]
+hard_scoped: true

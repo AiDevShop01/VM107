@@ -1,0 +1,40 @@
+id: checklist_completed
+type: event_type
+status: shipped
+shipped: 56
+planned_phase: null
+last_changed: 2026-05-09
+
+# Phase 56 extended schema per CONTEXT §12
+name: checklist_completed
+description: >
+  Triggers on: Pre-trade checklist marked complete by the user.
+  Emitted alongside Campaign WATCHLIST→SETUP_FORMING→READY transitions
+  + Idea WATCHLIST→CONVERTED transition (G1 lifecycle wiring,
+  CONTEXT §10). Carries the checklist evaluation summary as payload.
+event_type: checklist_completed
+category: lifecycle
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.events.lifecycle.ChecklistCompletedEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 56
+
+location:
+  source: VM100/backend/journal/services/checklist_service.py
+  contracts:
+    payload: fingpt_core.contracts.events.lifecycle.ChecklistCompletedEvent
+
+emitted_by: checklist_service
+gap: G1
+
+related_capabilities:
+  - checklist
+  - campaign_service
+  - idea_service
+  - event
+
+tags: [phase-56, lifecycle, checklist, gap_g1, audit_trail]
+hard_scoped: true
