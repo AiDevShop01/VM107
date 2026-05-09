@@ -1,0 +1,57 @@
+id: idea
+type: state_machine
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  4-state Idea lifecycle owning the trader's pre-trade thesis layer.
+
+long_description: |
+  Idea is the trader's hypothesis layer (CONTEXT.md decision #2). It exists
+  BEFORE checklist completion — the trader's raw thesis, possibly evolving
+  via watchlist monitoring, eventually either invalidated (pre-entry
+  failure) or converted into a Campaign launch.
+
+  Idea's 4 states are deliberately minimal for Phase 55. Future intelligence
+  phases (60+) MAY add EVOLVED / REVIEWED / REVIVED states; Phase 55 keeps
+  the scope tight per CONTEXT decision #2 ("Idea evolution states deferred
+  to future intelligence phases").
+
+  All Idea state mutations go through IdeaService.transition_to (the ONLY
+  official entry point). Direct ORM updates bypass the audit trail and
+  the on_commit signal — never do this from product code.
+
+  Per CONTEXT decision #3: in Phase 55 Idea is system-managed (auto-created
+  invisibly when the trader opens the journal); no user-facing UI exists.
+  Telemetry on Idea creation rate, watchlist conversion rate, invalidation
+  rate, time-to-conversion, and abandoned ideas is collected even with no
+  UI exposure — data becomes valuable BEFORE UI exists.
+
+location:
+  source: VM100/backend/journal/services/idea_service.py
+  contracts:
+    entity: fingpt_core.contracts.trading.ideas.Idea
+    state_enum: fingpt_core.contracts.trading.ideas.IdeaState
+
+states: [CREATED, WATCHLIST, INVALIDATED, CONVERTED]
+
+# Locked transitions — match IdeaService.ALLOWED_TRANSITIONS verbatim
+# (VM100/backend/journal/services/idea_service.py).
+transitions:
+  - {from: CREATED, to: WATCHLIST}
+  - {from: CREATED, to: INVALIDATED}
+  - {from: WATCHLIST, to: INVALIDATED}
+  - {from: WATCHLIST, to: CONVERTED}
+
+# Terminal states (no outgoing transitions).
+terminal_states: [INVALIDATED, CONVERTED]
+
+related_capabilities:
+  - idea_service
+  - campaign
+  - idea_state_transition
+
+tags: [phase-55, lifecycle, hypothesis_layer, pre_trade]
+hard_scoped: true
+last_changed: 2026-05-09

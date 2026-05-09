@@ -1,0 +1,80 @@
+id: legacy_status_mapping
+type: state_machine
+subtype: legacy_compatibility_map
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Bidirectional mapping between TradeJournal.STATUS_CHOICES (legacy 6-state)
+  and CampaignState (canonical 12-state). Locked in CONTEXT decision #8.
+
+long_description: |
+  Phase 55 ships the canonical Idea / Campaign / Execution / Event
+  hierarchy alongside a TradeJournal Python adapter (compatibility
+  facade, CONTEXT decision #8). This YAML is the machine-readable
+  source-of-truth for translating between the two layers.
+
+  Forward direction (legacy_to_canonical, 6 -> canonical 12):
+    Used by the Phase 55.7 backfill to set Campaign.state when
+    synthesizing one Campaign per existing TradeJournal row. Locked
+    1:1 per CONTEXT decision #8.
+
+  Inverse direction (canonical_to_legacy, 12 -> legacy 6):
+    Used by:
+      - Phase 55.4 lifecycle_base._regenerate_journal_cache
+        (Decision 5 + ISSUE-8 fix): after CampaignService.transition_to
+        runs, the helper writes the projected legacy status onto the
+        linked TradeJournal cache row inside the SAME atomic block.
+      - Phase 55.5 TradeJournalAdapter read projection: when the legacy
+        TradeJournal.status field is read, the adapter projects through
+        this map.
+
+  The 6 canonical-only states (WATCHLIST, SETUP_FORMING, EXECUTING,
+  MANAGING, ARCHIVED, RE_EVALUATED) have NO legacy equivalent; for
+  cache regen + read projection they collapse to the nearest legacy
+  projection so the legacy UI never sees an empty/unknown status.
+  Collapse choices documented inline below + in the Python module.
+
+  Drift between this YAML and the Python module is a bug. Phase 55
+  ships an automated test
+  (VM100/backend/journal/tests/test_capability_registry_55.py
+  ::test_legacy_mapping_matches_python) that verifies they agree.
+
+location:
+  source: VM100/backend/journal/adapters/legacy_status_mapping.py
+
+mapping:
+  # Forward: legacy -> canonical (used by 55.7 backfill).
+  legacy_to_canonical:
+    DRAFT: IDEA_CREATED
+    READY: READY
+    EXECUTED: OPEN
+    SYNCED: CLOSED
+    CLOSED: ANALYZING
+    REVIEWED: REVIEWED
+  # Inverse: canonical -> legacy (used by 55.4 cache regen + 55.5 adapter
+  # read projection). 6 canonical-only states collapse as documented in
+  # the Python module's docstring; round-trip is bijective for the 6
+  # legacy values.
+  canonical_to_legacy:
+    IDEA_CREATED: DRAFT
+    WATCHLIST: DRAFT
+    SETUP_FORMING: DRAFT
+    READY: READY
+    EXECUTING: READY
+    OPEN: EXECUTED
+    MANAGING: EXECUTED
+    CLOSED: SYNCED
+    ANALYZING: CLOSED
+    REVIEWED: REVIEWED
+    ARCHIVED: REVIEWED
+    RE_EVALUATED: DRAFT
+
+related_capabilities:
+  - campaign
+  - trade_journal_adapter
+
+tags: [phase-55, transitional, legacy, compatibility_map]
+hard_scoped: true
+last_changed: 2026-05-09

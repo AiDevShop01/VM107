@@ -1,0 +1,71 @@
+id: execution
+type: state_machine
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  3-state Execution lifecycle — mechanical broker-position lifecycle
+  (PENDING / OPEN / CLOSED).
+
+long_description: |
+  Execution is the mechanical layer (CONTEXT.md decision #2). Mechanical
+  state != Strategic state. Executions tell what broker positions exist;
+  Campaigns tell what the trader is DOING. This is the locked separation
+  principle — discretionary trading requires intent preservation across
+  mechanical state changes.
+
+  PENDING = order submitted but not filled (architectural support for
+  future cancellations / partial fills / latency windows; minimal logic
+  in Phase 55). PENDING -> CLOSED is allowed for broker rejection or
+  cancellation BEFORE fill.
+
+  OPEN = filled, exposure exists, management active.
+
+  CLOSED = mechanical lifecycle ended (NOT reviewed/analyzed/archived —
+  those belong to Campaign). CLOSED is terminal at the Execution level;
+  re-entry creates a NEW Execution row in the same Campaign (CONTEXT
+  decision #5 — multi-Execution Campaign rollup).
+
+  Per 55-00-IDENTITY-DECISIONS.md Decision 1: Execution.id is a
+  canonical UUID (NEW column on a NEW table). Execution.legacy_trade_id
+  is a nullable indexed BigIntegerField holding the legacy api.Trade.id
+  (BIGSERIAL/BIGINT) value as a back-reference. The trades hypertable is
+  UNTOUCHED — no ALTER TABLE on Trade.
+
+  All Execution state mutations go through ExecutionService.transition_to
+  (the ONLY official entry point). Direct ORM state writes are blocked.
+
+  Execution.state changes EMIT events that CampaignService consumes as
+  INPUT SIGNALS — the Campaign service decides whether the Campaign
+  transitions in response. Execution events are signals, NOT state
+  dictators.
+
+location:
+  source: VM100/backend/journal/services/execution_service.py
+  contracts:
+    entity: fingpt_core.contracts.trading.executions.Execution
+    state_enum: fingpt_core.contracts.trading.executions.ExecutionState
+
+states: [PENDING, OPEN, CLOSED]
+
+# Locked transitions — match ExecutionService.ALLOWED_TRANSITIONS verbatim
+# (VM100/backend/journal/services/execution_service.py).
+# PENDING -> CLOSED handles broker rejection / cancel BEFORE fill.
+transitions:
+  - {from: PENDING, to: OPEN}
+  - {from: PENDING, to: CLOSED}
+  - {from: OPEN, to: CLOSED}
+
+# Terminal states (no outgoing transitions). Re-entry creates a NEW
+# Execution row inside the same Campaign — see CONTEXT decision #5.
+terminal_states: [CLOSED]
+
+related_capabilities:
+  - execution_service
+  - campaign
+  - execution_state_transition
+
+tags: [phase-55, lifecycle, mechanical, broker_position]
+hard_scoped: true
+last_changed: 2026-05-09
