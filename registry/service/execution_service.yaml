@@ -1,0 +1,91 @@
+id: execution_service
+type: service
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Canonical 3-state Execution lifecycle engine — the ONLY official
+  entry point for Execution state mutation (mechanical only).
+
+long_description: |
+  ExecutionService is the canonical state-transition engine for the
+  Execution entity. Parallel surface to CampaignService.transition_to
+  per CONTEXT decision #4 — the ONLY official entry point for
+  Execution state mutation.
+
+  Per CONTEXT decision #2: Mechanical state (Execution) != Strategic
+  state (Campaign). Executions tell what broker positions exist;
+  Campaigns tell what the trader is DOING. ExecutionService transitions
+  EMIT events that CampaignService consumes as INPUT SIGNALS — but
+  CampaignService DECIDES whether the Campaign transitions in response.
+  Execution events are signals, NOT state dictators.
+
+  ExecutionService.transition_to delegates to lifecycle_base
+  ._atomic_transition (shared with CampaignService and IdeaService).
+  The shared engine runs the entire transition inside a single
+  transaction.atomic() block:
+
+    SELECT FOR UPDATE row lock
+      -> in-Python idempotency check
+      -> validate target_state in ALLOWED_TRANSITIONS[current_state]
+      -> build typed ExecutionStateTransitionEvent Pydantic payload
+      -> INSERT Event row
+      -> UPDATE entity state
+      -> schedule post-commit signal (transaction.on_commit)
+
+  Note: Execution has NO TradeJournal cache regeneration step — only
+  Campaign triggers cache regen (Decision 5).
+
+  Per 55-00-IDENTITY-DECISIONS.md Decision 1: Execution.id is a
+  canonical UUID; Execution.legacy_trade_id is a BIGINT back-reference
+  to api.Trade.id. Phase 55 keeps the trades hypertable untouched —
+  no ALTER TABLE on Trade.
+
+  Idempotency: same (execution_id, target_state, source_envelope_id)
+  tuple returns the existing Event row (idempotent=True). Replay-safe.
+
+  CLOSED is terminal at the Execution level — re-entry creates a NEW
+  Execution row inside the same Campaign (CONTEXT decision #5,
+  multi-Execution Campaign rollup).
+
+location:
+  source: VM100/backend/journal/services/execution_service.py
+  shared_engine: VM100/backend/journal/services/lifecycle_base.py
+
+api_structure: |
+  ExecutionService.transition_to(
+      execution_id: UUID,
+      target_state: ExecutionState,
+      reason: str,
+      actor: str,
+      metadata: dict | None = None,
+      source: Literal[frontend|dagster|agent|script|adapter] = "script",
+      source_envelope_id: UUID | None = None,
+  ) -> tuple[Execution, Event, idempotent: bool]
+
+  Raises:
+    InvalidTransitionError — target_state not in ALLOWED_TRANSITIONS[current_state]
+    pydantic.ValidationError — event payload fails Literal validation (programming error)
+
+guarantees:
+  - "Validate target_state in ALLOWED_TRANSITIONS[current_state] or raise InvalidTransitionError"
+  - "Atomic: Event row INSERT + state UPDATE in one transaction.atomic() block"
+  - "Domain signal emitted post-commit only (transaction.on_commit) — NEVER on rollback"
+  - "Idempotent on (execution_id, target_state, source_envelope_id) tuple"
+  - "SELECT FOR UPDATE row lock — concurrent calls serialize cleanly"
+  - "Pydantic-typed event payload (ExecutionStateTransitionEvent) — Literal validation BEFORE INSERT"
+  - "ALLOWED_TRANSITIONS table is locked (3 states, 3 transitions); CLOSED terminal"
+  - "PENDING -> CLOSED handles broker rejection / cancel BEFORE fill"
+
+allowed_transitions_source: execution state_machine YAML (registry/state_machine/execution.yaml)
+
+related_capabilities:
+  - execution
+  - execution_state_transition
+  - campaign_service             # consumes Execution signals as input
+  - idea_service
+
+tags: [phase-55, lifecycle, deterministic, single-writer, mechanical]
+hard_scoped: true
+last_changed: 2026-05-09

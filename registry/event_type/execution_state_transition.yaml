@@ -1,0 +1,76 @@
+id: execution_state_transition
+type: event_type
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Lifecycle transition event emitted on every Execution state change
+  (3-state mechanical machine).
+
+long_description: |
+  Execution state transitions emit one EXECUTION_STATE_TRANSITION
+  Event row + schedule one execution_state_changed domain signal
+  (post-commit only, via transaction.on_commit). Two emissions per
+  transition is the CONTEXT decision #6 invariant — the Event row is
+  the audit trail, the signal is the orchestration trigger.
+
+  The Pydantic payload (ExecutionStateTransitionEvent) constrains
+  from_state / to_state to the 3-value ExecutionState Literal. Pydantic
+  rejects Idea or Campaign state values at validation — registry
+  consumers can rely on the strict schema for replay, reasoning, and
+  migration tooling.
+
+  Per CONTEXT decision #5: Execution events are SIGNALS, not state
+  dictators. CampaignService consumes execution_state_changed signals
+  as INPUT to its own transition decisions but DOES NOT auto-transition.
+  Even if all Executions close, the Campaign may stay MANAGING because
+  the trader plans re-entry. Discretionary trading requires intent
+  preservation across mechanical state changes.
+
+  Per Plan 55-04 ISSUE-10 fix: the Event.payload column is built via
+  ExecutionStateTransitionEvent(**kwargs).model_dump(mode='json') — NOT
+  a raw dict. Pydantic validates state Literals BEFORE the row is
+  written.
+
+  Per 55-00-IDENTITY-DECISIONS.md Decision 1: execution_id in the
+  payload is a canonical UUID (NEW Execution table). The legacy
+  api.Trade.id (BIGINT) is preserved as Execution.legacy_trade_id and
+  is NOT part of this event payload.
+
+location:
+  source: VM100/backend/journal/services/execution_service.py
+  contracts:
+    payload: fingpt_core.contracts.events.transitions.ExecutionStateTransitionEvent
+
+emitted_by: execution_service
+event_type_string: EXECUTION_STATE_TRANSITION
+
+# Pydantic payload field set (per BaseEvent + ExecutionStateTransitionEvent).
+payload_fields:
+  - event_id            # UUID-as-string (BaseEvent)
+  - event_type          # Literal["EXECUTION_STATE_TRANSITION"]
+  - idea_id             # nullable; populated when full lineage is known
+  - campaign_id         # nullable; populated when full lineage is known
+  - execution_id        # scoped FK (canonical UUID)
+  - from_state          # ExecutionState Literal
+  - to_state            # ExecutionState Literal
+  - reason
+  - actor
+  - source              # Literal[frontend|dagster|agent|script|adapter]
+  - metadata            # dict[str, Any]
+  - payload_version
+  - created_at
+
+# Locked Literal constraint inherited from the Pydantic payload class.
+state_literal: fingpt_core.contracts.trading.executions.ExecutionState
+
+related_capabilities:
+  - execution
+  - execution_service
+  - campaign_service           # consumes these as input signals
+  - event
+
+tags: [phase-55, lifecycle, transition_event, audit_trail, mechanical]
+hard_scoped: true
+last_changed: 2026-05-09

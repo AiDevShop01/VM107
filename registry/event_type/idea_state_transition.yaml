@@ -1,0 +1,68 @@
+id: idea_state_transition
+type: event_type
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Lifecycle transition event emitted on every Idea state change
+  (4-state machine).
+
+long_description: |
+  Idea state transitions emit one IDEA_STATE_TRANSITION Event row +
+  schedule one idea_state_changed domain signal (post-commit only,
+  via transaction.on_commit). Two emissions per transition is the
+  CONTEXT decision #6 invariant — the Event row is the audit trail,
+  the signal is the orchestration trigger.
+
+  The Pydantic payload (IdeaStateTransitionEvent) constrains
+  from_state / to_state to the 4-value IdeaState Literal. Pydantic
+  rejects Campaign or Execution state values at validation —
+  registry consumers can rely on the strict schema for replay,
+  reasoning, and migration tooling.
+
+  Phase 55 ships ONLY lifecycle-transition event types. Full event
+  taxonomy (idea events, checklist events, market structure events,
+  AI events, system events, etc.) is deferred to Phase 56 which
+  builds the full event infrastructure on top of the slot Phase 55
+  defines.
+
+  Mandatory payload metadata on every transition: from_state,
+  to_state, reason, actor, source. Gold for replay, AI reasoning,
+  debugging, mentorship, behavioral analysis (CONTEXT decision #4).
+
+location:
+  source: VM100/backend/journal/services/idea_service.py
+  contracts:
+    payload: fingpt_core.contracts.events.transitions.IdeaStateTransitionEvent
+
+emitted_by: idea_service
+event_type_string: IDEA_STATE_TRANSITION
+
+# Pydantic payload field set (per BaseEvent + IdeaStateTransitionEvent).
+payload_fields:
+  - event_id            # UUID-as-string (BaseEvent)
+  - event_type          # Literal["IDEA_STATE_TRANSITION"]
+  - idea_id             # scoped FK
+  - campaign_id         # nullable for Idea-only events
+  - execution_id        # nullable for Idea-only events
+  - from_state          # IdeaState Literal
+  - to_state            # IdeaState Literal
+  - reason
+  - actor
+  - source              # Literal[frontend|dagster|agent|script|adapter]
+  - metadata            # dict[str, Any]
+  - payload_version
+  - created_at
+
+# Locked Literal constraint inherited from the Pydantic payload class.
+state_literal: fingpt_core.contracts.trading.ideas.IdeaState
+
+related_capabilities:
+  - idea
+  - idea_service
+  - event
+
+tags: [phase-55, lifecycle, transition_event, audit_trail]
+hard_scoped: true
+last_changed: 2026-05-09

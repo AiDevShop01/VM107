@@ -1,0 +1,89 @@
+id: campaign_service
+type: service
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Canonical 12-state Campaign lifecycle engine — the ONLY official
+  entry point for Campaign state mutation (CONTEXT decision #4).
+
+long_description: |
+  CampaignService is the canonical state-transition engine for the
+  Campaign entity. Per CONTEXT decision #4, this is THE entry point
+  for Campaign state mutation. Frontend, Dagster, agents, and scripts
+  MUST go through this service. Direct ORM state writes are blocked
+  at the service layer (Pydantic typed payload validation) AND at the
+  DB layer (CHECK constraints — defense-in-depth per Decision 5).
+
+  CampaignService.transition_to delegates to lifecycle_base
+  ._atomic_transition (shared with IdeaService and ExecutionService).
+  The shared engine runs the entire transition inside a single
+  transaction.atomic() block:
+
+    SELECT FOR UPDATE row lock
+      -> in-Python idempotency check
+      -> validate target_state in ALLOWED_TRANSITIONS[current_state]
+      -> build typed Pydantic event payload
+      -> INSERT Event row
+      -> UPDATE entity state
+      -> regenerate TradeJournal cache (Campaign only — Decision 5)
+      -> schedule post-commit signal (transaction.on_commit)
+
+  If validation fails, InvalidTransitionError is raised AFTER the
+  SELECT FOR UPDATE — the transaction rolls back atomically, no Event
+  row is written, no signal is scheduled. The "NEVER state-without-event,
+  NEVER event-without-state" invariant holds.
+
+  Idempotency is defense-in-depth: in-Python check is the first line;
+  the DB partial UniqueConstraint event_idempotency_unique_source_envelope
+  (Plan 55-02) is the second. Replay returns the existing Event row
+  (idempotent=True); the service NEVER writes duplicates.
+
+  Per Plan 55-05 Pattern 18: source='adapter' is recorded when the
+  call is routed through the TradeJournalAdapter facade. Direct service
+  callers from Dagster / agents / frontend record their own source
+  label.
+
+location:
+  source: VM100/backend/journal/services/campaign_service.py
+  shared_engine: VM100/backend/journal/services/lifecycle_base.py
+
+api_structure: |
+  CampaignService.transition_to(
+      campaign_id: UUID,
+      target_state: CampaignState,
+      reason: str,
+      actor: str,
+      metadata: dict | None = None,
+      source: Literal[frontend|dagster|agent|script|adapter] = "script",
+      source_envelope_id: UUID | None = None,
+  ) -> tuple[Campaign, Event, idempotent: bool]
+
+  Raises:
+    InvalidTransitionError — target_state not in ALLOWED_TRANSITIONS[current_state]
+    pydantic.ValidationError — event payload fails Literal validation (programming error)
+
+guarantees:
+  - "Validate target_state in ALLOWED_TRANSITIONS[current_state] or raise InvalidTransitionError"
+  - "Atomic: Event row INSERT + state UPDATE in one transaction.atomic() block"
+  - "Domain signal emitted post-commit only (transaction.on_commit) — NEVER on rollback"
+  - "Idempotent on (campaign_id, target_state, source_envelope_id) tuple"
+  - "SELECT FOR UPDATE row lock — concurrent calls serialize cleanly, no deadlock"
+  - "Pydantic-typed event payload (CampaignStateTransitionEvent) — Literal validation BEFORE INSERT"
+  - "TradeJournal cache regenerated inside the SAME atomic block (Decision 5 + ISSUE-8)"
+  - "ALLOWED_TRANSITIONS table is locked (12 states, 18 transitions); ARCHIVED terminal"
+
+allowed_transitions_source: campaign state_machine YAML (registry/state_machine/campaign.yaml)
+
+related_capabilities:
+  - campaign
+  - campaign_state_transition
+  - idea_service
+  - execution_service
+  - legacy_status_mapping
+  - trade_journal_adapter
+
+tags: [phase-55, lifecycle, deterministic, single-writer, primary_workflow]
+hard_scoped: true
+last_changed: 2026-05-09

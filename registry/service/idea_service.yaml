@@ -1,0 +1,85 @@
+id: idea_service
+type: service
+status: real
+shipped: 55
+planned_phase: null
+
+short_description: >
+  Canonical 4-state Idea lifecycle engine — the ONLY official entry
+  point for Idea state mutation.
+
+long_description: |
+  IdeaService is the canonical state-transition engine for the Idea
+  entity. Parallel surface to CampaignService.transition_to per
+  CONTEXT decision #4 — the ONLY official entry point for Idea state
+  mutation. Frontend, Dagster, agents, and scripts MUST go through
+  this service.
+
+  IdeaService.transition_to delegates to lifecycle_base
+  ._atomic_transition (shared with CampaignService and
+  ExecutionService). The shared engine runs the entire transition
+  inside a single transaction.atomic() block:
+
+    SELECT FOR UPDATE row lock
+      -> in-Python idempotency check
+      -> validate target_state in ALLOWED_TRANSITIONS[current_state]
+      -> build typed IdeaStateTransitionEvent Pydantic payload
+      -> INSERT Event row
+      -> UPDATE entity state
+      -> schedule post-commit signal (transaction.on_commit)
+
+  Note: Idea has NO TradeJournal cache regeneration step — only Campaign
+  triggers cache regen (Decision 5).
+
+  Per CONTEXT decision #3: in Phase 55 Idea is system-managed (auto-
+  created invisibly when the trader opens the journal). The trader
+  never directly transitions an Idea — IdeaService is invoked
+  internally by the journal flow as the trader takes actions
+  (begin analysis -> WATCHLIST, mark setup invalid -> INVALIDATED,
+  checklist complete -> CONVERTED). Telemetry on Idea creation rate,
+  watchlist conversion rate, invalidation rate, time-to-conversion,
+  and abandoned ideas is collected via this service for use in future
+  intelligence phases (60+) when Idea UI is exposed.
+
+  Idempotency: same (idea_id, target_state, source_envelope_id) tuple
+  returns the existing Event row (idempotent=True). Replay-safe.
+
+location:
+  source: VM100/backend/journal/services/idea_service.py
+  shared_engine: VM100/backend/journal/services/lifecycle_base.py
+
+api_structure: |
+  IdeaService.transition_to(
+      idea_id: UUID,
+      target_state: IdeaState,
+      reason: str,
+      actor: str,
+      metadata: dict | None = None,
+      source: Literal[frontend|dagster|agent|script|adapter] = "script",
+      source_envelope_id: UUID | None = None,
+  ) -> tuple[Idea, Event, idempotent: bool]
+
+  Raises:
+    InvalidTransitionError — target_state not in ALLOWED_TRANSITIONS[current_state]
+    pydantic.ValidationError — event payload fails Literal validation (programming error)
+
+guarantees:
+  - "Validate target_state in ALLOWED_TRANSITIONS[current_state] or raise InvalidTransitionError"
+  - "Atomic: Event row INSERT + state UPDATE in one transaction.atomic() block"
+  - "Domain signal emitted post-commit only (transaction.on_commit) — NEVER on rollback"
+  - "Idempotent on (idea_id, target_state, source_envelope_id) tuple"
+  - "SELECT FOR UPDATE row lock — concurrent calls serialize cleanly"
+  - "Pydantic-typed event payload (IdeaStateTransitionEvent) — Literal validation BEFORE INSERT"
+  - "ALLOWED_TRANSITIONS table is locked (4 states, 4 transitions); INVALIDATED + CONVERTED terminal"
+
+allowed_transitions_source: idea state_machine YAML (registry/state_machine/idea.yaml)
+
+related_capabilities:
+  - idea
+  - idea_state_transition
+  - campaign_service
+  - execution_service
+
+tags: [phase-55, lifecycle, deterministic, single-writer, hypothesis_layer]
+hard_scoped: true
+last_changed: 2026-05-09
