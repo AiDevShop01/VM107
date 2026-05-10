@@ -1,0 +1,53 @@
+---
+id: execution_quality_tool
+name: execution_quality_tool
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: execution_quality_tool
+aliases:
+  - get_execution_errors
+  - evaluate_execution
+
+description: >
+  Deterministic execution quality scoring for a given Execution. Reads
+  VM100 internal (Execution row + TradeOutcomeRecord for MAE/MFE/result_r/
+  exit_quality_score) and Phase 56 event timeline (order flow events:
+  order_submitted, fill_received, position_closed). Scores how well the
+  trader executed vs. the plan — entry precision, exit precision, R achievement,
+  slippage. Returns execution_errors list with deterministic narrative fragments.
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/execution_quality.py
+  endpoint:
+    read:
+      - VM100/api/journal/internal/executions/{execution_id}
+      - VM100/api/journal/internal/events/timeline
+    persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
+  contracts:
+    request: fingpt_core.contracts.analytics.execution_quality.ExecutionQualityRequest
+    response: fingpt_core.contracts.analytics.execution_quality.ExecutionQualityResult
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - get_primitives
+
+tags:
+  - analytics
+  - execution_quality
+  - slippage
+  - result_r
+  - phase_56
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---

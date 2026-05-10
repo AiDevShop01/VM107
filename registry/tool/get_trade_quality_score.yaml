@@ -1,0 +1,57 @@
+---
+id: get_trade_quality_score
+name: get_trade_quality_score
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: get_trade_quality_score
+aliases: []
+
+description: >
+  Aggregate read tool: reads the latest TradeAnalyticsSnapshot for a given
+  execution_id and returns the overall score + 6 category score breakdown in
+  a structured TradeQualityScoreResult contract. This is NOT a compute tool
+  — it reads the pre-computed snapshot row via VM100 internal endpoint
+  GET /api/journal/internal/analytics-snapshot/{execution_id}. Returns the
+  most recent snapshot regardless of scoring_ruleset_version.
+
+  Use this when you need the overall trade quality summary without triggering
+  a re-analysis run. For the full snapshot detail (breakdowns + narratives),
+  call each individual category tool instead.
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/get_trade_quality_score.py
+  endpoint:
+    read: VM100/api/journal/internal/analytics-snapshot/{execution_id}
+    persist: none (read-only aggregate tool)
+  contracts:
+    request: fingpt_core.contracts.analytics.snapshot.TradeAnalyticsSnapshot
+    response: fingpt_core.contracts.analytics.snapshot.TradeQualityScoreResult
+
+related_capabilities:
+  - regime_analysis_tool
+  - liquidity_analysis_tool
+  - compression_analysis_tool
+  - execution_quality_tool
+  - behavioral_analysis_tool
+  - setup_quality_tool
+  - similarity_analysis_tool
+
+tags:
+  - analytics
+  - aggregate
+  - overall_score
+  - read_only
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---

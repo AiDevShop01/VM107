@@ -1,0 +1,52 @@
+---
+id: regime_analysis_tool
+name: regime_analysis_tool
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: regime_analysis_tool
+aliases:
+  - get_market_regime
+  - analyze_regime
+  - evaluate_market_regime
+
+description: >
+  Deterministic market regime classification for a given Execution. Reads
+  VM102 structural primitives (BOS/CHoCH, ATR, session data) for the
+  execution's instrument and time window, scores the regime context
+  (trending_bullish / trending_bearish / range_bound / unknown), and
+  returns a confidence-weighted result with deterministic narrative fragments.
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/regime_analysis.py
+  endpoint:
+    read: VM102/api/v1/primitives
+    persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
+  contracts:
+    request: fingpt_core.contracts.analytics.regime.RegimeAnalysisRequest
+    response: fingpt_core.contracts.analytics.regime.RegimeAnalysisResult
+
+related_capabilities:
+  - get_primitives
+  - get_liquidity_context
+  - liquidity_analysis_tool
+  - compression_analysis_tool
+
+tags:
+  - analytics
+  - regime
+  - market_structure
+  - vm102
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---

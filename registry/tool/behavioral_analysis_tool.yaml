@@ -1,0 +1,52 @@
+---
+id: behavioral_analysis_tool
+name: behavioral_analysis_tool
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: behavioral_analysis_tool
+aliases:
+  - get_behavioral_patterns
+  - analyze_behavior
+
+description: >
+  Deterministic trader behavioral analysis for a given Execution. Reads Phase 56
+  event timeline (order_submitted -> fill_received gap for hesitation_seconds;
+  stop_loss_moved events for stop_movement_count; checklist timestamps for
+  fomo_entry_flag) and Phase 47.4 TradeOutcomeRecord for over_management_score.
+  Returns 6 V1 behavioral metrics with graceful degradation when event types
+  are not yet emitted (narrative notes 'Insufficient event data for V1 scoring').
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/behavioral_analysis.py
+  endpoint:
+    read: VM100/api/journal/internal/events/timeline
+    persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
+  contracts:
+    request: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisRequest
+    response: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
+
+related_capabilities:
+  - execution_quality_tool
+  - setup_quality_tool
+
+tags:
+  - analytics
+  - behavioral
+  - hesitation
+  - revenge_trade
+  - fomo
+  - phase_56
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---

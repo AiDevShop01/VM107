@@ -1,0 +1,51 @@
+---
+id: liquidity_analysis_tool
+name: liquidity_analysis_tool
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: liquidity_analysis_tool
+aliases:
+  - analyze_liquidity
+  - get_liquidity_quality
+
+description: >
+  Deterministic liquidity context quality scoring for a given Execution. Reads
+  VM102 liquidity endpoint (FVG presence, equal H&L proximity, volume profile
+  node type) for the execution's instrument and entry/exit time window. Returns
+  a liquidity_context classification (high_confluence / moderate / low / unknown)
+  with confidence-weighted score and deterministic narrative fragments.
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/liquidity_analysis.py
+  endpoint:
+    read: VM102/api/v1/liquidity
+    persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
+  contracts:
+    request: fingpt_core.contracts.analytics.liquidity.LiquidityAnalysisRequest
+    response: fingpt_core.contracts.analytics.liquidity.LiquidityAnalysisResult
+
+related_capabilities:
+  - get_liquidity_context
+  - regime_analysis_tool
+  - compression_analysis_tool
+
+tags:
+  - analytics
+  - liquidity
+  - fvg
+  - volume_profile
+  - vm102
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---

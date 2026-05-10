@@ -1,0 +1,56 @@
+---
+id: similarity_analysis_tool
+name: similarity_analysis_tool
+type: tool
+status: shipped
+shipped: 57
+canonical_tool: similarity_analysis_tool
+aliases:
+  - get_similar_historical_trades
+  - find_similar_trades
+
+description: >
+  V1 deterministic vectorless similarity analysis for a given Execution.
+  Calls VM100 /api/journal/internal/snapshots/by-features to retrieve
+  historical snapshot candidates (last 90 days, same instrument or strategy),
+  then ranks by weighted feature comparison in pure Python. Features: setup type,
+  regime classification, liquidity context, ATR regime, session, outcome quality,
+  execution quality bucket, behavioral markers. Returns top-N similar trades
+  (default N=10, max N=50) with similarity scores and matched feature lists.
+
+  V1 is intentionally vectorless: NO Qdrant, NO embeddings. Phase 60+ may add
+  embedding-assisted reranking when behavioral cognition workflows justify it.
+
+category: analytics
+version: 1.0
+producer: vm107
+phase: 57
+
+location:
+  source: VM107/tools/similarity_analysis.py
+  endpoint:
+    read: VM100/api/journal/internal/snapshots/by-features
+    persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
+  contracts:
+    request: fingpt_core.contracts.analytics.similarity.SimilarityAnalysisRequest
+    response: fingpt_core.contracts.analytics.similarity.SimilarityAnalysisResult
+
+related_capabilities:
+  - get_trade_quality_score
+  - regime_analysis_tool
+  - liquidity_analysis_tool
+  - behavioral_analysis_tool
+
+tags:
+  - analytics
+  - similarity
+  - historical_trades
+  - vectorless
+  - phase_57
+
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+
+last_changed: 2026-05-10
+---
