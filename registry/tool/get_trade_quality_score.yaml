@@ -30,7 +30,7 @@ location:
     read: VM100/api/journal/internal/analytics-snapshot/{execution_id}
     persist: none (read-only aggregate tool)
   contracts:
-    request: fingpt_core.contracts.analytics.snapshot.TradeAnalyticsSnapshot
+    request: fingpt_core.contracts.analytics.snapshot.GetTradeQualityScoreRequest
     response: fingpt_core.contracts.analytics.snapshot.TradeQualityScoreResult
 
 related_capabilities:
@@ -54,4 +54,3 @@ allowed_agent_profiles:
   - agent_zero
 
 last_changed: 2026-05-10
----
