@@ -24,11 +24,12 @@ producer: vm107
 phase: 57
 
 location:
-  source: VM107/tools/setup_quality.py
+  source: VM107/tools/setup_quality_analysis.py
   endpoint:
     read:
-      - VM100/api/journal/internal/campaigns/{campaign_id}
-      - VM100/api/journal/internal/events/timeline
+      - VM100/api/journal/internal/executions/{execution_id}
+      - VM100/api/journal/internal/strategies/{strategy_id}
+      - VM100/api/journal/internal/checklist/{execution_id}
     persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
   contracts:
     request: fingpt_core.contracts.analytics.setup_quality.SetupQualityRequest
@@ -53,4 +54,3 @@ allowed_agent_profiles:
   - agent_zero
 
 last_changed: 2026-05-10
----
