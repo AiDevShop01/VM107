@@ -1,0 +1,75 @@
+id: fetch_replay_chart_slice_tool
+type: tool
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: fetch_replay_chart_slice
+description: >
+  Returns a ChartSlice (bounded OHLC window centered around occurred_at)
+  for the replay chart strip. Calls VM100 GET /api/journal/replay/{execution_id}/chart-slice
+  which proxies VM102's market data API.
+
+  CONTEXT §13 (chart slice separate): Chart data is intentionally separated
+  from frame narration. Mentor agents call this tool independently when they
+  need visual chart context for a specific frame. This separation keeps frame
+  data lightweight and chart fetching optional.
+
+  Graceful degrade (CONTEXT §13): When VM102 is down, VM100 returns 503
+  with fallback=True. This tool returns ChartSlice(bars=[], degraded=True)
+  so mentor agents can skip chart reasoning gracefully rather than failing.
+  NEVER raises on VM100/VM102 unavailable (Pitfall 11).
+
+  CONTEXT §18 (three orthogonal VM107 tool surfaces):
+  This is the CHART surface — on-demand OHLC window for visual pattern
+  analysis. Strictly separate from frame narration surface.
+
+capability_type: replay_chart
+
+vm100_endpoint_path: /api/journal/replay/{execution_id}/chart-slice
+http_method: GET
+parameters:
+  - name: execution_id
+    type: UUID
+    required: true
+    description: UUID of the closed execution
+  - name: occurred_at
+    type: str
+    required: true
+    description: ISO-format datetime to center the chart slice around
+  - name: bars_around
+    type: int
+    required: false
+    default: 20
+    description: Number of OHLC bars to include (VM100 max=50)
+
+return_type: ChartSlice
+return_on_error: "ChartSlice(bars=[], degraded=True)"
+error_modes:
+  - code: degraded
+    http_status: 503
+    description: VM102 down — returns empty ChartSlice with degraded=True
+  - code: degraded
+    http_status: 504
+    description: VM100/VM102 timeout — returns empty ChartSlice with degraded=True
+  - code: degraded
+    http_status: null
+    description: Transport failure — returns empty ChartSlice with degraded=True
+
+contracts:
+  response: fingpt_core.contracts.replay.chart.ChartSlice
+  error: "ChartSlice with degraded=True attribute"
+
+capabilities:
+  - replay_chart_ohlc_window
+  - visual_pattern_analysis
+  - chart_strip_rendering
+
+related_capabilities:
+  - lookup_replay_artifact_tool
+  - fetch_replay_frame_tool
+  - reconstruction_service
+
+phase: 59
+tags: [phase-59, replay, tool, agent-facing, chart, vm102-proxy, graceful-degrade]
+hard_scoped: true

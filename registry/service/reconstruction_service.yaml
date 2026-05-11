@@ -1,0 +1,56 @@
+id: reconstruction_service
+type: service
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: ReconstructionService
+description: >
+  Reconstructs the complete ReplayState of an execution at time t using
+  5 composable pure-function folds. CONTEXT §10 truth-leakage enforcement:
+  each fold applies ≤t filtering internally; no bypass flags permitted.
+
+  COUNTERFACTUAL truth_mode raises NotImplementedError (reserved Phase 61).
+  OpenExecutionError raised for non-CLOSED or missing executions.
+
+  VM100 module: journal.services.replay.reconstruction_service
+  Implemented in Phase 59 Plan 02 (59-02).
+
+module_path: journal.services.replay.reconstruction_service
+class_name: ReconstructionService
+producer: vm100
+implementation_version: "1.0.0"
+schema_version: "1.0"
+
+public_methods:
+  - name: state_at
+    signature: "state_at(execution_id: UUID, t: datetime, truth_mode: TruthMode) -> ReplayState"
+    description: >
+      Returns ReplayState at time t. Composes all 5 folds:
+      fold_lifecycle, fold_position, fold_analytics, fold_behavioral, fold_market_context.
+    raises:
+      - OpenExecutionError: when execution is not CLOSED or not found
+      - NotImplementedError: when truth_mode is COUNTERFACTUAL
+
+private_helpers:
+  - _fold_lifecycle
+  - _fold_position
+  - _fold_analytics
+  - _fold_behavioral
+  - _fold_market_context
+
+capabilities:
+  - historical_reconstruction
+  - truth_mode_filtering
+  - replay_state_computation
+  - counterfactual_guard
+
+related_capabilities:
+  - replay_query_service
+  - replay_narrator
+  - replay_artifact_persister
+  - fetch_replay_frame_tool
+
+phase: 59
+tags: [phase-59, replay, service, reconstruction, truth-mode, vm100]
+hard_scoped: true

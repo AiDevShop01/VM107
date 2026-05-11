@@ -1,0 +1,56 @@
+id: replay_artifact_persister
+type: service
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: ReplayArtifactPersister
+description: >
+  Atomically writes a ReplayArtifact + its ReplayLine records + a Phase 56
+  execution event (via Pattern 51 Postgres sequence) in a single
+  transaction.atomic() block. CONTEXT §4 (WORM): Postgres trigger enforces
+  append-only on replay_artifact; no UPDATE is ever issued.
+
+  Idempotency scope: AUTO only — MANUAL_REGEN always creates a new
+  replay_version (each regen is intentional per CONTEXT §5).
+  Idempotency check happens BEFORE transaction.atomic() to avoid dead
+  savepoints on early return.
+
+  After persistence, emits replay_artifact_generated event (registered at
+  VM107/registry/event_type/replay_artifact_generated.yaml).
+
+  VM100 module: journal.services.replay.replay_artifact_persister
+  Implemented in Phase 59 Plan 04 (59-04).
+
+module_path: journal.services.replay.replay_artifact_persister
+class_name: ReplayArtifactPersister
+producer: vm100
+implementation_version: "1.0.0"
+schema_version: "1.0"
+
+public_methods:
+  - name: persist
+    signature: >
+      persist(execution_id, snapshot_id, replay_lines, replay_template_version,
+      generated_reason, ruleset_version, analysis_version, [requested_by,
+      requested_at, reason_note]) -> ReplayArtifactMeta
+    description: >
+      Atomically persists the full artifact + lines + event in one transaction.
+      Returns lightweight ReplayArtifactMeta. Raises IntegrityError on duplicate
+      AUTO run (idempotency guard). MANUAL_REGEN always succeeds (new replay_version).
+
+capabilities:
+  - replay_artifact_persistence
+  - atomic_artifact_write
+  - worm_guarded_storage
+  - phase56_event_emission
+
+related_capabilities:
+  - reconstruction_service
+  - replay_narrator
+  - replay_artifact_persister_ledger
+  - lookup_replay_artifact_tool
+
+phase: 59
+tags: [phase-59, replay, service, persister, atomic-write, worm, pattern-51, vm100]
+hard_scoped: true
