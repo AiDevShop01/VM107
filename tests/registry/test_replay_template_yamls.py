@@ -1,56 +1,136 @@
 """Tests for VM107 replay template YAML registry entries — CONTEXT §6, §20.
 
-Each event type must have at least one template YAML in:
-VM107/registry/replay_template/<event_type>/<template_id>.yaml
+12 V1 narration template YAMLs in VM107/registry/replay_template/ — one per
+Phase 56-58 emitted event type. Graduates in 59-03.
 
-Graduates in 59-03 when YAMLs are created.
+Shape test asserts Phase 47.6 alias-extended frontmatter, declarative-only
+templates (no if:/branch:/when:/Jinja), and no LLM-style phrasing.
 """
+import pathlib
+import re
+import yaml
 import pytest
-from pathlib import Path
+
+REGISTRY = pathlib.Path(__file__).parent.parent.parent / "registry" / "replay_template"
+EXPECTED_EVENT_TYPES = {
+    "checklist_completed",
+    "order_submitted",
+    "fill_received",
+    "position_closed",
+    "review_recorded",
+    "idea_state_transition",
+    "campaign_state_transition",
+    "execution_state_transition",
+    "analytics_snapshot_recorded",
+    "analytics_fanout_completed",
+    "replay_artifact_generated",
+    "replay_artifact_regenerated",
+}
+REQUIRED_KEYS = {
+    "id",
+    "type",
+    "status",
+    "shipped",
+    "last_changed",
+    "name",
+    "event_type",
+    "replay_template_version",
+    "artifact_type",
+    "template",
+    "required_fields",
+    "tone",
+    "language",
+    "phase",
+    "capabilities",
+    "hard_scoped",
+}
+FORBIDDEN_PATTERNS = [
+    "if:",
+    "branch:",
+    "when:",
+    "{% ",
+    "${",
+    "should have",
+    "recommend",
+    "advice",
+]
 
 
-TEMPLATE_DIR = Path("/Volumes/ HardDrive/FinGPT/VM107/registry/replay_template")
+def _all_yamls():
+    if not REGISTRY.exists():
+        return []
+    return sorted(REGISTRY.glob("*.yaml"))
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 59 — template YAMLs land in 59-03")
 def test_template_dir_exists():
     """registry/replay_template/ directory must exist."""
-    assert TEMPLATE_DIR.exists(), f"Template directory missing: {TEMPLATE_DIR}"
+    assert REGISTRY.exists(), f"Template directory missing: {REGISTRY}"
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 59 — template YAMLs land in 59-03")
-def test_at_least_one_template_yaml():
-    """registry/replay_template/ must contain at least one YAML file."""
-    yamls = list(TEMPLATE_DIR.rglob("*.yaml"))
-    assert len(yamls) > 0, "No template YAMLs found in registry/replay_template/"
+def test_v1_set_complete():
+    found = {p.stem for p in _all_yamls()}
+    assert found == EXPECTED_EVENT_TYPES, (
+        f"missing={EXPECTED_EVENT_TYPES - found}, extra={found - EXPECTED_EVENT_TYPES}"
+    )
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 59 — template YAMLs land in 59-03")
-def test_template_yaml_has_required_keys():
-    """Each template YAML must have: id, event_type, version, template fields."""
-    import yaml
-    yamls = list(TEMPLATE_DIR.rglob("*.yaml"))
-    if not yamls:
-        pytest.skip("No YAMLs to validate")
-    for yaml_path in yamls:
-        data = yaml.safe_load(yaml_path.read_text())
-        assert "id" in data, f"{yaml_path}: missing 'id'"
-        assert "event_type" in data, f"{yaml_path}: missing 'event_type'"
-        assert "version" in data, f"{yaml_path}: missing 'version'"
-        assert "template" in data, f"{yaml_path}: missing 'template'"
+def test_all_yamls_parse_and_have_required_keys():
+    """All 12 YAMLs parse cleanly and have Phase 47.6 alias-extended frontmatter."""
+    all_yamls = _all_yamls()
+    assert len(all_yamls) > 0, "No YAML files found in registry/replay_template/"
+    for path in all_yamls:
+        data = yaml.safe_load(path.read_text())
+        missing = REQUIRED_KEYS - set(data.keys())
+        assert not missing, f"{path.name} missing keys: {missing}"
+        assert data["type"] == "replay_template", f"{path.name}: type must be 'replay_template'"
+        assert data["replay_template_version"] == "1.0.0", f"{path.name}: version must be '1.0.0'"
+        assert data["artifact_type"] == "narration_v1", f"{path.name}: artifact_type must be 'narration_v1'"
+        assert data["tone"] == "observational", f"{path.name}: tone must be 'observational'"
+        assert data["language"] == "en", f"{path.name}: language must be 'en'"
+        assert data["phase"] == 59, f"{path.name}: phase must be 59"
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 59 — template YAMLs land in 59-03")
-def test_core_event_types_have_templates():
-    """Core event types must have templates per CONTEXT §2."""
-    import yaml
-    yamls = list(TEMPLATE_DIR.rglob("*.yaml"))
-    if not yamls:
-        pytest.skip("No YAMLs to validate")
-    event_types_found = set()
-    for yaml_path in yamls:
-        data = yaml.safe_load(yaml_path.read_text())
-        event_types_found.add(data.get("event_type"))
-    required = {"checklist_completed", "order_submitted", "position_closed"}
-    missing = required - event_types_found
-    assert not missing, f"Missing templates for core event types: {missing}"
+def test_all_templates_are_declarative():
+    """No YAML may contain forbidden patterns (if:/branch:/when:/Jinja/LLM phrasing)."""
+    all_yamls = _all_yamls()
+    assert len(all_yamls) > 0, "No YAML files found in registry/replay_template/"
+    for path in all_yamls:
+        raw = path.read_text()
+        for pat in FORBIDDEN_PATTERNS:
+            assert pat not in raw, f"{path.name} contains forbidden pattern: {pat!r}"
+
+
+def test_template_placeholders_match_required_fields():
+    """Every template placeholder must map to a declared required_field."""
+    all_yamls = _all_yamls()
+    assert len(all_yamls) > 0, "No YAML files found"
+    for path in all_yamls:
+        data = yaml.safe_load(path.read_text())
+        placeholders = set(re.findall(r"\{(\w+)\}", data["template"]))
+        required = set(data["required_fields"])
+        # occurred_at is always injected by narrator — not in required_fields per se
+        missing = placeholders - required - {"occurred_at"}
+        assert not missing, f"{path.name} has placeholders not in required_fields: {missing}"
+
+
+def test_capabilities_include_replay_narration():
+    """Every YAML must declare the 'replay_narration' capability."""
+    all_yamls = _all_yamls()
+    assert len(all_yamls) > 0, "No YAML files found"
+    for path in all_yamls:
+        data = yaml.safe_load(path.read_text())
+        caps = data.get("capabilities", [])
+        assert "replay_narration" in caps, (
+            f"{path.name} missing 'replay_narration' in capabilities"
+        )
+
+
+def test_event_type_field_matches_filename():
+    """Each YAML's event_type field must match its filename stem."""
+    all_yamls = _all_yamls()
+    assert len(all_yamls) > 0, "No YAML files found"
+    for path in all_yamls:
+        data = yaml.safe_load(path.read_text())
+        assert data["event_type"] == path.stem, (
+            f"{path.name}: event_type '{data['event_type']}' does not match filename stem '{path.stem}'"
+        )

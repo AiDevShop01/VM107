@@ -1,0 +1,33 @@
+id: analytics_fanout_completed_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: analytics_fanout_completed
+event_type: analytics_fanout_completed
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — analytics fanout completed for snapshot {snapshot_id}.
+required_fields:
+  - snapshot_id
+optional_fields:
+  - ruleset_version
+  - execution_id
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, analytics]
+hard_scoped: true

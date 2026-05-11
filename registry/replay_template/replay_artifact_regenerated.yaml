@@ -1,0 +1,34 @@
+id: replay_artifact_regenerated_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: replay_artifact_regenerated
+event_type: replay_artifact_regenerated
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — replay artifact regenerated (replay_version={replay_version}, reason='{reason_note}').
+required_fields:
+  - replay_version
+  - reason_note
+optional_fields:
+  - previous_version
+  - triggered_by
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, replay-meta]
+hard_scoped: true

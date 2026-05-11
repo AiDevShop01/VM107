@@ -1,0 +1,33 @@
+id: campaign_state_transition_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: campaign_state_transition
+event_type: campaign_state_transition
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — campaign state transition: {from_state} -> {to_state}.
+required_fields:
+  - from_state
+  - to_state
+optional_fields:
+  - campaign_id
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, lifecycle]
+hard_scoped: true

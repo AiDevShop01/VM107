@@ -1,0 +1,35 @@
+id: position_closed_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: position_closed
+event_type: position_closed
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — position closed: result_r={result_r}, MAE={mae_r}R, MFE={mfe_r}R.
+required_fields:
+  - result_r
+  - mae_r
+  - mfe_r
+optional_fields:
+  - exit_price
+  - realised_pnl
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, execution]
+hard_scoped: true

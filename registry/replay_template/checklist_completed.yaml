@@ -1,0 +1,32 @@
+id: checklist_completed_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: checklist_completed
+event_type: checklist_completed
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — pre-trade checklist completed ({completed_items_count}/{total_items_count} items).
+required_fields:
+  - completed_items_count
+  - total_items_count
+optional_fields: []
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, lifecycle]
+hard_scoped: true

@@ -1,0 +1,34 @@
+id: analytics_snapshot_recorded_replay_template
+type: replay_template
+status: shipped
+shipped: 59
+last_changed: 2026-05-11
+
+name: analytics_snapshot_recorded
+event_type: analytics_snapshot_recorded
+replay_template_version: 1.0.0
+artifact_type: narration_v1
+
+template: |
+  {occurred_at} — analytics snapshot recorded (ruleset {ruleset_version}, overall_score={overall_score}).
+required_fields:
+  - ruleset_version
+  - overall_score
+optional_fields:
+  - snapshot_id
+  - analysis_version
+
+tone: observational
+language: en
+phase: 59
+
+capabilities:
+  - replay_narration
+  - citation_surface
+
+related_capabilities:
+  - replay_narrator
+  - replay_artifact_persister
+
+tags: [phase-59, replay, narration, deterministic, analytics]
+hard_scoped: true
