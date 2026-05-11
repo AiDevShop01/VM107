@@ -1,5 +1,6 @@
 """Backend factory for creating MemoryBackend instances from config."""
 
+import os
 from typing import Any
 from plugins._memory.backend.base import MemoryBackend
 from plugins._memory.backend.faiss_backend import FaissBackend
@@ -46,7 +47,7 @@ def create_backend(
         from qdrant_client import QdrantClient
 
         # Create QdrantClient from config
-        qdrant_host = config.get("qdrant_host", "192.168.1.151")
+        qdrant_host = config.get("qdrant_host") or os.environ["QDRANT_HOST"]
         qdrant_port = config.get("qdrant_port", 6333)
 
         client = QdrantClient(host=qdrant_host, port=qdrant_port)

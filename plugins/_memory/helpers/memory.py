@@ -132,7 +132,7 @@ class Memory:
                         PrintStyle.standard(f"Redis embedding cache enabled for agent_memory")
 
                     # Create QdrantClient
-                    qdrant_host = config_dict.get("qdrant_host", "192.168.1.151")
+                    qdrant_host = config_dict.get("qdrant_host") or os.environ["QDRANT_HOST"]
                     qdrant_port = config_dict.get("qdrant_port", 6333)
                     client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=10)
 
