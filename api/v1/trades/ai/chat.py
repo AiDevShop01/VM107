@@ -45,7 +45,7 @@ _CHAT_EVALUATOR_PROMPT_REL = Path(
 
 # Default model: read from CHAT_MODEL env var, fallback to DeepSeek Flash.
 # In production this is overridden via VM107's container env.
-_DEFAULT_CHAT_MODEL = os.environ.get("CHAT_MODEL", "deepseek/deepseek-v4-flash")
+_DEFAULT_CHAT_MODEL = os.environ["CHAT_MODEL"]
 
 
 def _load_chat_evaluator_prompt() -> str:

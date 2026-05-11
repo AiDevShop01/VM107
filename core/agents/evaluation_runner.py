@@ -51,7 +51,7 @@ from helpers.mongo import get_mongo_db
 
 log = logging.getLogger(__name__)
 
-EVAL_MODEL = os.getenv("EVAL_MODEL", os.getenv("CHAT_MODEL", "deepseek/deepseek-v4-flash"))
+EVAL_MODEL = os.environ["EVAL_MODEL"]
 PROMPT_PATH = "agents/agent0/prompts/agent.system.main.pre_trade_evaluation.md"
 
 
