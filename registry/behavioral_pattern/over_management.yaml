@@ -22,6 +22,13 @@ source_metric:
   contract: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
   field: over_management_score
   trigger_threshold_field: over_management_normal
+  trigger_condition: "over_management_score > 50.0"
+  signal_strength_unit: score_0_100
+
+neo4j_pattern:
+  edge: FAILED_DUE_TO
+  signal_strength_field: signal_strength
+  derivation_function: journal.services.projectors.execution_neo4j_projector._derive_failed_due_to_signals
 
 related_capabilities:
   - behavioral_analysis_tool
