@@ -130,7 +130,7 @@ async def is_bridge_running(port: int) -> bool:
 
 
 def get_bridge_url(port: int) -> str:
-    return f"http://127.0.0.1:{port}"
+    return f"http://{os.environ['BRIDGE_HOST']}:{port}"
 
 
 async def ensure_bridge_http_up(

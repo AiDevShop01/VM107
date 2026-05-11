@@ -1,7 +1,8 @@
+import os
 import aiohttp
 from helpers import runtime
 
-URL = "http://localhost:55510/search"
+URL = os.environ["SEARXNG_URL"]
 
 async def search(query:str):
     return await runtime.call_development_function(_search, query=query)

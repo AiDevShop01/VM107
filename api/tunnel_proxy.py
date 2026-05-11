@@ -1,3 +1,5 @@
+import os
+
 from helpers.api import ApiHandler, Request, Response
 from helpers import dotenv, runtime
 from helpers.tunnel_manager import TunnelManager
@@ -19,7 +21,7 @@ async def process(input: dict) -> dict | Response:
     # first verify the service is running:
     service_ok = False
     try:
-        response = requests.post(f"http://localhost:{tunnel_api_port}/", json={"action": "health"})
+        response = requests.post(f"http://{os.environ['TUNNEL_HOST']}:{tunnel_api_port}/", json={"action": "health"})
         if response.status_code == 200:
             service_ok = True
     except Exception as e:
@@ -28,7 +30,7 @@ async def process(input: dict) -> dict | Response:
     # forward this request to the tunnel service if OK
     if service_ok:
         try:
-            response = requests.post(f"http://localhost:{tunnel_api_port}/", json=input)
+            response = requests.post(f"http://{os.environ['TUNNEL_HOST']}:{tunnel_api_port}/", json=input)
             return response.json()
         except Exception as e:
             return {"error": str(e)}
