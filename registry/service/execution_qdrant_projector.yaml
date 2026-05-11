@@ -1,0 +1,32 @@
+id: execution_qdrant_projector
+type: service
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: execution_qdrant_projector
+description: >
+  Projects canonical TradeAnalyticsSnapshot rows into the Qdrant
+  `trade_intelligence` collection — one snapshot-level embedding per
+  (execution, ruleset_version) pair (CONTEXT §10/§11/§14/§15). Composes the
+  deterministic embedding document via embedding_document.compose, embeds
+  via all-mpnet-base-v2 (768-dim, cosine), upserts at point id
+  f"{execution_id}:{ruleset_version}". Independent embedding_prompt_version
+  dimension preserves replay fidelity (CONTEXT §5).
+producer: vm100
+phase: 58
+
+location:
+  source: VM100/backend/journal/services/projectors/execution_qdrant_projector.py
+  contracts: Dagster/fingpt_core/src/fingpt_core/contracts/projection/qdrant_projection.py
+  embedding_composer: VM100/backend/journal/services/projectors/embedding_document.py
+
+related_capabilities:
+  - analytics_snapshot_recorded
+  - trade_intelligence
+  - embedding_service
+
+aliases: []
+tags: [phase-58, projector, qdrant, intelligence_storage, embeddings]
+hard_scoped: true

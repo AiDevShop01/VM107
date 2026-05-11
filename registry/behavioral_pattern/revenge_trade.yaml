@@ -1,0 +1,33 @@
+id: revenge_trade
+type: behavioral_pattern
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: revenge_trade
+description: >
+  Trader entered a new position immediately after a recent loss in apparent
+  emotional reaction (revenge-trading). Phase 57 metric: revenge_trade_flag
+  set true via behavioral analysis (proximity-to-loss + setup-quality
+  degradation heuristic, ruleset-versioned). Surfaces as :FAILED_DUE_TO ->
+  :BehavioralPattern {id: 'revenge_trade'} edge in Neo4j (CONTEXT §7) and as
+  `revenge_trade: true` boolean in Qdrant payload (CONTEXT §15).
+category: behavioral_marker
+version: 1.0
+producer: vm100
+phase: 58
+
+source_metric:
+  contract: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
+  field: revenge_trade_flag
+  trigger_threshold_field: revenge_trade_flag
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - execution_neo4j_projector
+  - execution_qdrant_projector
+
+aliases: []
+tags: [phase-58, behavioral, controlled_vocabulary]
+hard_scoped: true

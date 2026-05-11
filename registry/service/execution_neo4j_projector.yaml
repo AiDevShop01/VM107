@@ -1,0 +1,34 @@
+id: execution_neo4j_projector
+type: service
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: execution_neo4j_projector
+description: >
+  Projects canonical TradeAnalyticsSnapshot rows into the Neo4j relationship
+  graph (5 V1 edge types — CONTEXT §7). Postgres remains canonical truth;
+  Neo4j is disposable/rebuildable derived state (CONTEXT §6). Reads its own
+  AnalyticsProjectionLedger row, MERGEs each edge into Neo4j (idempotent),
+  and transitions the ledger row to completed / failed / dead_letter.
+producer: vm100
+phase: 58
+
+location:
+  source: VM100/backend/journal/services/projectors/execution_neo4j_projector.py
+  contracts: Dagster/fingpt_core/src/fingpt_core/contracts/projection/neo4j_projection.py
+
+related_capabilities:
+  - analytics_snapshot_recorded
+  - behavioral_analysis_tool
+  - similarity_analysis_tool
+  - hesitation
+  - late_entry
+  - over_management
+  - revenge_trade
+  - fomo_entry
+
+aliases: []
+tags: [phase-58, projector, neo4j, intelligence_storage]
+hard_scoped: true

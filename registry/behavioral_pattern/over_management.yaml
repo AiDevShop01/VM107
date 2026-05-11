@@ -1,0 +1,33 @@
+id: over_management
+type: behavioral_pattern
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: over_management
+description: >
+  Trader moved stops or adjusted orders excessively after entry, degrading
+  the position's natural risk/reward profile. Phase 57 metric:
+  over_management_score elevated and/or stop_movement_count >= ruleset
+  threshold. Surfaces as :FAILED_DUE_TO -> :BehavioralPattern {id:
+  'over_management'} edge in Neo4j (CONTEXT §7) and as `over_management:
+  true` boolean in Qdrant payload (CONTEXT §15).
+category: behavioral_marker
+version: 1.0
+producer: vm100
+phase: 58
+
+source_metric:
+  contract: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
+  field: over_management_score
+  trigger_threshold_field: over_management_normal
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - execution_neo4j_projector
+  - execution_qdrant_projector
+
+aliases: []
+tags: [phase-58, behavioral, controlled_vocabulary]
+hard_scoped: true

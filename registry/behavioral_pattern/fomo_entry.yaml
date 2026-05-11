@@ -1,0 +1,33 @@
+id: fomo_entry
+type: behavioral_pattern
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: fomo_entry
+description: >
+  Trader chased an extended price move out of fear-of-missing-out, entering
+  past the optimal risk/reward zone. Phase 57 metric: fomo_entry_flag set
+  true via behavioral analysis (price-extension + late-entry confluence
+  heuristic, ruleset-versioned). Surfaces as :FAILED_DUE_TO ->
+  :BehavioralPattern {id: 'fomo_entry'} edge in Neo4j (CONTEXT §7) and as
+  `fomo_entry: true` boolean in Qdrant payload (CONTEXT §15).
+category: behavioral_marker
+version: 1.0
+producer: vm100
+phase: 58
+
+source_metric:
+  contract: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
+  field: fomo_entry_flag
+  trigger_threshold_field: fomo_entry_flag
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - execution_neo4j_projector
+  - execution_qdrant_projector
+
+aliases: []
+tags: [phase-58, behavioral, controlled_vocabulary]
+hard_scoped: true

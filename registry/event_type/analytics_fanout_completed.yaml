@@ -1,0 +1,47 @@
+id: analytics_fanout_completed
+type: event_type
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+category: analytics
+producer: vm100
+replayable: true
+payload_schema: AnalyticsFanoutCompletedEvent
+phase: 58
+
+description: >
+  Emitted when ALL three projector ledger rows for one TradeAnalyticsSnapshot
+  reach status='completed' (Pattern 51, sequence-allocate-inside-atomic-block).
+  Marks the canonical end of the fan-out arc for one snapshot — downstream
+  consumers (Phase 60 mentor agents) can subscribe to this to learn that an
+  execution is fully indexed across Neo4j + Qdrant + Mongo.
+
+payload_fields:
+  snapshot_id: "UUID of the TradeAnalyticsSnapshot whose fan-out completed"
+  execution_id: "UUID of the Execution this snapshot covers"
+  campaign_id: "UUID of the Campaign (denormalized from snapshot)"
+  ruleset_version: "Version of the deterministic engine constants"
+  neo4j_completed_at: "UTC timestamp when Neo4j projector finished"
+  qdrant_completed_at: "UTC timestamp when Qdrant projector finished"
+  mongo_completed_at: "UTC timestamp when Mongo projector finished"
+
+causality_scope: EXECUTION
+trigger:
+  entity: AnalyticsProjectionLedger
+  from_states: [in_progress]
+  to_state: completed
+  mechanism: ExecutionXxxProjector.project() final atomic block
+
+replay_notes: >
+  Replayable. Given the same (snapshot_id, ruleset_version, prompt_version),
+  the projection ledger rows have deterministic content; this event is
+  emitted exactly once when the final per-store row transitions to
+  completed (idempotent on snapshot_id + ruleset_version).
+
+related_events:
+  - analytics_snapshot_recorded (the trigger upstream of fan-out)
+
+aliases: []
+tags: [phase-58, analytics, fanout, intelligence_storage]
+hard_scoped: true

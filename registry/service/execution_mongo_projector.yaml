@@ -1,0 +1,32 @@
+id: execution_mongo_projector
+type: service
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: execution_mongo_projector
+description: >
+  Projects canonical TradeAnalyticsSnapshot rows into the Mongo `fingpt` DB —
+  operational state only (CONTEXT §16/§17). Upserts one workflow_state
+  document per execution (snapshot_recorded -> fanout_complete ->
+  review_queued -> review_completed). Phase 60 will extend this projector to
+  seed review_queue entries when review is required.
+producer: vm100
+phase: 58
+
+location:
+  source: VM100/backend/journal/services/projectors/execution_mongo_projector.py
+  contracts: Dagster/fingpt_core/src/fingpt_core/contracts/projection/mongo_projection.py
+
+mongo_collections:
+  - review_queue
+  - workflow_state
+
+related_capabilities:
+  - analytics_snapshot_recorded
+  - workflow_state_machine
+
+aliases: []
+tags: [phase-58, projector, mongo, intelligence_storage, operational_state]
+hard_scoped: true

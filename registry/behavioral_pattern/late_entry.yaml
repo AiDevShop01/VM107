@@ -1,0 +1,32 @@
+id: late_entry
+type: behavioral_pattern
+status: shipped
+shipped: 58
+planned_phase: null
+last_changed: 2026-05-11
+
+name: late_entry
+description: >
+  Trader entered after the optimal entry window (entry timing degradation).
+  Phase 57 metric: late_entry_score elevated relative to ruleset-versioned
+  threshold. Surfaces as :FAILED_DUE_TO -> :BehavioralPattern {id: 'late_entry'}
+  edge in Neo4j (CONTEXT §7) and as `late_entry: true` boolean in Qdrant
+  payload (CONTEXT §15).
+category: behavioral_marker
+version: 1.0
+producer: vm100
+phase: 58
+
+source_metric:
+  contract: fingpt_core.contracts.analytics.behavioral.BehavioralAnalysisResult
+  field: late_entry_score
+  trigger_threshold_field: late_entry_normal
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - execution_neo4j_projector
+  - execution_qdrant_projector
+
+aliases: []
+tags: [phase-58, behavioral, controlled_vocabulary]
+hard_scoped: true
