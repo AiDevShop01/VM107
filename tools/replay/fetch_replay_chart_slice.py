@@ -43,8 +43,8 @@ from fingpt_core.contracts.replay.chart import ChartSlice, OHLCBar
 
 logger = logging.getLogger(__name__)
 
-VM100_BASE = os.getenv("VM100_API_URL", "http://192.168.1.100:8000")
-VM107_SERVICE_TOKEN = os.getenv("VM107_SERVICE_TOKEN", "")
+VM100_BASE = os.environ["VM100_API_URL"]
+VM107_SERVICE_TOKEN = os.environ["VM107_SERVICE_TOKEN"]
 _TIMEOUT = 30.0
 
 

@@ -29,7 +29,7 @@ from fingpt_core.contracts.replay import ReplayArtifactMeta
 
 logger = logging.getLogger(__name__)
 
-VM100_BASE = os.getenv("VM100_API_URL", "http://192.168.1.100:8000")
+VM100_BASE = os.environ["VM100_API_URL"]
 _TIMEOUT = 30.0
 
 
