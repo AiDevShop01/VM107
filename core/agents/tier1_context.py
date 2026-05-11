@@ -49,16 +49,8 @@ _EMPTY_TIER1: dict[str, Any] = {
 
 
 def _vm100_internal_base_url() -> str:
-    """Resolve VM100 internal base URL.
-
-    Honors VM100_INTERNAL_URL first; falls back to VM100_API_URL; finally
-    defaults to host.docker.internal:8000 (Mac dev compose pattern).
-    """
-    return (
-        os.environ.get("VM100_INTERNAL_URL")
-        or os.environ.get("VM100_API_URL")
-        or "http://host.docker.internal:8000"
-    )
+    """Resolve VM100 internal base URL from required VM100_API_URL env var."""
+    return os.environ["VM100_API_URL"]
 
 
 async def build_tier1_context(journal_id: str) -> dict[str, Any]:

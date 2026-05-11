@@ -22,13 +22,7 @@ import httpx
 from helpers.tool import Tool, Response
 
 
-VM101_KB_SEARCH_URL = os.environ.get(
-    "VM101_KB_SEARCH_URL",
-    # Default for Docker Desktop / Mac: host.docker.internal reaches the host's
-    # mapped port 8001 → vm101-backend container. In native Linux deployments
-    # (e.g. Proxmox VM-to-VM) override via env to the actual VM101 host:port.
-    "http://host.docker.internal:8001/api/v1/knowledge/search",
-)
+VM101_KB_SEARCH_URL = os.environ["VM101_KB_SEARCH_URL"]
 
 
 class SearchKnowledgeTool(Tool):
