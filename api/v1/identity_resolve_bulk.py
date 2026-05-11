@@ -45,7 +45,7 @@ class IdentityResolveBulk(ApiHandler):
 
         # Get MongoDB connection
         try:
-            mongo_uri = os.getenv("MONGODB_URI", "mongodb://192.168.1.151:27017/fingpt_agents")
+            mongo_uri = os.environ["MONGODB_URI"]
             # Extract database name from URI or use default
             if "/" in mongo_uri and not mongo_uri.endswith("/"):
                 db_name = mongo_uri.split("/")[-1]
