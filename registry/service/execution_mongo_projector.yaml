@@ -7,26 +7,155 @@ last_changed: 2026-05-11
 
 name: execution_mongo_projector
 description: >
-  Projects canonical TradeAnalyticsSnapshot rows into the Mongo `fingpt` DB —
-  operational state only (CONTEXT §16/§17). Upserts one workflow_state
-  document per execution (snapshot_recorded -> fanout_complete ->
-  review_queued -> review_completed). Phase 60 will extend this projector to
-  seed review_queue entries when review is required.
+  Projects canonical TradeAnalyticsSnapshot rows into the Mongo `fingpt`
+  DB operational-state collections. Phase 58 ships the writer for
+  `workflow_state` ONLY (per-execution state machine: snapshot_recorded
+  → fanout_complete → review_queued → review_completed). The
+  `review_queue` collection schema + indexes also ship in Phase 58 so
+  the schema is ready for Phase 60, but Phase 58 NEVER writes to
+  review_queue (Pitfall 9 — Phase 60 mentor agents own that writer side).
+  Mongo is operational state ONLY (CONTEXT §16) — never canonical
+  analytics, never snapshot truth, never historical replay. Discipline
+  enforced at the write boundary via WorkflowStateDocument Pydantic
+  contract validation (Phase 55 hotfix #2 dual-mirror).
 producer: vm100
 phase: 58
+implementation_version: "1.0.0"
 
 location:
   source: VM100/backend/journal/services/projectors/execution_mongo_projector.py
+  helper: VM100/backend/journal/services/projectors/_mongo_intelligence_db.py
   contracts: Dagster/fingpt_core/src/fingpt_core/contracts/projection/mongo_projection.py
+  contracts_mirror: VM100/backend/journal/contracts/projection.py
+  tests:
+    - VM100/backend/journal/tests/test_projectors/test_mongo_projector.py
+    - VM100/backend/journal/tests/test_projectors/test_workflow_state_transitions.py
+    - VM100/backend/journal/tests/test_projectors/test_projector_idempotency.py
 
-mongo_collections:
-  - review_queue
-  - workflow_state
+inputs:
+  - source: AnalyticsProjectionLedger row (Postgres)
+    filter: status='pending' AND target_store='mongo'
+    cardinality: one row per (snapshot, target_store, ruleset_version,
+                              embedding_prompt_version) tuple
+  - source: TradeAnalyticsSnapshot row (Postgres)
+    join: snapshot_id from ledger row
+    fields_consumed: [id, execution_id, trigger_event_id]
+  - source: AnalyticsProjectionLedger sibling rows (Postgres)
+    filter: snapshot_id=ledger.snapshot_id AND status='completed'
+    purpose: drives snapshot_recorded → fanout_complete state transition
+
+outputs:
+  - target: "fingpt.workflow_state collection (Mongo @ 192.168.1.151:27017)"
+    operation: "update_one(filter={execution_id}, upsert=True)"
+    cardinality: "1 document per execution (idempotent upsert keyed on
+                 execution_id; UNIQUE index makes duplicate inserts
+                 physically impossible)"
+    fields:
+      - execution_id            # CONTEXT §16 traceability
+      - snapshot_id             # CONTEXT §16 traceability
+      - workflow_version        # CONTEXT §16 traceability (LOCKED V1=1.0.0)
+      - source_event_id         # CONTEXT §16 traceability (FK to canonical event)
+      - updated_at              # CONTEXT §16 traceability
+      - state                   # CONTEXT §17 state machine
+      - schema_version          # WorkflowStateDocument contract (LOCKED V1=1.0.0)
+      - neo4j_completed_at      # Optional per-store completion telemetry
+      - qdrant_completed_at     # Optional per-store completion telemetry
+      - mongo_completed_at      # Optional per-store completion telemetry
+
+backend: mongodb
+host: "192.168.1.151"
+port: 27017
+database: fingpt
+collections_written: [workflow_state]
+collections_initialized: [workflow_state, review_queue]
+collections_writer_side_phase_60: [review_queue]
+
+state_machine:
+  states_locked:
+    - snapshot_recorded
+    - fanout_complete
+    - review_queued
+    - review_completed
+  states_written_phase_58:
+    - snapshot_recorded
+    - fanout_complete
+  states_written_phase_60:
+    - review_queued
+    - review_completed
+  decision_helper: journal.services.projectors.execution_mongo_projector._decide_state
+  total_stores: 3   # neo4j + qdrant + mongo
+
+schema_dependencies:
+  collections:
+    - {name: workflow_state, indexes: [
+        execution_unique (execution_id ASC, UNIQUE),
+        state_idx (state ASC),
+      ]}
+    - {name: review_queue, indexes: [
+        status_queued (status ASC, queued_at ASC),
+        execution_idx (execution_id ASC),
+        claim_ttl (claim_expires_at ASC, expireAfterSeconds=0),
+      ]}
+  initialization: idempotent (created lazily via projector first-write)
+  helper_function: journal.services.projectors._mongo_intelligence_db.initialize_intelligence_collections
+
+pitfall_guards:
+  pitfall_1:
+    name: postgres_atomic_does_not_roll_back_mongo
+    enforcement: Mongo update_one OUTSIDE transaction.atomic; ledger
+                 state-machine inside. Test at
+                 test_mongo_projector.py::test_atomic_boundary.
+  pitfall_6:
+    name: ttl_only_on_claim_expires_at
+    enforcement: TTL index ONLY on review_queue.claim_expires_at; never
+                 on workflow_state, _id, queued_at, or any durable field.
+                 Tests at test_mongo_projector.py::test_workflow_state_indexes,
+                 test_review_queue_indexes, test_pitfall_6_locked_in_source.
+  pitfall_8:
+    name: one_projection_per_dagster_run
+    enforcement: project(ledger_id) takes exactly ONE ledger_id (no batching).
+                 Test at test_mongo_projector.py::test_immediate_per_snapshot.
+  pitfall_9:
+    name: phase_58_no_review_queue_writer
+    enforcement: Phase 58 NEVER writes to review_queue. Static source
+                 guard + mock call_count assertions. Tests at
+                 test_mongo_projector.py::test_review_queue_no_writer,
+                 test_pitfall_9_review_queue_no_writer_in_source.
+
+contract_validation:
+  pattern: phase_55_hotfix_2_dual_mirror_at_write_boundary
+  contract_class: WorkflowStateDocument
+  enforcement: Every workflow_state doc validated against
+               WorkflowStateDocument(**doc) BEFORE pymongo update_one.
+               ValidationError propagates → ledger row 'failed' (Pitfall 1).
+  test: test_mongo_projector.py::test_workflow_state_validated_against_contract
+
+context_16_discipline:
+  rule: Mongo is operational state ONLY — NEVER canonical analytics,
+        NEVER snapshot truth, NEVER historical replay.
+  forbidden_keys_in_workflow_state:
+    - regime_breakdown
+    - behavioral_breakdown
+    - execution_quality_breakdown
+    - setup_quality_breakdown
+    - compression_breakdown
+    - liquidity_breakdown
+    - similarity_breakdown
+    - scoring_ruleset_version
+    - analysis_version
+    - overall_score
+    - behavioral_score
+    - regime_score
+    - result_r_bucket
+    - regime_label
+  test: test_mongo_projector.py::test_no_canonical_analytics_in_mongo
 
 related_capabilities:
   - analytics_snapshot_recorded
   - workflow_state_machine
+  - execution_neo4j_projector
+  - execution_qdrant_projector
 
 aliases: []
-tags: [phase-58, projector, mongo, intelligence_storage, operational_state]
+tags: [phase-58, projector, mongo, intelligence_storage, operational_state, workflow_state]
 hard_scoped: true
