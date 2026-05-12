@@ -1,0 +1,40 @@
+id: mentor_pipeline_completed
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: mentor_pipeline_completed
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted by MentorPipelineOrchestrator at the SUCCESSFUL END of a mentor
+  pipeline run — AFTER narrative_envelope_persisted. Indicates that all three
+  tiers (reader, analyzer, writer) completed, the narrative was persisted to
+  the canonical WORM table, and the pipeline run is fully complete. Carries
+  execution_id, profile, narrative_id, total wall-clock duration_ms.
+  Pairing event is mentor_pipeline_started.
+
+payload_schema: fingpt_core.contracts.events.cognition.mentor_pipeline_completed.MentorPipelineCompletedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution (null for weekly_review)"
+  profile: "Agent profile name"
+  narrative_id: "UUID of the persisted review_narrative row"
+  correlation_id: "Links all events in this pipeline run"
+  duration_ms: "Total wall-clock time from pipeline_started to pipeline_completed"
+
+consumers:
+  - phase_56_event_store
+  - dagster_orchestration
+
+related_capabilities:
+  - mentor_pipeline_orchestrator
+
+related_events:
+  - mentor_pipeline_started
+  - narrative_envelope_persisted
+
+tags: [phase-60, cognition, lifecycle, mentor_pipeline]

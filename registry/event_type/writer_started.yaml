@@ -1,0 +1,39 @@
+id: writer_started
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: writer_started
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted by MentorPipelineOrchestrator immediately BEFORE call_subordinate
+  to the _writer sub-profile (on each attempt, including bounded retries).
+  Marks the boundary where the orchestrator passes validated WriterInput
+  to the writer tier. If this is a retry attempt (attempt_number > 1), a
+  prior writer_failed event was emitted and citation correction was attempted.
+  Pairing event is writer_completed or writer_failed.
+
+payload_schema: fingpt_core.contracts.events.cognition.writer_started.WriterStartedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution"
+  profile: "Top-level agent profile name"
+  correlation_id: "Links all events in this pipeline run"
+  attempt_number: "1-based attempt counter (1 on first try, 2 or 3 on retries)"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - mentor_pipeline_orchestrator
+
+related_events:
+  - analyzer_completed
+  - writer_completed
+  - writer_failed
+
+tags: [phase-60, cognition, lifecycle, writer_tier]

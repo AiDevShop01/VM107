@@ -1,0 +1,36 @@
+id: analyzer_completed
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: analyzer_completed
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted by MentorPipelineOrchestrator after AnalyzerOutput passes Pydantic
+  model_validate (CTX-§3 hard-fail boundary 2 passed). Marks successful
+  completion of the analyzer tier. The validated AnalyzerOutput is then
+  wrapped into a WriterInput and passed to the writer sub-profile.
+  Pairing event is analyzer_started.
+
+payload_schema: fingpt_core.contracts.events.cognition.analyzer_completed.AnalyzerCompletedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution"
+  profile: "Top-level agent profile name"
+  correlation_id: "Links all events in this pipeline run"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - mentor_pipeline_orchestrator
+
+related_events:
+  - analyzer_started
+  - writer_started
+
+tags: [phase-60, cognition, lifecycle, analyzer_tier]

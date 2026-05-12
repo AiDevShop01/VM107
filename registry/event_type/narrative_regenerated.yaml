@@ -1,0 +1,43 @@
+id: narrative_regenerated
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: narrative_regenerated
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted when a previously-requested narrative regeneration run completes
+  successfully — i.e., a new review_narrative row with a bumped
+  narrative_version has been persisted. The new narrative_id and
+  narrative_version are carried in the payload. Distinct from
+  narrative_envelope_persisted because this event specifically marks a
+  REGENERATION (as opposed to the initial generation). Pairing event is
+  narrative_regeneration_requested.
+
+payload_schema: fingpt_core.contracts.events.cognition.narrative_regenerated.NarrativeRegeneratedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution (null for weekly_review)"
+  profile: "Agent profile name"
+  old_narrative_id: "UUID of the previous narrative (if any)"
+  new_narrative_id: "UUID of the newly persisted regenerated narrative"
+  new_narrative_version: "Monotonically increasing version of the new narrative row"
+  new_template_version: "Template version used for the regen run"
+
+consumers:
+  - phase_56_event_store
+  - dagster_orchestration
+
+related_capabilities:
+  - narrative_persister
+  - mentor_pipeline_orchestrator
+
+related_events:
+  - narrative_regeneration_requested
+  - narrative_envelope_persisted
+
+tags: [phase-60, cognition, regeneration, narrative]

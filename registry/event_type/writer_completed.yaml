@@ -1,0 +1,41 @@
+id: writer_completed
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: writer_completed
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted by MentorPipelineOrchestrator after the writer sub-profile returns
+  a validated NarrativeEnvelope that passes all citation enforcement checks
+  (or after auto_bracket_unsourced is applied on retry exhaustion). At this
+  point the ConfidenceVector has been injected by the orchestrator (CTX-§9
+  LOCKED — writer cannot supply its own ConfidenceVector). Next event is
+  narrative_envelope_persisted. Pairing event is writer_started.
+
+payload_schema: fingpt_core.contracts.events.cognition.writer_completed.WriterCompletedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution"
+  profile: "Top-level agent profile name"
+  correlation_id: "Links all events in this pipeline run"
+  attempt_number: "Which attempt succeeded"
+  unsourced_claim_count: "Number of ASSERTION sentences that required auto_bracket fallback"
+  sentence_count: "Total number of narrative sentences"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - mentor_pipeline_orchestrator
+  - citation_validator
+
+related_events:
+  - writer_started
+  - narrative_envelope_persisted
+
+tags: [phase-60, cognition, lifecycle, writer_tier]

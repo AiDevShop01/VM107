@@ -1,0 +1,49 @@
+id: narrative_envelope_persisted
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: narrative_envelope_persisted
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted after the atomic Postgres + event + Mongo persist completes
+  (NarrativePersister.persist() returns successfully). Carries narrative_id,
+  citation_count, unsourced_claim_count, confidence_vector_summary. This event
+  represents the canonical record that a narrative has been written to the
+  WORM-guarded review_narrative table. Per CTX-§6, this event is emitted
+  INSIDE the transaction.atomic() block; Postgres failure rolls it back.
+  Phase 56 event store is the reconstruction source if Mongo lags.
+
+payload_schema: fingpt_core.contracts.events.cognition.narrative_envelope_persisted.NarrativeEnvelopePersistedPayload
+
+payload_fields:
+  narrative_id: "UUID of the newly created review_narrative row"
+  execution_id: "UUID of the trade execution (null for weekly_review)"
+  profile: "Agent profile name"
+  replay_artifact_id: "Source replay artifact used for reader context"
+  writer_profile_id: "Dotted sub-profile ID of the writer (e.g. trade_auditor_agent._writer)"
+  ruleset_version: "Deterministic engine constants version"
+  template_version: "Narrative template version (bump triggers allowed regen)"
+  scope_origin: "Profile that initiated the run"
+  citation_count: "Total number of [ref:...] citations across all narrative sentences"
+  unsourced_claim_count: "Count of ASSERTION sentences that required auto_bracket fallback"
+  confidence_vector_summary: "Serialized ConfidenceVector dict (injected by orchestrator)"
+
+consumers:
+  - phase_56_event_store
+  - dagster_orchestration
+  - mentor_review_sensor
+
+related_capabilities:
+  - narrative_persister
+  - mentor_pipeline_orchestrator
+
+related_events:
+  - writer_completed
+  - mentor_pipeline_completed
+
+tags: [phase-60, cognition, lifecycle, persistence, narrative]

@@ -1,0 +1,40 @@
+id: constitutional_skill_applied
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: constitutional_skill_applied
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted when a constitutional skill (e.g., citation-discipline) is
+  preloaded into a profile's baseline context at agent boot — distinct from
+  skill_loaded in that this specifically records that the skill has been
+  APPLIED (i.e., injected into the system prompt / baseline context window,
+  not merely loaded into registry). For citation-discipline, this means the
+  citation grammar rules, sentence class definitions, and [UNSOURCED] fallback
+  procedure are now active in the writer sub-profile's reasoning context.
+
+payload_schema: fingpt_core.contracts.events.cognition.constitutional_skill_applied.ConstitutionalSkillAppliedPayload
+
+payload_fields:
+  skill_id: "Registry ID of the constitutional skill (e.g. citation-discipline)"
+  profile_id: "Agent profile the skill was applied to"
+  sub_profile: "Sub-profile that received the skill injection (e.g. _writer, _reader)"
+  version: "Skill version string"
+  applied_at_boot: "True if applied at agent boot; False if applied mid-session (unusual)"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - skill_registry
+  - citation_validator
+
+related_events:
+  - skill_loaded
+
+tags: [phase-60, cognition, skill, constitutional]

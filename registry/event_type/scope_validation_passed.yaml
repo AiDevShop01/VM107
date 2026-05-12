@@ -1,0 +1,39 @@
+id: scope_validation_passed
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: scope_validation_passed
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM100
+
+description: >
+  Emitted by a downstream VM (VM100, VM102) when X-Agent-Scope header
+  verification succeeds — HMAC valid, not expired, claims within bounds
+  (CTX-§5 Pitfall 8 enforcement). This is a lightweight audit trail event;
+  not emitted for every request (to avoid high-volume noise) — only on
+  first-access per execution_id+profile+scope_profile_id combination, or
+  when explicitly configured for detailed auditing. Carries target_backend,
+  scope_profile_id, narrative_visibility (from the validated scope).
+
+payload_schema: fingpt_core.contracts.events.cognition.scope_validation_passed.ScopeValidationPassedPayload
+
+payload_fields:
+  target_backend: "Backend that accepted the scope (e.g. vm100, vm102)"
+  scope_profile_id: "Profile ID from the validated scope context"
+  narrative_visibility: "NarrativeVisibility enum value from the accepted scope"
+  endpoint: "URL path that accepted the scope"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - scope_dispatcher
+
+related_events:
+  - scope_context_injected
+  - scope_validation_failed
+
+tags: [phase-60, cognition, scope, audit]

@@ -1,0 +1,41 @@
+id: template_version_bumped
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: template_version_bumped
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted when a narrative template is updated to a new version — the
+  canonical signal that triggers allowed manual regeneration (CTX-§11:
+  regen is only allowed when requested_template_version > stored
+  narrative.template_version). This event is the authoritative record
+  that a template bump occurred; downstream consumers can use it to
+  decide which prior narratives need regeneration. Typically emitted by
+  a Dagster job that manages template versioning (60-12+).
+
+payload_schema: fingpt_core.contracts.events.cognition.template_version_bumped.TemplateVersionBumpedPayload
+
+payload_fields:
+  template_id: "Registry ID of the narrative template that was updated"
+  old_version: "Previous template version string"
+  new_version: "New template version string"
+  profile: "Agent profile this template applies to (null = shared template)"
+  bumped_by: "Identity of the operator or automation that bumped the version"
+  reason: "Human-readable description of what changed in the new template"
+
+consumers:
+  - phase_56_event_store
+  - dagster_orchestration
+
+related_capabilities:
+  - narrative_persister
+
+related_events:
+  - narrative_regeneration_requested
+
+tags: [phase-60, cognition, regeneration, template]

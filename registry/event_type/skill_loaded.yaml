@@ -1,0 +1,39 @@
+id: skill_loaded
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: skill_loaded
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted when a skill (either constitutional or optional) is loaded into
+  a profile's active context at agent boot or during dynamic skill loading.
+  Constitutional skills (e.g., citation-discipline) are loaded at every
+  boot for profiles that list them in constitutional_skills. Optional skills
+  are loaded based on the current analysis context. Carries skill_id,
+  profile_id, scope (constitutional or optional), version.
+
+payload_schema: fingpt_core.contracts.events.cognition.skill_loaded.SkillLoadedPayload
+
+payload_fields:
+  skill_id: "Registry ID of the loaded skill (e.g. citation-discipline)"
+  profile_id: "Agent profile that loaded the skill"
+  scope: "One of: constitutional | optional"
+  version: "Skill version string"
+  execution_id: "UUID of the trade execution if loading for a specific run (null at boot)"
+
+consumers:
+  - phase_56_event_store
+
+related_capabilities:
+  - skill_registry
+
+related_events:
+  - skill_unloaded
+  - constitutional_skill_applied
+
+tags: [phase-60, cognition, skill, lifecycle]

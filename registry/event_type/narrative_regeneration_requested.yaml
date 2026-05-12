@@ -1,0 +1,41 @@
+id: narrative_regeneration_requested
+type: event_type
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: narrative_regeneration_requested
+version: "1.0.0"
+phase: 60
+category: cognition
+producer: VM107
+
+description: >
+  Emitted by NarrativeRegenService.request_regeneration() when a manual
+  regeneration request passes the CTX-§11 template_version-bump rule. The
+  actual re-run is queued asynchronously; a Dagster job (60-12) picks it up
+  via mentor_review_sensor. Carries execution_id, profile,
+  requested_template_version, reason_note, requested_by. Pairing event is
+  narrative_regenerated when the re-run completes.
+
+payload_schema: fingpt_core.contracts.events.cognition.narrative_regeneration_requested.NarrativeRegenerationRequestedPayload
+
+payload_fields:
+  execution_id: "UUID of the trade execution (null for weekly_review)"
+  profile: "Agent profile name"
+  requested_template_version: "New template version that triggered the regen"
+  reason_note: "Human-readable reason for the regen request"
+  requested_by: "Identity of the requester (user ID or service name)"
+
+consumers:
+  - phase_56_event_store
+  - dagster_orchestration
+  - mentor_review_sensor
+
+related_capabilities:
+  - narrative_persister
+
+related_events:
+  - narrative_regenerated
+  - template_version_bumped
+
+tags: [phase-60, cognition, regeneration, narrative]
