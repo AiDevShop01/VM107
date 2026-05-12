@@ -39,6 +39,11 @@ class UnauthorizedToolError(PermissionError):
 SENSITIVE_TOOLS: Final[frozenset[str]] = frozenset({
     "call_subordinate",
     "code_execution_tool",
+    # Phase 60 — AI Mentor Foundation
+    # persist_narrative: WRITER-tier only; _reader and _analyzer profiles are denied at runtime.
+    # The inverse (preventing _writer from calling read tools) is enforced via
+    # per-profile agent.yaml denied_tools lists (lands in 60-09/10/11).
+    "persist_narrative",
     # future: "trade_execution_tool"
 })
 
@@ -48,14 +53,48 @@ HARD_ALLOWED_TOOLS: Final[dict[str, frozenset[str]]] = {
     "agent_zero": frozenset({"call_subordinate", "code_execution_tool"}),
     "idea_agent": frozenset(),      # NO sensitive tools
     "strategy_agent": frozenset(),  # NO sensitive tools
+    # ------------------------------------------------------------------
+    # Phase 60 — AI Mentor Foundation
+    # NOTE: keys are DOTTED AGENT_IDS (runtime routing) — NOT filesystem paths.
+    # On-disk layout per CONTEXT.md §2 LOCKED is NESTED:
+    #   agents/<profile>/_reader/agent.yaml, etc.
+    # 60-01 Task 1b's discovery patch maps dotted-id → nested path at load time.
+    # Top-level profiles are orchestration entry points only — no sensitive tools.
+    # ------------------------------------------------------------------
+    "trade_auditor_agent": frozenset(),
+    "trade_auditor_agent._reader": frozenset(),
+    "trade_auditor_agent._analyzer": frozenset(),
+    "trade_auditor_agent._writer": frozenset({"persist_narrative"}),
+    "behavioral_mentor_agent": frozenset(),
+    "behavioral_mentor_agent._reader": frozenset(),
+    "behavioral_mentor_agent._analyzer": frozenset(),
+    "behavioral_mentor_agent._writer": frozenset({"persist_narrative"}),
+    "weekly_review_agent": frozenset(),
+    "weekly_review_agent._reader": frozenset(),
+    "weekly_review_agent._analyzer": frozenset(),
+    "weekly_review_agent._writer": frozenset({"persist_narrative"}),
 }
 
 # Filesystem profile name -> routing identity (Research § 3 + CONTEXT § Agent Identity).
+# Phase 60: dotted profile names are their own agent_ids (key == value for all 12 sub-profiles).
 PROFILE_TO_AGENT_ID: Final[dict[str, str]] = {
     "agent0": "agent_zero",
     "idea_agent": "idea_agent",
     "strategy_agent": "strategy_agent",
     "default": "default",
+    # Phase 60 — AI Mentor Foundation (dotted agent_ids; key == value for sub-profiles)
+    "trade_auditor_agent": "trade_auditor_agent",
+    "trade_auditor_agent._reader": "trade_auditor_agent._reader",
+    "trade_auditor_agent._analyzer": "trade_auditor_agent._analyzer",
+    "trade_auditor_agent._writer": "trade_auditor_agent._writer",
+    "behavioral_mentor_agent": "behavioral_mentor_agent",
+    "behavioral_mentor_agent._reader": "behavioral_mentor_agent._reader",
+    "behavioral_mentor_agent._analyzer": "behavioral_mentor_agent._analyzer",
+    "behavioral_mentor_agent._writer": "behavioral_mentor_agent._writer",
+    "weekly_review_agent": "weekly_review_agent",
+    "weekly_review_agent._reader": "weekly_review_agent._reader",
+    "weekly_review_agent._analyzer": "weekly_review_agent._analyzer",
+    "weekly_review_agent._writer": "weekly_review_agent._writer",
 }
 
 

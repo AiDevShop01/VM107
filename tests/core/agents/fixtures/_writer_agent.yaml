@@ -1,0 +1,28 @@
+schema_version: 2
+agent_name: "trade_auditor_agent._writer"
+parent_profile: "trade_auditor_agent"
+description: "Writer sub-profile — persists narrative envelopes only. Denied all read + analyzer tools."
+
+# Writer tier: only allowed to persist the narrative envelope
+# Denied all read-tier tools (enforced via tool_scope.py SENSITIVE_TOOLS + HARD_ALLOWED_TOOLS)
+# Denied all analyzer-tier tools (enforced via denied_tools list below)
+denied_tools:
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - behavioral_analysis
+  - execution_quality
+  - get_trade_context
+  - get_behavioral_edges
+  - get_cross_trade_behavioral_patterns
+
+allowed_tools:
+  - persist_narrative
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+constitutional_skills:
+  - citation-discipline

@@ -1,14 +1,20 @@
-"""Wave 0 test scaffold for Phase 60 sub-profile tool scope — CTX-§2 + CTX-§5.
+"""Phase 60 sub-profile tool scope enforcement tests — CTX-§2 + CTX-§5.
 
-These tests are Wave 0 scaffolds: the file exists so that downstream plans'
-<automated> verify blocks can reference real targets. Test bodies are
-implemented in Plan 60-05 when tool scope enforcement for Phase 60 sub-profiles
-is written.
+Tests the HARD_ALLOWED_TOOLS + SENSITIVE_TOOLS + PROFILE_TO_AGENT_ID extensions
+to tool_scope.py for the 12 new Phase 60 (dotted agent_id) profile entries.
 
-CTX-§2: Sub-profiles have distinct tool allowlists — _writer is denied
-        read-only tools like lookup_replay_artifact; _analyzer is denied
-        persist-only tools like persist_narrative.
-CTX-§5: Tool scope enforcement enforces the memory_scope contract.
+Key contracts tested:
+  - persist_narrative is in SENSITIVE_TOOLS
+  - Only _writer sub-profiles have persist_narrative in HARD_ALLOWED_TOOLS
+  - _reader and _analyzer profiles cannot call persist_narrative → UnauthorizedToolError
+  - _writer cannot call read-tier tools (via agent.yaml denied_tools mechanism; xfail until 60-09)
+  - All 12 dotted agent_ids appear in HARD_ALLOWED_TOOLS and PROFILE_TO_AGENT_ID
+  - Existing profiles (agent_zero, idea_agent, strategy_agent) remain unchanged
+
+NOTE on dotted agent_ids:
+  Keys in HARD_ALLOWED_TOOLS are DOTTED AGENT_ID STRINGS (runtime routing), NOT filesystem paths.
+  On-disk layout per CONTEXT.md §2 is NESTED: agents/<profile>/_writer/agent.yaml
+  60-01 Task 1b handles the dotted-id → nested-path mapping at discovery time.
 """
 from __future__ import annotations
 
@@ -22,11 +28,199 @@ if str(_VM107_ROOT) not in sys.path:
 import pytest
 
 
-def test_writer_denied_read_tools():
-    """CTX-§2 — _writer sub-profile is denied access to lookup_replay_artifact."""
-    pytest.skip("Wave 0 scaffold — implementation lands in plan 60-05")
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def tool_scope():
+    """Import core.agents.tool_scope once for the module."""
+    from core.agents import tool_scope as ts
+    return ts
 
 
-def test_analyzer_denied_persist():
-    """CTX-§2 — _analyzer sub-profile is denied access to persist_narrative."""
-    pytest.skip("Wave 0 scaffold — implementation lands in plan 60-05")
+@pytest.fixture(scope="module")
+def fixtures_dir():
+    """Return path to the local fixtures/ dir (stub agent.yaml files)."""
+    return Path(__file__).parent / "fixtures"
+
+
+# ---------------------------------------------------------------------------
+# Tests — SENSITIVE_TOOLS
+# ---------------------------------------------------------------------------
+
+def test_persist_narrative_is_sensitive(tool_scope):
+    """persist_narrative must be in SENSITIVE_TOOLS (Phase 60 writer-tier tool)."""
+    assert "persist_narrative" in tool_scope.SENSITIVE_TOOLS, (
+        "persist_narrative must be a HARD-scoped (SENSITIVE) tool. "
+        "Only _writer sub-profiles have it in HARD_ALLOWED_TOOLS."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests — HARD_ALLOWED_TOOLS entries for Phase 60 (12 new entries)
+# ---------------------------------------------------------------------------
+
+PHASE_60_TOP_LEVEL_PROFILES = [
+    "trade_auditor_agent",
+    "behavioral_mentor_agent",
+    "weekly_review_agent",
+]
+
+PHASE_60_WRITER_PROFILES = [
+    "trade_auditor_agent._writer",
+    "behavioral_mentor_agent._writer",
+    "weekly_review_agent._writer",
+]
+
+PHASE_60_NON_WRITER_PROFILES = [
+    "trade_auditor_agent._reader",
+    "trade_auditor_agent._analyzer",
+    "behavioral_mentor_agent._reader",
+    "behavioral_mentor_agent._analyzer",
+    "weekly_review_agent._reader",
+    "weekly_review_agent._analyzer",
+]
+
+ALL_PHASE_60_PROFILES = (
+    PHASE_60_TOP_LEVEL_PROFILES
+    + PHASE_60_WRITER_PROFILES
+    + PHASE_60_NON_WRITER_PROFILES
+)
+
+
+@pytest.mark.parametrize("profile", ALL_PHASE_60_PROFILES)
+def test_all_phase60_profiles_in_hard_allowed_tools(tool_scope, profile):
+    """All 12 Phase 60 dotted agent_ids must appear in HARD_ALLOWED_TOOLS."""
+    assert profile in tool_scope.HARD_ALLOWED_TOOLS, (
+        f"'{profile}' not found in HARD_ALLOWED_TOOLS. "
+        f"All 12 Phase 60 profiles (3 top-level + 9 sub-profiles) must be registered."
+    )
+
+
+@pytest.mark.parametrize("profile", ALL_PHASE_60_PROFILES)
+def test_all_phase60_profiles_in_profile_to_agent_id(tool_scope, profile):
+    """All 12 Phase 60 dotted agent_ids must appear in PROFILE_TO_AGENT_ID."""
+    assert profile in tool_scope.PROFILE_TO_AGENT_ID, (
+        f"'{profile}' not found in PROFILE_TO_AGENT_ID. "
+        f"The dotted profile name is its own agent_id for Phase 60 sub-profiles."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests — writer sub-profiles ALLOWED to call persist_narrative
+# ---------------------------------------------------------------------------
+
+def test_writer_profile_allows_persist_narrative(tool_scope):
+    """check_tool_scope for a _writer profile + persist_narrative must not raise."""
+    # Should not raise
+    tool_scope.check_tool_scope("trade_auditor_agent._writer", "persist_narrative")
+
+
+@pytest.mark.parametrize("writer_profile", PHASE_60_WRITER_PROFILES)
+def test_all_writers_allow_persist_narrative(tool_scope, writer_profile):
+    """All 3 _writer sub-profiles across the 3 Phase 60 agents allow persist_narrative."""
+    tool_scope.check_tool_scope(writer_profile, "persist_narrative")
+
+
+# ---------------------------------------------------------------------------
+# Tests — non-writer profiles DENIED persist_narrative → UnauthorizedToolError
+# ---------------------------------------------------------------------------
+
+def test_analyzer_denied_persist(tool_scope):
+    """CTX-§2 — trade_auditor_agent._analyzer cannot call persist_narrative."""
+    from core.agents.tool_scope import UnauthorizedToolError
+    with pytest.raises(UnauthorizedToolError):
+        tool_scope.check_tool_scope("trade_auditor_agent._analyzer", "persist_narrative")
+
+
+def test_reader_denied_persist(tool_scope):
+    """trade_auditor_agent._reader cannot call persist_narrative."""
+    from core.agents.tool_scope import UnauthorizedToolError
+    with pytest.raises(UnauthorizedToolError):
+        tool_scope.check_tool_scope("trade_auditor_agent._reader", "persist_narrative")
+
+
+def test_top_level_profile_denied_persist(tool_scope):
+    """The top-level trade_auditor_agent profile cannot call persist_narrative."""
+    from core.agents.tool_scope import UnauthorizedToolError
+    with pytest.raises(UnauthorizedToolError):
+        tool_scope.check_tool_scope("trade_auditor_agent", "persist_narrative")
+
+
+@pytest.mark.parametrize("non_writer_profile", PHASE_60_NON_WRITER_PROFILES + PHASE_60_TOP_LEVEL_PROFILES)
+def test_non_writer_profiles_denied_persist_narrative(tool_scope, non_writer_profile):
+    """All non-writer Phase 60 profiles (readers, analyzers, top-level) cannot persist_narrative."""
+    from core.agents.tool_scope import UnauthorizedToolError
+    with pytest.raises(UnauthorizedToolError):
+        tool_scope.check_tool_scope(non_writer_profile, "persist_narrative")
+
+
+# ---------------------------------------------------------------------------
+# Tests — _writer profile DENIED read tools (via agent.yaml denied_tools)
+# xfail until 60-09 ships the actual _writer/agent.yaml files
+# ---------------------------------------------------------------------------
+
+@pytest.mark.xfail(
+    reason=(
+        "Writer denied_tools enforcement requires agent.yaml files at NESTED paths "
+        "(agents/trade_auditor_agent/_writer/agent.yaml). These are created in Wave 2 plan 60-09. "
+        "The fixture YAML in tests/core/agents/fixtures/ documents the expected denied_tools list. "
+        "Flip xfail to xpass in 60-09 when the real agent.yaml lands."
+    ),
+    strict=True,
+)
+def test_writer_denied_read_tools(tool_scope, fixtures_dir):
+    """CTX-§2 — _writer sub-profile is denied access to lookup_replay_artifact.
+
+    The HARD_ALLOWED_TOOLS mechanism (SENSITIVE_TOOLS layer) only enforces
+    SENSITIVE tool access. Preventing _writer from calling read-tier tools
+    (lookup_replay_artifact, fetch_replay_frame, etc.) is enforced via the
+    per-profile agent.yaml `denied_tools` list.
+
+    This test is xfail until 60-09 ships the NESTED _writer/agent.yaml files.
+    The fixture YAML at tests/core/agents/fixtures/_writer_agent.yaml documents
+    the expected denied_tools list for review / future tightening.
+    """
+    import yaml
+    from core.agents.tool_scope import UnauthorizedToolError
+
+    fixture_yaml = fixtures_dir / "_writer_agent.yaml"
+    assert fixture_yaml.exists(), f"Fixture YAML not found at {fixture_yaml}"
+
+    with open(fixture_yaml) as f:
+        agent_data = yaml.safe_load(f)
+
+    denied = agent_data.get("denied_tools", [])
+    assert "lookup_replay_artifact" in denied, (
+        "_writer agent.yaml must deny lookup_replay_artifact in denied_tools"
+    )
+
+    # The real enforcement path goes through call_subordinate + agent.yaml loading.
+    # This xfail sentinel verifies the fixture documents the intent correctly.
+    # When 60-09 ships the actual NESTED agent.yaml at
+    # agents/trade_auditor_agent/_writer/agent.yaml, this test should be
+    # replaced with one that loads the live agent.yaml via subagents.load_agent_data().
+    raise AssertionError(
+        "Sentinel: flip xfail→xpass in 60-09 by loading live NESTED agent.yaml "
+        "and asserting UnauthorizedToolError on denied tool invocation."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests — existing profiles unchanged (regression guard)
+# ---------------------------------------------------------------------------
+
+def test_existing_profiles_unaffected(tool_scope):
+    """Existing profiles (agent_zero, idea_agent, strategy_agent) remain in HARD_ALLOWED_TOOLS."""
+    assert "agent_zero" in tool_scope.HARD_ALLOWED_TOOLS
+    assert "idea_agent" in tool_scope.HARD_ALLOWED_TOOLS
+    assert "strategy_agent" in tool_scope.HARD_ALLOWED_TOOLS
+
+
+def test_existing_profile_to_agent_id_unaffected(tool_scope):
+    """Existing PROFILE_TO_AGENT_ID entries are not modified."""
+    assert tool_scope.PROFILE_TO_AGENT_ID["agent0"] == "agent_zero"
+    assert tool_scope.PROFILE_TO_AGENT_ID["idea_agent"] == "idea_agent"
+    assert tool_scope.PROFILE_TO_AGENT_ID["strategy_agent"] == "strategy_agent"
+    assert tool_scope.PROFILE_TO_AGENT_ID["default"] == "default"
