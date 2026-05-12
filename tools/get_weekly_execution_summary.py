@@ -251,3 +251,102 @@ class GetWeeklyExecutionSummaryTool:
             _FAST_FAIL_MAX_5XX_RETRIES + 1,
         )
         raise last_exc  # type: ignore[misc]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 60.1 (G5) — Tool subclass wrapper for agent.get_tool discoverability.
+# The standalone GetWeeklyExecutionSummaryTool class above is used directly by
+# the reader/analyzer sub-profiles. This wrapper enables Agent Zero's
+# agent.get_tool('get_weekly_execution_summary') discovery path, which filters
+# for Tool subclasses only (agent.py:1033 / extract_tools.load_classes_from_file).
+#
+# Filename invariant (LOCKED): agent.get_tool('get_weekly_execution_summary')
+# resolves to this file via load_classes_from_file. The canonical Tool subclass
+# MUST remain in this file.
+# ──────────────────────────────────────────────────────────────────────────────
+
+from helpers.tool import Tool, Response  # noqa: E402  (intentional bottom-of-file)
+
+
+class GetWeeklyExecutionSummary(Tool):
+    """Reader/Analyzer-tier Tool wrapper around GetWeeklyExecutionSummaryTool.
+
+    Routes agent tool invocations through to the standalone
+    GetWeeklyExecutionSummaryTool's .call() method. Preserves:
+        - FAST_FAIL retry profile (delegated)
+        - VM100_INTERNAL_BASE_URL fail-fast at __init__ (delegated)
+        - Pydantic request/response contracts (delegated)
+        - X-Agent-Scope header propagation (delegated)
+        - CONTEXT.md §10 LOCKED: week_start/week_end are canonical anchored dates
+    """
+
+    name = "get_weekly_execution_summary"
+
+    async def execute(self, **kwargs) -> Response:
+        """Delegate to the standalone GetWeeklyExecutionSummaryTool.
+
+        kwargs expected from the LLM's structured tool call:
+            account_id: str
+            week_start: str  ISO date (YYYY-MM-DD) — CONTEXT.md §10 LOCKED canonical anchor
+            week_end: str    ISO date (YYYY-MM-DD) — CONTEXT.md §10 LOCKED canonical anchor
+            timezone: str    (optional, default 'UTC')
+            scope_context: dict (will be model_validated as ScopeContext)
+            headers: optional dict — scope headers injected by orchestrator
+
+        Critical constraint: week_start/week_end MUST be canonical anchored dates
+        (not relative offsets). The standalone class enforces this via date type.
+        """
+        inner = GetWeeklyExecutionSummaryTool()
+
+        account_id = kwargs.get("account_id")
+        week_start = kwargs.get("week_start")
+        week_end = kwargs.get("week_end")
+        scope_context_raw = kwargs.get("scope_context")
+
+        if not all([account_id, week_start, week_end, scope_context_raw]):
+            return Response(
+                message=(
+                    "get_weekly_execution_summary: missing required args "
+                    "'account_id', 'week_start', 'week_end', or 'scope_context'"
+                ),
+                break_loop=False,
+            )
+
+        headers = kwargs.get("headers") or self.agent.get_data("_outbound_headers") or None
+
+        try:
+            from datetime import date as _date
+            scope_context = (
+                ScopeContext.model_validate(scope_context_raw)
+                if isinstance(scope_context_raw, dict)
+                else scope_context_raw
+            )
+            # Convert ISO strings to date objects (CONTEXT.md §10 LOCKED)
+            week_start_date = (
+                _date.fromisoformat(week_start)
+                if isinstance(week_start, str)
+                else week_start
+            )
+            week_end_date = (
+                _date.fromisoformat(week_end)
+                if isinstance(week_end, str)
+                else week_end
+            )
+            request = GetWeeklyExecutionSummaryRequest(
+                account_id=account_id,
+                week_start=week_start_date,
+                week_end=week_end_date,
+                timezone=kwargs.get("timezone", "UTC"),
+                scope_context=scope_context,
+            )
+            response = await inner.call(request, headers=headers)
+        except Exception as exc:
+            return Response(
+                message=f"get_weekly_execution_summary failed: {exc}",
+                break_loop=False,
+            )
+
+        return Response(
+            message=response.model_dump_json(),
+            break_loop=False,
+        )

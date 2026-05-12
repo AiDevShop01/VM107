@@ -210,3 +210,76 @@ class GetCrossTradeBehavioralPatternsTool:
             _FAST_FAIL_MAX_5XX_RETRIES + 1,
         )
         raise last_exc  # type: ignore[misc]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 60.1 (G4) — Tool subclass wrapper for agent.get_tool discoverability.
+# The standalone GetCrossTradeBehavioralPatternsTool class above is used directly
+# by the analyzer sub-profile. This wrapper enables Agent Zero's
+# agent.get_tool('get_cross_trade_behavioral_patterns') discovery path, which
+# filters for Tool subclasses only (agent.py:1033 / extract_tools.load_classes_from_file).
+#
+# Filename invariant (LOCKED): agent.get_tool('get_cross_trade_behavioral_patterns')
+# resolves to this file via load_classes_from_file. The canonical Tool subclass
+# MUST remain in this file.
+# ──────────────────────────────────────────────────────────────────────────────
+
+from helpers.tool import Tool, Response  # noqa: E402  (intentional bottom-of-file)
+
+
+class GetCrossTradeBehavioralPatterns(Tool):
+    """Analyzer-tier Tool wrapper around GetCrossTradeBehavioralPatternsTool.
+
+    Routes agent tool invocations through to the standalone
+    GetCrossTradeBehavioralPatternsTool's .call() method. Preserves:
+        - FAST_FAIL retry profile (delegated)
+        - VM100_INTERNAL_BASE_URL fail-fast at __init__ (delegated)
+        - Pydantic request/response contracts (delegated)
+        - X-Agent-Scope header propagation (delegated)
+    """
+
+    name = "get_cross_trade_behavioral_patterns"
+
+    async def execute(self, **kwargs) -> Response:
+        """Delegate to the standalone GetCrossTradeBehavioralPatternsTool.
+
+        kwargs expected from the LLM's structured tool call:
+            account_id: str
+            window_days: int (optional, default 30)
+            scope_context: dict (will be model_validated as ScopeContext)
+            headers: optional dict — scope headers injected by orchestrator
+        """
+        inner = GetCrossTradeBehavioralPatternsTool()
+
+        account_id = kwargs.get("account_id")
+        scope_context_raw = kwargs.get("scope_context")
+        if account_id is None or scope_context_raw is None:
+            return Response(
+                message="get_cross_trade_behavioral_patterns: missing required args 'account_id' or 'scope_context'",
+                break_loop=False,
+            )
+
+        headers = kwargs.get("headers") or self.agent.get_data("_outbound_headers") or None
+
+        try:
+            scope_context = (
+                ScopeContext.model_validate(scope_context_raw)
+                if isinstance(scope_context_raw, dict)
+                else scope_context_raw
+            )
+            request = GetCrossTradeBehavioralPatternsRequest(
+                account_id=account_id,
+                window_days=kwargs.get("window_days", 30),
+                scope_context=scope_context,
+            )
+            response = await inner.call(request, headers=headers)
+        except Exception as exc:
+            return Response(
+                message=f"get_cross_trade_behavioral_patterns failed: {exc}",
+                break_loop=False,
+            )
+
+        return Response(
+            message=response.model_dump_json(),
+            break_loop=False,
+        )
