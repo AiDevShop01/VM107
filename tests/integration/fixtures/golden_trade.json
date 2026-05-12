@@ -1,0 +1,32 @@
+{
+  "_comment": "Phase 60 Plan 60-12 — deterministic golden-trade fixture for E2E smoke test. Values are stable; do NOT change without updating test assertions.",
+  "execution_id": "00000000-0000-0000-0000-000000000099",
+  "account_id": "golden-acc-001",
+  "source_snapshot_id": "00000000-0000-0000-0000-000000000100",
+  "scope_origin": "",
+  "ruleset_version": "v1.0",
+  "analysis_version": 1,
+  "template_version": "1.0.0",
+  "regime_snapshot_age_hours": 2.5,
+  "trade": {
+    "instrument": "EUR/USD",
+    "direction": "LONG",
+    "entry_price": 1.0850,
+    "exit_price": 1.0820,
+    "pnl": -30.0,
+    "mae": -35.0,
+    "mfe": 15.0,
+    "duration_minutes": 47,
+    "entry_timestamp": "2026-05-01T09:30:00Z",
+    "exit_timestamp": "2026-05-01T10:17:00Z",
+    "behavioral_flags": {
+      "revenge_trade": true,
+      "hesitation": false,
+      "fomo_entry": false
+    }
+  },
+  "expected": {
+    "citation_coverage_min": 0.8,
+    "narrative_profile": "trade_auditor_agent"
+  }
+}
