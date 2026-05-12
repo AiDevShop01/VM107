@@ -39,6 +39,34 @@ class SubAgentListItem(BaseModel):
 class SubAgent(SubAgentListItem):
     prompts: dict[str, str] = {}
 
+    # --- v2 fields (all Optional with None defaults for backward compat) ---
+    # CTX-§7: Schema version gate — v2 profiles must set this to 2.
+    # v1 profiles (legacy) leave it None until backfilled in 60-12.
+    schema_version: int | None = None
+
+    # CTX-§2: Sub-profile parent reference (e.g. "trade_auditor_agent" for _reader)
+    parent_profile: str | None = None
+
+    # CTX-§2: Tool allow/deny lists for sub-profiles
+    allowed_tools: list[str] | None = None
+    denied_tools: list[str] | None = None
+
+    # CTX-§8: Skill lists — constitutional_skills are mandatory for v2 profiles
+    allowed_skills: list[str] | None = None
+    constitutional_skills: list[str] | None = None
+    optional_skills: list[str] | None = None
+
+    # CTX-§5: Memory scope — validated as ScopeSpec-shaped dict (typed in 60-02)
+    memory_scope: dict | None = None
+
+    # Cost and iteration guardrails
+    max_iterations: int | None = None
+    max_cost_usd: float | None = None
+
+    # CTX-§3: Contract dotted import paths (e.g. "fingpt_core.contracts.NarrativeEnvelope")
+    input_contract: str | None = None
+    output_contract: str | None = None
+
 
 def get_agents_list(project_name: str | None = None) -> list[SubAgentListItem]:
     return list(get_agents_dict(project_name).values())
@@ -231,6 +259,12 @@ def _merge_agents(base: SubAgent | None, override: SubAgent | None) -> SubAgent 
     merged_prompts.update(base.prompts or {})
     merged_prompts.update(override.prompts or {})
 
+    # v2 field merge: override wins if set, else fall back to base value
+    def _pick(field: str):
+        override_val = getattr(override, field, None)
+        base_val = getattr(base, field, None)
+        return override_val if override_val is not None else base_val
+
     return SubAgent(
         name=override.name,
         title=override.title,
@@ -238,6 +272,19 @@ def _merge_agents(base: SubAgent | None, override: SubAgent | None) -> SubAgent 
         context=override.context,
         origin=_merge_origins(base.origin, override.origin),
         prompts=merged_prompts,
+        # v2 fields — CTX-§7 + CTX-§8
+        schema_version=_pick("schema_version"),
+        parent_profile=_pick("parent_profile"),
+        allowed_tools=_pick("allowed_tools"),
+        denied_tools=_pick("denied_tools"),
+        allowed_skills=_pick("allowed_skills"),
+        constitutional_skills=_pick("constitutional_skills"),
+        optional_skills=_pick("optional_skills"),
+        memory_scope=_pick("memory_scope"),
+        max_iterations=_pick("max_iterations"),
+        max_cost_usd=_pick("max_cost_usd"),
+        input_contract=_pick("input_contract"),
+        output_contract=_pick("output_contract"),
     )
 
 
