@@ -219,3 +219,83 @@ class PersistNarrativeTool:
     def _build_payload(self, request: PersistNarrativeRequest) -> dict:
         """Serialise PersistNarrativeRequest to a JSON-serialisable dict."""
         return json.loads(request.model_dump_json())
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Phase 60.1 (G2) — Tool subclass wrapper for agent.get_tool discoverability.
+# The standalone PersistNarrativeTool class above is used directly by the
+# MentorPipelineOrchestrator (60-06). This wrapper enables Agent Zero's
+# agent.get_tool('persist_narrative') discovery path, which filters for
+# Tool subclasses only (agent.py:1033 / extract_tools.load_classes_from_file).
+#
+# Filename invariant (LOCKED): agent.get_tool('persist_narrative') resolves to
+# this file (persist_narrative.py) via load_classes_from_file. The canonical
+# Tool subclass MUST remain in this file — do NOT move it to persist_narrative_tool.py.
+# ──────────────────────────────────────────────────────────────────────────────
+
+from helpers.tool import Tool, Response  # noqa: E402  (intentional bottom-of-file)
+
+
+class PersistNarrative(Tool):
+    """Agent Zero Tool wrapper around PersistNarrativeTool.
+
+    Routes call_subordinate('writer') tool invocations through to the
+    standalone PersistNarrativeTool's .persist() method. Preserves:
+        - FAST_FAIL retry profile (delegated)
+        - VM100_INTERNAL_BASE_URL fail-fast at __init__ (delegated)
+        - Pydantic request/response contracts (delegated)
+        - X-Agent-Scope header propagation (delegated; orchestrator/middleware injects)
+
+    Hard scope enforcement (tool_scope.py SENSITIVE_TOOLS check) fires BEFORE
+    this class is constructed when agent.get_tool() resolves it — see
+    60-05 + 60-09b for the denial-stub pattern.
+    """
+
+    name = "persist_narrative"
+
+    async def execute(self, **kwargs) -> Response:
+        """Delegate to the standalone PersistNarrativeTool.
+
+        kwargs expected from the LLM's structured tool call:
+            All fields of PersistNarrativeRequest (envelope, scope_context,
+            ruleset_version, analysis_version, template_version, etc.)
+            headers: optional dict — scope headers injected by orchestrator or
+                     tool_execute_before extension (60-19 G23)
+        """
+        # Instantiate the standalone tool (reads VM100_INTERNAL_BASE_URL once).
+        # This is cheap; no LLM cost, no network call.
+        inner = PersistNarrativeTool()
+
+        # Extract headers before passing remaining kwargs to PersistNarrativeRequest.
+        headers = kwargs.pop("headers", None) or self.agent.get_data("_outbound_headers") or None
+
+        if not kwargs:
+            return Response(
+                message="persist_narrative: missing required args for PersistNarrativeRequest",
+                break_loop=False,
+            )
+
+        try:
+            # Build PersistNarrativeRequest from all remaining kwargs.
+            # The LLM call includes all required fields (envelope, scope_context,
+            # ruleset_version, analysis_version, template_version, scope_origin,
+            # truth_mode, source_snapshot_id, source_replay_artifact_id,
+            # generated_by, generated_reason, writer_profile_id, etc.)
+            request = PersistNarrativeRequest.model_validate(kwargs)
+            response = await inner.persist(request, headers=headers)
+        except Exception as exc:
+            return Response(
+                message=f"persist_narrative failed: {exc}",
+                break_loop=False,
+            )
+
+        # Return a JSON-serializable message so the LLM can inspect it.
+        return Response(
+            message=response.model_dump_json(),
+            break_loop=False,
+            additional={
+                "narrative_id": str(response.narrative_id),
+                "narrative_version": response.narrative_version,
+                "unsourced_claim_count": response.unsourced_claim_count,
+            },
+        )
