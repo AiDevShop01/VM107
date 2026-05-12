@@ -1,0 +1,26 @@
+id: pattern-recognition-behavioral
+type: skill
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: pattern-recognition-behavioral
+description: >
+  Cross-trade behavioral pattern recognition skill for behavioral_mentor_agent.
+  Identifies recurring Phase 58 V1 behavioral patterns ACROSS multiple executions
+  for ONE account. Citation grammar uses [ref:behavioral_pattern:<id>] and
+  [ref:get_cross_trade_behavioral_patterns:<field>]. Strictly prohibits causality
+  claims (Behavior-INCREASES_AFTER-Outcome is Phase 62's scope).
+version: "1.0.0"
+phase: 60
+scope: optional
+applies_to_profiles:
+  - behavioral_mentor_agent
+skill_md_path: VM107/agents/behavioral_mentor_agent/skills/pattern-recognition/SKILL.md
+tags: [pattern-recognition, cross-trade, behavioral, account-scoped, optional, phase-60]
+trigger_patterns:
+  - "recognize behavioral patterns"
+  - "identify cross-trade patterns"
+  - "detect pattern frequency"
+  - "behavioral pattern analysis"
+allowed_tools:
+  - skills_tool

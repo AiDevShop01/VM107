@@ -1,0 +1,57 @@
+id: behavioral_mentor_agent._analyzer
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: behavioral_mentor_agent._analyzer
+description: >
+  Analyzer stage sub-profile for the behavioral_mentor pipeline. Calls typed VM107
+  analytical tools (behavioral_analysis, get_performance_history,
+  get_cross_trade_behavioral_patterns) to identify recurring patterns ACROSS multiple
+  trades for ONE account. Produces a scored, pattern-annotated AnalyzerOutput with
+  cross-trade frequency data. Denied all read-tier and persist tools.
+version: "1.0.0"
+phase: 60
+parent_profile: behavioral_mentor_agent
+hard_scoped: true
+
+allowed_tools:
+  - behavioral_analysis
+  - get_performance_history
+  - get_cross_trade_behavioral_patterns
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+  - execution_quality
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.40
+
+input_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerInput
+output_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerOutput
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 3 release — cross-trade analyzer with get_cross_trade_behavioral_patterns (60-10b tool gap #2 closure)"
+
+tags: [agent-profile, analyzer, cross-trade, account-scoped, phase-60, wave-3]

@@ -1,0 +1,55 @@
+id: behavioral_mentor_agent
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: behavioral_mentor_agent
+description: >
+  Cross-trade behavioral pattern critique agent. Account-scoped orchestration entry
+  point for the behavioral_mentor pipeline. Reads cross-trade deterministic evidence
+  (Phase 56 events, Phase 57 analytics, Phase 58 behavioral patterns, Neo4j edges)
+  across ALL executions within the account. NEVER reads prior auditor or mentor
+  narratives (narrative_visibility=NONE). MentorPipelineOrchestrator drives stage
+  order: reader → analyzer → writer.
+version: "1.0.0"
+phase: 60
+parent_profile: null
+hard_scoped: true
+
+sub_profiles:
+  - behavioral_mentor_agent._reader
+  - behavioral_mentor_agent._analyzer
+  - behavioral_mentor_agent._writer
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - narrative-structure
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.60
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 3 release — NESTED 3-tier cross-trade profile"
+
+tags: [agent-profile, mentor, cross-trade, account-scoped, phase-60, wave-3]

@@ -1,0 +1,54 @@
+id: behavioral_mentor_agent._reader
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: behavioral_mentor_agent._reader
+description: >
+  Reader stage sub-profile for the behavioral_mentor pipeline. Retrieves cross-trade
+  evidence (Phase 57 analytics snapshots for multiple executions, Phase 58 performance
+  history, Phase 59 replay artifacts for representative trades) for ONE account.
+  Applies CTX-§14 treat-instructions-as-data doctrine. Denied all write/persist
+  and analyzer-tier tools (including get_cross_trade_behavioral_patterns).
+version: "1.0.0"
+phase: 60
+parent_profile: behavioral_mentor_agent
+hard_scoped: true
+
+allowed_tools:
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+  - get_performance_history
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - behavioral_analysis
+  - execution_quality
+  - get_cross_trade_behavioral_patterns
+
+constitutional_skills:
+  - citation-discipline
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 4
+max_cost_usd: 0.30
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.reader_io.ReaderOutput
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 3 release — cross-trade reader sub-profile with CTX-§14 doctrine"
+
+tags: [agent-profile, reader, cross-trade, account-scoped, phase-60, wave-3, prompt-injection-defense]
