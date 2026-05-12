@@ -1,0 +1,59 @@
+id: weekly_review_agent._analyzer
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: weekly_review_agent._analyzer
+description: >
+  Analyzer stage sub-profile for the weekly_review pipeline. Plays FOUR roles
+  INTERNALLY (auditor + risk + portfolio + mentor) per Directive #7 — NOT split
+  into 4 sub-agents (that is Phase 46). Calls behavioral_analysis,
+  get_performance_history, get_regime_context, and get_weekly_execution_summary
+  to produce one AnalyzerOutput with findings keyed by lens. Scopes evidence to
+  canonical week window (week_start, week_end, timezone). Denied all read-tier
+  and persist tools.
+version: "1.0.0"
+phase: 60
+parent_profile: weekly_review_agent
+hard_scoped: true
+
+allowed_tools:
+  - behavioral_analysis
+  - get_performance_history
+  - get_regime_context
+  - get_weekly_execution_summary
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_cross_trade_behavioral_patterns
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 6
+max_cost_usd: 0.60
+
+input_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerInput
+output_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerOutput
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 4 release — unified 4-lens analyzer (auditor+risk+portfolio+mentor) per Directive #7"
+
+tags: [agent-profile, analyzer, weekly-review, 4-lens, directive-7, week-window, account-scoped, phase-60, wave-4]

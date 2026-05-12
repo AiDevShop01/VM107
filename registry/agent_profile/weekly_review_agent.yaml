@@ -1,0 +1,55 @@
+id: weekly_review_agent
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: weekly_review_agent
+description: >
+  Week-rollup synthesis agent. Account-scoped within a canonical week window
+  (week_start, week_end, timezone). Analyzer plays auditor + risk + portfolio +
+  mentor roles INTERNALLY per Directive #7 (Phase 46 deferral — no 4-specialist
+  split). NEVER reads prior auditor or mentor narratives (narrative_visibility=NONE).
+  MentorPipelineOrchestrator drives stage order: reader → analyzer → writer.
+  Fires via weekly_review_schedule (Sunday 23:59 UTC cron).
+version: "1.0.0"
+phase: 60
+parent_profile: null
+hard_scoped: true
+
+sub_profiles:
+  - weekly_review_agent._reader
+  - weekly_review_agent._analyzer
+  - weekly_review_agent._writer
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - narrative-structure
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.75
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 4 release — NESTED 3-tier week-rollup profile with 4-lens unified analyzer (Directive #7)"
+
+tags: [agent-profile, weekly-review, week-window, account-scoped, 4-lens, directive-7, phase-60, wave-4]
