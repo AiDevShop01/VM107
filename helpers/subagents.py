@@ -12,6 +12,11 @@ DEFAULT_AGENTS_DIR = "agents"
 USER_AGENTS_DIR = "usr/agents"
 PATHS_CACHE_AREA = "subagent_paths(plugins)"
 
+# CTX-§2 LOCKED — sentinel subdir names for nested sub-profile discovery.
+# ONLY these three names trigger the nested discovery logic.
+# Any other subdir name (prompts/, skills/, tools/) is ignored.
+NESTED_SUB_PROFILE_NAMES = ("_reader", "_analyzer", "_writer")
+
 cache.toggle_area(PATHS_CACHE_AREA, False)
 
 type Origin = Literal["default", "user", "project", "plugin"]
@@ -133,7 +138,30 @@ def _get_agents_list_from_dir(dir: str, origin: Origin) -> dict[str, SubAgentLis
             agent_data.origin = [origin]
             result[name] = agent_data
         except Exception:
-            continue
+            # top-level may be a directory whose agent.yaml is absent (e.g. a plain
+            # holder of nested sub-profiles); fall through to the nested probe below.
+            pass
+
+        # CTX-§2 LOCKED — nested sub-profile discovery.
+        # If <subdir>/_reader/agent.yaml (and _analyzer/_writer) exist, register them
+        # under dotted agent_ids "<subdir>._reader" / "._analyzer" / "._writer".
+        # The dotted string is an AGENT_ID, NOT a directory name.
+        for sub_name in NESTED_SUB_PROFILE_NAMES:
+            try:
+                nested_yaml_path = files.get_abs_path(dir, subdir, sub_name, "agent.yaml")
+                if not files.exists(nested_yaml_path):
+                    continue
+                nested_yaml = files.read_file(nested_yaml_path)
+                nested_item = SubAgentListItem.model_validate(
+                    yaml_helper.loads(nested_yaml) or {}
+                )
+                dotted_name = f"{subdir}.{sub_name}"  # e.g. "trade_auditor_agent._reader"
+                nested_item.name = dotted_name
+                nested_item.path = files.get_abs_path(dir, subdir, sub_name)
+                nested_item.origin = [origin]
+                result[dotted_name] = nested_item
+            except Exception:
+                continue
 
     return result
 
@@ -212,6 +240,33 @@ def delete_agent_data(name: str) -> None:
 
 
 def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent | None:
+    # CTX-§2 LOCKED — dotted agent_id (e.g. "trade_auditor_agent._reader") routes to
+    # a NESTED directory: agents/<top>/<sub_name>/agent.yaml.
+    # The dotted agent_id is an IDENTIFIER, not a filesystem path component.
+    if "." in name:
+        top, _, sub = name.partition(".")
+        # sub is already "_reader" / "_analyzer" / "_writer" (includes the leading _)
+        sub_dir_name = sub if sub.startswith("_") else f"_{sub}"
+        try:
+            nested_yaml_path = files.get_abs_path(dir, top, sub_dir_name, "agent.yaml")
+            if not files.exists(nested_yaml_path):
+                return None
+            nested_yaml = files.read_file(nested_yaml_path)
+            subagent = SubAgent.model_validate(yaml_helper.loads(nested_yaml) or {})
+            subagent.name = name
+            subagent.origin = [origin]
+            # Prompts live at <dir>/<top>/<sub_dir_name>/prompts/
+            prompts_dir = files.get_abs_path(dir, top, sub_dir_name, "prompts")
+            try:
+                prompts = files.read_text_files_in_dir(prompts_dir, pattern="*.md")
+            except Exception:
+                prompts = {}
+            subagent.prompts = prompts or {}
+            return subagent
+        except Exception:
+            return None
+
+    # Existing v1 behaviour — top-level profile only.
     try:
         agent_yaml_path = files.get_abs_path(dir, name, "agent.yaml")
         if files.exists(agent_yaml_path):
