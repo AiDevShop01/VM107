@@ -1,0 +1,40 @@
+schema_version: 2
+title: behavioral_mentor_agent._writer
+description: >
+  Writer stage for the behavioral_mentor pipeline. Produces a structured
+  NarrativeEnvelope with a cited sentence array emphasizing cross-trade behavioral
+  patterns. The ONLY stage that may call persist_narrative. Denied all read-tier
+  and analyzer-tier tools (CTX-§2 LOCKED).
+parent_profile: behavioral_mentor_agent
+
+allowed_tools:
+  - persist_narrative
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - behavioral_analysis
+  - execution_quality
+  - get_trade_context
+  - get_performance_history
+  - get_cross_trade_behavioral_patterns
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - narrative-structure
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 3
+max_cost_usd: 0.25
+
+input_contract: fingpt_core.contracts.narrative.writer_io.WriterInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope

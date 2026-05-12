@@ -1,0 +1,42 @@
+schema_version: 2
+title: behavioral_mentor_agent._analyzer
+description: >
+  Analyzer stage for the behavioral_mentor pipeline. Calls typed VM107 analytical
+  tools (behavioral_analysis, get_performance_history, get_cross_trade_behavioral_patterns)
+  to identify recurring behavioral patterns ACROSS multiple trades for ONE account.
+  Does not persist. Does not retrieve raw evidence. Denied all read-tier and
+  persist tools.
+parent_profile: behavioral_mentor_agent
+
+allowed_tools:
+  - behavioral_analysis
+  - get_performance_history
+  - get_cross_trade_behavioral_patterns
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+  - execution_quality
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.40
+
+input_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerInput
+output_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerOutput

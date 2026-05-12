@@ -1,0 +1,40 @@
+schema_version: 2
+title: behavioral_mentor_agent
+description: >
+  Cross-trade behavioral pattern critique agent. Account-scoped. Reads cross-trade
+  deterministic evidence (events, snapshots, replay artifacts, behavioral patterns,
+  Neo4j edges) across ALL executions within the account but NEVER reads prior
+  auditor or mentor narratives (narrative_visibility=NONE). Orchestration entry
+  point only — this top-level profile does NOT invoke subordinates; that is done
+  by MentorPipelineOrchestrator (CTX-§3 LOCKED).
+parent_profile: null
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - narrative-structure
+  - pattern-recognition
+allowed_skills:
+  - citation-discipline
+  - critique-discipline
+  - narrative-structure
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.60
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
