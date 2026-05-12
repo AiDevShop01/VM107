@@ -244,20 +244,26 @@ class MentorPipelineOrchestrator:
 
         # ── Persist via VM100 internal endpoint (Phase 39 typed-API lock) ─────
         # Phase 60.1 (G7+G22): pass scope_headers so VM100 receives X-Agent-Scope.
-        await self._persist.persist(
+        # Build PersistNarrativeRequest from run() parameters. Lazy import keeps
+        # this module loadable without VM100_INTERNAL_BASE_URL (tests that mock
+        # the persister entirely never touch tools.persist_narrative at import time).
+        from tools.persist_narrative import PersistNarrativeRequest  # noqa: E402
+        truth_str = truth_mode.value if truth_mode is not None else TruthMode.HISTORICAL.value
+        persist_request = PersistNarrativeRequest(
             envelope=envelope,
+            scope_context=scope_context,
             ruleset_version=ruleset_version,
             analysis_version=analysis_version,
             template_version=template_version,
             scope_origin=scope_context.model_dump_json(),
-            truth_mode=truth_mode.value,
+            truth_mode=truth_str,
             source_snapshot_id=source_snapshot_id,
             source_replay_artifact_id=replay_artifact_id,
             generated_by="dagster_sensor",
             generated_reason="AUTO",
             writer_profile_id=f"{self._profile}._writer",
-            headers=scope_headers,
         )
+        await self._persist.persist(persist_request, headers=scope_headers)
 
         self._emit("writer_completed", correlation_id, execution_id=str(execution_id))
         self._emit("narrative_envelope_persisted", correlation_id, execution_id=str(execution_id))

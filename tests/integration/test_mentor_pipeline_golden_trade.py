@@ -359,7 +359,7 @@ def test_golden_trade_citation_coverage_at_least_080():
 
     invoke_call_order = {"n": 0}
 
-    async def _mock_invoker(profile: str, input: Any) -> dict:
+    async def _mock_invoker(profile: str, input: Any, *, headers: dict | None = None) -> dict:
         invoke_call_order["n"] += 1
         if "_reader" in profile:
             return reader_output_dict

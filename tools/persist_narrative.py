@@ -54,7 +54,7 @@ class PersistNarrativeRequest(BaseModel):
     scope_origin: str
     truth_mode: str
     source_snapshot_id: UUID
-    source_replay_artifact_id: UUID
+    source_replay_artifact_id: UUID | None
     generated_by: str
     generated_reason: str
     writer_profile_id: str
