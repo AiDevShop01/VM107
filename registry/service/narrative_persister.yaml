@@ -1,0 +1,20 @@
+id: narrative_persister
+type: service
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: NarrativePersister
+description: >
+  Atomic persistence of NarrativeEnvelope into Postgres review_narrative +
+  review_narrative_sentence + Phase 56 event store + Mongo workflow_state
+  transition. All inside one transaction.atomic() per CTX-§6 LOCKED.
+version: "1.0.0"
+phase: 60
+producer: VM100
+location:
+  source: VM100/backend/journal/services/narrative/narrative_persister.py
+related_capabilities:
+  - mentor_pipeline_orchestrator
+  - persist_narrative
+tags: [phase-60, cognition, persistence, worm, atomic]
+hard_scoped: true

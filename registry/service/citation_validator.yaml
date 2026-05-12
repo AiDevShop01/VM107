@@ -1,0 +1,20 @@
+id: citation_validator
+type: service
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: CitationValidator
+description: >
+  Sentence-class + [ref:...] enforcement service. Hard-fails ASSERTION sentences
+  without citations, META sentences with citations, SUMMARY with uncited factual
+  content, and unknown registry_ids. Owns the auto_bracket_unsourced fallback
+  after writer retries exhausted (CTX-§4).
+version: "1.0.0"
+phase: 60
+producer: VM107
+location:
+  source: VM107/helpers/citation_validator.py
+related_capabilities:
+  - mentor_pipeline_orchestrator
+tags: [phase-60, cognition, citation, governance]
+hard_scoped: true

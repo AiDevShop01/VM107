@@ -1,0 +1,26 @@
+id: citation-discipline
+type: skill
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: citation-discipline
+description: >
+  Constitutional citation governance. Enforces [ref:<registry_id>:<field>] grammar
+  on every ASSERTION sentence. Shared across all Phase 60 mentor profiles.
+  Always loaded (constitutional — never optional).
+version: "1.0.0"
+phase: 60
+scope: constitutional
+applies_to_profiles:
+  - trade_auditor_agent
+  - behavioral_mentor_agent
+  - weekly_review_agent
+skill_md_path: VM107/skills/citation-discipline/SKILL.md
+tags: [citation, governance, constitutional, phase-60]
+trigger_patterns:
+  - "emit narrative"
+  - "write critique"
+  - "produce analysis"
+  - "generate summary"
+allowed_tools:
+  - skills_tool
