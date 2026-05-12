@@ -25,6 +25,7 @@ def run():
 
 def run_migration_checks() -> None:
     initialize.initialize_migration()
+    initialize.initialize_validate_phase60_profiles()
 
 
 def prepare_web_runtime() -> tuple[UiServerRuntime, str, int]:

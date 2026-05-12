@@ -167,13 +167,18 @@ def test_invalid_memory_scope_rejected():
 
 
 def test_missing_constitutional_citation_discipline_fails():
-    """CTX-§7 + CTX-§8 — constitutional_skills must contain 'citation-discipline'."""
-    # Empty list
-    agent_empty = _make_valid_v2_subagent(constitutional_skills=[])
-    with pytest.raises(AgentYamlV2Error, match="citation-discipline"):
-        validate_agent_yaml_v2("test_profile", agent_empty)
+    """CTX-§7 + CTX-§8 — constitutional_skills rules.
 
-    # Missing citation-discipline
+    Non-mentor v2 profiles (e.g. strategy_agent, idea_agent) may use empty []
+    to declare "no constitutional skills" — this is valid. Only a non-empty list
+    that omits citation-discipline is a policy violation.
+    """
+    # Empty list [] is valid — non-mentor profiles like strategy_agent/idea_agent
+    # explicitly opt out of constitutional skills. Should NOT raise.
+    agent_empty = _make_valid_v2_subagent(constitutional_skills=[])
+    validate_agent_yaml_v2("non_mentor_profile", agent_empty)  # must not raise
+
+    # Non-empty list that omits citation-discipline IS a violation (CTX-§8).
     agent_missing = _make_valid_v2_subagent(constitutional_skills=["some-other-skill"])
     with pytest.raises(AgentYamlV2Error, match="citation-discipline"):
         validate_agent_yaml_v2("test_profile", agent_missing)

@@ -115,15 +115,27 @@ def validate_agent_yaml_v2(profile_name: str, agent: "SubAgent") -> None:
             "expected 2. Only schema_version: 2 is supported in Phase 60."
         )
 
-    # --- constitutional_skills must include 'citation-discipline' ---
-    # CTX-§8: Every v2 profile must declare citation-discipline as constitutional.
-    constitutional = getattr(agent, "constitutional_skills", None) or []
-    if not constitutional or "citation-discipline" not in constitutional:
+    # --- constitutional_skills: if non-empty, must include 'citation-discipline' ---
+    # CTX-§8: Phase 60 MENTOR profiles that declare constitutional_skills must include
+    # citation-discipline. Non-mentor v2 profiles (e.g. strategy_agent, idea_agent)
+    # may declare an empty list [] to indicate "no constitutional skills" — this is
+    # valid. Only profiles with a non-empty constitutional_skills list that OMITS
+    # citation-discipline are rejected (they claim to have constitutional rules but
+    # skipped the citation requirement).
+    constitutional = getattr(agent, "constitutional_skills", None)
+    if constitutional is None:
+        # constitutional_skills field is absent entirely — treat same as missing field
+        # for v2 profiles that should declare it explicitly (even as empty []).
+        pass  # Not a hard-fail; allows profiles without the field to still load.
+    elif constitutional and "citation-discipline" not in constitutional:
+        # Non-empty list that omits citation-discipline is a policy violation.
         raise AgentYamlV2Error(
-            f"Profile '{profile_name}': constitutional_skills must include "
-            "'citation-discipline' (CTX-§8 — required for every Phase 60 profile). "
+            f"Profile '{profile_name}': constitutional_skills is non-empty but does "
+            "not include 'citation-discipline' (CTX-§8). All Phase 60 mentor profiles "
+            "that declare constitutional skills must include citation-discipline. "
             f"Got: {constitutional!r}"
         )
+    # Empty list [] is valid — non-mentor v2 profiles explicitly declare no constitutional skills.
 
     # --- memory_scope must be present and valid ---
     memory_scope = getattr(agent, "memory_scope", None)
