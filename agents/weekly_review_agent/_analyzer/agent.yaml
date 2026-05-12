@@ -1,0 +1,44 @@
+schema_version: 2
+title: weekly_review_agent._analyzer
+description: >
+  Analyzer stage for the weekly_review pipeline. Plays FOUR roles INTERNALLY
+  (auditor + risk + portfolio + mentor) — NOT split into 4 sub-agents (Directive #7,
+  Phase 46 deferral). Calls behavioral_analysis, get_performance_history,
+  get_regime_context, and get_weekly_execution_summary to produce one AnalyzerOutput
+  envelope with findings keyed by lens (findings.auditor, findings.risk,
+  findings.portfolio, findings.mentor). Scopes evidence to the canonical week window
+  (week_start, week_end, timezone). Denied all read-tier and persist tools.
+parent_profile: weekly_review_agent
+
+allowed_tools:
+  - behavioral_analysis
+  - get_performance_history
+  - get_regime_context
+  - get_weekly_execution_summary
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_cross_trade_behavioral_patterns
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 6
+max_cost_usd: 0.60
+
+input_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerInput
+output_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerOutput
