@@ -1,6 +1,10 @@
 from helpers import files
 from helpers import cache
 from helpers import yaml as yaml_helper
+from helpers.agent_yaml_v2_validator import (
+    validate_agent_yaml_v2,
+    AgentYamlV2Error,
+)
 from typing import TypedDict, TYPE_CHECKING, Literal
 from pydantic import BaseModel, model_validator
 import json
@@ -253,6 +257,11 @@ def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent |
                 return None
             nested_yaml = files.read_file(nested_yaml_path)
             subagent = SubAgent.model_validate(yaml_helper.loads(nested_yaml) or {})
+            # Phase 60.1 (G15): semantic validation post-Pydantic load.
+            # Pydantic only catches type errors; semantic rules (enum membership,
+            # contract-path resolution, skill ID validity) need this extra pass.
+            # Re-raise AgentYamlV2Error so callers get a hard-fail, not a silent None.
+            validate_agent_yaml_v2(name, subagent)
             subagent.name = name
             subagent.origin = [origin]
             # Prompts live at <dir>/<top>/<sub_dir_name>/prompts/
@@ -263,18 +272,29 @@ def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent |
                 prompts = {}
             subagent.prompts = prompts or {}
             return subagent
+        except AgentYamlV2Error:
+            # Re-raise semantic validation failures — do NOT swallow them.
+            # CTX-§7: invalid v2 profiles must never reach runtime with None defaults.
+            raise
         except Exception:
             return None
 
     # Existing v1 behaviour — top-level profile only.
+    _loaded_from_yaml = False
     try:
         agent_yaml_path = files.get_abs_path(dir, name, "agent.yaml")
         if files.exists(agent_yaml_path):
             agent_yaml = files.read_file(agent_yaml_path)
             subagent = SubAgent.model_validate(yaml_helper.loads(agent_yaml) or {})
+            _loaded_from_yaml = True
         else:
             subagent_json = files.read_file(files.get_abs_path(dir, name, "agent.json"))
             subagent = SubAgent.model_validate_json(subagent_json)
+            _loaded_from_yaml = True
+    except AgentYamlV2Error:
+        # Re-raise semantic validation failures immediately.
+        # CTX-§7: invalid v2 profiles must never reach runtime with None defaults.
+        raise
     except Exception:
         # backward compatibility (before agent.json existed)
         try:
@@ -289,6 +309,13 @@ def _load_agent_data_from_dir(dir: str, name: str, origin: Origin) -> SubAgent |
             origin=[origin],
             prompts={},
         )
+
+    # Phase 60.1 (G15): semantic validation post-Pydantic load.
+    # Only validate profiles loaded from YAML/JSON — fallback (context-only) profiles
+    # are legacy v1 and will emit DeprecationWarning via validate_agent_yaml_v2.
+    if _loaded_from_yaml:
+        # Re-raise AgentYamlV2Error; do NOT swallow (CTX-§7).
+        validate_agent_yaml_v2(name, subagent)
 
     # non-stored fields
     subagent.name = name
