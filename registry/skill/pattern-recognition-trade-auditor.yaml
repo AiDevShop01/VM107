@@ -1,0 +1,25 @@
+id: pattern-recognition-trade-auditor
+type: skill
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: pattern-recognition-trade-auditor
+description: >
+  Single-trade behavioral pattern recognition skill for trade_auditor_agent.
+  Identifies Phase 58 V1 behavioral patterns within ONE execution using registry
+  citation grammar. Strictly prohibits cross-trade pattern inference (that scope
+  belongs to behavioral_mentor_agent).
+version: "1.0.0"
+phase: 60
+scope: optional
+applies_to_profiles:
+  - trade_auditor_agent
+skill_md_path: VM107/agents/trade_auditor_agent/skills/pattern-recognition/SKILL.md
+tags: [pattern-recognition, single-execution, behavioral, optional, phase-60]
+trigger_patterns:
+  - "recognize pattern"
+  - "identify behavior"
+  - "detect hesitation"
+  - "check behavioral signals"
+allowed_tools:
+  - skills_tool

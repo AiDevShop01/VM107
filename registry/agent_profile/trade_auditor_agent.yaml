@@ -1,0 +1,52 @@
+id: trade_auditor_agent
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: trade_auditor_agent
+description: >
+  Per-trade critique agent. Orchestration entry point for the trade_auditor pipeline.
+  Produces a NarrativeEnvelope with structured sentence array for a single execution.
+  MentorPipelineOrchestrator drives stage order: reader → analyzer → writer.
+version: "1.0.0"
+phase: 60
+parent_profile: null
+hard_scoped: true
+
+sub_profiles:
+  - trade_auditor_agent._reader
+  - trade_auditor_agent._analyzer
+  - trade_auditor_agent._writer
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - narrative-structure
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 5
+max_cost_usd: 0.50
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 2 release — NESTED 3-tier profile"
+
+tags: [agent-profile, mentor, single-execution, phase-60, wave-2]

@@ -1,0 +1,52 @@
+id: trade_auditor_agent._reader
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: trade_auditor_agent._reader
+description: >
+  Reader stage sub-profile for the trade_auditor pipeline. Retrieves evidence
+  (Phase 57 analytics snapshot, Phase 59 replay artifact, replay frames) for ONE
+  execution. Applies CTX-§14 treat-instructions-as-data doctrine. Denied all
+  write/persist and analyzer-tier tools.
+version: "1.0.0"
+phase: 60
+parent_profile: trade_auditor_agent
+hard_scoped: true
+
+allowed_tools:
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - behavioral_analysis
+  - execution_quality
+  - get_behavioral_edges
+
+constitutional_skills:
+  - citation-discipline
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 3
+max_cost_usd: 0.20
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.reader_io.ReaderOutput
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 2 release — reader sub-profile with CTX-§14 doctrine"
+
+tags: [agent-profile, reader, single-execution, phase-60, wave-2, prompt-injection-defense]

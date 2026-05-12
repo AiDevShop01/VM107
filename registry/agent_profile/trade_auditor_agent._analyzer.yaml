@@ -1,0 +1,56 @@
+id: trade_auditor_agent._analyzer
+type: agent_profile
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+name: trade_auditor_agent._analyzer
+description: >
+  Analyzer stage sub-profile for the trade_auditor pipeline. Calls typed VM107
+  analytical tools (behavioral_analysis, execution_quality, get_trade_quality_score,
+  get_behavioral_edges) to produce a scored, pattern-annotated AnalyzerOutput.
+  Denied all read-tier and persist tools.
+version: "1.0.0"
+phase: 60
+parent_profile: trade_auditor_agent
+hard_scoped: true
+
+allowed_tools:
+  - behavioral_analysis
+  - execution_quality
+  - get_trade_quality_score
+  - get_behavioral_edges
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - critique-discipline
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 4
+max_cost_usd: 0.30
+
+input_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerInput
+output_contract: fingpt_core.contracts.narrative.analyzer_io.AnalyzerOutput
+
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-12"
+    change: "Initial Phase 60 Wave 2 release — analyzer sub-profile"
+
+tags: [agent-profile, analyzer, single-execution, phase-60, wave-2]
