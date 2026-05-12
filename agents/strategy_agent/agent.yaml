@@ -1,12 +1,35 @@
+schema_version: 2
 title: Strategy Agent
-description: Pure transformation. Translates a valid Hypothesis into a structured StrategySpec (Phase 37 Pydantic schema). Source-agnostic — accepts Hypothesis from any caller.
-context: ''
+description: >
+  Pure transformation. Translates a valid Hypothesis into a structured StrategySpec
+  (Phase 37 Pydantic schema). Source-agnostic — accepts Hypothesis from any caller.
+parent_profile: null
+
+# Phase 44 tool scope — runtime enforcement lives in core/agents/tool_scope.py.
+# Phase 39 read-only VM data clients (vm101_client, vm102_client, vm109_client, vm100_client) are soft-scoped.
 allowed_tools:
   - search_knowledge
   - document_query
   - response
-  # Phase 39 read-only VM data clients (vm101_client, vm102_client, vm109_client, vm100_client) are soft-scoped.
 denied_tools:
   - call_subordinate
   - code_execution_tool
   - trade_execution_tool
+
+# strategy_agent is NOT a Phase 60 mentor profile — no constitutional citation skills.
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+
+# strategy_agent operates on hypotheses, not on trade executions — no account/execution scope.
+memory_scope:
+  account_scope: "NONE"
+  execution_scope: "NONE"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 10
+max_cost_usd: 1.0
+
+input_contract: null
+output_contract: null

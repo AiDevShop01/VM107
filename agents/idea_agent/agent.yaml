@@ -1,6 +1,10 @@
+schema_version: 2
 title: Idea Agent
-description: Pure transformation. Translates substantive human input into a structured Hypothesis (Phase 37 Pydantic schema).
-context: ''
+description: >
+  Pure transformation. Translates substantive human input into a structured
+  Hypothesis (Phase 37 Pydantic schema).
+parent_profile: null
+
 # Phase 44 tool scope — runtime enforcement lives in core/agents/tool_scope.py.
 # This list is documentation; the authoritative allow-list is HARD_ALLOWED_TOOLS.
 allowed_tools:
@@ -11,3 +15,21 @@ denied_tools:
   - call_subordinate
   - code_execution_tool
   - trade_execution_tool
+
+# idea_agent is NOT a Phase 60 mentor profile — no constitutional citation skills.
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+
+# idea_agent operates on free-form human input, not on trade executions — no account/execution scope.
+memory_scope:
+  account_scope: "NONE"
+  execution_scope: "NONE"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 10
+max_cost_usd: 1.0
+
+input_contract: null
+output_contract: null
