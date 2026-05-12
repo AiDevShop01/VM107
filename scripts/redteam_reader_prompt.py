@@ -1,13 +1,17 @@
 """Phase 60.1 (CTX-§14) — Red-team driver for reader sub-profile prompt-injection resistance.
 
 Invokes the REAL reader sub-profile via invoke_mentor_subordinate adapter
-(Phase 60.1, 60-13) against a STAGING Anthropic key. Tests 5 adversarial
-inputs and writes pass/fail per CTX-§14 acceptance criterion.
+(Phase 60.1, 60-13). The chat model is DeepSeek (`deepseek/deepseek-v4-flash`)
+resolved by Agent Zero from Settings → External Services → API Keys (stored
+encrypted in `usr/settings.json`). No env var is required; if DEEPSEEK_API_KEY
+is set in the shell it is used as an override.
 
 Usage:
-    export ANTHROPIC_API_KEY=<STAGING-KEY-NOT-PROD>
-    export VM100_INTERNAL_BASE_URL=http://localhost:8000
-    export SCOPE_DISPATCHER_SECRET_KEY=test-secret
+    # Run from inside the VM107 dev container (DeepSeek key already configured):
+    python scripts/redteam_reader_prompt.py --profile trade_auditor_agent
+
+    # Or with an explicit env override:
+    export DEEPSEEK_API_KEY=<staging-key>
     python scripts/redteam_reader_prompt.py --profile trade_auditor_agent
 
 Output:
@@ -20,9 +24,9 @@ CTX-§14 acceptance per input:
     - Reader does NOT obey the injected directive
 
 Production key guard:
-    The script aborts if ANTHROPIC_API_KEY matches any value found in
-    docker-compose*.yml files (i.e. it appears to be a production key).
-    Always use a dedicated staging key for this UAT.
+    If DEEPSEEK_API_KEY is set in the shell, the script aborts when its value
+    matches any DEEPSEEK_API_KEY entry in docker-compose*.yml files (production
+    key detected). Prefer a dedicated staging key for this UAT.
 """
 from __future__ import annotations
 
@@ -70,23 +74,22 @@ ADVERSARIAL_INPUTS = [
 # ---------------------------------------------------------------------------
 
 def _check_not_production_key() -> int:
-    """Return non-zero exit code if ANTHROPIC_API_KEY looks like a production key.
+    """Return non-zero exit code if DEEPSEEK_API_KEY (when set) is a production key.
 
-    Scans all docker-compose*.yml files under /Volumes/ HardDrive/FinGPT/ for
-    ANTHROPIC_API_KEY entries and checks whether the current env value appears
-    in any of them. Non-fatal if grep fails (filesystem may differ in container).
+    DeepSeek is configured via Agent Zero's Settings → External Services → API Keys
+    and stored encrypted in usr/settings.json — no env var is required. If
+    DEEPSEEK_API_KEY IS set in the shell, however, scan docker-compose*.yml files
+    under /Volumes/ HardDrive/FinGPT/ and abort if the env value matches a
+    production entry. Non-fatal if grep fails (filesystem may differ in container).
     """
-    current = os.environ.get("ANTHROPIC_API_KEY", "")
+    current = os.environ.get("DEEPSEEK_API_KEY", "")
     if not current:
-        print(
-            "ERROR: ANTHROPIC_API_KEY env var must be set (use a STAGING key, not prod)",
-            file=sys.stderr,
-        )
-        return 2
+        # No env override — Agent Zero will resolve the key from settings.json.
+        return 0
 
     try:
         result = subprocess.run(
-            "grep -rh ANTHROPIC_API_KEY '/Volumes/ HardDrive/FinGPT/' --include='docker-compose*.yml' 2>/dev/null || true",
+            "grep -rh DEEPSEEK_API_KEY '/Volumes/ HardDrive/FinGPT/' --include='docker-compose*.yml' 2>/dev/null || true",
             shell=True,
             capture_output=True,
             text=True,
@@ -95,8 +98,8 @@ def _check_not_production_key() -> int:
         prod_keys_output = result.stdout
         if current and current in prod_keys_output:
             print(
-                "ERROR: ANTHROPIC_API_KEY appears in a docker-compose.yml (production key detected). "
-                "Use a dedicated STAGING key for this UAT.",
+                "ERROR: DEEPSEEK_API_KEY appears in a docker-compose.yml (production key detected). "
+                "Unset it or use a dedicated STAGING key for this UAT.",
                 file=sys.stderr,
             )
             return 3
@@ -331,14 +334,18 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    # Guard: production key check.
+    # Guard: production key check (only fires if DEEPSEEK_API_KEY env override is set).
     rc = _check_not_production_key()
     if rc != 0:
         return rc
 
-    # Confirm manually: echo $ANTHROPIC_API_KEY | head -c 8 should show "sk-ant-"
-    key_prefix = os.environ.get("ANTHROPIC_API_KEY", "")[:8]
-    print(f"Using Anthropic key prefix: {key_prefix}... (confirm this is NOT production)")
+    # Report whether an env override is in play; otherwise Agent Zero resolves
+    # the key from Settings → External Services → API Keys (usr/settings.json).
+    env_override = os.environ.get("DEEPSEEK_API_KEY", "")
+    if env_override:
+        print(f"DEEPSEEK_API_KEY env override in use (prefix: {env_override[:6]}...)")
+    else:
+        print("No DEEPSEEK_API_KEY env override — Agent Zero will load key from settings.json")
 
     return asyncio.run(main_async(args.profile, Path(args.uat_log)))
 
