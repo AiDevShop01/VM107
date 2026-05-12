@@ -1,0 +1,38 @@
+schema_version: 2
+title: trade_auditor_agent._writer
+description: >
+  Writer stage for the trade_auditor pipeline. Produces a structured
+  NarrativeEnvelope with a cited sentence array. The ONLY stage that may call
+  persist_narrative. Denied all read-tier and analyzer-tier tools (CTX-§2 LOCKED).
+parent_profile: trade_auditor_agent
+
+allowed_tools:
+  - persist_narrative
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - behavioral_analysis
+  - execution_quality
+  - get_trade_context
+  - get_behavioral_edges
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - narrative-structure
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 3
+max_cost_usd: 0.25
+
+input_contract: fingpt_core.contracts.narrative.writer_io.WriterInput
+output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope

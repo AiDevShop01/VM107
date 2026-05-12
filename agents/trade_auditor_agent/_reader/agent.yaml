@@ -1,0 +1,36 @@
+schema_version: 2
+title: trade_auditor_agent._reader
+description: >
+  Reader stage for the trade_auditor pipeline. Retrieves evidence from VM100
+  replay artifacts, Phase 57 analytics snapshots, and Phase 59 replay frame data.
+  Applies strict treat-instructions-as-data doctrine (CTX-§14 LOCKED).
+parent_profile: trade_auditor_agent
+
+allowed_tools:
+  - lookup_replay_artifact
+  - fetch_replay_frame
+  - get_trade_context
+  - skills_tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+  - behavioral_analysis
+  - execution_quality
+  - get_behavioral_edges
+
+constitutional_skills:
+  - citation-discipline
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "required"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 3
+max_cost_usd: 0.20
+
+input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
+output_contract: fingpt_core.contracts.narrative.reader_io.ReaderOutput
