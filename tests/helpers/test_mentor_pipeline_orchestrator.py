@@ -196,7 +196,7 @@ async def test_reader_contract_violation_blocks_analyzer():
     """CTX-§3 — ReaderOutput validation failure raises ReaderContractError; analyzer never invoked."""
     analyzer_mock = AsyncMock()
 
-    async def bad_reader_invoker(profile: str, input):
+    async def bad_reader_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return {"invalid_field": "not a valid ReaderOutput"}
         return analyzer_mock(profile=profile, input=input)
@@ -223,7 +223,7 @@ async def test_reader_contract_violation_blocks_analyzer():
 async def test_reader_failed_event_emitted():
     """CTX-§3 — orchestrator emits reader_failed + mentor_pipeline_failed on ReaderOutput violation."""
 
-    async def bad_reader_invoker(profile: str, input):
+    async def bad_reader_invoker(profile: str, input, **kwargs):
         return {"invalid_field": "garbage"}
 
     execution_id = uuid4()
@@ -250,7 +250,7 @@ async def test_reader_failed_event_emitted():
 async def test_reader_freeform_output_blocked():
     """CTX-§3 — Reader returning a plain string (LLM freeform) raises ReaderContractError."""
 
-    async def freeform_reader_invoker(profile: str, input):
+    async def freeform_reader_invoker(profile: str, input, **kwargs):
         return "I have analyzed the trade. The entry was well-timed."
 
     execution_id = uuid4()
@@ -270,7 +270,7 @@ async def test_writer_cannot_supply_confidence_vector():
     execution_id = uuid4()
     scope_context = _make_scope_context(execution_id)
 
-    async def sneaky_invoker(profile: str, input):
+    async def sneaky_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return _make_reader_output(execution_id, scope_context)
         if "_analyzer" in profile:
@@ -320,7 +320,7 @@ async def test_writer_retry_on_citation_violation(tmp_path):
     # (no citations = violation regardless of registry).
     call_count = [0]
 
-    async def retry_invoker(profile: str, input):
+    async def retry_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return _make_reader_output(execution_id, scope_context)
         if "_analyzer" in profile:
@@ -374,7 +374,7 @@ async def test_auto_bracket_after_max_retries(tmp_path):
     execution_id = uuid4()
     scope_context = _make_scope_context(execution_id)
 
-    async def always_uncited_invoker(profile: str, input):
+    async def always_uncited_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return _make_reader_output(execution_id, scope_context)
         if "_analyzer" in profile:
@@ -412,7 +412,7 @@ async def test_happy_path_event_sequence(tmp_path):
     execution_id = uuid4()
     scope_context = _make_scope_context(execution_id)
 
-    async def happy_invoker(profile: str, input):
+    async def happy_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return _make_reader_output(execution_id, scope_context)
         if "_analyzer" in profile:
@@ -472,7 +472,7 @@ async def test_confidence_vector_set_by_orchestrator_not_writer(tmp_path):
     execution_id = uuid4()
     scope_context = _make_scope_context(execution_id)
 
-    async def clean_invoker(profile: str, input):
+    async def clean_invoker(profile: str, input, **kwargs):
         if "_reader" in profile:
             return _make_reader_output(execution_id, scope_context)
         if "_analyzer" in profile:

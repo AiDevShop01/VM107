@@ -128,13 +128,45 @@ class MentorPipelineOrchestrator:
             max_writer_retries: Maximum writer retry attempts on CitationViolation (default: 2)
         """
         self._profile = profile
-        self._scope = scope_dispatcher
+        self._dispatcher = scope_dispatcher
+        self._scope = scope_dispatcher  # backward-compat alias
         self._citation = citation_validator
         self._confidence = confidence_calculator
         self._events = event_emitter
         self._invoke = subordinate_invoker
         self._persist = narrative_persister_client
         self._max_retries = max_writer_retries
+
+    def _prepare_scope_headers(self, scope_context: ScopeContext, correlation_id: str) -> dict:
+        """Phase 60.1 (G7+G10+G22): prepare X-Agent-Scope HTTP headers from ScopeContext.
+
+        Called at run() entry and re-used for both subordinate invocations and direct
+        tool .persist() calls. Calling self._dispatcher.attach_header({}, scope_context)
+        returns a fresh dict each call (non-destructive).
+
+        If self._dispatcher is None (test mode / misconfiguration), emits
+        scope_validation_failed and returns {}. The orchestrator will continue but
+        downstream VM100 will reject the request — surfaces the error fast.
+        """
+        if self._dispatcher is None:
+            self._emit(
+                "scope_validation_failed",
+                correlation_id,
+                stage="orchestrator",
+                reason="scope_dispatcher_unavailable",
+            )
+            return {}
+
+        try:
+            return self._dispatcher.attach_header({}, scope_context)
+        except Exception as exc:
+            self._emit(
+                "scope_validation_failed",
+                correlation_id,
+                stage="orchestrator",
+                reason=f"attach_header_raised: {type(exc).__name__}",
+            )
+            return {}
 
     async def run(
         self,
@@ -166,6 +198,11 @@ class MentorPipelineOrchestrator:
         """
         correlation_id = self._events.new_correlation_id()
 
+        # Phase 60.1 (G7+G10+G22): prepare scope headers ONCE at run() entry.
+        # Threaded into both subordinate invocations and the direct .persist() call.
+        # ScopeContext is owned by the orchestrator; subordinates never sign their own scope (CTX-§5 LOCKED).
+        scope_headers = self._prepare_scope_headers(scope_context, correlation_id)
+
         # Emit pipeline start
         self._emit("mentor_pipeline_started", correlation_id, execution_id=str(execution_id))
 
@@ -176,6 +213,7 @@ class MentorPipelineOrchestrator:
             execution_id=execution_id,
             scope_context=scope_context,
             replay_artifact_id=replay_artifact_id,
+            scope_headers=scope_headers,
         )
         self._emit("reader_completed", correlation_id, execution_id=str(execution_id))
 
@@ -184,6 +222,7 @@ class MentorPipelineOrchestrator:
         analyzer_output = await self._run_analyzer(
             correlation_id=correlation_id,
             reader_output=reader_output,
+            scope_headers=scope_headers,
         )
         self._emit("analyzer_completed", correlation_id, execution_id=str(execution_id))
 
@@ -192,6 +231,7 @@ class MentorPipelineOrchestrator:
         envelope = await self._run_writer(
             correlation_id=correlation_id,
             analyzer_output=analyzer_output,
+            scope_headers=scope_headers,
         )
 
         # ── Post-writer: ConfidenceVector (CTX-§9 LOCKED: orchestrator owns this) ──
@@ -203,6 +243,7 @@ class MentorPipelineOrchestrator:
         envelope = envelope.model_copy(update={"confidence_vector": confidence_vector})
 
         # ── Persist via VM100 internal endpoint (Phase 39 typed-API lock) ─────
+        # Phase 60.1 (G7+G22): pass scope_headers so VM100 receives X-Agent-Scope.
         await self._persist.persist(
             envelope=envelope,
             ruleset_version=ruleset_version,
@@ -215,6 +256,7 @@ class MentorPipelineOrchestrator:
             generated_by="dagster_sensor",
             generated_reason="AUTO",
             writer_profile_id=f"{self._profile}._writer",
+            headers=scope_headers,
         )
 
         self._emit("writer_completed", correlation_id, execution_id=str(execution_id))
@@ -232,6 +274,7 @@ class MentorPipelineOrchestrator:
         execution_id: UUID | None,
         scope_context: ScopeContext,
         replay_artifact_id: UUID | None,
+        scope_headers: dict,
     ) -> ReaderOutput:
         """Invoke reader sub-profile and validate output. Hard-fail boundary 1."""
         reader_input = ReaderInput(
@@ -243,6 +286,7 @@ class MentorPipelineOrchestrator:
             reader_raw = await self._invoke(
                 profile=f"{self._profile}._reader",
                 input=reader_input,
+                headers=scope_headers,
             )
             reader_output = ReaderOutput.model_validate(reader_raw)
         except Exception as exc:
@@ -262,6 +306,7 @@ class MentorPipelineOrchestrator:
         *,
         correlation_id: str,
         reader_output: ReaderOutput,
+        scope_headers: dict,
     ) -> AnalyzerOutput:
         """Invoke analyzer sub-profile and validate output. Hard-fail boundary 2."""
         analyzer_input = AnalyzerInput.from_reader(reader_output)
@@ -269,6 +314,7 @@ class MentorPipelineOrchestrator:
             analyzer_raw = await self._invoke(
                 profile=f"{self._profile}._analyzer",
                 input=analyzer_input,
+                headers=scope_headers,
             )
             analyzer_output = AnalyzerOutput.model_validate(analyzer_raw)
         except Exception as exc:
@@ -288,6 +334,7 @@ class MentorPipelineOrchestrator:
         *,
         correlation_id: str,
         analyzer_output: AnalyzerOutput,
+        scope_headers: dict,
     ) -> NarrativeEnvelope:
         """Invoke writer sub-profile with bounded retry on CitationViolation.
 
@@ -303,6 +350,7 @@ class MentorPipelineOrchestrator:
                 writer_raw = await self._invoke(
                     profile=f"{self._profile}._writer",
                     input=writer_input,
+                    headers=scope_headers,
                 )
                 envelope = NarrativeEnvelope.model_validate(writer_raw)
             except Exception as exc:

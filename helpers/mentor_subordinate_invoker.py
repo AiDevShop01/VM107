@@ -91,12 +91,21 @@ def _spawn_real_agent_zero_subordinate(profile: str) -> _SubordinateLike:
 _SUBORDINATE_FACTORY = _spawn_real_agent_zero_subordinate
 
 
-async def invoke_mentor_subordinate(profile: str, input: BaseModel) -> dict:
+async def invoke_mentor_subordinate(
+    profile: str,
+    input: BaseModel,
+    *,
+    headers: dict | None = None,
+) -> dict:
     """Invoke an Agent Zero sub-profile and return the parsed JSON dict.
 
     Args:
         profile: Dotted sub-profile name, e.g. "trade_auditor_agent._reader"
         input:   Pydantic model (ReaderInput / AnalyzerInput / WriterInput)
+        headers: Optional scope headers dict (Phase 60.1 G10/G22). When provided,
+                 X-Agent-Scope and any other headers are pushed into agent.data under
+                 '_outbound_headers' so Tool subclass wrappers (60-14) can read them
+                 via self.agent.get_data('_outbound_headers').
 
     Returns:
         dict — parsed monologue JSON; downstream orchestrator calls model_validate
@@ -108,6 +117,18 @@ async def invoke_mentor_subordinate(profile: str, input: BaseModel) -> dict:
     from agent import UserMessage
 
     subordinate = _SUBORDINATE_FACTORY(profile)
+
+    # Phase 60.1 (G10/G22): expose scope headers to tool subclass wrappers.
+    # Tool wrappers read headers from self.agent.get_data("_outbound_headers") (60-14).
+    # CTX-§5 LOCKED: subordinates NEVER sign their own scope — headers are prepared
+    # by the orchestrator and pushed down here as a carry-through carrier.
+    if headers:
+        try:
+            subordinate.set_data("_outbound_headers", dict(headers))
+        except AttributeError:
+            # fakes may not implement set_data; tests pass a fake.data dict directly
+            if hasattr(subordinate, "data"):
+                subordinate.data["_outbound_headers"] = dict(headers)
 
     serialized = input.model_dump_json()
     subordinate.hist_add_user_message(UserMessage(message=serialized, attachments=[]))
