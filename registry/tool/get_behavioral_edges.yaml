@@ -1,0 +1,43 @@
+---
+id: get_behavioral_edges
+name: get_behavioral_edges
+type: tool
+status: shipped
+shipped: 60
+last_changed: 2026-05-12
+version: "1.0.0"
+phase: 60
+category: analyzer
+
+description: >
+  TOOL GAP #1 CLOSURE — query Phase 58 Neo4j :FAILED_DUE_TO edges per execution_id
+  via VM100 typed internal endpoint. Reads (Execution)-[r:FAILED_DUE_TO]->(BehavioralPattern)
+  and returns list of {pattern_name, confidence, timestamp} dicts scoped to the
+  caller's account_id. Phase 39 typed-API lock: VM107 NEVER queries Neo4j directly.
+  Only trade_auditor_agent._analyzer is permitted to invoke (analyzer tier, read-only).
+
+producer: VM107
+
+location:
+  source: VM107/tools/get_behavioral_edges.py
+  endpoint: ${VM100_INTERNAL_BASE_URL}/api/journal/internal/behavioral-edges/{execution_id}
+  contracts:
+    request: VM107.tools.get_behavioral_edges.GetBehavioralEdgesRequest
+    response: VM107.tools.get_behavioral_edges.GetBehavioralEdgesResponse
+
+related_capabilities:
+  - behavioral_analysis_tool
+  - execution_quality_tool
+
+tags:
+  - phase-60
+  - cognition
+  - analyzer
+  - neo4j
+  - behavioral-graph
+  - failed_due_to
+  - phase-58
+
+hard_scoped: true
+allowed_agent_profiles:
+  - trade_auditor_agent._analyzer
