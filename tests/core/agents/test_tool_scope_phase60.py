@@ -158,52 +158,52 @@ def test_non_writer_profiles_denied_persist_narrative(tool_scope, non_writer_pro
 
 # ---------------------------------------------------------------------------
 # Tests — _writer profile DENIED read tools (via agent.yaml denied_tools)
-# xfail until 60-09 ships the actual _writer/agent.yaml files
+# 60-09 landed: live NESTED agent.yaml exists — test loads it directly
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(
-    reason=(
-        "Writer denied_tools enforcement requires agent.yaml files at NESTED paths "
-        "(agents/trade_auditor_agent/_writer/agent.yaml). These are created in Wave 2 plan 60-09. "
-        "The fixture YAML in tests/core/agents/fixtures/ documents the expected denied_tools list. "
-        "Flip xfail to xpass in 60-09 when the real agent.yaml lands."
-    ),
-    strict=True,
-)
-def test_writer_denied_read_tools(tool_scope, fixtures_dir):
-    """CTX-§2 — _writer sub-profile is denied access to lookup_replay_artifact.
 
-    The HARD_ALLOWED_TOOLS mechanism (SENSITIVE_TOOLS layer) only enforces
-    SENSITIVE tool access. Preventing _writer from calling read-tier tools
-    (lookup_replay_artifact, fetch_replay_frame, etc.) is enforced via the
-    per-profile agent.yaml `denied_tools` list.
+def test_writer_denied_read_tools(tool_scope):
+    """CTX-§2 — _writer sub-profile agent.yaml denies all read-tier tools.
 
-    This test is xfail until 60-09 ships the NESTED _writer/agent.yaml files.
-    The fixture YAML at tests/core/agents/fixtures/_writer_agent.yaml documents
-    the expected denied_tools list for review / future tightening.
+    Verifies the live NESTED agent.yaml (agents/trade_auditor_agent/_writer/agent.yaml)
+    contains `denied_tools` that includes all read-tier tools. Enforced at runtime via
+    the per-profile `denied_tools` list in agent.yaml (separate from SENSITIVE_TOOLS).
+
+    60-09 created the actual NESTED agent.yaml — this replaces the xfail sentinel
+    that was seeded in Plan 60-05.
     """
+    import os
     import yaml
-    from core.agents.tool_scope import UnauthorizedToolError
 
-    fixture_yaml = fixtures_dir / "_writer_agent.yaml"
-    assert fixture_yaml.exists(), f"Fixture YAML not found at {fixture_yaml}"
+    _root = Path(__file__).resolve().parent.parent.parent.parent
+    writer_yaml = _root / "agents" / "trade_auditor_agent" / "_writer" / "agent.yaml"
+    assert writer_yaml.exists(), (
+        f"NESTED _writer/agent.yaml missing at {writer_yaml}. "
+        "Plan 60-09 should have created this file."
+    )
 
-    with open(fixture_yaml) as f:
+    with open(writer_yaml) as f:
         agent_data = yaml.safe_load(f)
 
     denied = agent_data.get("denied_tools", [])
-    assert "lookup_replay_artifact" in denied, (
-        "_writer agent.yaml must deny lookup_replay_artifact in denied_tools"
-    )
 
-    # The real enforcement path goes through call_subordinate + agent.yaml loading.
-    # This xfail sentinel verifies the fixture documents the intent correctly.
-    # When 60-09 ships the actual NESTED agent.yaml at
-    # agents/trade_auditor_agent/_writer/agent.yaml, this test should be
-    # replaced with one that loads the live agent.yaml via subagents.load_agent_data().
-    raise AssertionError(
-        "Sentinel: flip xfail→xpass in 60-09 by loading live NESTED agent.yaml "
-        "and asserting UnauthorizedToolError on denied tool invocation."
+    # All read-tier tools must be denied
+    read_tier_tools = [
+        "lookup_replay_artifact",
+        "fetch_replay_frame",
+        "get_trade_context",
+    ]
+    for tool in read_tier_tools:
+        assert tool in denied, (
+            f"_writer/agent.yaml must deny read-tier tool '{tool}' "
+            f"(CTX-§2 — writer tier cannot call read tools). "
+            f"Current denied_tools: {denied}"
+        )
+
+    # persist_narrative must be in allowed_tools (writer-tier ONLY)
+    allowed = agent_data.get("allowed_tools", [])
+    assert "persist_narrative" in allowed, (
+        "_writer/agent.yaml must have persist_narrative in allowed_tools"
     )
 
 
