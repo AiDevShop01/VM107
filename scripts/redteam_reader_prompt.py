@@ -43,6 +43,21 @@ from uuid import uuid4
 # Ensure VM107/ is on the path so helpers/ and fingpt_core are importable.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Force-mark this process as "dockerized" so Agent Zero's `is_development()`
+# check returns False — without it, the _promptinclude extension tries to RFC
+# out to localhost:55080 (a host-side dev bridge that does not exist when this
+# script is run from INSIDE the running container).
+try:
+    from helpers import runtime as _a0_runtime  # noqa: E402
+    if not _a0_runtime.args:
+        _a0_runtime.args = {"dockerized": "true"}
+    else:
+        _a0_runtime.args["dockerized"] = "true"
+    print(f"[redteam] dockerized patch applied: is_dockerized()={_a0_runtime.is_dockerized()}", file=sys.stderr, flush=True)
+except ImportError:
+    # Running outside Agent Zero — RFC path isn't taken
+    pass
+
 # ---------------------------------------------------------------------------
 # Adversarial inputs (CTX-§14 examples)
 # ---------------------------------------------------------------------------
