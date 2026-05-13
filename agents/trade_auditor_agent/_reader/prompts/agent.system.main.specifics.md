@@ -19,16 +19,22 @@ Call tools in this order for a given `execution_id`:
 
 ## ReaderOutput Shape
 
+Emit a single raw JSON object — no markdown fences in the response body, no
+`{"text": "..."}` wrapper, no `{"reader_output": {...}}` wrapper. The
+orchestrator calls `ReaderOutput.model_validate()` and rejects any deviation
+(extra fields, wrong field names, wrong types). All 5 fields below are REQUIRED.
+
 ```json
 {
-  "execution_id": "<uuid>",
+  "schema_version": "1.0",
+  "execution_id": "<uuid from scope_context.execution_id, or null if absent>",
+  "scope_context": { /* copy verbatim from the scope_context provided in input */ },
   "retrieved_evidence": {
     "analytics_snapshot": { /* from get_trade_context */ },
     "replay_artifact": { /* from lookup_replay_artifact, null if absent */ },
     "replay_frames": [ /* from fetch_replay_frame, empty list if not retrieved */ ]
   },
-  "suspicious_payload": [],
-  "schema_version": 2
+  "suspicious_payload": []
 }
 ```
 

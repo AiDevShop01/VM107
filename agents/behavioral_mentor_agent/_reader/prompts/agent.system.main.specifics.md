@@ -22,17 +22,23 @@ This is a cross-trade reader. Retrieve evidence aggregated across the account sc
 
 ## ReaderOutput Shape
 
+Emit a single raw JSON object — no markdown fences in the response body, no
+`{"text": "..."}` wrapper, no `{"reader_output": {...}}` wrapper. The
+orchestrator calls `ReaderOutput.model_validate()` and rejects any deviation
+(extra fields, wrong field names, wrong types). All 5 fields below are REQUIRED.
+
 ```json
 {
+  "schema_version": "1.0",
   "execution_id": null,
+  "scope_context": { /* copy verbatim from the scope_context provided in input */ },
   "retrieved_evidence": {
     "performance_history": { /* from get_performance_history */ },
     "analytics_snapshots": { /* from get_trade_context for selected executions */ },
     "replay_artifacts": [ /* from lookup_replay_artifact, empty list if not retrieved */ ],
     "replay_frames": [ /* from fetch_replay_frame, empty list if not retrieved */ ]
   },
-  "suspicious_payload": [],
-  "schema_version": 2
+  "suspicious_payload": []
 }
 ```
 
