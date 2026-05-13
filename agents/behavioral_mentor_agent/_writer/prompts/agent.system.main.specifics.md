@@ -31,40 +31,69 @@ Write in four logical sections. Each section maps to sentence classes.
 
 ## NarrativeEnvelope Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `NarrativeEnvelope.model_validate()` and
+rejects any deviation. `confidence_vector` MUST be `null` — orchestrator owns
+it (CTX-§9 LOCKED).
+
 ```json
 {
-  "execution_id": null,
+  "schema_version": "1.0",
   "profile": "behavioral_mentor_agent",
-  "template_version": "1.0.0",
+  "execution_id": null,
   "sentences": [
     {
-      "sentence_id": "s001",
-      "class": "TRANSITION",
+      "schema_version": "1.0",
+      "sentence_index": 0,
+      "sentence_class": "TRANSITION",
       "text": "This cross-trade review covers 48 executions for account acc-001.",
-      "citations": []
+      "citations": [],
+      "unsourced": false
     },
     {
-      "sentence_id": "s002",
-      "class": "ASSERTION",
-      "text": "Hesitation was detected in 62.5% of executions reviewed [ref:behavioral_pattern:hesitation][ref:get_cross_trade_behavioral_patterns:pattern_frequency_pct].",
-      "citations": ["behavioral_pattern:hesitation", "get_cross_trade_behavioral_patterns:pattern_frequency_pct"]
+      "schema_version": "1.0",
+      "sentence_index": 1,
+      "sentence_class": "ASSERTION",
+      "text": "Hesitation was detected in 62.5% of executions [ref:behavioral_pattern:hesitation].",
+      "citations": [
+        {
+          "schema_version": "1.0",
+          "registry_id": "behavioral_pattern",
+          "field": "hesitation",
+          "frame_anchor": null,
+          "resolved_at": null
+        }
+      ],
+      "unsourced": false
     },
     {
-      "sentence_id": "s003",
-      "class": "ASSERTION",
-      "text": "Revenge-trade entries clustered within 15 minutes of prior losses in 41% of cases [ref:behavioral_pattern:revenge][ref:get_cross_trade_behavioral_patterns:pattern_cluster_after_loss].",
-      "citations": ["behavioral_pattern:revenge", "get_cross_trade_behavioral_patterns:pattern_cluster_after_loss"]
-    },
-    {
-      "sentence_id": "s004",
-      "class": "SUMMARY",
-      "text": "Overall behavioral health scored 65/100 across 48 reviewed executions [ref:get_performance_history:avg_quality_score].",
-      "citations": ["get_performance_history:avg_quality_score"]
+      "schema_version": "1.0",
+      "sentence_index": 2,
+      "sentence_class": "SUMMARY",
+      "text": "Overall behavioral health scored 65/100 across 48 executions [ref:get_performance_history:avg_quality_score].",
+      "citations": [
+        {
+          "schema_version": "1.0",
+          "registry_id": "get_performance_history",
+          "field": "avg_quality_score",
+          "frame_anchor": null,
+          "resolved_at": null
+        }
+      ],
+      "unsourced": false
     }
   ],
-  "schema_version": 2
+  "loaded_skills": [],
+  "confidence_vector": null
 }
 ```
+
+**Field-name reminders:**
+- Use `sentence_class` (not `class`), `sentence_index` (not `sentence_id`), `unsourced` (not `is_unsourced`)
+- Each citation is an **object** with `registry_id` + `field`, NOT a string
+- `loaded_skills` is `[]` unless skills were loaded
+- `confidence_vector: null` — orchestrator owns this
 
 ## Anti-Patterns
 

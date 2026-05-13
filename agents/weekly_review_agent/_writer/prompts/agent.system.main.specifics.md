@@ -45,46 +45,61 @@ sentence classes. Draw from all 4 analyzer lenses.
 
 ## NarrativeEnvelope Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `NarrativeEnvelope.model_validate()` and
+rejects any deviation. `confidence_vector` MUST be `null` — orchestrator owns
+it (CTX-§9 LOCKED).
+
 ```json
 {
-  "execution_id": null,
+  "schema_version": "1.0",
   "profile": "weekly_review_agent",
-  "template_version": "1.0.0",
+  "execution_id": null,
   "sentences": [
     {
-      "sentence_id": "s001",
-      "class": "TRANSITION",
+      "schema_version": "1.0",
+      "sentence_index": 0,
+      "sentence_class": "TRANSITION",
       "text": "This review covers 12 executions closed between 2026-05-04 and 2026-05-10.",
-      "citations": []
+      "citations": [],
+      "unsourced": false
     },
     {
-      "sentence_id": "s002",
-      "class": "ASSERTION",
-      "text": "Hesitation was the dominant execution pattern, observed in 45% of setups reviewed [ref:behavioral_pattern:hesitation][ref:behavioral_analysis_tool:hesitation_seconds].",
-      "citations": ["behavioral_pattern:hesitation", "behavioral_analysis_tool:hesitation_seconds"]
+      "schema_version": "1.0",
+      "sentence_index": 1,
+      "sentence_class": "ASSERTION",
+      "text": "Hesitation was the dominant pattern, observed in 45% of setups [ref:behavioral_pattern:hesitation].",
+      "citations": [
+        {
+          "schema_version": "1.0",
+          "registry_id": "behavioral_pattern",
+          "field": "hesitation",
+          "frame_anchor": null,
+          "resolved_at": null
+        }
+      ],
+      "unsourced": false
     },
     {
-      "sentence_id": "s003",
-      "class": "ASSERTION",
-      "text": "Maximum drawdown for the week was 4.2%, with exposure concentrated in trending conditions [ref:get_performance_history:max_drawdown_pct][ref:get_regime_context:regime_class].",
-      "citations": ["get_performance_history:max_drawdown_pct", "get_regime_context:regime_class"]
-    },
-    {
-      "sentence_id": "s004",
-      "class": "ASSERTION",
-      "text": "The week closed with a 52% win rate and an average quality score of 68/100 across 12 executions [ref:get_performance_history:win_rate_pct][ref:get_performance_history:avg_quality_score].",
-      "citations": ["get_performance_history:win_rate_pct", "get_performance_history:avg_quality_score"]
-    },
-    {
-      "sentence_id": "s005",
-      "class": "SUMMARY",
-      "text": "Priority for the coming week: maintain entry discipline on A+ setups where hesitation cost was highest.",
-      "citations": []
+      "schema_version": "1.0",
+      "sentence_index": 2,
+      "sentence_class": "SUMMARY",
+      "text": "Priority for the coming week: maintain entry discipline on A+ setups.",
+      "citations": [],
+      "unsourced": true
     }
   ],
-  "schema_version": 2
+  "loaded_skills": [],
+  "confidence_vector": null
 }
 ```
+
+**Field-name reminders:**
+- Use `sentence_class` (not `class`), `sentence_index` (not `sentence_id`), `unsourced` (not `is_unsourced`)
+- Each citation is an **object** with `registry_id` + `field`, NOT a string
+- `loaded_skills` is `[]` unless skills were loaded
+- `confidence_vector: null` — orchestrator owns this
 
 ## Anti-Patterns
 

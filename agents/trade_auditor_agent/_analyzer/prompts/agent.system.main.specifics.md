@@ -23,28 +23,53 @@ These are the V1 behavioral patterns from Phase 58. Cite them as `[ref:behaviora
 
 ## AnalyzerOutput Required Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `AnalyzerOutput.model_validate()` and rejects
+any deviation. All 5 top-level fields below are REQUIRED.
+
 ```json
 {
-  "execution_id": "<uuid>",
-  "quality_score": 72,
-  "behavioral_signals": [
-    {
-      "pattern_id": "hesitation",
-      "registry_id": "behavioral_pattern:hesitation",
-      "confidence": 0.87,
-      "evidence_field": "hesitation_seconds"
+  "schema_version": "1.0",
+  "execution_id": "<uuid from input.execution_id, or null if absent>",
+  "scope_context": { /* copy verbatim from input.scope_context */ },
+  "findings": {
+    "quality_score": 72,
+    "behavioral_signals": [
+      {
+        "pattern_id": "hesitation",
+        "registry_id": "behavioral_pattern:hesitation",
+        "confidence": 0.87,
+        "evidence_field": "hesitation_seconds"
+      }
+    ],
+    "execution_metrics": {
+      "slippage_pips": 1.2,
+      "fill_quality": "good",
+      "entry_timing_score": 65
     }
-  ],
-  "execution_metrics": {
-    "slippage_pips": 1.2,
-    "fill_quality": "good",
-    "entry_timing_score": 65
   },
   "cited_registry_ids": [
     "behavioral_analysis_tool:hesitation_seconds",
     "behavioral_pattern:hesitation"
-  ],
-  "schema_version": 2
+  ]
+}
+```
+
+**Empty example (no evidence to analyze — STILL emit JSON):**
+
+```json
+{
+  "schema_version": "1.0",
+  "execution_id": null,
+  "scope_context": { /* copy verbatim from input.scope_context */ },
+  "findings": {
+    "quality_score": null,
+    "behavioral_signals": [],
+    "execution_metrics": {},
+    "note": "no evidence available — analyzer cannot produce findings"
+  },
+  "cited_registry_ids": []
 }
 ```
 

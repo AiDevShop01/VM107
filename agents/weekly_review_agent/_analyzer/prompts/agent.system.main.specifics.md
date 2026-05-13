@@ -45,29 +45,37 @@ Assess behavioral trajectory:
 
 ## AnalyzerOutput Required Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `AnalyzerOutput.model_validate()` and rejects
+any deviation. All 5 top-level fields below are REQUIRED.
+
 ```json
 {
+  "schema_version": "1.0",
   "execution_id": null,
-  "quality_score": 68,
-  "behavioral_signals": [
-    {
-      "pattern_id": "hesitation",
-      "registry_id": "behavioral_pattern:hesitation",
-      "confidence": 0.88,
-      "evidence_field": "hesitation_seconds",
-      "frequency_pct": 45.0,
-      "cited_source": "behavioral_analysis_tool"
-    }
-  ],
-  "execution_metrics": {
-    "win_rate_pct": 52.0,
-    "avg_quality_score": 68,
-    "max_drawdown_pct": 4.2,
-    "total_executions_analyzed": 12,
-    "week_start": "2026-05-04",
-    "week_end": "2026-05-10"
-  },
+  "scope_context": { /* copy verbatim from input.scope_context */ },
   "findings": {
+    "quality_score": 68,
+    "behavioral_signals": [
+      {
+        "pattern_id": "hesitation",
+        "registry_id": "behavioral_pattern:hesitation",
+        "confidence": 0.88,
+        "evidence_field": "hesitation_seconds",
+        "frequency_pct": 45.0,
+        "cited_source": "behavioral_analysis_tool"
+      }
+    ],
+    "execution_metrics": {
+      "win_rate_pct": 52.0,
+      "avg_quality_score": 68,
+      "max_drawdown_pct": 4.2,
+      "total_executions_analyzed": 12,
+      "week_start": "2026-05-04",
+      "week_end": "2026-05-10"
+    },
+    "lenses": {
     "auditor": {
       "setup_adherence_rate": 0.83,
       "hesitation_frequency_pct": 45.0,
@@ -92,6 +100,7 @@ Assess behavioral trajectory:
       "recurring_failure_modes": ["hesitation on A+ setups"],
       "improvement_signals": ["no revenge trades this week"],
       "summary_note": "Hesitation persists on high-quality setups; revenge pattern absent."
+      }
     }
   },
   "cited_registry_ids": [
@@ -100,8 +109,25 @@ Assess behavioral trajectory:
     "get_performance_history:max_drawdown_pct",
     "get_regime_context:regime_class",
     "get_weekly_execution_summary:executions"
-  ],
-  "schema_version": 2
+  ]
+}
+```
+
+**Empty example (no evidence — STILL emit JSON):**
+
+```json
+{
+  "schema_version": "1.0",
+  "execution_id": null,
+  "scope_context": { /* copy verbatim from input.scope_context */ },
+  "findings": {
+    "quality_score": null,
+    "behavioral_signals": [],
+    "execution_metrics": {},
+    "lenses": {},
+    "note": "no evidence available for weekly analysis"
+  },
+  "cited_registry_ids": []
 }
 ```
 

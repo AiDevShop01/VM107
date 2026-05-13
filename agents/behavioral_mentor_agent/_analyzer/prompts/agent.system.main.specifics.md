@@ -24,41 +24,56 @@ where the pattern was detected:
 
 ## AnalyzerOutput Required Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `AnalyzerOutput.model_validate()` and rejects
+any deviation. All 5 top-level fields below are REQUIRED.
+
 ```json
 {
+  "schema_version": "1.0",
   "execution_id": null,
-  "quality_score": 65,
-  "behavioral_signals": [
-    {
-      "pattern_id": "hesitation",
-      "registry_id": "behavioral_pattern:hesitation",
-      "confidence": 0.92,
-      "evidence_field": "pattern_frequency_pct",
-      "frequency_pct": 62.5,
-      "cited_source": "get_cross_trade_behavioral_patterns"
-    },
-    {
-      "pattern_id": "revenge",
-      "registry_id": "behavioral_pattern:revenge",
-      "confidence": 0.78,
-      "evidence_field": "pattern_cluster_after_loss",
-      "frequency_pct": 41.0,
-      "cited_source": "get_cross_trade_behavioral_patterns"
+  "scope_context": { /* copy verbatim from input.scope_context */ },
+  "findings": {
+    "quality_score": 65,
+    "behavioral_signals": [
+      {
+        "pattern_id": "hesitation",
+        "registry_id": "behavioral_pattern:hesitation",
+        "confidence": 0.92,
+        "evidence_field": "pattern_frequency_pct",
+        "frequency_pct": 62.5,
+        "cited_source": "get_cross_trade_behavioral_patterns"
+      }
+    ],
+    "execution_metrics": {
+      "win_rate_pct": 44.2,
+      "avg_quality_score": 65,
+      "max_drawdown_pct": 8.3,
+      "total_executions_analyzed": 48
     }
-  ],
-  "execution_metrics": {
-    "win_rate_pct": 44.2,
-    "avg_quality_score": 65,
-    "max_drawdown_pct": 8.3,
-    "total_executions_analyzed": 48
   },
   "cited_registry_ids": [
     "behavioral_pattern:hesitation",
-    "get_cross_trade_behavioral_patterns:pattern_frequency_pct",
-    "behavioral_pattern:revenge",
-    "get_cross_trade_behavioral_patterns:pattern_cluster_after_loss"
-  ],
-  "schema_version": 2
+    "get_cross_trade_behavioral_patterns:pattern_frequency_pct"
+  ]
+}
+```
+
+**Empty example (no evidence — STILL emit JSON):**
+
+```json
+{
+  "schema_version": "1.0",
+  "execution_id": null,
+  "scope_context": { /* copy verbatim from input.scope_context */ },
+  "findings": {
+    "quality_score": null,
+    "behavioral_signals": [],
+    "execution_metrics": {},
+    "note": "no evidence available for cross-trade analysis"
+  },
+  "cited_registry_ids": []
 }
 ```
 

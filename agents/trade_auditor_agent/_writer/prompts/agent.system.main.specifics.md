@@ -27,34 +27,69 @@ Write in four logical sections. Each section maps to sentence classes:
 
 ## NarrativeEnvelope Shape
 
+**ALWAYS respond with a single raw JSON object matching this schema. No markdown
+fences in the response body, no wrappers, no explanatory prose before or after
+the JSON.** The orchestrator calls `NarrativeEnvelope.model_validate()` and
+rejects any deviation. `confidence_vector` MUST be `null` — the orchestrator
+fills it after the envelope is sealed (CTX-§9 LOCKED).
+
 ```json
 {
-  "execution_id": "<uuid>",
+  "schema_version": "1.0",
   "profile": "trade_auditor_agent",
-  "template_version": "1.0.0",
+  "execution_id": "<uuid>",
   "sentences": [
     {
-      "sentence_id": "s001",
-      "class": "TRANSITION",
+      "schema_version": "1.0",
+      "sentence_index": 0,
+      "sentence_class": "TRANSITION",
       "text": "This review covers execution {id} on {symbol}.",
-      "citations": []
+      "citations": [],
+      "unsourced": false
     },
     {
-      "sentence_id": "s002",
-      "class": "ASSERTION",
-      "text": "The trader delayed entry by ... [ref:behavioral_analysis_tool:hesitation_seconds].",
-      "citations": ["behavioral_analysis_tool:hesitation_seconds"]
+      "schema_version": "1.0",
+      "sentence_index": 1,
+      "sentence_class": "ASSERTION",
+      "text": "The trader delayed entry by 4.2 seconds [ref:behavioral_analysis_tool:hesitation_seconds].",
+      "citations": [
+        {
+          "schema_version": "1.0",
+          "registry_id": "behavioral_analysis_tool",
+          "field": "hesitation_seconds",
+          "frame_anchor": null,
+          "resolved_at": null
+        }
+      ],
+      "unsourced": false
     },
     {
-      "sentence_id": "s003",
-      "class": "SUMMARY",
+      "schema_version": "1.0",
+      "sentence_index": 2,
+      "sentence_class": "SUMMARY",
       "text": "Overall execution quality scored 72/100 [ref:trade_quality_score_tool:composite_score].",
-      "citations": ["trade_quality_score_tool:composite_score"]
+      "citations": [
+        {
+          "schema_version": "1.0",
+          "registry_id": "trade_quality_score_tool",
+          "field": "composite_score",
+          "frame_anchor": null,
+          "resolved_at": null
+        }
+      ],
+      "unsourced": false
     }
   ],
-  "schema_version": 2
+  "loaded_skills": [],
+  "confidence_vector": null
 }
 ```
+
+**Field-name reminders:**
+- Use `sentence_class` (not `class`), `sentence_index` (not `sentence_id`), `unsourced` (not `is_unsourced`)
+- Each citation is an **object** with `registry_id` + `field`, NOT a string
+- `loaded_skills` is `[]` unless skills were loaded
+- `confidence_vector: null` — orchestrator owns this
 
 ## Anti-Patterns
 
