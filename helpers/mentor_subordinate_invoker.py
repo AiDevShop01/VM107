@@ -148,6 +148,35 @@ async def invoke_mentor_subordinate(
             raw_output=raw or "",
         ) from exc
 
+    # 60-23: Agent Zero subagents commonly return output via the `response` tool,
+    # wrapping content as {"tool_name": "response", "tool_args": {"text": "<inner>"}}.
+    # When the LLM emits this convention, the inner `text` field carries the actual
+    # contract payload. Unwrap so downstream model_validate sees the raw payload.
+    # Backward-compat: if monologue() already returned raw contract JSON, keep it.
+    if (
+        isinstance(parsed, dict)
+        and parsed.get("tool_name") == "response"
+        and isinstance(parsed.get("tool_args"), dict)
+        and isinstance(parsed["tool_args"].get("text"), str)
+    ):
+        inner_text = parsed["tool_args"]["text"]
+        try:
+            inner_parsed = json.loads(inner_text)
+            parsed = inner_parsed
+        except json.JSONDecodeError:
+            # tool_args.text is prose, not JSON. Surface a sentinel so the
+            # orchestrator's model_validate fails with a recognizable error
+            # rather than the noisy 5-validation-error cascade.
+            logger.warning(
+                "mentor_subordinate_invoker: profile=%s response.tool_args.text is prose, not JSON (len=%d)",
+                profile,
+                len(inner_text),
+            )
+            parsed = {
+                "_unwrapped_prose": inner_text,
+                "_orig_tool_call": parsed,
+            }
+
     # Seal topic for compression (mirrors tools/call_subordinate.py:36)
     try:
         subordinate.history.new_topic()

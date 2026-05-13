@@ -294,6 +294,13 @@ class MentorPipelineOrchestrator:
                 input=reader_input,
                 headers=scope_headers,
             )
+            # 60-23: scope_context is an orchestrator-owned auth claim, not LLM-supplied.
+            # Overwrite with the known-good value (LLM may emit an abbreviated copy).
+            # execution_id is similarly orchestrator-known.
+            if isinstance(reader_raw, dict):
+                reader_raw["scope_context"] = scope_context.model_dump(mode="json")
+                if "execution_id" not in reader_raw or reader_raw["execution_id"] in (None, ""):
+                    reader_raw["execution_id"] = str(execution_id) if execution_id else None
             reader_output = ReaderOutput.model_validate(reader_raw)
         except Exception as exc:
             self._emit(
@@ -322,6 +329,14 @@ class MentorPipelineOrchestrator:
                 input=analyzer_input,
                 headers=scope_headers,
             )
+            # 60-23: orchestrator-injected scope_context + execution_id (LLM is unreliable
+            # at copying these verbatim; orchestrator owns these auth/identity fields).
+            if isinstance(analyzer_raw, dict):
+                analyzer_raw["scope_context"] = reader_output.scope_context.model_dump(mode="json")
+                if "execution_id" not in analyzer_raw or analyzer_raw["execution_id"] in (None, ""):
+                    analyzer_raw["execution_id"] = (
+                        str(reader_output.execution_id) if reader_output.execution_id else None
+                    )
             analyzer_output = AnalyzerOutput.model_validate(analyzer_raw)
         except Exception as exc:
             self._emit(
