@@ -1,0 +1,94 @@
+id: pattern_cluster_signal
+type: signal
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: pattern_cluster_signal
+description: >
+  PATTERN signal for structural trade-attribute vector clusters (CTX-DEC-13 LOCKED).
+  Produced monthly by the Dagster pattern_cluster_asset from frozen CohortSnapshot
+  + PatternClusterSnapshot rows.
+
+  CTX-DEC-13: Structured trade-attribute vector clustering ONLY.
+  NO narrative/LLM/mentor-prose substrate. NO vector embeddings as clustering source.
+  Feature vector composed from 5 deterministic substrates:
+    - trade_analytics_snapshot (Phase 57): entry_score, htf_alignment_score, etc.
+    - replay_artifact (Phase 59): decision_quality_score, mfe_capture_ratio
+    - counterfactual_aggregate_snapshot (62-02): avg_delta_r per cohort
+    - behavioral_evolution_series (62-04): 4-family metric means
+    - regime one-hot vectors (deterministic)
+
+  HDBSCAN V1 (min_cluster_size=10, min_samples=5, PCA n=12, random_state=42 on PCA).
+  Fallback to K-Means if HDBSCAN noise ratio > 60% (RESEARCH Open Q2 + plan spec).
+  Cluster labels are deterministic centroid-hash descriptors — NO LLM naming (Pitfall 7).
+
+  truth_mode LOCKED to ADAPTIVE_OBSERVATION (CTX-DEC-17).
+  origin_mode is HISTORICAL_BOOTSTRAP on first run, LIVE_FORWARD_ACCUMULATION thereafter.
+  SHADOW_ONLY — never surfaced in apply UI (CTX-DEC-15).
+
+  Phase 62 advisory hypothesis signal. NOT a trading instruction.
+  CTX-DEC-13: vector embeddings are retrieval substrate ONLY — NEVER clustering substrate.
+
+signal_category: PATTERN
+phase: 62
+version: "1.0.0"
+scope: advisory
+
+hdbscan_params:
+  min_cluster_size: 10
+  min_samples: 5
+  pca_n_components: 12
+  pca_random_state: 42
+  noise_threshold: 0.60
+
+fallback_algorithm: kmeans_v1
+fallback_trigger: "noise_ratio > 0.60"
+labeling_rule: "cluster_{i}_centroid_{sha256(centroid_bytes)[:12]}"
+
+source_asset: pattern_cluster_asset
+dagster_job: pattern_cluster_job
+cron: "00 23 1 * *"  # 1st of month, 23:00 UTC
+
+feature_vector_version: pdv1
+feature_substrates:
+  - trade_analytics_snapshot (Phase 57)
+  - replay_artifact (Phase 59)
+  - counterfactual_aggregate_snapshot (62-02)
+  - behavioral_evolution_series (62-04)
+  - regime_vectors (deterministic one-hot)
+
+citation_grammar: "[ref:pattern_cluster:<cluster_snapshot_id>:<cluster_id>]"
+resolvable_fields:
+  - cluster_id
+  - cluster_label
+  - cluster_snapshot_id
+  - cluster_count
+  - noise_count
+  - total_executions
+  - clustering_method
+  - status
+  - required_sample_size
+
+related_capabilities:
+  - get_pattern_cluster_membership_tool
+  - get_pattern_cluster_stats_tool
+  - behavioral_hesitation_evolution
+  - behavioral_premature_exit_evolution
+  - drift_counterfactual_delta
+
+tags:
+  - phase-62
+  - signal
+  - pattern
+  - adaptive
+  - shadow-only
+  - ctx-dec-13
+  - ctx-dec-14
+  - ctx-dec-15
+  - ctx-dec-16
+  - ctx-dec-17
+  - rg-9
+  - rg-10
+
+hard_scoped: true
