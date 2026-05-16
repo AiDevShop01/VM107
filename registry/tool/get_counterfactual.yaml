@@ -1,0 +1,76 @@
+id: get_counterfactual_tool
+type: tool
+status: shipped
+shipped: 61
+last_changed: 2026-05-16
+
+name: get_counterfactual
+description: >
+  Returns a single counterfactual artifact for a given (execution_id, scenario_id).
+  Calls VM100 GET /api/journal/internal/counterfactuals/{execution_id}/{scenario_id}
+  (no-auth internal endpoint). Returns the latest scenario_version by default.
+  Returns ToolError on 404 / 503/504/transport. Never raises (Pitfall 11).
+
+  Shadow-mode (Phase 61): Results are mentor-readable but NOT UI-surfaced (RG-7).
+  ScopeSpec.counterfactual_visibility must be CANONICAL_ONLY or ALL to see results.
+  NONE → empty result (default for non-mentor profiles).
+
+  Law #4 invariant: every returned artifact has truth_mode='COUNTERFACTUAL'.
+  Law #9 invariant: artifact was produced by deterministic Python simulation engine,
+  never by LLM.
+
+capability_type: counterfactual_lookup
+
+vm100_endpoint_path: /api/journal/internal/counterfactuals/{execution_id}/{scenario_id}
+http_method: GET
+parameters:
+  - name: execution_id
+    type: UUID
+    required: true
+    description: UUID of the closed Execution
+  - name: scenario_id
+    type: string
+    required: true
+    description: >
+      Registry ID of the scenario (e.g. counterfactual.stop.atr_1_0).
+      Dots are valid in scenario_ids (Phase 61-01 grammar extension).
+  - name: scenario_version
+    type: string
+    required: false
+    default: null
+    description: "SemVer version string; null = latest version for this scenario"
+
+return_type: CounterfactualArtifactMeta
+return_on_error: ToolError
+error_modes:
+  - code: not_found
+    http_status: 404
+    description: No counterfactual artifact exists for this (execution_id, scenario_id)
+  - code: visibility_blocked
+    http_status: 403
+    description: >
+      ScopeSpec.counterfactual_visibility=NONE — this profile is not authorized
+      to view counterfactual outcomes
+  - code: vm100_unavailable
+    http_status: null
+    description: Transport-level failure (ConnectError, TimeoutException)
+  - code: vm100_degraded
+    http_status: 503
+    description: VM100 returned HTTP 503 or 504
+
+contracts:
+  response: journal.contracts.counterfactual.CounterfactualArtifact
+  error: tools.counterfactual.get_counterfactual.ToolError
+
+capabilities:
+  - counterfactual_artifact_lookup
+
+related_capabilities:
+  - lookup_counterfactual_scenario_tool
+  - get_counterfactuals_for_execution_tool
+  - counterfactual_reader
+  - counterfactual_persister
+
+phase: 61
+tags: [phase-61, counterfactual, tool, agent-facing, internal-api, shadow-mode, law-4, law-9]
+hard_scoped: true

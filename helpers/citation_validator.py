@@ -38,6 +38,7 @@ REGISTRY_SUBDIRS = [
     "service",
     "collection",
     "state_machine",
+    "counterfactual_scenario",  # Phase 61-01 — Option B (dotted scenario_ids in field segment)
 ]
 
 # Heuristic regex for assertion-shaped SUMMARY content (conservative).

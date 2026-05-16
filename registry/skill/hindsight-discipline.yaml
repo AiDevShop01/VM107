@@ -1,0 +1,49 @@
+id: hindsight-discipline
+type: skill
+status: shipped
+shipped: 61
+last_changed: 2026-05-16
+
+name: hindsight-discipline
+description: >
+  Constitutional skill enforcing epistemic discipline when referencing or interpreting
+  counterfactual scenario outcomes. Prevents agents from treating hypothetical alternative
+  exits as omniscient ground truth, phrasing analysis as certainty claims, or ranking
+  alternative scenarios as optimization targets. Phase 61's primary guard against
+  hindsight contamination in agent output.
+
+scope: constitutional
+version: "1.0.0"
+phase: 61
+
+skill_md_path: VM107/skills/hindsight-discipline/SKILL.md
+
+applies_to_profiles:
+  - trade_auditor_agent
+  - behavioral_mentor_agent
+  - weekly_review_agent
+
+trigger_patterns:
+  - "counterfactual"
+  - "alternative exit"
+  - "what if"
+  - "could have"
+  - "would have"
+  - "hypothetical"
+  - "if you had"
+  - "hindsight"
+  - "[ref:counterfactual"
+
+enforcement:
+  mode: constitutional
+  violation_patterns:
+    - "certainty claim about counterfactual outcome without truth_mode framing"
+    - "ranking of alternative scenarios by outcome"
+    - "optimization claim derived from counterfactual simulation"
+    - "ASSERTION with future-facing recommendation derived from counterfactual"
+
+related_skills:
+  - citation-discipline
+
+tags: [phase-61, constitutional, counterfactual, hindsight-guard, epistemic-discipline, law-10]
+hard_scoped: true

@@ -1,0 +1,61 @@
+id: lookup_counterfactual_scenario_tool
+type: tool
+status: shipped
+shipped: 61
+last_changed: 2026-05-16
+
+name: lookup_counterfactual_scenario
+description: >
+  Returns scenario metadata for a registered counterfactual scenario_id.
+  Calls VM100 GET /api/journal/internal/counterfactuals/scenarios/{scenario_id}
+  (no-auth internal endpoint). Returns ScenarioMeta on success. Returns ToolError
+  on 404 (unknown scenario) / 503/504/transport. Never raises (Pitfall 11).
+
+  CONTEXT §61 (counterfactual surfaces):
+  This is the SCENARIO REGISTRY surface — fast lookup of scenario metadata
+  (scenario_id, scenario_version, scenario_tier, mentor_visible, description)
+  without fetching artifact data.
+
+  Shadow-mode (Phase 61): Only canonical-tier scenarios are registered.
+  Experimental-tier scenarios are not yet in production registry.
+
+capability_type: counterfactual_lookup
+
+vm100_endpoint_path: /api/journal/internal/counterfactuals/scenarios/{scenario_id}
+http_method: GET
+parameters:
+  - name: scenario_id
+    type: string
+    required: true
+    description: >
+      Registry ID of the scenario (e.g. counterfactual.stop.atr_1_0).
+      Dots are valid in scenario_ids (Phase 61-01 grammar extension).
+
+return_type: ScenarioMeta
+return_on_error: ToolError
+error_modes:
+  - code: not_found
+    http_status: 404
+    description: No scenario registered with this scenario_id
+  - code: vm100_unavailable
+    http_status: null
+    description: Transport-level failure (ConnectError, TimeoutException)
+  - code: vm100_degraded
+    http_status: 503
+    description: VM100 returned HTTP 503 or 504
+
+contracts:
+  response: journal.contracts.counterfactual.ScenarioRegistryEntry
+  error: tools.counterfactual.lookup_counterfactual_scenario.ToolError
+
+capabilities:
+  - counterfactual_scenario_registry_lookup
+
+related_capabilities:
+  - get_counterfactual_tool
+  - get_counterfactuals_for_execution_tool
+  - counterfactual_reader
+
+phase: 61
+tags: [phase-61, counterfactual, tool, agent-facing, internal-api, shadow-mode]
+hard_scoped: true
