@@ -159,6 +159,27 @@ class CitationValidator:
         cites: list[CitationToken],
     ) -> None:
         for c in cites:
+            if c.registry_id == "counterfactual":
+                # Phase 61-01 Option B: [ref:counterfactual:<field>] citations.
+                # Two supported forms:
+                #   (a) [ref:counterfactual:cf_<uuid>] — artifact-level: no registry lookup needed.
+                #   (b) [ref:counterfactual:<scenario_id>:<outcome_field>] — scenario-level:
+                #       validate scenario_id against counterfactual_scenario registry.
+                field = c.field
+                if field.startswith("cf_"):
+                    # Artifact-level citation — grammar-valid; no registry lookup.
+                    continue
+                # Scenario-level: extract scenario_id (first colon-separated segment).
+                # field = "counterfactual.stop.atr_1_5:hypothetical_r"
+                scenario_id = field.split(":")[0]
+                if scenario_id not in self._known:
+                    raise CitationViolation(
+                        sentence.sentence_index,
+                        sentence.sentence_class.value,
+                        f"unknown counterfactual scenario_id in citation: {scenario_id!r}. "
+                        f"Must be registered in VM107/registry/counterfactual_scenario/",
+                    )
+                continue
             if c.registry_id not in self._known:
                 raise CitationViolation(
                     sentence.sentence_index,
