@@ -1,0 +1,22 @@
+id: counterfactual.exit.mfe_aware_trail
+type: counterfactual_scenario
+status: shipped
+shipped: 61
+scenario_tier: canonical
+mentor_visible: true
+weekly_review_eligible: true
+policy_contract_class: fingpt_pipelines.counterfactual.policies.exit_mfe_aware_trail.ExitMfeAwareTrailPolicy
+uses_future_information: false
+scenario_version: "1.0.0"
+parameters:
+  giveback_fraction: 0.3
+  min_mfe_r_to_activate: 1.0
+description: >
+  Exit when retracement from peak MFE exceeds 30% of peak MFE. Policy activates only
+  after peak MFE crosses min_mfe_r_to_activate (1R default). MFE tracking reads
+  bars[entry:current_T] strictly at each frame T — no lookahead. explanation_summary
+  records mfe_giveback_pct and final_r for mentor citation.
+  Phase 61 deterministic — not optimization.
+phase: 61
+tags: [phase-61, exit, canonical, mfe, retracement, deterministic]
+hard_scoped: true

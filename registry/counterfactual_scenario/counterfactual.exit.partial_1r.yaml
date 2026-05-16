@@ -1,0 +1,21 @@
+id: counterfactual.exit.partial_1r
+type: counterfactual_scenario
+status: shipped
+shipped: 61
+scenario_tier: canonical
+mentor_visible: true
+weekly_review_eligible: true
+policy_contract_class: fingpt_pipelines.counterfactual.policies.exit_partial_1r.ExitPartial1RPolicy
+uses_future_information: false
+scenario_version: "1.0.0"
+parameters:
+  partial_fraction: 0.5
+  trigger_r_multiple: 1.0
+description: >
+  Takes 50% off at 1R MFE; remainder runs to original TP or original SL. Models the
+  classic "scale at 1R" discipline. Phase 61 deterministic — not optimization.
+  divergence_frame_id is set to the bar where the partial exit fires (or the
+  original exit bar if 1R is never reached).
+phase: 61
+tags: [phase-61, exit, canonical, partial, deterministic]
+hard_scoped: true

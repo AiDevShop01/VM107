@@ -1,0 +1,21 @@
+id: counterfactual.exit.trailing_atr
+type: counterfactual_scenario
+status: shipped
+shipped: 61
+scenario_tier: canonical
+mentor_visible: true
+weekly_review_eligible: true
+policy_contract_class: fingpt_pipelines.counterfactual.policies.exit_trailing_atr.ExitTrailingAtrPolicy
+uses_future_information: false
+scenario_version: "1.0.0"
+parameters:
+  atr_multiplier: 1.5
+  atr_lookback_bars: 14
+description: >
+  Trails SL at 1.5x ATR below highest-high-since-entry (LONG) or above lowest-low-since-entry
+  (SHORT). ATR recomputed at each forward frame T from bars[T - atr_lookback_bars : T]
+  (NEVER forward). divergence_frame_id is the bar where the trailing stop first fires.
+  Phase 61 deterministic — not optimization.
+phase: 61
+tags: [phase-61, exit, canonical, trailing, atr, deterministic]
+hard_scoped: true
