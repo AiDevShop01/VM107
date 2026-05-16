@@ -45,6 +45,7 @@ def _make_candidate_tools():
         # Adaptive tools
         {"name": "get_drift_report", "signal_category": "STRATEGIC"},
         {"name": "get_behavioral_drift_summary", "signal_category": "BEHAVIORAL"},
+        {"name": "get_behavioral_evolution", "signal_category": "BEHAVIORAL"},  # Phase 62-04
         {"name": "get_counterfactual_scenario_stats", "signal_category": "COUNTERFACTUAL_AGGREGATE"},
         {"name": "get_pattern_clusters", "signal_category": "PATTERN"},
     ]
@@ -82,6 +83,7 @@ def test_trade_auditor_receives_zero_adaptive_tools():
     # Adaptive tools excluded
     assert "get_drift_report" not in pruned_names
     assert "get_behavioral_drift_summary" not in pruned_names
+    assert "get_behavioral_evolution" not in pruned_names  # Phase 62-04 BEHAVIORAL
     assert "get_counterfactual_scenario_stats" not in pruned_names
     assert "get_pattern_clusters" not in pruned_names
 
@@ -111,14 +113,15 @@ def test_behavioral_mentor_receives_behavioral_only():
 
     # BEHAVIORAL allowed
     assert "get_behavioral_drift_summary" in pruned_names
+    assert "get_behavioral_evolution" in pruned_names  # Phase 62-04 BEHAVIORAL
 
     # Non-BEHAVIORAL adaptive excluded
     assert "get_drift_report" not in pruned_names  # STRATEGIC
     assert "get_counterfactual_scenario_stats" not in pruned_names  # COUNTERFACTUAL_AGGREGATE
     assert "get_pattern_clusters" not in pruned_names  # PATTERN
 
-    # Total: 2 non-adaptive + 1 BEHAVIORAL = 3
-    assert len(pruned) == 3
+    # Total: 2 non-adaptive + 2 BEHAVIORAL = 4
+    assert len(pruned) == 4
 
 
 # ---------------------------------------------------------------------------
@@ -137,11 +140,12 @@ def test_weekly_review_receives_all_adaptive_tools():
 
     pruned_names = {t["name"] for t in pruned}
 
-    # All tools pass through — non-adaptive + all 4 adaptive
+    # All tools pass through — non-adaptive + all adaptive
     assert "get_trade_context" in pruned_names
     assert "get_behavioral_edges" in pruned_names
     assert "get_drift_report" in pruned_names
     assert "get_behavioral_drift_summary" in pruned_names
+    assert "get_behavioral_evolution" in pruned_names  # Phase 62-04 BEHAVIORAL
     assert "get_counterfactual_scenario_stats" in pruned_names
     assert "get_pattern_clusters" in pruned_names
 

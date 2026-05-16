@@ -1,0 +1,84 @@
+id: behavioral_hesitation_evolution
+type: signal
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: behavioral_hesitation_evolution
+description: >
+  BEHAVIORAL signal for the HESITATION metric family (CTX-DEC-12 LOCKED).
+  Produced weekly by the Dagster behavioral_evolution_asset from frozen
+  CohortSnapshot + BehavioralEvolutionSeries rows for the HESITATION family.
+  Covers 3 locked metrics: entry_delay_seconds, confirmation_overwait, missed_A_plus_rate.
+
+  Measures longitudinal trends in trader hesitation behavior over trade cohorts.
+  Trend slope and Bayesian posterior (normal-normal conjugate, bayesian_normal_normal_v1)
+  assess whether hesitation is increasing or decreasing relative to baseline.
+
+  truth_mode LOCKED to ADAPTIVE_OBSERVATION (CTX-DEC-17).
+  origin_mode is HISTORICAL_BOOTSTRAP on first run, LIVE_FORWARD_ACCUMULATION thereafter.
+  SHADOW_ONLY — never surfaced in apply UI (CTX-DEC-15).
+
+  Phase 62 advisory hypothesis signal. NOT a trading instruction.
+  CTX-DEC-12: metric labels describe OBSERVABLE BEHAVIOR only — psychological
+  labels (fearfulness, confidence, discipline) are STRICTLY FORBIDDEN.
+
+signal_category: BEHAVIORAL
+phase: 62
+version: "1.0.0"
+scope: advisory
+
+metric_family: HESITATION
+metrics:
+  - name: entry_delay_seconds
+    description: Seconds between A+ signal candle close and order submission
+    statistical_method: bayesian_normal_normal_v1
+    min_sample: 100
+  - name: confirmation_overwait
+    description: Count of confirmation candles waited past planned entry
+    statistical_method: bayesian_normal_normal_v1
+    min_sample: 100
+  - name: missed_A_plus_rate
+    description: Fraction of A+ setups detected that were NOT entered
+    statistical_method: bayesian_normal_normal_v1
+    min_sample: 100
+
+source_asset: behavioral_evolution_asset
+dagster_job: behavioral_evolution_job
+cron: "40 23 * * 0"  # Sunday 23:40 UTC
+
+citation_grammar: "[ref:behavioral_evolution:<cohort_snapshot_id>:HESITATION:<metric_name>]"
+resolvable_fields:
+  - metric_value
+  - trend_slope
+  - trend_significance
+  - effect_size
+  - n_effective
+  - fragmentation_score
+  - evidence_density_label
+  - sample_size
+  - required_sample_size
+  - status
+
+related_capabilities:
+  - get_behavioral_evolution_tool
+  - behavioral_premature_exit_evolution
+  - behavioral_emotional_reactivity_evolution
+  - behavioral_rule_deviation_evolution
+  - drift_counterfactual_delta
+
+tags:
+  - phase-62
+  - signal
+  - behavioral
+  - hesitation
+  - adaptive
+  - shadow-only
+  - ctx-dec-12
+  - ctx-dec-14
+  - ctx-dec-15
+  - ctx-dec-16
+  - ctx-dec-17
+  - rg-10
+
+hard_scoped: true
