@@ -1,0 +1,95 @@
+id: get_regime_adaptation_candidates_tool
+type: tool
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: get_regime_adaptation_candidates
+description: >
+  Returns regime-scoped AdaptiveRecommendation candidate rows for a given
+  cohort_snapshot_id from VM100. Calls VM100 GET
+  /api/journal/internal/adaptive/regime-adaptation-candidates/{cohort_snapshot_id}.
+  NEVER recomputes live — reads frozen Postgres rows only (CTX-DEC-16).
+
+  Regime-scoped variant of get_adaptive_recommendations: surfaces the regime-specific
+  adaptation hypothesis subset. Complements the full recommendations list by filtering
+  to candidates whose target_cohort_key includes the current regime context.
+
+  CTX-DEC-14 defense-in-depth: returns [] immediately if REGIME_ADAPTATION is NOT
+  in the caller's adaptive_signal_categories frozenset. The MentorPipelineOrchestrator
+  ALSO prunes tools BEFORE planning — this is additional per-tool enforcement.
+
+  RG-11 + CTX-DEC-15: Enforces SHADOW_ONLY envelope at tool layer.
+  Raises ToolError if VM100 response is missing _shadow_only=True or has it as False.
+  This is load-bearing defense-in-depth — VM100 MUST assert the flag in every response.
+
+  Returns empty list [] on 404 (no regime-scoped candidates yet — normal before
+  sufficient live-forward data accumulation meets N>=75 threshold).
+  Returns [] on transport error (graceful degradation).
+
+  truth_mode=ADAPTIVE_OBSERVATION on returned rows (CTX-DEC-17).
+  SHADOW_ONLY framing — never surfaced in apply UI (CTX-DEC-15).
+  Phase 39 typed-API lock: VM107 calls VM100 APIs; never direct DB access.
+
+capability_type: regime_adaptation_candidate_lookup
+
+signal_category: REGIME_ADAPTATION
+vm100_endpoint_path: /api/journal/internal/adaptive/regime-adaptation-candidates/{cohort_snapshot_id}
+http_method: GET
+parameters:
+  - name: cohort_snapshot_id
+    type: str (UUID)
+    required: true
+    description: UUID string of the cohort snapshot to retrieve regime adaptation candidates for
+  - name: adaptive_signal_categories
+    type: frozenset
+    required: true
+    description: >
+      Frozenset of AdaptiveSignalCategory values resolved from ScopeContext.
+      If REGIME_ADAPTATION not present, returns [] without calling VM100.
+
+return_type: list[dict]  # {candidate_id, regime_id, target_cohort_key, recommended_threshold, ...}
+return_on_error: []  # empty list — never raises (except ToolError for missing envelope flag)
+error_modes:
+  - code: shadow_only_missing
+    http_status: 200
+    description: VM100 response missing _shadow_only=True — raises ToolError (RG-11)
+  - code: vm100_unavailable
+    http_status: null
+    description: Transport error — returns []
+  - code: vm100_404
+    http_status: 404
+    description: No regime adaptation candidates for this cohort yet — returns []
+  - code: scope_pruned
+    http_status: null
+    description: REGIME_ADAPTATION not in adaptive_signal_categories — returns [] without HTTP call
+  - code: env_missing
+    http_status: null
+    description: VM100_INTERNAL_BASE_URL not set — raises KeyError (env-driven fail-fast)
+
+capabilities:
+  - regime_adaptation_candidate_read
+
+related_capabilities:
+  - adaptive_recommendation_signal
+  - get_adaptive_recommendations_tool
+  - get_drift_report_tool
+  - get_behavioral_evolution_tool
+  - pattern_cluster_signal
+
+phase: 62
+tags:
+  - phase-62
+  - tool
+  - adaptive
+  - regime-adaptation
+  - shadow-only
+  - internal-api
+  - envelope-enforcement
+  - ctx-dec-14
+  - ctx-dec-15
+  - ctx-dec-16
+  - ctx-dec-17
+  - rg-11
+
+hard_scoped: true

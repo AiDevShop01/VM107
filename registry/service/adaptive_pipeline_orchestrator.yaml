@@ -1,0 +1,96 @@
+id: adaptive_pipeline_orchestrator
+type: service
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: AdaptivePipelineOrchestrator
+description: >
+  Phase 62 weekly adaptive intelligence pipeline orchestrator.
+  Coordinates the 4-asset Dagster weekly run: counterfactual_aggregate → drift_report
+  → behavioral_evolution → pattern_cluster → adaptive_recommendation.
+
+  Owned by Dagster fingpt_orchestration package. All 5 assets run weekly on the
+  following cron schedule (CTX-DEC-9 cron lock):
+    - Sunday 23:30 UTC: counterfactual_aggregate_weekly
+    - Sunday 23:55 UTC: drift_report_weekly
+    - Sunday 23:40 UTC: behavioral_evolution_weekly (before drift_report by design)
+    - 1st of month 23:00 UTC: pattern_cluster_monthly
+    - Monday 00:05 UTC: adaptive_recommendation_weekly (after all Sunday assets)
+
+  All schedules default STOPPED (Pitfall 10). Operator enables after verifying
+  all VM100 pool members are deployed with migrations applied.
+
+  The adaptive_recommendation_weekly schedule is the terminal output stage.
+  It depends on [drift_report_asset, counterfactual_aggregate_asset,
+  behavioral_evolution_asset, pattern_cluster_asset] via Dagster asset deps.
+
+  SHADOW_ONLY V1 invariant (CTX-DEC-15): ALL Phase 62 assets produce
+  SHADOW_ONLY advisory outputs. No apply UI exists. No recommendations are
+  acted upon automatically. Humans authorize epistemic change.
+
+  CTX-DEC-19 / Pitfall 8: Forward-only invariant enforced at Dagster entry.
+  origin_mode = LIVE_FORWARD_ACCUMULATION assertion at asset entry — above
+  the DB-layer CHECK constraint (defense-in-depth).
+
+  Phase 39 typed-API discipline: Dagster orchestrates via VM100 typed HTTP APIs.
+  No direct Postgres access from Dagster. No cross-VM filesystem reads.
+
+version: "1.0.0"
+phase: 62
+producer: Dagster (fingpt_orchestration)
+
+assets:
+  - counterfactual_aggregate_asset (62-03)
+  - drift_report_asset (62-03)
+  - behavioral_evolution_asset (62-04)
+  - pattern_cluster_asset (62-05)
+  - adaptive_recommendation_asset (62-06)
+
+schedules:
+  - id: counterfactual_aggregate_weekly
+    cron: "30 23 * * 0"
+    default_status: STOPPED
+  - id: drift_report_weekly
+    cron: "55 23 * * 0"
+    default_status: STOPPED
+  - id: behavioral_evolution_weekly
+    cron: "40 23 * * 0"
+    default_status: STOPPED
+  - id: pattern_cluster_monthly
+    cron: "00 23 1 * *"
+    default_status: STOPPED
+  - id: adaptive_recommendation_weekly
+    cron: "05 00 * * 1"
+    default_status: STOPPED
+
+related_capabilities:
+  - adaptive_recommendation_signal
+  - pattern_cluster_signal
+  - drift_strategy_category_regime
+  - behavioral_hesitation_evolution
+  - mentor_pipeline_orchestrator
+  - get_adaptive_recommendations_tool
+  - get_regime_adaptation_candidates_tool
+
+location:
+  dagster_definitions: fingpt_orchestration/src/fingpt_orchestration/definitions.py
+  jobs: fingpt_orchestration/src/fingpt_orchestration/jobs/adaptive_jobs.py
+  schedules: fingpt_orchestration/src/fingpt_orchestration/schedules/adaptive_schedules.py
+
+tags:
+  - phase-62
+  - orchestration
+  - adaptive
+  - shadow-only
+  - dagster
+  - weekly-pipeline
+  - ctx-dec-5
+  - ctx-dec-9
+  - ctx-dec-15
+  - ctx-dec-19
+  - pitfall-8
+  - pitfall-10
+  - rg-11
+
+hard_scoped: true

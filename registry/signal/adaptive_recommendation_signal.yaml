@@ -1,0 +1,116 @@
+id: adaptive_recommendation_signal
+type: signal
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: adaptive_recommendation_signal
+description: >
+  ADAPTIVE_RECOMMENDATION signal for weekly threshold-adjustment hypotheses
+  (CTX-DEC-5 two-tier WORM LOCKED).
+  Produced weekly by the Dagster adaptive_recommendation_asset (Monday 00:05 UTC)
+  from drift_report + counterfactual_aggregate + behavioral_evolution + pattern_cluster
+  substrate via AdaptiveRecommendationService.propose().
+
+  CTX-DEC-5: Two-tier WORM schema. recommended_* columns (V1 writes) + applied_* columns
+  (schema-only, enforced NULL via CHECK constraint). Applied tier reserved for V2
+  — NOT available in Phase 62.
+
+  CTX-DEC-15: SHADOW_ONLY V1 invariant. applied_threshold/applied_by/applied_at
+  all NULL via Postgres CHECK. The _shadow_only: True envelope flag is mandatory
+  in every VM100 API response. VM107 tools enforce at call layer (RG-11).
+
+  CTX-DEC-19 / Pitfall 8: Forward-only invariant.
+  origin_mode = 'LIVE_FORWARD_ACCUMULATION' enforced by Postgres CHECK constraint.
+  HISTORICAL_BOOTSTRAP is forbidden at DB layer + Dagster asset entry assertion.
+
+  Tightened significance gates (CTX-DEC-10 + CTX-DEC-11):
+    - N >= 75 (vs 30 for drift detection)
+    - fragmentation < 0.3 (vs 0.7 for drift detection)
+    - posterior >= 0.9
+    - effect_size >= 0.2
+  5-gate SignificanceGate.evaluate() from 62-02 plus fragmentation_ratio.
+
+  V1 target surfaces (CTX-DEC-5 narrow V1 surface — 3 surfaces only):
+    - category_point_weight
+    - recommendation_band_threshold
+    - confidence_degradation_magnitude
+
+  truth_mode LOCKED to ADAPTIVE_OBSERVATION (CTX-DEC-17).
+  SHADOW_ONLY — never surfaced in apply UI (CTX-DEC-15).
+  Phase 62 advisory hypothesis signal. NOT a trading instruction.
+
+  recommended_by_model composite (RESEARCH Open Q4):
+    "adaptive_v1.0.0|bayes=normal_normal_v1|frag=newey_west_v1|cohort=<cohort_key>"
+
+signal_category: ADAPTIVE_RECOMMENDATION
+phase: 62
+version: "1.0.0"
+scope: advisory
+
+significance_gates:
+  min_sample_size: 75
+  min_effect_size: 0.2
+  posterior_threshold: 0.9
+  fragmentation_cap: 0.3
+  regime_segments_required: true
+
+target_surfaces:
+  - category_point_weight
+  - recommendation_band_threshold
+  - confidence_degradation_magnitude
+
+schema_version: two_tier_worm_v1
+recommended_by_model_version: "adaptive_v1.0.0|bayes=normal_normal_v1|frag=newey_west_v1"
+
+source_asset: adaptive_recommendation_asset
+dagster_job: adaptive_recommendation_job
+cron: "05 00 * * 1"  # Monday 00:05 UTC (after drift_report Sunday 23:55 UTC)
+default_schedule_status: STOPPED  # Pitfall 10: operator enables after pool-deploy verification
+
+citation_grammar: "[ref:adaptive_recommendation:<recommendation_id>]"
+resolvable_fields:
+  - recommendation_id
+  - recommended_threshold
+  - recommended_by_model
+  - status
+  - origin_mode
+  - target_surface
+  - target_cohort_key
+  - delta_from_current
+
+related_capabilities:
+  - get_adaptive_recommendations_tool
+  - get_regime_adaptation_candidates_tool
+  - drift_strategy_category_regime
+  - behavioral_hesitation_evolution
+  - pattern_cluster_signal
+
+prometheus_counters:
+  - adaptive_recommendation_generated_total
+  - insufficient_sample_total
+  - recommendation_accuracy_total
+  - recommendation_survival_total
+  - recommendation_regime_stability_total
+  - recommendation_false_positive_total
+
+tags:
+  - phase-62
+  - signal
+  - adaptive-recommendation
+  - adaptive
+  - shadow-only
+  - two-tier-worm
+  - forward-only
+  - ctx-dec-5
+  - ctx-dec-10
+  - ctx-dec-11
+  - ctx-dec-14
+  - ctx-dec-15
+  - ctx-dec-17
+  - ctx-dec-19
+  - rg-11
+  - pitfall-8
+  - pitfall-10
+
+hard_scoped: true
