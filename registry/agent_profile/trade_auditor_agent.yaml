@@ -37,6 +37,7 @@ memory_scope:
   execution_scope: "required"
   cross_trade_visibility: "NONE"
   narrative_visibility: "NONE"
+  adaptive_signal_categories: []
 
 max_iterations: 5
 max_cost_usd: 0.50
@@ -49,5 +50,8 @@ template_version_changelog:
   - version: "1.0.0"
     date: "2026-05-12"
     change: "Initial Phase 60 Wave 2 release — NESTED 3-tier profile"
+  - version: "1.1.0"
+    date: "2026-05-16"
+    change: "Phase 62-03: add adaptive_signal_categories=[] to memory_scope (CTX-DEC-14). Per-trade scope must not include adaptive signals — no adaptive-discipline skill added."
 
 tags: [agent-profile, mentor, single-execution, phase-60, wave-2]

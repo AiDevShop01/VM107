@@ -1,0 +1,86 @@
+id: get_drift_report_tool
+type: tool
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: get_drift_report
+description: >
+  Returns persisted DriftReport rows for a frozen cohort snapshot.
+  Calls VM100 GET /api/journal/internal/adaptive/drift-report/{cohort_snapshot_id}.
+  NEVER recomputes live — reads frozen Postgres rows only (CTX-DEC-16).
+
+  CTX-DEC-14 defense-in-depth: returns [] immediately if STRATEGIC is NOT in
+  the caller's adaptive_signal_categories frozenset. The MentorPipelineOrchestrator
+  ALSO prunes tools BEFORE planning — this is additional per-tool enforcement.
+
+  Returns empty list [] on 404 (no DriftReport computed yet — normal in Phase 62.1
+  before the first weekly run). Returns [] on transport error (graceful degradation).
+
+  truth_mode=ADAPTIVE_OBSERVATION on all returned rows (CTX-DEC-17).
+  SHADOW_ONLY framing — never surfaced in apply UI (CTX-DEC-15).
+  Phase 39 typed-API lock: Dagster and VM107 call VM100 APIs; never direct DB access.
+
+capability_type: adaptive_drift_lookup
+
+signal_category: STRATEGIC
+vm100_endpoint_path: /api/journal/internal/adaptive/drift-report/{cohort_snapshot_id}
+http_method: GET
+parameters:
+  - name: cohort_snapshot_id
+    type: str (UUID)
+    required: true
+    description: UUID string of the frozen CohortSnapshot
+  - name: adaptive_signal_categories
+    type: frozenset
+    required: true
+    description: >
+      Frozenset of AdaptiveSignalCategory values resolved from ScopeContext.
+      If STRATEGIC not present, returns [] without calling VM100.
+
+return_type: list[dict]  # DriftReportRow-shaped dicts
+return_on_error: []  # empty list — never raises (graceful degradation)
+error_modes:
+  - code: vm100_unavailable
+    http_status: null
+    description: Transport error (ConnectError, TimeoutException) — returns []
+  - code: vm100_404
+    http_status: 404
+    description: No DriftReport computed yet for this cohort — returns []
+  - code: vm100_http_error
+    http_status: 4xx/5xx
+    description: HTTP status error — returns []
+  - code: scope_pruned
+    http_status: null
+    description: STRATEGIC not in adaptive_signal_categories — returns [] without HTTP call
+
+contracts:
+  response: list[fingpt_core.contracts.adaptive.drift_report.DriftReportRow]
+  error: []  # empty list on all failure modes
+
+capabilities:
+  - adaptive_drift_read
+
+related_capabilities:
+  - drift_strategy_category_regime
+  - drift_winrate_calibration
+  - get_behavioral_drift_summary_tool
+  - get_counterfactual_scenario_stats_tool
+
+phase: 62
+tags:
+  - phase-62
+  - tool
+  - adaptive
+  - drift
+  - strategic
+  - shadow-only
+  - internal-api
+  - ctx-dec-14
+  - ctx-dec-15
+  - ctx-dec-16
+  - ctx-dec-17
+  - rg-10
+  - rg-13
+
+hard_scoped: true

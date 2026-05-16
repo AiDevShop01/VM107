@@ -1,0 +1,56 @@
+id: drift_strategy_category_regime
+type: signal
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: drift_strategy_category_regime
+description: >
+  STRATEGIC drift signal for (strategy × scoring_category × regime) cohort observations.
+  Produced weekly by the Dagster drift_report_asset from frozen CohortSnapshot rows.
+  Carries posterior_probability, effect_size, fragmentation_score, and
+  autocorrelation-deflated n_effective per CTX-DEC-6.
+
+  truth_mode LOCKED to ADAPTIVE_OBSERVATION (CTX-DEC-17).
+  origin_mode is HISTORICAL_BOOTSTRAP on first run, LIVE_FORWARD_ACCUMULATION thereafter.
+  SHADOW_ONLY — never surfaced in apply UI (CTX-DEC-15).
+
+  Phase 62 advisory hypothesis signal. NOT a trading instruction.
+
+signal_category: STRATEGIC
+phase: 62
+version: "1.0.0"
+scope: advisory
+
+source_asset: drift_report_asset
+dagster_job: drift_report_job
+cron: "55 23 * * 0"  # Sunday 23:55 UTC
+
+citation_grammar: "[ref:drift_report:<cohort_snapshot_id>:<field>]"
+resolvable_fields:
+  - drift_score
+  - effect_size
+  - posterior_probability
+  - n_effective
+  - fragmentation_score
+  - evidence_density_label
+  - status
+
+related_capabilities:
+  - get_drift_report_tool
+  - drift_counterfactual_delta
+  - drift_winrate_calibration
+  - cohort_dirty_sensor
+
+tags:
+  - phase-62
+  - signal
+  - strategic
+  - drift
+  - adaptive
+  - shadow-only
+  - ctx-dec-14
+  - ctx-dec-17
+  - rg-10
+
+hard_scoped: true

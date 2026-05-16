@@ -1,0 +1,58 @@
+id: drift_counterfactual_delta
+type: signal
+status: shipped
+shipped: 62
+last_changed: 2026-05-16
+
+name: drift_counterfactual_delta
+description: >
+  COUNTERFACTUAL_AGGREGATE signal for (scenario × cohort) aggregate observations.
+  Produced weekly by the Dagster counterfactual_aggregate_asset from frozen
+  CohortSnapshot + CounterfactualAggregateSnapshot rows.
+  Carries avg_delta_r, n_effective, is_sufficient_sample, fragmentation_score,
+  and evidence_density_label per CTX-DEC-16.
+
+  truth_mode LOCKED to ADAPTIVE_OBSERVATION (CTX-DEC-17).
+  origin_mode is HISTORICAL_BOOTSTRAP on first run, LIVE_FORWARD_ACCUMULATION thereafter.
+  SHADOW_ONLY — never surfaced in apply UI (CTX-DEC-15).
+
+  Phase 62 advisory hypothesis signal. NOT a trading instruction.
+  CTX-DEC-16: CF aggregation is a DUAL LAYER — Dagster asset computes and freezes;
+  VM107 tool reads frozen snapshot. Never live-recomputed.
+
+signal_category: COUNTERFACTUAL_AGGREGATE
+phase: 62
+version: "1.0.0"
+scope: advisory
+
+source_asset: counterfactual_aggregate_asset
+dagster_job: counterfactual_aggregate_job
+cron: "30 23 * * 0"  # Sunday 23:30 UTC
+
+citation_grammar: "[ref:counterfactual_aggregate:<cohort_snapshot_id>:<field>]"
+resolvable_fields:
+  - avg_delta_r
+  - n_executions
+  - n_effective
+  - is_sufficient_sample
+  - evidence_density_label
+  - fragmentation_score
+  - required_sample_size
+
+related_capabilities:
+  - get_counterfactual_scenario_stats_tool
+  - drift_strategy_category_regime
+  - cohort_dirty_sensor
+
+tags:
+  - phase-62
+  - signal
+  - counterfactual-aggregate
+  - adaptive
+  - shadow-only
+  - ctx-dec-14
+  - ctx-dec-16
+  - ctx-dec-17
+  - rg-10
+
+hard_scoped: true

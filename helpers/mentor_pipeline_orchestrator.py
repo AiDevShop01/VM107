@@ -52,6 +52,7 @@ from fingpt_core.contracts.narrative.reader_io import ReaderInput, ReaderOutput
 from fingpt_core.contracts.narrative.analyzer_io import AnalyzerInput, AnalyzerOutput
 from fingpt_core.contracts.narrative.writer_io import WriterInput
 from fingpt_core.contracts.narrative.scope import ScopeContext, TruthMode
+from fingpt_core.contracts.adaptive.enums import AdaptiveSignalCategory
 from helpers.citation_validator import CitationValidator, CitationViolation
 from helpers.confidence_vector_calculator import ConfidenceVectorCalculator
 from helpers.scope_dispatcher import ScopeDispatcher
@@ -168,6 +169,55 @@ class MentorPipelineOrchestrator:
             )
             return {}
 
+    @staticmethod
+    def _prune_tools_by_adaptive_scope(
+        profile_memory_scope: dict,
+        candidate_tools: list[dict],
+    ) -> list[dict]:
+        """Prune candidate tools by adaptive_signal_categories from the profile's memory_scope.
+
+        CTX-DEC-14 + Pitfall 5: prune BEFORE planning, NOT filter AFTER retrieval.
+        This method is called BEFORE the LLM planner (reader stage) runs — out-of-scope
+        adaptive tools are removed from the candidate set and NEVER invoked.
+
+        Non-adaptive tools (no signal_category key, or signal_category=None) are always allowed.
+        Adaptive tools are allowed only if their signal_category is in the profile's
+        adaptive_signal_categories frozenset.
+
+        Args:
+            profile_memory_scope: The agent profile's memory_scope dict (from YAML).
+                Expected to contain 'adaptive_signal_categories' key (list or absent).
+            candidate_tools: List of tool dicts, each optionally carrying 'signal_category'.
+
+        Returns:
+            Filtered list of candidate tools — out-of-scope adaptive tools removed.
+        """
+        # Extract allowed adaptive signal categories from profile memory_scope
+        raw_categories = profile_memory_scope.get("adaptive_signal_categories", [])
+        allowed: frozenset[AdaptiveSignalCategory] = frozenset(
+            AdaptiveSignalCategory(c) if isinstance(c, str) else c
+            for c in (raw_categories or [])
+        )
+
+        pruned = []
+        for tool in candidate_tools:
+            tool_signal_category = tool.get("signal_category")
+            if tool_signal_category is None:
+                # Non-adaptive tool — always allowed
+                pruned.append(tool)
+                continue
+            try:
+                category_enum = AdaptiveSignalCategory(tool_signal_category)
+            except ValueError:
+                # Unknown signal_category value — treat as non-adaptive, allow
+                pruned.append(tool)
+                continue
+            if category_enum in allowed:
+                pruned.append(tool)
+            # else: out-of-scope adaptive tool — excluded from planning (Pitfall 5)
+
+        return pruned
+
     async def run(
         self,
         *,
@@ -181,6 +231,8 @@ class MentorPipelineOrchestrator:
         truth_mode: TruthMode,
         replay_metadata: dict | None = None,
         regime_snapshot_age_hours: float = 0.0,
+        candidate_tools: list[dict] | None = None,
+        profile_memory_scope: dict | None = None,
     ) -> NarrativeEnvelope:
         """Execute the locked stage flow per CTX-§3.
 
@@ -203,6 +255,25 @@ class MentorPipelineOrchestrator:
         # ScopeContext is owned by the orchestrator; subordinates never sign their own scope (CTX-§5 LOCKED).
         scope_headers = self._prepare_scope_headers(scope_context, correlation_id)
 
+        # Phase 62-03 (CTX-DEC-14 + Pitfall 5): prune adaptive tools BEFORE planning.
+        # Tools whose signal_category is NOT in profile_memory_scope.adaptive_signal_categories
+        # are removed from the candidate set here — they are NEVER passed to the LLM planner.
+        # This is the primary firewall; individual tools also defend-in-depth (CTX-DEC-14).
+        _effective_candidate_tools: list[dict] = []
+        if candidate_tools:
+            _scope_for_prune = profile_memory_scope or {}
+            _effective_candidate_tools = self._prune_tools_by_adaptive_scope(
+                profile_memory_scope=_scope_for_prune,
+                candidate_tools=candidate_tools,
+            )
+            self._emit(
+                "adaptive_tools_pruned",
+                correlation_id,
+                original_count=len(candidate_tools),
+                pruned_count=len(_effective_candidate_tools),
+                execution_id=str(execution_id),
+            )
+
         # Emit pipeline start
         self._emit("mentor_pipeline_started", correlation_id, execution_id=str(execution_id))
 
@@ -214,6 +285,7 @@ class MentorPipelineOrchestrator:
             scope_context=scope_context,
             replay_artifact_id=replay_artifact_id,
             scope_headers=scope_headers,
+            effective_candidate_tools=_effective_candidate_tools,
         )
         self._emit("reader_completed", correlation_id, execution_id=str(execution_id))
 
@@ -281,19 +353,32 @@ class MentorPipelineOrchestrator:
         scope_context: ScopeContext,
         replay_artifact_id: UUID | None,
         scope_headers: dict,
+        effective_candidate_tools: list[dict] | None = None,
     ) -> ReaderOutput:
-        """Invoke reader sub-profile and validate output. Hard-fail boundary 1."""
+        """Invoke reader sub-profile and validate output. Hard-fail boundary 1.
+
+        Phase 62-03 (CTX-DEC-14): effective_candidate_tools is already pruned by
+        _prune_tools_by_adaptive_scope before this method is called. The reader
+        sub-profile ONLY sees the pre-pruned tool set — out-of-scope adaptive tools
+        are never included in the planning context (Pitfall 5 firewall).
+        """
         reader_input = ReaderInput(
             execution_id=execution_id,
             scope_context=scope_context,
             replay_artifact_id=replay_artifact_id,
         )
         try:
-            reader_raw = await self._invoke(
+            # Pass effective_candidate_tools to the reader sub-profile so only
+            # pre-pruned tools are available during LLM planning (CTX-DEC-14 Pitfall 5).
+            # If None (no candidate_tools supplied to run()), omit from invoke kwargs.
+            invoke_kwargs: dict = dict(
                 profile=f"{self._profile}._reader",
                 input=reader_input,
                 headers=scope_headers,
             )
+            if effective_candidate_tools is not None:
+                invoke_kwargs["candidate_tools"] = effective_candidate_tools
+            reader_raw = await self._invoke(**invoke_kwargs)
             # 60-23: scope_context is an orchestrator-owned auth claim, not LLM-supplied.
             # Overwrite with the known-good value (LLM may emit an abbreviated copy).
             # execution_id is similarly orchestrator-known.
