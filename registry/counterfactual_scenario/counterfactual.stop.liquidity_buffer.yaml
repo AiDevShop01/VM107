@@ -1,0 +1,22 @@
+id: counterfactual.stop.liquidity_buffer
+type: counterfactual_scenario
+status: shipped
+shipped: 61
+scenario_tier: canonical
+mentor_visible: true
+weekly_review_eligible: true
+policy_contract_class: fingpt_pipelines.counterfactual.policies.stop_liquidity_buffer.StopLiquidityBufferPolicy
+uses_future_information: false
+scenario_version: "1.0.0"
+parameters:
+  buffer_bars: 5
+  swing_lookback: 10
+description: >
+  Alternative stop policy placing SL behind the nearest pre-entry swing low (long)
+  or swing high (short) with a 5-bar buffer zone. Swing structure identified from
+  the 10 bars immediately preceding entry — strictly pre-entry information.
+  Phase 61 Law #3 enforced; engine raises FutureLeakageError if any post-entry
+  bar is accessed during swing detection.
+phase: 61
+tags: [phase-61, stop, canonical, deterministic, liquidity, swing]
+hard_scoped: true

@@ -1,0 +1,21 @@
+id: counterfactual.stop.session_range
+type: counterfactual_scenario
+status: shipped
+shipped: 61
+scenario_tier: canonical
+mentor_visible: true
+weekly_review_eligible: true
+policy_contract_class: fingpt_pipelines.counterfactual.policies.stop_session_range.StopSessionRangePolicy
+uses_future_information: false
+scenario_version: "1.0.0"
+parameters:
+  session: preceding
+description: >
+  Alternative stop policy placing SL at the session high/low of the trading session
+  immediately preceding entry. Long: SL at preceding session low. Short: SL at
+  preceding session high. Session boundary determined from pre-entry bar timestamps.
+  Phase 61 Law #3 enforced; engine raises FutureLeakageError if any post-entry
+  bar is accessed during session range detection.
+phase: 61
+tags: [phase-61, stop, canonical, deterministic, session, range]
+hard_scoped: true
