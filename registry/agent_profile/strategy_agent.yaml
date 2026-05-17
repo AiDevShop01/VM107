@@ -1,50 +1,50 @@
 id: strategy_agent
 type: agent_profile
-status: shipped
+status: real
 shipped: 37
 last_changed: 2026-05-12
 name: strategy_agent
-description: >
-  Pure-transformation agent. Translates a valid Hypothesis into a structured
-  StrategySpec (Phase 37 Pydantic schema). Source-agnostic — accepts Hypothesis
-  from any caller.  Not a Phase 60 mentor profile; has no constitutional skills
-  and operates without account/execution scope.
-version: "1.0.0"
+description: 'Pure-transformation agent. Translates a valid Hypothesis into a structured
+  StrategySpec (Phase 37 Pydantic schema). Source-agnostic — accepts Hypothesis from
+  any caller.  Not a Phase 60 mentor profile; has no constitutional skills and operates
+  without account/execution scope.
+
+  '
+version: 1.0.0
 phase: 37
 parent_profile: null
 hard_scoped: false
-
 sub_profiles: []
-
 allowed_tools:
-  - search_knowledge
-  - document_query
-  - response
+- search_knowledge
+- document_query
+- response
 denied_tools:
-  - call_subordinate
-  - code_execution_tool
-  - trade_execution_tool
-
+- call_subordinate
+- code_execution_tool
+- trade_execution_tool
 constitutional_skills: []
 optional_skills: []
 allowed_skills: []
-
 memory_scope:
-  account_scope: "NONE"
-  execution_scope: "NONE"
-  cross_trade_visibility: "NONE"
-  narrative_visibility: "NONE"
-
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
 max_iterations: 10
 max_cost_usd: 1.0
-
 input_contract: null
 output_contract: null
-
-template_version: "1.0.0"
+template_version: 1.0.0
 template_version_changelog:
-  - version: "1.0.0"
-    date: "2026-05-12"
-    change: "Backfilled to Phase 47.6 registry coverage standard (schema_version 2)"
-
-tags: [agent-profile, strategy, backfill, phase-47.6-coverage]
+- version: 1.0.0
+  date: '2026-05-12'
+  change: Backfilled to Phase 47.6 registry coverage standard (schema_version 2)
+tags:
+- agent-profile
+- strategy
+- backfill
+- phase-47.6-coverage
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

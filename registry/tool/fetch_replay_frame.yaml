@@ -1,83 +1,85 @@
 id: fetch_replay_frame_tool
 type: tool
-status: shipped
+status: real
 shipped: 59
 last_changed: 2026-05-11
-
 name: fetch_replay_frame
-description: >
-  Returns a single ReplayFrame (Phase 59 version) for a given sequence point
-  within an execution's replay. Calls VM100 GET /api/journal/internal/replay-artifacts/{execution_id}/frames/{line_index}.
+description: 'Returns a single ReplayFrame (Phase 59 version) for a given sequence
+  point within an execution''s replay. Calls VM100 GET /api/journal/internal/replay-artifacts/{execution_id}/frames/{line_index}.
 
-  CONTEXT §18 LOCKED rule: ReplayFrame.state is non-None — the ReplayState
-  snapshot is included in every frame return, giving the calling mentor agent
-  full temporal context without an additional round-trip.
+  CONTEXT §18 LOCKED rule: ReplayFrame.state is non-None — the ReplayState snapshot
+  is included in every frame return, giving the calling mentor agent full temporal
+  context without an additional round-trip.
 
-  CONTEXT §13 (chart slice separation): ReplayFrame.chart_anchor is a
-  ChartAnchor reference (instrument + timeframe + center_at), NOT embedded
-  OHLC data. Mentor agents call fetch_replay_chart_slice separately for chart
-  reasoning.
+  CONTEXT §13 (chart slice separation): ReplayFrame.chart_anchor is a ChartAnchor
+  reference (instrument + timeframe + center_at), NOT embedded OHLC data. Mentor agents
+  call fetch_replay_chart_slice separately for chart reasoning.
 
-  CONTEXT §18 (three orthogonal VM107 tool surfaces):
-  This is the FRAME surface — structured narration + state snapshot at a
-  specific point in the execution timeline.
+  CONTEXT §18 (three orthogonal VM107 tool surfaces): This is the FRAME surface —
+  structured narration + state snapshot at a specific point in the execution timeline.
 
+  '
 capability_type: replay_frame
-
 vm100_endpoint_path: /api/journal/internal/replay-artifacts/{execution_id}/frames/{line_index}
 http_method: GET
 parameters:
-  - name: execution_id
-    type: UUID
-    required: true
-    description: UUID of the closed execution
-  - name: occurred_at
-    type: datetime
-    required: true
-    description: ISO-format datetime of the frame (used to map to line_index)
-  - name: sequence_number
-    type: int
-    required: true
-    description: 1-based event sequence number (maps to line_index = sequence_number - 1)
-  - name: truth_mode
-    type: string
-    required: false
-    default: HISTORICAL
-    description: "HISTORICAL (default) or RETROSPECTIVE"
-  - name: replay_version
-    type: int
-    required: false
-    default: null
-    description: "Specific artifact version; null = latest"
-
+- name: execution_id
+  type: UUID
+  required: true
+  description: UUID of the closed execution
+- name: occurred_at
+  type: datetime
+  required: true
+  description: ISO-format datetime of the frame (used to map to line_index)
+- name: sequence_number
+  type: int
+  required: true
+  description: 1-based event sequence number (maps to line_index = sequence_number
+    - 1)
+- name: truth_mode
+  type: string
+  required: false
+  default: HISTORICAL
+  description: HISTORICAL (default) or RETROSPECTIVE
+- name: replay_version
+  type: int
+  required: false
+  default: null
+  description: Specific artifact version; null = latest
 return_type: ReplayFrame
 return_on_error: ToolError
 error_modes:
-  - code: not_found
-    http_status: 404
-    description: No replay frame for this execution_id + sequence_number
-  - code: vm100_unavailable
-    http_status: null
-    description: Transport-level failure (ConnectError, TimeoutException)
-  - code: vm100_degraded
-    http_status: 503
-    description: VM100 returned HTTP 503 or 504
-
+- code: not_found
+  http_status: 404
+  description: No replay frame for this execution_id + sequence_number
+- code: vm100_unavailable
+  http_status: null
+  description: Transport-level failure (ConnectError, TimeoutException)
+- code: vm100_degraded
+  http_status: 503
+  description: VM100 returned HTTP 503 or 504
 contracts:
   response: fingpt_core.contracts.replay.frame.ReplayFrame
   error: tools.replay.lookup_replay_artifact.ToolError
-
 capabilities:
-  - replay_frame_lookup
-  - citation_evidence
-  - temporal_state_inspection
-
+- replay_frame_lookup
+- citation_evidence
+- temporal_state_inspection
 related_capabilities:
-  - lookup_replay_artifact_tool
-  - fetch_replay_chart_slice_tool
-  - reconstruction_service
-  - replay_artifact_persister
-
+- lookup_replay_artifact_tool
+- fetch_replay_chart_slice_tool
+- reconstruction_service
+- replay_artifact_persister
 phase: 59
-tags: [phase-59, replay, tool, agent-facing, internal-api, state-snapshot]
+tags:
+- phase-59
+- replay
+- tool
+- agent-facing
+- internal-api
+- state-snapshot
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

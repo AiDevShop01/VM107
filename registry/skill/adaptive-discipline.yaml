@@ -1,74 +1,68 @@
 id: adaptive-discipline
 type: skill
-status: shipped
+status: real
 shipped: 62
 last_changed: 2026-05-16
-
 name: adaptive-discipline
-description: >
-  Constitutional skill enforcing epistemic discipline when referencing or interpreting
-  adaptive intelligence outputs. Prevents agents from treating adaptive hypothesis
-  signals as canonical trading truth, from implying recommendations are actionable
-  without human authorization, or from phrasing drift observations as certainty claims.
-  Phase 62's primary guard against adaptive contamination in mentor prose.
+description: 'Constitutional skill enforcing epistemic discipline when referencing
+  or interpreting adaptive intelligence outputs. Prevents agents from treating adaptive
+  hypothesis signals as canonical trading truth, from implying recommendations are
+  actionable without human authorization, or from phrasing drift observations as certainty
+  claims. Phase 62''s primary guard against adaptive contamination in mentor prose.
 
   Tone constraint: use "the evidence suggests possible drift", NEVER "the strategy
   is now fixed" or "drift has been corrected" (CONTEXT.md <specifics> quote, CTX-DEC-1).
-  Citation constraint: cite adaptive artifacts via [ref:drift_report:...],
-  [ref:behavioral_evolution:...], [ref:pattern_cluster:...],
-  [ref:adaptive_recommendation:...], [ref:counterfactual_aggregate:...].
-  Forbidden: NEVER cite other mentor prose as an adaptive source; NEVER imply
-  adaptive recommendations are production truth; ALWAYS surface SHADOW_ONLY
-  framing when adaptive recommendation is cited.
+  Citation constraint: cite adaptive artifacts via [ref:drift_report:...], [ref:behavioral_evolution:...],
+  [ref:pattern_cluster:...], [ref:adaptive_recommendation:...], [ref:counterfactual_aggregate:...].
+  Forbidden: NEVER cite other mentor prose as an adaptive source; NEVER imply adaptive
+  recommendations are production truth; ALWAYS surface SHADOW_ONLY framing when adaptive
+  recommendation is cited.
 
+  '
 scope: constitutional
-version: "1.0.0"
+version: 1.0.0
 phase: 62
-
 skill_md_path: VM107/skills/adaptive-discipline/SKILL.md
-
 applies_to_profiles:
-  - behavioral_mentor_agent
-  - weekly_review_agent
-
+- behavioral_mentor_agent
+- weekly_review_agent
 trigger_patterns:
-  - "drift"
-  - "adaptive"
-  - "behavioral pattern suggests"
-  - "the evidence suggests"
-  - "strategy appears to be"
-  - "[ref:drift_report"
-  - "[ref:counterfactual_aggregate"
-  - "[ref:behavioral_evolution"
-  - "[ref:pattern_cluster"
-  - "[ref:adaptive_recommendation"
-  - "SHADOW_ONLY"
-  - "BOOTSTRAP OBSERVATION"
-  - "LIVE SHADOW-MODE"
-
+- drift
+- adaptive
+- behavioral pattern suggests
+- the evidence suggests
+- strategy appears to be
+- '[ref:drift_report'
+- '[ref:counterfactual_aggregate'
+- '[ref:behavioral_evolution'
+- '[ref:pattern_cluster'
+- '[ref:adaptive_recommendation'
+- SHADOW_ONLY
+- BOOTSTRAP OBSERVATION
+- LIVE SHADOW-MODE
 enforcement:
   mode: constitutional
   violation_patterns:
-    - "the strategy is now fixed"
-    - "drift has been corrected"
-    - "certainty claim about adaptive drift without SHADOW_ONLY framing"
-    - "adaptive recommendation presented as production truth"
-    - "ASSERTION citing another mentor narrative as adaptive source"
-
+  - the strategy is now fixed
+  - drift has been corrected
+  - certainty claim about adaptive drift without SHADOW_ONLY framing
+  - adaptive recommendation presented as production truth
+  - ASSERTION citing another mentor narrative as adaptive source
 related_skills:
-  - citation-discipline
-  - hindsight-discipline
-
+- citation-discipline
+- hindsight-discipline
 tags:
-  - phase-62
-  - constitutional
-  - adaptive
-  - drift
-  - epistemic-discipline
-  - shadow-only
-  - ctx-dec-1
-  - ctx-dec-14
-  - ctx-dec-15
-  - rg-1
-
+- phase-62
+- constitutional
+- adaptive
+- drift
+- epistemic-discipline
+- shadow-only
+- ctx-dec-1
+- ctx-dec-14
+- ctx-dec-15
+- rg-1
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

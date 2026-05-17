@@ -1,11 +1,14 @@
----
+id: analytics_snapshot_recorded
+type: event_type
+status: real
+shipped: 57
 name: analytics_snapshot_recorded
-description: >
-  A TradeAnalyticsSnapshot row was successfully created by AnalyticsService
-  for a Campaign+Execution pair. Emitted atomically inside the same
-  transaction.atomic() block as the snapshot INSERT (Phase 56 Pattern 51).
-  Causality scope: EXECUTION (scopes to one Execution row per non-null FK rule).
+description: 'A TradeAnalyticsSnapshot row was successfully created by AnalyticsService
+  for a Campaign+Execution pair. Emitted atomically inside the same transaction.atomic()
+  block as the snapshot INSERT (Phase 56 Pattern 51). Causality scope: EXECUTION (scopes
+  to one Execution row per non-null FK rule).
 
+  '
 event_type: analytics_snapshot_recorded
 category: analytics
 version: 1.0
@@ -15,29 +18,32 @@ retention: permanent
 pii: false
 replayable: true
 phase: 57
-
 payload_fields:
-  snapshot_id: "UUID of the newly created TradeAnalyticsSnapshot row"
-  execution_id: "UUID of the Execution this snapshot covers"
-  campaign_id: "UUID of the Campaign (denormalized from snapshot)"
-  scoring_ruleset_version: "Version of the deterministic engine constants (e.g. '1.0.0')"
-  overall_score: "Weighted aggregate score (null if all categories failed)"
-  generated_at: "UTC timestamp of snapshot creation"
-
+  snapshot_id: UUID of the newly created TradeAnalyticsSnapshot row
+  execution_id: UUID of the Execution this snapshot covers
+  campaign_id: UUID of the Campaign (denormalized from snapshot)
+  scoring_ruleset_version: Version of the deterministic engine constants (e.g. '1.0.0')
+  overall_score: Weighted aggregate score (null if all categories failed)
+  generated_at: UTC timestamp of snapshot creation
 causality_scope: EXECUTION
 trigger:
   entity: Campaign
-  from_states: [CLOSED, REVIEWED]
+  from_states:
+  - CLOSED
+  - REVIEWED
   mechanism: AnalyticsService.compute_and_persist() via Dagster analytics_snapshot_sensor
+replay_notes: 'This event is replayable and deterministic. Given the same (execution_id,
+  scoring_ruleset_version), the same snapshot row content (and thus the same event
+  payload) will be produced. The trigger_event_id FK on the snapshot row links this
+  event back to the Campaign terminal-state transition that fired the analytics run,
+  preserving full causality chain for replay.
 
-replay_notes: >
-  This event is replayable and deterministic. Given the same (execution_id,
-  scoring_ruleset_version), the same snapshot row content (and thus the same
-  event payload) will be produced. The trigger_event_id FK on the snapshot
-  row links this event back to the Campaign terminal-state transition that
-  fired the analytics run, preserving full causality chain for replay.
-
+  '
 related_events:
-  - CAMPAIGN_STATE_TRANSITION (trigger event, to_state in CLOSED/REVIEWED)
-  - review_recorded (may also trigger analytics re-run on REVIEWED transition)
----
+- CAMPAIGN_STATE_TRANSITION (trigger event, to_state in CLOSED/REVIEWED)
+- review_recorded (may also trigger analytics re-run on REVIEWED transition)
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
+tags: []

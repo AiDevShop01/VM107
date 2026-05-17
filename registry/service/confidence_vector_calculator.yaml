@@ -1,20 +1,28 @@
 id: confidence_vector_calculator
 type: service
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: ConfidenceVectorCalculator
-description: >
-  Deterministic Python computation of the 5-dimensional ConfidenceVector per CTX-§9.
-  'Confidence is evidence telemetry, not LLM self-belief.' Writer NEVER supplies
-  this; orchestrator computes after writer output is sealed.
-version: "1.0.0"
+description: 'Deterministic Python computation of the 5-dimensional ConfidenceVector
+  per CTX-§9. ''Confidence is evidence telemetry, not LLM self-belief.'' Writer NEVER
+  supplies this; orchestrator computes after writer output is sealed.
+
+  '
+version: 1.0.0
 phase: 60
 producer: VM107
 location:
   source: VM107/helpers/confidence_vector_calculator.py
 related_capabilities:
-  - mentor_pipeline_orchestrator
-  - citation_validator
-tags: [phase-60, cognition, telemetry, deterministic]
+- mentor_pipeline_orchestrator
+- citation_validator
+tags:
+- phase-60
+- cognition
+- telemetry
+- deterministic
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

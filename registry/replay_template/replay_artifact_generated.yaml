@@ -1,34 +1,38 @@
 id: replay_artifact_generated_replay_template
 type: replay_template
-status: shipped
+status: real
 shipped: 59
 last_changed: 2026-05-11
-
 name: replay_artifact_generated
 event_type: replay_artifact_generated
 replay_template_version: 1.0.0
 artifact_type: narration_v1
+template: '{occurred_at} — replay artifact generated (replay_version={replay_version},
+  line_count={line_count}).
 
-template: |
-  {occurred_at} — replay artifact generated (replay_version={replay_version}, line_count={line_count}).
+  '
 required_fields:
-  - replay_version
-  - line_count
+- replay_version
+- line_count
 optional_fields:
-  - generated_reason
-  - artifact_type
-
+- generated_reason
+- artifact_type
 tone: observational
 language: en
 phase: 59
-
 capabilities:
-  - replay_narration
-  - citation_surface
-
+- replay_narration
+- citation_surface
 related_capabilities:
-  - replay_narrator
-  - replay_artifact_persister
-
-tags: [phase-59, replay, narration, deterministic, replay-meta]
+- replay_narrator
+- replay_artifact_persister
+tags:
+- phase-59
+- replay
+- narration
+- deterministic
+- replay-meta
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

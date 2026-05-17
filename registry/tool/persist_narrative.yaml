@@ -1,15 +1,16 @@
 id: persist_narrative
 type: tool
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: persist_narrative
-description: >
-  Writer-tier tool. ONLY _writer sub-profiles (trade_auditor_agent._writer,
-  behavioral_mentor_agent._writer, weekly_review_agent._writer) may invoke this.
-  POSTs to VM100 /api/journal/internal/review-narratives. SENSITIVE — listed in
-  core/agents/tool_scope.py SENSITIVE_TOOLS.
-version: "1.0.0"
+description: 'Writer-tier tool. ONLY _writer sub-profiles (trade_auditor_agent._writer,
+  behavioral_mentor_agent._writer, weekly_review_agent._writer) may invoke this. POSTs
+  to VM100 /api/journal/internal/review-narratives. SENSITIVE — listed in core/agents/tool_scope.py
+  SENSITIVE_TOOLS.
+
+  '
+version: 1.0.0
 phase: 60
 category: persistence
 producer: VM107
@@ -20,11 +21,18 @@ location:
     request: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
     response: VM107.tools.persist_narrative.PersistNarrativeResponse
 related_capabilities:
-  - narrative_persister
-  - mentor_pipeline_orchestrator
-tags: [phase-60, cognition, writer, persistence, sensitive]
+- narrative_persister
+- mentor_pipeline_orchestrator
+tags:
+- phase-60
+- cognition
+- writer
+- persistence
+- sensitive
 hard_scoped: true
 allowed_agent_profiles:
-  - trade_auditor_agent._writer
-  - behavioral_mentor_agent._writer
-  - weekly_review_agent._writer
+- behavioral_mentor_agent._writer
+- trade_auditor_agent._writer
+- weekly_review_agent._writer
+impact_on_decision: HIGH
+deprecated: false

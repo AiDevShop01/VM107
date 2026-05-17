@@ -1,39 +1,40 @@
 id: mentor_pipeline_started
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: mentor_pipeline_started
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted by MentorPipelineOrchestrator at the very START of a mentor
+  pipeline run — BEFORE invoking the reader sub-profile. Carries execution_id (or
+  null for weekly_review), profile, scope_origin, correlation_id. First event in the
+  cognition lifecycle for the run; pairing event is mentor_pipeline_completed or mentor_pipeline_failed.
 
-description: >
-  Emitted by MentorPipelineOrchestrator at the very START of a mentor pipeline
-  run — BEFORE invoking the reader sub-profile. Carries execution_id (or null
-  for weekly_review), profile, scope_origin, correlation_id. First event in the
-  cognition lifecycle for the run; pairing event is mentor_pipeline_completed or
-  mentor_pipeline_failed.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.mentor_pipeline_started.MentorPipelineStartedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution (null for weekly_review_agent)"
-  profile: "Agent profile name (e.g. trade_auditor_agent)"
-  scope_origin: "Profile_id that initiated the pipeline run"
-  correlation_id: "Groups all events in this single pipeline run"
-
+  execution_id: UUID of the trade execution (null for weekly_review_agent)
+  profile: Agent profile name (e.g. trade_auditor_agent)
+  scope_origin: Profile_id that initiated the pipeline run
+  correlation_id: Groups all events in this single pipeline run
 consumers:
-  - dagster_orchestration
-  - phase_56_event_store
-
+- dagster_orchestration
+- phase_56_event_store
 related_capabilities:
-  - mentor_pipeline_orchestrator
-
+- mentor_pipeline_orchestrator
 related_events:
-  - mentor_pipeline_completed
-  - mentor_pipeline_failed
-  - reader_started
-
-tags: [phase-60, cognition, lifecycle, mentor_pipeline]
+- mentor_pipeline_completed
+- mentor_pipeline_failed
+- reader_started
+tags:
+- phase-60
+- cognition
+- lifecycle
+- mentor_pipeline
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

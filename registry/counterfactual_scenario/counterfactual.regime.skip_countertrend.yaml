@@ -1,29 +1,39 @@
 id: counterfactual.regime.skip_countertrend
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.regime_skip_countertrend.RegimeSkipCountertrendPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
   trend_lookback: 50
   threshold_fraction: 0.005
-description: >
-  Non-participation gate: would have skipped the trade if the trade direction
-  conflicted with the higher-timeframe trend at entry. Trend classified as
-  UP | DOWN | SIDEWAYS from close-price slope over trailing 50 bars. Gate fires
-  on LONG-vs-DOWN or SHORT-vs-UP conflict; SIDEWAYS does not fire the gate.
-  Trend computed STRICTLY from pre-entry bars (Phase 61 Law #3 enforced).
-  Non-participation artifacts have divergence_type=PRE_ENTRY and hypothetical_r=0.
+description: 'Non-participation gate: would have skipped the trade if the trade direction
+  conflicted with the higher-timeframe trend at entry. Trend classified as UP | DOWN
+  | SIDEWAYS from close-price slope over trailing 50 bars. Gate fires on LONG-vs-DOWN
+  or SHORT-vs-UP conflict; SIDEWAYS does not fire the gate. Trend computed STRICTLY
+  from pre-entry bars (Phase 61 Law #3 enforced). Non-participation artifacts have
+  divergence_type=PRE_ENTRY and hypothetical_r=0.
 
-  Law #6 phrasing discipline: APPROVED: "Under counterfactual regime gate
-  [ref:counterfactual:counterfactual.regime.skip_countertrend:policy_outcome_class],
-  this trade direction conflicted with the pre-entry trend at entry."
-  BANNED: "You should not have taken this countertrend trade."
+  Law #6 phrasing discipline: APPROVED: "Under counterfactual regime gate [ref:counterfactual:counterfactual.regime.skip_countertrend:policy_outcome_class],
+  this trade direction conflicted with the pre-entry trend at entry." BANNED: "You
+  should not have taken this countertrend trade."
+
+  '
 phase: 61
-tags: [phase-61, regime, canonical, non_participation, deterministic, trend, tier_3]
+tags:
+- phase-61
+- regime
+- canonical
+- non_participation
+- deterministic
+- trend
+- tier_3
 hard_scoped: true
 divergence_type: PRE_ENTRY
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

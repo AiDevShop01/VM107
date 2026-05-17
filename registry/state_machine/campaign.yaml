@@ -3,88 +3,125 @@ type: state_machine
 status: real
 shipped: 55
 planned_phase: null
+short_description: '12-state Campaign lifecycle — primary workflow lifecycle owner
+  of the Phase 55 hierarchy (Idea -> Campaign -> Execution -> Event).
 
-short_description: >
-  12-state Campaign lifecycle — primary workflow lifecycle owner of the
-  Phase 55 hierarchy (Idea -> Campaign -> Execution -> Event).
+  '
+long_description: 'Campaign is the trader''s strategic intent layer (CONTEXT.md decision
+  #2).
 
-long_description: |
-  Campaign is the trader's strategic intent layer (CONTEXT.md decision #2).
   Mechanical state (Execution) != Strategic state (Campaign). Campaigns
+
   tell what the trader is DOING; Executions tell what broker positions
+
   exist.
 
+
   All Campaign state mutations go through CampaignService.transition_to
+
   (the ONLY official entry point per CONTEXT decision #4). Frontend,
+
   Dagster, agents, and scripts MUST go through this service. Direct ORM
+
   state writes are blocked at the service layer (Pydantic typed payload
+
   validation) AND at the DB layer (CHECK constraints — defense-in-depth
+
   per Decision 5).
 
+
   Per CONTEXT decision #5, Campaign.state is a real, explicitly-stored
+
   column. NOT computed-on-read. NOT trigger-rolled-up from Execution
+
   states. CampaignService consumes Execution state-transition events as
+
   INPUT SIGNALS but DOES NOT auto-transition — discretionary trading
+
   requires intent preservation across mechanical state changes.
 
+
   RE_EVALUATED is a re-entry hub: a closed-then-reviewed campaign that
+
   the trader decides to re-attempt branches back to WATCHLIST or
+
   SETUP_FORMING (NOT IDEA_CREATED — the original thesis is preserved).
+
   ARCHIVED is terminal (no outgoing transitions); RE_EVALUATED is NOT
+
   terminal (it branches back into the active workflow).
 
+  '
 location:
   source: VM100/backend/journal/services/campaign_service.py
   contracts:
     entity: fingpt_core.contracts.trading.campaigns.Campaign
     state_enum: fingpt_core.contracts.trading.campaigns.CampaignState
-
 states:
-  - IDEA_CREATED
-  - WATCHLIST
-  - SETUP_FORMING
-  - READY
-  - EXECUTING
-  - OPEN
-  - MANAGING
-  - CLOSED
-  - ANALYZING
-  - REVIEWED
-  - ARCHIVED
-  - RE_EVALUATED
-
-# Locked transitions — match CampaignService.ALLOWED_TRANSITIONS verbatim
-# (VM100/backend/journal/services/campaign_service.py).
+- IDEA_CREATED
+- WATCHLIST
+- SETUP_FORMING
+- READY
+- EXECUTING
+- OPEN
+- MANAGING
+- CLOSED
+- ANALYZING
+- REVIEWED
+- ARCHIVED
+- RE_EVALUATED
 transitions:
-  - {from: IDEA_CREATED, to: WATCHLIST}
-  - {from: WATCHLIST, to: SETUP_FORMING}
-  - {from: WATCHLIST, to: IDEA_CREATED}
-  - {from: SETUP_FORMING, to: READY}
-  - {from: SETUP_FORMING, to: WATCHLIST}
-  - {from: READY, to: EXECUTING}
-  - {from: READY, to: SETUP_FORMING}
-  - {from: EXECUTING, to: OPEN}
-  - {from: OPEN, to: MANAGING}
-  - {from: OPEN, to: CLOSED}
-  - {from: MANAGING, to: OPEN}
-  - {from: MANAGING, to: CLOSED}
-  - {from: CLOSED, to: ANALYZING}
-  - {from: ANALYZING, to: REVIEWED}
-  - {from: REVIEWED, to: ARCHIVED}
-  - {from: REVIEWED, to: RE_EVALUATED}
-  - {from: RE_EVALUATED, to: WATCHLIST}
-  - {from: RE_EVALUATED, to: SETUP_FORMING}
-
-# Terminal states (no outgoing transitions).
-terminal_states: [ARCHIVED]
-
+- from: IDEA_CREATED
+  to: WATCHLIST
+- from: WATCHLIST
+  to: SETUP_FORMING
+- from: WATCHLIST
+  to: IDEA_CREATED
+- from: SETUP_FORMING
+  to: READY
+- from: SETUP_FORMING
+  to: WATCHLIST
+- from: READY
+  to: EXECUTING
+- from: READY
+  to: SETUP_FORMING
+- from: EXECUTING
+  to: OPEN
+- from: OPEN
+  to: MANAGING
+- from: OPEN
+  to: CLOSED
+- from: MANAGING
+  to: OPEN
+- from: MANAGING
+  to: CLOSED
+- from: CLOSED
+  to: ANALYZING
+- from: ANALYZING
+  to: REVIEWED
+- from: REVIEWED
+  to: ARCHIVED
+- from: REVIEWED
+  to: RE_EVALUATED
+- from: RE_EVALUATED
+  to: WATCHLIST
+- from: RE_EVALUATED
+  to: SETUP_FORMING
+terminal_states:
+- ARCHIVED
 related_capabilities:
-  - campaign_service
-  - idea
-  - execution
-  - campaign_state_transition
-  - legacy_status_mapping
-
-tags: [phase-55, lifecycle, strategic_intent, primary_workflow]
+- campaign_service
+- idea
+- execution
+- campaign_state_transition
+- legacy_status_mapping
+tags:
+- phase-55
+- lifecycle
+- strategic_intent
+- primary_workflow
 hard_scoped: true
 last_changed: 2026-05-09
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

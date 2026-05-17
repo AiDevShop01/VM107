@@ -1,37 +1,39 @@
 id: analyzer_started
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: analyzer_started
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted by MentorPipelineOrchestrator immediately BEFORE call_subordinate
+  to the _analyzer sub-profile. Marks the boundary where the orchestrator passes validated
+  ReaderOutput (converted to AnalyzerInput) to the analyzer tier. The reader tier
+  has already succeeded and been validated at this point. Pairing event is analyzer_completed
+  or analyzer_failed.
 
-description: >
-  Emitted by MentorPipelineOrchestrator immediately BEFORE call_subordinate
-  to the _analyzer sub-profile. Marks the boundary where the orchestrator
-  passes validated ReaderOutput (converted to AnalyzerInput) to the analyzer
-  tier. The reader tier has already succeeded and been validated at this point.
-  Pairing event is analyzer_completed or analyzer_failed.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.analyzer_started.AnalyzerStartedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution"
-  profile: "Top-level agent profile name"
-  correlation_id: "Links all events in this pipeline run"
-
+  execution_id: UUID of the trade execution
+  profile: Top-level agent profile name
+  correlation_id: Links all events in this pipeline run
 consumers:
-  - phase_56_event_store
-
+- phase_56_event_store
 related_capabilities:
-  - mentor_pipeline_orchestrator
-
+- mentor_pipeline_orchestrator
 related_events:
-  - reader_completed
-  - analyzer_completed
-  - analyzer_failed
-
-tags: [phase-60, cognition, lifecycle, analyzer_tier]
+- reader_completed
+- analyzer_completed
+- analyzer_failed
+tags:
+- phase-60
+- cognition
+- lifecycle
+- analyzer_tier
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

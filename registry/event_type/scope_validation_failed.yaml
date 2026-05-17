@@ -1,41 +1,44 @@
 id: scope_validation_failed
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: scope_validation_failed
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM100
-
-description: >
-  Emitted by a downstream VM (VM100, VM102) when the X-Agent-Scope header
-  HMAC check, expiry check, or claim enforcement fails (see scope_verifier.py
-  — CTX-§5 Pitfall 8 enforcement). Carries target_backend (the VM that
-  rejected the scope), scope_profile_id (as parsed from the token's profile_id
-  field, or null if the token could not be parsed), error_kind ∈
-  {missing_header, malformed_token, signature_mismatch, expired,
-  access_denied}. This is a security-relevant event — should be monitored
+description: 'Emitted by a downstream VM (VM100, VM102) when the X-Agent-Scope header
+  HMAC check, expiry check, or claim enforcement fails (see scope_verifier.py — CTX-§5
+  Pitfall 8 enforcement). Carries target_backend (the VM that rejected the scope),
+  scope_profile_id (as parsed from the token''s profile_id field, or null if the token
+  could not be parsed), error_kind ∈ {missing_header, malformed_token, signature_mismatch,
+  expired, access_denied}. This is a security-relevant event — should be monitored
   for anomalies.
 
+  '
 payload_schema: fingpt_core.contracts.events.cognition.scope_validation_failed.ScopeValidationFailedPayload
-
 payload_fields:
-  target_backend: "Backend that rejected the scope (e.g. vm100, vm102)"
-  scope_profile_id: "Profile ID from the token (null if token unparseable)"
-  error_kind: "Category of failure: missing_header | malformed_token | signature_mismatch | expired | access_denied"
-  endpoint: "URL path of the endpoint that rejected the scope"
-
+  target_backend: Backend that rejected the scope (e.g. vm100, vm102)
+  scope_profile_id: Profile ID from the token (null if token unparseable)
+  error_kind: 'Category of failure: missing_header | malformed_token | signature_mismatch
+    | expired | access_denied'
+  endpoint: URL path of the endpoint that rejected the scope
 consumers:
-  - phase_56_event_store
-  - dagster_orchestration
-
+- phase_56_event_store
+- dagster_orchestration
 related_capabilities:
-  - scope_dispatcher
-
+- scope_dispatcher
 related_events:
-  - scope_context_injected
-  - scope_validation_passed
-
-tags: [phase-60, cognition, scope, audit, security]
+- scope_context_injected
+- scope_validation_passed
+tags:
+- phase-60
+- cognition
+- scope
+- audit
+- security
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

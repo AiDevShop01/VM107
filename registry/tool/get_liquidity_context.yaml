@@ -3,64 +3,58 @@ type: tool
 status: real
 shipped: 47.2.1
 planned_phase: null
+short_description: 'Typed read of ACTIVE liquidity zones (FVG, equal H/L, imbalance)
+  per instrument×timeframe, filtered against Phase 28 events stream.
 
-short_description: >
-  Typed read of ACTIVE liquidity zones (FVG, equal H/L, imbalance) per
-  instrument×timeframe, filtered against Phase 28 events stream.
-
-long_description: |
-  get_liquidity_context is a pure-transport Tier-2 tool. It calls VM102's
-  GET /api/v1/liquidity endpoint and returns the embedded-status response.
-  The "active-only" filter is computed inside VM102 by left-anti joining
-  liquidity_zones parquet against liquidity_events parquet (Phase 28
-  terminal event types: ZONE_FULL_FILL, LIQUIDITY_SWEEP, ZONE_INVALIDATED,
-  ZONE_EXPIRED).
-
-  The Coordinator should call this when the trader's question references
-  liquidity zones, FVGs, equal highs/lows, or supply/demand near entry.
-
-  Two distinct not_available branches:
-    - "Phase 27 ingestion gap" — liquidity_zones partition missing
-    - "Phase 28 zone_current_state materialization" — events partition missing
-  Both fire status="not_available" with distinct meta.planned_phase strings,
-  so the confidence rule (Phase 47.3) and learning agent (Phase 49) can
-  attribute the gap correctly.
-
-  Limitations:
-    - V1 returns active-only zones. Historical/swept reasoning is deferred.
-    - Zone bucketing (fvg/equal_highs/equal_lows/imbalance_zones) happens
-      server-side in VM102's endpoint handler.
-
+  '
+long_description: "get_liquidity_context is a pure-transport Tier-2 tool. It calls\
+  \ VM102's\nGET /api/v1/liquidity endpoint and returns the embedded-status response.\n\
+  The \"active-only\" filter is computed inside VM102 by left-anti joining\nliquidity_zones\
+  \ parquet against liquidity_events parquet (Phase 28\nterminal event types: ZONE_FULL_FILL,\
+  \ LIQUIDITY_SWEEP, ZONE_INVALIDATED,\nZONE_EXPIRED).\n\nThe Coordinator should call\
+  \ this when the trader's question references\nliquidity zones, FVGs, equal highs/lows,\
+  \ or supply/demand near entry.\n\nTwo distinct not_available branches:\n  - \"Phase\
+  \ 27 ingestion gap\" — liquidity_zones partition missing\n  - \"Phase 28 zone_current_state\
+  \ materialization\" — events partition missing\nBoth fire status=\"not_available\"\
+  \ with distinct meta.planned_phase strings,\nso the confidence rule (Phase 47.3)\
+  \ and learning agent (Phase 49) can\nattribute the gap correctly.\n\nLimitations:\n\
+  \  - V1 returns active-only zones. Historical/swept reasoning is deferred.\n  -\
+  \ Zone bucketing (fvg/equal_highs/equal_lows/imbalance_zones) happens\n    server-side\
+  \ in VM102's endpoint handler.\n"
 location:
   source: VM107/tools/get_liquidity_context.py
   endpoint: VM102/api/v1/liquidity
   contracts:
     request: fingpt_core.contracts.agents.liquidity_context.GetLiquidityContextRequest
     response: fingpt_core.contracts.agents.liquidity_context.GetLiquidityContextResponse
-  computed_by: fingpt_pipelines.primitives.liquidity (Phase 27) + fingpt_pipelines.primitives.events (Phase 28)
-  consumed_by: [agent_zero]
-
-api_structure: |
-  Args:
-    instrument (str, required)
-    timeframe (str, required) — one of M1/M5/M15/M30/H1/H4/D1
-    lookback_bars (int, optional, default=100) — 1..500
-
-  Returns: GetLiquidityContextResponse with embedded status
-
-  Raises:
-    ContractValidationError — request shape invalid or VM102 returned malformed envelope
-    VMResponseError — VM102 returned 4xx other than 422-bound-violation
-
+  computed_by: fingpt_pipelines.primitives.liquidity (Phase 27) + fingpt_pipelines.primitives.events
+    (Phase 28)
+  consumed_by:
+  - agent_zero
+api_structure: "Args:\n  instrument (str, required)\n  timeframe (str, required) —\
+  \ one of M1/M5/M15/M30/H1/H4/D1\n  lookback_bars (int, optional, default=100) —\
+  \ 1..500\n\nReturns: GetLiquidityContextResponse with embedded status\n\nRaises:\n\
+  \  ContractValidationError — request shape invalid or VM102 returned malformed envelope\n\
+  \  VMResponseError — VM102 returned 4xx other than 422-bound-violation\n"
 impact_on_decision: HIGH
 unblocks_when:
-  - VM102 backend healthy
-  - liquidity_zones partition exists for instrument×timeframe
-  - liquidity_events partition exists (else falls to Phase 28 not_available)
-related_capabilities: [get_primitives, get_trade_context]
-tags: [liquidity, fvg, equal_levels, imbalance, phase_27, phase_28, vm102, phase_47_2_1]
-
+- VM102 backend healthy
+- liquidity_zones partition exists for instrument×timeframe
+- liquidity_events partition exists (else falls to Phase 28 not_available)
+related_capabilities:
+- get_primitives
+- get_trade_context
+tags:
+- liquidity
+- fvg
+- equal_levels
+- imbalance
+- phase_27
+- phase_28
+- vm102
+- phase_47_2_1
 hard_scoped: false
-allowed_agent_profiles: [agent_zero]
-
+allowed_agent_profiles:
+- agent_zero
 last_changed: 2026-05-07
+deprecated: false

@@ -1,24 +1,32 @@
 id: mentor_pipeline_orchestrator
 type: service
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: MentorPipelineOrchestrator
-description: >
-  Deterministic Python wrapper for the reader, analyzer, and writer mentor pipeline.
-  Owns stage contracts, hard-fail boundaries, citation enforcement, ConfidenceVector
-  computation, and atomic persistence. Top-level mentor profiles delegate
-  entirely to this service per CTX-§3 LOCKED.
-version: "1.0.0"
+description: 'Deterministic Python wrapper for the reader, analyzer, and writer mentor
+  pipeline. Owns stage contracts, hard-fail boundaries, citation enforcement, ConfidenceVector
+  computation, and atomic persistence. Top-level mentor profiles delegate entirely
+  to this service per CTX-§3 LOCKED.
+
+  '
+version: 1.0.0
 phase: 60
 producer: VM107
 location:
   source: VM107/helpers/mentor_pipeline_orchestrator.py
 related_capabilities:
-  - citation_validator
-  - confidence_vector_calculator
-  - scope_dispatcher
-  - narrative_persister
-  - persist_narrative
-tags: [phase-60, cognition, orchestration, deterministic]
+- citation_validator
+- confidence_vector_calculator
+- scope_dispatcher
+- narrative_persister
+- persist_narrative
+tags:
+- phase-60
+- cognition
+- orchestration
+- deterministic
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

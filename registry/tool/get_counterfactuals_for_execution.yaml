@@ -1,75 +1,74 @@
 id: get_counterfactuals_for_execution_tool
 type: tool
-status: shipped
+status: real
 shipped: 61
 last_changed: 2026-05-16
-
 name: get_counterfactuals_for_execution
-description: >
-  Returns all counterfactual artifacts for a given execution_id, filtered by
-  scenario tier and ScopeSpec.counterfactual_visibility. Calls VM100
-  GET /api/journal/internal/counterfactuals/{execution_id}
-  (no-auth internal endpoint). Returns empty list [] when no scenarios have
-  been computed (normal in Phase 61 — zero production scenarios shipped).
-  Returns ToolError on 503/504/transport. Never raises (Pitfall 11).
-
-  Phase 61 behavior: Only canonical-tier scenarios exist; experimental tier is empty.
-  Shadow-mode (RG-7): Results are mentor-readable but NOT UI-surfaced.
-
-  Law #4 invariant: every returned artifact has truth_mode='COUNTERFACTUAL'.
-  ScopeSpec.counterfactual_visibility filter:
-    NONE → returns [] (default for non-mentor profiles)
-    CANONICAL_ONLY → returns only ScenarioTier.CANONICAL artifacts
-    ALL → returns all tiers (canonical + experimental)
-
-  Forward-only filter (RG-6): Only executions whose replay_artifact.generated_at
-  >= PHASE_61_DEPLOY_TS have been processed. Earlier executions return [].
-
+description: "Returns all counterfactual artifacts for a given execution_id, filtered\
+  \ by scenario tier and ScopeSpec.counterfactual_visibility. Calls VM100 GET /api/journal/internal/counterfactuals/{execution_id}\
+  \ (no-auth internal endpoint). Returns empty list [] when no scenarios have been\
+  \ computed (normal in Phase 61 — zero production scenarios shipped). Returns ToolError\
+  \ on 503/504/transport. Never raises (Pitfall 11).\nPhase 61 behavior: Only canonical-tier\
+  \ scenarios exist; experimental tier is empty. Shadow-mode (RG-7): Results are mentor-readable\
+  \ but NOT UI-surfaced.\nLaw #4 invariant: every returned artifact has truth_mode='COUNTERFACTUAL'.\
+  \ ScopeSpec.counterfactual_visibility filter:\n  NONE → returns [] (default for\
+  \ non-mentor profiles)\n  CANONICAL_ONLY → returns only ScenarioTier.CANONICAL artifacts\n\
+  \  ALL → returns all tiers (canonical + experimental)\n\nForward-only filter (RG-6):\
+  \ Only executions whose replay_artifact.generated_at >= PHASE_61_DEPLOY_TS have\
+  \ been processed. Earlier executions return [].\n"
 capability_type: counterfactual_lookup
-
 vm100_endpoint_path: /api/journal/internal/counterfactuals/{execution_id}
 http_method: GET
 parameters:
-  - name: execution_id
-    type: UUID
-    required: true
-    description: UUID of the closed Execution
-  - name: tier
-    type: string
-    required: false
-    default: canonical
-    description: "'canonical' | 'experimental' | 'all' — default 'canonical'"
-  - name: counterfactual_visibility
-    type: string
-    required: false
-    default: NONE
-    description: >
-      CounterfactualVisibility override — resolved from ScopeSpec at call time.
-      'NONE' → []; 'CANONICAL_ONLY' → canonical tier only; 'ALL' → all tiers.
+- name: execution_id
+  type: UUID
+  required: true
+  description: UUID of the closed Execution
+- name: tier
+  type: string
+  required: false
+  default: canonical
+  description: '''canonical'' | ''experimental'' | ''all'' — default ''canonical'''
+- name: counterfactual_visibility
+  type: string
+  required: false
+  default: NONE
+  description: 'CounterfactualVisibility override — resolved from ScopeSpec at call
+    time. ''NONE'' → []; ''CANONICAL_ONLY'' → canonical tier only; ''ALL'' → all tiers.
 
+    '
 return_type: list[CounterfactualArtifactMeta]
 return_on_error: ToolError
 error_modes:
-  - code: vm100_unavailable
-    http_status: null
-    description: Transport-level failure (ConnectError, TimeoutException)
-  - code: vm100_degraded
-    http_status: 503
-    description: VM100 returned HTTP 503 or 504
-
+- code: vm100_unavailable
+  http_status: null
+  description: Transport-level failure (ConnectError, TimeoutException)
+- code: vm100_degraded
+  http_status: 503
+  description: VM100 returned HTTP 503 or 504
 contracts:
   response: list[journal.contracts.counterfactual.CounterfactualArtifact]
   error: tools.counterfactual.get_counterfactuals_for_execution.ToolError
-
 capabilities:
-  - counterfactual_artifact_listing
-
+- counterfactual_artifact_listing
 related_capabilities:
-  - get_counterfactual_tool
-  - lookup_counterfactual_scenario_tool
-  - counterfactual_reader
-  - counterfactual_artifact_sensor
-
+- get_counterfactual_tool
+- lookup_counterfactual_scenario_tool
+- counterfactual_reader
+- counterfactual_artifact_sensor
 phase: 61
-tags: [phase-61, counterfactual, tool, agent-facing, internal-api, shadow-mode, law-4, rg-6, rg-7]
+tags:
+- phase-61
+- counterfactual
+- tool
+- agent-facing
+- internal-api
+- shadow-mode
+- law-4
+- rg-6
+- rg-7
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

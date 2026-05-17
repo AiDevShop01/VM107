@@ -1,75 +1,80 @@
 id: replay_artifact_generated_event
 type: event_type
-status: shipped
+status: real
 shipped: 59
 planned_phase: null
 last_changed: 2026-05-11
-
 name: replay_artifact_generated
-description: >
-  Emitted when a replay artifact is generated for the first time (GeneratedReason.AUTO
+description: 'Emitted when a replay artifact is generated for the first time (GeneratedReason.AUTO
   or BACKFILL path). Produced by ReplayArtifactPersister.persist() inside a single
-  transaction.atomic() block that ALSO writes replay_artifact + replay_line rows
-  (Pattern 51 + RESEARCH Pattern 3). Sequence number allocated via nextval inside
-  the same atomic block (no allocation gap). Downstream consumers (59-05 sensor,
-  Phase 60 mentor agents) subscribe to this event to learn that a replay artifact
-  is ready for frontend consumption.
+  transaction.atomic() block that ALSO writes replay_artifact + replay_line rows (Pattern
+  51 + RESEARCH Pattern 3). Sequence number allocated via nextval inside the same
+  atomic block (no allocation gap). Downstream consumers (59-05 sensor, Phase 60 mentor
+  agents) subscribe to this event to learn that a replay artifact is ready for frontend
+  consumption.
 
+  '
 event_type: replay_artifact_generated
 category: replay
 producer: dagster
 causality_scope: EXECUTION
 replayable: true
 phase: 59
-
 payload_schema: ReplayArtifactGeneratedEvent
 payload_fields:
-  replay_artifact_id: "UUID of the newly created ReplayArtifact row"
-  replay_version: "Monotonic version counter per execution_id (1-indexed)"
-  artifact_type: "Renderer variant — 'narration_v1' in Phase 59"
-  ruleset_version: "Version string of the scoring ruleset used"
-  analysis_version: "Integer version of the ReconstructionService algorithm"
-  replay_template_version: "Version string of the replay template package"
-  line_count: "Number of ReplayLine rows inserted for this artifact"
-  generated_reason: "Always 'AUTO' for this event_type (use replay_artifact_regenerated for MANUAL_REGEN)"
-
+  replay_artifact_id: UUID of the newly created ReplayArtifact row
+  replay_version: Monotonic version counter per execution_id (1-indexed)
+  artifact_type: Renderer variant — 'narration_v1' in Phase 59
+  ruleset_version: Version string of the scoring ruleset used
+  analysis_version: Integer version of the ReconstructionService algorithm
+  replay_template_version: Version string of the replay template package
+  line_count: Number of ReplayLine rows inserted for this artifact
+  generated_reason: Always 'AUTO' for this event_type (use replay_artifact_regenerated
+    for MANUAL_REGEN)
 required_payload_fields:
-  - replay_artifact_id
-  - replay_version
+- replay_artifact_id
+- replay_version
+- ruleset_version
+- replay_template_version
+- line_count
+idempotency_key:
+  fields:
+  - execution_id
   - ruleset_version
   - replay_template_version
-  - line_count
+  note: 'Idempotency enforced at the persister level (CONTEXT §5): AUTO re-fire with
+    the same three-part key returns existing artifact without a second INSERT or second
+    event.
 
-idempotency_key:
-  fields: [execution_id, ruleset_version, replay_template_version]
-  note: >
-    Idempotency enforced at the persister level (CONTEXT §5): AUTO re-fire with the
-    same three-part key returns existing artifact without a second INSERT or second event.
-
+    '
 sequence_namespace: execution_event_seq
-
 emitted_by:
-  - replay_artifact_persister  # VM100/backend/journal/services/replay/replay_artifact_persister.py
-
+- replay_artifact_persister
 trigger:
-  mechanism: >
-    ReplayArtifactPersister.persist(generated_reason='AUTO') is called by the
-    Dagster sensor (59-05) polling replay_artifact_pending_ledger. The ledger row
-    is seeded atomically inside emit_analytics_fanout_completed (Phase 58 contract
+  mechanism: 'ReplayArtifactPersister.persist(generated_reason=''AUTO'') is called
+    by the Dagster sensor (59-05) polling replay_artifact_pending_ledger. The ledger
+    row is seeded atomically inside emit_analytics_fanout_completed (Phase 58 contract
     extension — RESEARCH Pattern 6 Option A).
 
+    '
 related_events:
-  - analytics_fanout_completed  # upstream: Phase 58 seeded the pending ledger row
-  - replay_artifact_regenerated  # MANUAL_REGEN variant
-
+- analytics_fanout_completed
+- replay_artifact_regenerated
 capabilities:
-  - replay_signal
-  - citation_evidence
-
+- replay_signal
+- citation_evidence
 related_capabilities:
-  - replay_artifact_persister
-  - replay_artifact_sensor
-
+- replay_artifact_persister
+- replay_artifact_sensor
 aliases: []
-tags: [phase-59, replay, event, dagster-produced, pattern-51, worm-guarded]
+tags:
+- phase-59
+- replay
+- event
+- dagster-produced
+- pattern-51
+- worm-guarded
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

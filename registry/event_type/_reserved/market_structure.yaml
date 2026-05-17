@@ -1,25 +1,25 @@
 id: market_structure
 type: event_type_reserved_namespace
-status: reserved_for_future
+status: stub
 shipped: 56
 last_changed: 2026-05-09
-
-# CONTEXT §12 reserved-namespace schema (distinct from active event_type schema)
 category: market_structure
 producer_phase: 57
-description: >
-  Namespace reserved for Phase 57 deterministic analytics engine. Future
-  event types may include regime_classified, liquidity_state_detected,
-  compression_metric_calculated, displacement_observed, and similar
-  deterministic-analytics output events. Specific event_type strings + payload
-  shapes finalized only when the producer phase ships (CONTEXT §2 — premature
-  taxonomy freezes wrong abstractions).
+description: 'Namespace reserved for Phase 57 deterministic analytics engine. Future
+  event types may include regime_classified, liquidity_state_detected, compression_metric_calculated,
+  displacement_observed, and similar deterministic-analytics output events. Specific
+  event_type strings + payload shapes finalized only when the producer phase ships
+  (CONTEXT §2 — premature taxonomy freezes wrong abstractions).
+
+  '
 phase: 56
-
-# Reserved YAMLs INTENTIONALLY OMIT: name, event_type, payload_schema, version,
-# producer, retention, pii, replayable. Those active-schema fields belong only
-# to YAMLs with concrete producers; reserved YAMLs declare a namespace claim.
-
 related_capabilities: []
-tags: [phase-56, reserved, market_structure, namespace_claim]
+tags:
+- phase-56
+- reserved
+- market_structure
+- namespace_claim
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

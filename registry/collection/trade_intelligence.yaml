@@ -1,62 +1,63 @@
 id: trade_intelligence
 type: collection
-status: shipped
+status: real
 shipped: 58
 planned_phase: null
 last_changed: 2026-05-11
-
 backend: qdrant
-host: "192.168.1.151"
+host: 192.168.1.151
 port: 6333
 size: 768
 distance: cosine
 producer: vm100
 producing_service: execution_qdrant_projector
 phase: 58
+description: 'Snapshot-level execution embeddings — one point per execution per ruleset_version
+  (CONTEXT §10). Single dedicated collection, NOT vector namespace fragmentation,
+  NOT separate per-strategy or per-behavior collections. Versioned point IDs preserve
+  replay fidelity: f"{execution_id}:{ruleset_version}".
 
-description: >
-  Snapshot-level execution embeddings — one point per execution per
-  ruleset_version (CONTEXT §10). Single dedicated collection, NOT vector
-  namespace fragmentation, NOT separate per-strategy or per-behavior
-  collections. Versioned point IDs preserve replay fidelity:
-  f"{execution_id}:{ruleset_version}".
-
+  '
 embedding_model: all-mpnet-base-v2
 embedding_prompt_version_field: embedding_prompt_version
 document_schema_version_field: document_schema_version
-
 payload_filterables_v1:
   identity_lineage:
-    - execution_id
-    - campaign_id
-    - account_id
-    - instrument_symbol
-    - strategy_id
-    - ruleset_version
-    - analysis_version
-    - snapshot_id
-    - embedding_model
-    - embedding_dimensions
-    - distance_metric
-    - embedding_prompt_version
-    - document_schema_version
-    - generated_at
+  - execution_id
+  - campaign_id
+  - account_id
+  - instrument_symbol
+  - strategy_id
+  - ruleset_version
+  - analysis_version
+  - snapshot_id
+  - embedding_model
+  - embedding_dimensions
+  - distance_metric
+  - embedding_prompt_version
+  - document_schema_version
+  - generated_at
   outcome_scores:
-    - outcome
-    - result_r_bucket
-    - overall_score_bucket
-    - regime_label
+  - outcome
+  - result_r_bucket
+  - overall_score_bucket
+  - regime_label
   behavioral_booleans:
-    - hesitation
-    - late_entry
-    - over_management
-    - revenge_trade
-    - fomo_entry
-
+  - hesitation
+  - late_entry
+  - over_management
+  - revenge_trade
+  - fomo_entry
 related_capabilities:
-  - execution_qdrant_projector
-  - embedding_service
-
+- execution_qdrant_projector
+- embedding_service
 aliases: []
-tags: [phase-58, qdrant, embeddings, intelligence_storage]
+tags:
+- phase-58
+- qdrant
+- embeddings
+- intelligence_storage
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

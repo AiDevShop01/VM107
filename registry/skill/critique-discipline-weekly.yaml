@@ -1,28 +1,40 @@
 id: critique-discipline-weekly
 type: skill
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: critique-discipline-weekly
-description: >
-  Weekly-variant critique discipline for weekly_review_agent. Structures critique
-  internally around 4 LENSES (auditor + risk + portfolio + mentor) per Directive #7
-  — ONE analyzer plays all 4 roles internally. Scopes evidence to canonical week
+description: 'Weekly-variant critique discipline for weekly_review_agent. Structures
+  critique internally around 4 LENSES (auditor + risk + portfolio + mentor) per Directive
+  #7 — ONE analyzer plays all 4 roles internally. Scopes evidence to canonical week
   window (week_start, week_end, timezone). Prevents lens-splitting into sub-agents
   (Phase 46) and enforces synthesis into ONE cohesive week narrative. Per-profile
   override of the base critique-discipline skill.
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 scope: optional
 applies_to_profiles:
-  - weekly_review_agent
-skill_md_path: VM107/agents/weekly_review_agent/skills/critique-discipline/SKILL.md
-tags: [critique, weekly, week-window, 4-lens, directive-7, optional, phase-60]
+- weekly_review_agent
+skill_md_path: VM107/skills/critique-discipline-weekly/SKILL.md
+tags:
+- critique
+- weekly
+- week-window
+- 4-lens
+- directive-7
+- optional
+- phase-60
 trigger_patterns:
-  - "critique weekly execution"
-  - "assess week-window behavior"
-  - "week rollup synthesis"
-  - "weekly review"
-  - "4-lens analysis"
+- critique weekly execution
+- assess week-window behavior
+- week rollup synthesis
+- weekly review
+- 4-lens analysis
 allowed_tools:
-  - skills_tool
+- skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

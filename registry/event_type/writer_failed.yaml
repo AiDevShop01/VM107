@@ -1,47 +1,47 @@
 id: writer_failed
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: writer_failed
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted on WriterContractError (writer supplied a ConfidenceVector —
+  CTX-§9 hard-reject) or on CitationViolation (ASSERTION without [ref:...] token).
+  Carries error_message, attempt_number, reason ∈ {contract_violation, writer_supplied_confidence_vector,
+  citation_violation}. The orchestrator may retry the writer tier up to 2 times (3
+  total attempts) on citation violations; after exhaustion auto_bracket_unsourced
+  is applied and writer_completed is emitted. contract_violation and writer_supplied_confidence_vector
+  are terminal (no retry). Pairing event is writer_started.
 
-description: >
-  Emitted on WriterContractError (writer supplied a ConfidenceVector — CTX-§9
-  hard-reject) or on CitationViolation (ASSERTION without [ref:...] token).
-  Carries error_message, attempt_number, reason ∈ {contract_violation,
-  writer_supplied_confidence_vector, citation_violation}. The orchestrator
-  may retry the writer tier up to 2 times (3 total attempts) on citation
-  violations; after exhaustion auto_bracket_unsourced is applied and
-  writer_completed is emitted. contract_violation and
-  writer_supplied_confidence_vector are terminal (no retry). Pairing event
-  is writer_started.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.writer_failed.WriterFailedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution"
-  profile: "Top-level agent profile name"
-  correlation_id: "Links all events in this pipeline run"
-  stage: "Always 'writer' for this event type"
-  reason: "One of: contract_violation, writer_supplied_confidence_vector, citation_violation"
-  error_message: "Detail of the failure"
-  attempt_number: "Which attempt failed (1-3)"
-
+  execution_id: UUID of the trade execution
+  profile: Top-level agent profile name
+  correlation_id: Links all events in this pipeline run
+  stage: Always 'writer' for this event type
+  reason: 'One of: contract_violation, writer_supplied_confidence_vector, citation_violation'
+  error_message: Detail of the failure
+  attempt_number: Which attempt failed (1-3)
 consumers:
-  - phase_56_event_store
-  - dagster_orchestration
-
+- phase_56_event_store
+- dagster_orchestration
 related_capabilities:
-  - mentor_pipeline_orchestrator
-  - citation_validator
-
+- mentor_pipeline_orchestrator
+- citation_validator
 related_events:
-  - writer_started
-  - writer_started
-  - mentor_pipeline_failed
-
-tags: [phase-60, cognition, failure, writer_tier]
+- writer_started
+- writer_started
+- mentor_pipeline_failed
+tags:
+- phase-60
+- cognition
+- failure
+- writer_tier
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

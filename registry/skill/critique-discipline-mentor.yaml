@@ -1,26 +1,37 @@
 id: critique-discipline-mentor
 type: skill
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: critique-discipline-mentor
-description: >
-  Mentor-variant critique discipline for behavioral_mentor_agent. Scopes critique to
-  CROSS-TRADE behavioral patterns for ONE account. Structures around Pattern Frequency /
-  Behavioral Clustering / Behavioral Evolution. Prevents single-execution critique (that
-  is trade_auditor's scope) and cohort/corpus pattern inference (Phase 62's scope).
-  Per-profile override of the base critique-discipline skill.
-version: "1.0.0"
+description: 'Mentor-variant critique discipline for behavioral_mentor_agent. Scopes
+  critique to CROSS-TRADE behavioral patterns for ONE account. Structures around Pattern
+  Frequency / Behavioral Clustering / Behavioral Evolution. Prevents single-execution
+  critique (that is trade_auditor''s scope) and cohort/corpus pattern inference (Phase
+  62''s scope). Per-profile override of the base critique-discipline skill.
+
+  '
+version: 1.0.0
 phase: 60
 scope: optional
 applies_to_profiles:
-  - behavioral_mentor_agent
-skill_md_path: VM107/agents/behavioral_mentor_agent/skills/critique-discipline/SKILL.md
-tags: [critique, mentor, cross-trade, account-scoped, optional, phase-60]
+- behavioral_mentor_agent
+skill_md_path: VM107/skills/critique-discipline-mentor/SKILL.md
+tags:
+- critique
+- mentor
+- cross-trade
+- account-scoped
+- optional
+- phase-60
 trigger_patterns:
-  - "critique behavioral patterns"
-  - "assess cross-trade behavior"
-  - "mentor review"
-  - "account behavioral analysis"
+- critique behavioral patterns
+- assess cross-trade behavior
+- mentor review
+- account behavioral analysis
 allowed_tools:
-  - skills_tool
+- skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

@@ -1,38 +1,41 @@
 id: reader_completed
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: reader_completed
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted by MentorPipelineOrchestrator after ReaderOutput passes Pydantic
+  model_validate (contract validation passes). Marks successful completion of the
+  reader tier. Carries citation_count_in_evidence (number of data refs retrieved),
+  suspicious_payload_count (detect-as-data violations in raw reader output before
+  validation). Pairing event is reader_started.
 
-description: >
-  Emitted by MentorPipelineOrchestrator after ReaderOutput passes Pydantic
-  model_validate (contract validation passes). Marks successful completion of
-  the reader tier. Carries citation_count_in_evidence (number of data refs
-  retrieved), suspicious_payload_count (detect-as-data violations in raw
-  reader output before validation). Pairing event is reader_started.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.reader_completed.ReaderCompletedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution"
-  profile: "Top-level agent profile name"
-  correlation_id: "Links all events in this pipeline run"
-  citation_count_in_evidence: "Number of [ref:...] tokens found in retrieved evidence"
-  suspicious_payload_count: "Number of potential prompt-injection indicators detected in raw retrieval"
-
+  execution_id: UUID of the trade execution
+  profile: Top-level agent profile name
+  correlation_id: Links all events in this pipeline run
+  citation_count_in_evidence: Number of [ref:...] tokens found in retrieved evidence
+  suspicious_payload_count: Number of potential prompt-injection indicators detected
+    in raw retrieval
 consumers:
-  - phase_56_event_store
-
+- phase_56_event_store
 related_capabilities:
-  - mentor_pipeline_orchestrator
-
+- mentor_pipeline_orchestrator
 related_events:
-  - reader_started
-  - analyzer_started
-
-tags: [phase-60, cognition, lifecycle, reader_tier]
+- reader_started
+- analyzer_started
+tags:
+- phase-60
+- cognition
+- lifecycle
+- reader_tier
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

@@ -1,76 +1,77 @@
 id: execution_neo4j_projector
 type: service
-status: shipped
+status: real
 shipped: 58
 planned_phase: null
 last_changed: 2026-05-11
-
 name: execution_neo4j_projector
-description: >
-  Projects canonical TradeAnalyticsSnapshot rows into the Neo4j relationship
-  graph (5 V1 edge types — CONTEXT §7). Postgres remains canonical truth;
-  Neo4j is disposable/rebuildable derived state (CONTEXT §6 — relationship
-  only, no snapshot payload duplication on nodes). Reads its own
-  AnalyticsProjectionLedger row (target_store='neo4j'), MERGEs the
-  :Execution node + 5 edge types via Cypher (idempotent — every MERGE keys
-  on (label, id) for nodes and (edge_type, ruleset_version) for edges),
-  and finally transitions the ledger row to completed/failed. Cypher
-  writes execute OUTSIDE transaction.atomic per Pitfall 1; only ledger
-  state-machine transitions are atomic.
+description: 'Projects canonical TradeAnalyticsSnapshot rows into the Neo4j relationship
+  graph (5 V1 edge types — CONTEXT §7). Postgres remains canonical truth; Neo4j is
+  disposable/rebuildable derived state (CONTEXT §6 — relationship only, no snapshot
+  payload duplication on nodes). Reads its own AnalyticsProjectionLedger row (target_store=''neo4j''),
+  MERGEs the :Execution node + 5 edge types via Cypher (idempotent — every MERGE keys
+  on (label, id) for nodes and (edge_type, ruleset_version) for edges), and finally
+  transitions the ledger row to completed/failed. Cypher writes execute OUTSIDE transaction.atomic
+  per Pitfall 1; only ledger state-machine transitions are atomic.
+
+  '
 producer: vm100
 phase: 58
-implementation_version: "1.0.0"
-
+implementation_version: 1.0.0
 location:
   source: VM100/backend/journal/services/projectors/execution_neo4j_projector.py
   contracts: Dagster/fingpt_core/src/fingpt_core/contracts/projection/neo4j_projection.py
   tests:
-    - VM100/backend/journal/tests/test_projectors/test_neo4j_projector.py
-    - VM100/backend/journal/tests/test_projectors/test_neo4j_projector_failed_due_to.py
-
+  - VM100/backend/journal/tests/test_projectors/test_neo4j_projector.py
+  - VM100/backend/journal/tests/test_projectors/test_neo4j_projector_failed_due_to.py
 inputs:
-  - source: analytics_projection_ledger
-    filter: "status='pending' AND target_store='neo4j'"
-  - source: trade_analytics_snapshot
-    join: ledger.snapshot_id == snapshot.id
-
+- source: analytics_projection_ledger
+  filter: status='pending' AND target_store='neo4j'
+- source: trade_analytics_snapshot
+  join: ledger.snapshot_id == snapshot.id
 outputs:
-  - 1 :Execution node (id only — CONTEXT §6)
-  - 1 :USES_STRATEGY edge (Execution → Strategy by id)
-  - 1 :FOR_INSTRUMENT edge (Execution → Instrument by id)
-  - 1 :OCCURRED_DURING edge (Execution → Regime by id)
-  - N :SIMILAR_TO edges (Execution → Execution; from snapshot.similarity_breakdown.top_n)
-  - K :FAILED_DUE_TO edges (Execution → BehavioralPattern; one per fired CONTEXT §8 signal)
-
+- 1 :Execution node (id only — CONTEXT §6)
+- 1 :USES_STRATEGY edge (Execution → Strategy by id)
+- 1 :FOR_INSTRUMENT edge (Execution → Instrument by id)
+- 1 :OCCURRED_DURING edge (Execution → Regime by id)
+- N :SIMILAR_TO edges (Execution → Execution; from snapshot.similarity_breakdown.top_n)
+- K :FAILED_DUE_TO edges (Execution → BehavioralPattern; one per fired CONTEXT §8
+  signal)
 backend: neo4j
-host: "192.168.1.105"
+host: 192.168.1.105
 port: 7687
 schema_dependencies:
-  - VM107/core/migrations/scripts/003_neo4j_operational_schema.py
-  - VM107/core/migrations/scripts/010_neo4j_phase58_schema.py
-
+- VM107/core/migrations/scripts/003_neo4j_operational_schema.py
+- VM107/core/migrations/scripts/010_neo4j_phase58_schema.py
 edge_taxonomy:
-  - SIMILAR_TO        # CONTEXT §7 — directional-neutral
-  - OCCURRED_DURING
-  - USES_STRATEGY
-  - FOR_INSTRUMENT
-  - FAILED_DUE_TO     # uses :BehavioralPattern controlled vocab (§8)
-
+- SIMILAR_TO
+- OCCURRED_DURING
+- USES_STRATEGY
+- FOR_INSTRUMENT
+- FAILED_DUE_TO
 pitfall_guards:
-  - pitfall_1_atomic_boundary: "Cypher writes OUTSIDE transaction.atomic; only ledger state-machine inside"
-  - pitfall_3_id_merge: "All MERGE clauses use {id: ...}, never {name: ...} (legacy JournalNeo4jSync bug)"
-
+- pitfall_1_atomic_boundary: Cypher writes OUTSIDE transaction.atomic; only ledger
+    state-machine inside
+- pitfall_3_id_merge: 'All MERGE clauses use {id: ...}, never {name: ...} (legacy
+    JournalNeo4jSync bug)'
 related_capabilities:
-  - analytics_snapshot_recorded
-  - analytics_projection_ledger
-  - similarity_analysis_tool
-  - behavioral_analysis_tool
-  - hesitation
-  - late_entry
-  - over_management
-  - revenge_trade
-  - fomo_entry
-
+- analytics_snapshot_recorded
+- analytics_projection_ledger
+- similarity_analysis_tool
+- behavioral_analysis_tool
+- hesitation
+- late_entry
+- over_management
+- revenge_trade
+- fomo_entry
 aliases: []
-tags: [phase-58, projector, neo4j, intelligence_storage, relationship_graph]
+tags:
+- phase-58
+- projector
+- neo4j
+- intelligence_storage
+- relationship_graph
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

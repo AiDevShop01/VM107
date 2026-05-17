@@ -1,26 +1,23 @@
----
 id: compression_analysis_tool
 name: compression_analysis_tool
 type: tool
-status: shipped
+status: real
 shipped: 57
 canonical_tool: compression_analysis_tool
 aliases:
-  - analyze_compression
-  - evaluate_compression
+- analyze_compression
+- evaluate_compression
+description: 'Deterministic pre-entry compression quality scoring for a given Execution.
+  Reads VM102 L4 compression primitives (inside-bar clusters, range/ATR ratio, pre-breakout
+  consolidation pattern) for the execution''s instrument and pre-entry time window.
+  Scores compression quality (strong / moderate / weak / absent / unknown) with confidence
+  and deterministic narrative fragments.
 
-description: >
-  Deterministic pre-entry compression quality scoring for a given Execution.
-  Reads VM102 L4 compression primitives (inside-bar clusters, range/ATR ratio,
-  pre-breakout consolidation pattern) for the execution's instrument and
-  pre-entry time window. Scores compression quality (strong / moderate / weak /
-  absent / unknown) with confidence and deterministic narrative fragments.
-
+  '
 category: analytics
 version: 1.0
 producer: vm107
 phase: 57
-
 location:
   source: VM107/tools/compression_analysis.py
   endpoint:
@@ -29,22 +26,20 @@ location:
   contracts:
     request: fingpt_core.contracts.analytics.compression.CompressionAnalysisRequest
     response: fingpt_core.contracts.analytics.compression.CompressionAnalysisResult
-
 related_capabilities:
-  - get_primitives
-  - regime_analysis_tool
-  - liquidity_analysis_tool
-
+- get_primitives
+- regime_analysis_tool
+- liquidity_analysis_tool
 tags:
-  - analytics
-  - compression
-  - inside_bar
-  - atr
-  - vm102
-  - phase_57
-
+- analytics
+- compression
+- inside_bar
+- atr
+- vm102
+- phase_57
 hard_scoped: false
 allowed_agent_profiles:
-  - agent_zero
-
+- agent_zero
 last_changed: 2026-05-10
+impact_on_decision: HIGH
+deprecated: false

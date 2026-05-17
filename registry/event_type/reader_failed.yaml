@@ -1,41 +1,42 @@
 id: reader_failed
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: reader_failed
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted when ReaderOutput fails Pydantic model_validate — a reader contract
+  violation (CTX-§3 hard-fail boundary 1). The orchestrator raises ReaderContractError;
+  the analyzer tier NEVER runs after this event. Carries error_message (validation
+  error detail), stage=''reader''. Pairing event is reader_started. Also emitted when
+  reader sub-profile returns freeform text instead of a structured ReaderOutput envelope.
 
-description: >
-  Emitted when ReaderOutput fails Pydantic model_validate — a reader contract
-  violation (CTX-§3 hard-fail boundary 1). The orchestrator raises
-  ReaderContractError; the analyzer tier NEVER runs after this event. Carries
-  error_message (validation error detail), stage='reader'. Pairing event is
-  reader_started. Also emitted when reader sub-profile returns freeform text
-  instead of a structured ReaderOutput envelope.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.reader_failed.ReaderFailedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution"
-  profile: "Top-level agent profile name"
-  correlation_id: "Links all events in this pipeline run"
-  stage: "Always 'reader' for this event type"
-  error_message: "Pydantic ValidationError detail or freeform-output reason"
-  error_type: "Exception class name (ReaderContractError, ValidationError, etc.)"
-
+  execution_id: UUID of the trade execution
+  profile: Top-level agent profile name
+  correlation_id: Links all events in this pipeline run
+  stage: Always 'reader' for this event type
+  error_message: Pydantic ValidationError detail or freeform-output reason
+  error_type: Exception class name (ReaderContractError, ValidationError, etc.)
 consumers:
-  - phase_56_event_store
-  - dagster_orchestration
-
+- phase_56_event_store
+- dagster_orchestration
 related_capabilities:
-  - mentor_pipeline_orchestrator
-
+- mentor_pipeline_orchestrator
 related_events:
-  - reader_started
-  - mentor_pipeline_failed
-
-tags: [phase-60, cognition, failure, reader_tier]
+- reader_started
+- mentor_pipeline_failed
+tags:
+- phase-60
+- cognition
+- failure
+- reader_tier
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

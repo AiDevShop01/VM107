@@ -1,19 +1,27 @@
 id: scope_dispatcher
 type: service
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: ScopeDispatcher
-description: >
-  Cognition gateway. Signs ScopeContext JWTs (HS256), injects X-Agent-Scope
+description: 'Cognition gateway. Signs ScopeContext JWTs (HS256), injects X-Agent-Scope
   header on every outbound VM107 to VM100/VM102 HTTP call. Agents NEVER construct
   or sign their own scope per CTX-§5 LOCKED. Monthly key rotation.
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 producer: VM107
 location:
   source: VM107/helpers/scope_dispatcher.py
 related_capabilities:
-  - mentor_pipeline_orchestrator
-tags: [phase-60, cognition, authorization, jwt]
+- mentor_pipeline_orchestrator
+tags:
+- phase-60
+- cognition
+- authorization
+- jwt
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

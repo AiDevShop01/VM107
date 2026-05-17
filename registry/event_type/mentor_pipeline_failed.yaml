@@ -1,43 +1,44 @@
 id: mentor_pipeline_failed
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: mentor_pipeline_failed
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted by MentorPipelineOrchestrator when any stage fails terminally
+  — reader_failed, analyzer_failed, or writer_failed (after all retries are exhausted).
+  Carries the failing stage, error_message, error_type. No narrative is persisted
+  when this event is emitted. Pairing event is mentor_pipeline_started. Dagster sensor
+  observes this event to decide whether to re-queue the execution after a delay.
 
-description: >
-  Emitted by MentorPipelineOrchestrator when any stage fails terminally —
-  reader_failed, analyzer_failed, or writer_failed (after all retries are
-  exhausted). Carries the failing stage, error_message, error_type. No
-  narrative is persisted when this event is emitted. Pairing event is
-  mentor_pipeline_started. Dagster sensor observes this event to decide
-  whether to re-queue the execution after a delay.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.mentor_pipeline_failed.MentorPipelineFailedPayload
-
 payload_fields:
-  execution_id: "UUID of the trade execution (null for weekly_review)"
-  profile: "Agent profile name"
-  correlation_id: "Links all events in this pipeline run"
-  failed_stage: "Which stage failed: reader | analyzer | writer"
-  error_message: "Root cause detail"
-  error_type: "Exception class name"
-
+  execution_id: UUID of the trade execution (null for weekly_review)
+  profile: Agent profile name
+  correlation_id: Links all events in this pipeline run
+  failed_stage: 'Which stage failed: reader | analyzer | writer'
+  error_message: Root cause detail
+  error_type: Exception class name
 consumers:
-  - phase_56_event_store
-  - dagster_orchestration
-
+- phase_56_event_store
+- dagster_orchestration
 related_capabilities:
-  - mentor_pipeline_orchestrator
-
+- mentor_pipeline_orchestrator
 related_events:
-  - mentor_pipeline_started
-  - reader_failed
-  - analyzer_failed
-  - writer_failed
-
-tags: [phase-60, cognition, failure, mentor_pipeline]
+- mentor_pipeline_started
+- reader_failed
+- analyzer_failed
+- writer_failed
+tags:
+- phase-60
+- cognition
+- failure
+- mentor_pipeline
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

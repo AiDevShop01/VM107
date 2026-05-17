@@ -1,42 +1,42 @@
 id: counterfactual.entry.late_entry_5_bars
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.entry_late_entry_5_bars.EntryLateEntry5BarsPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
-  entry_offset_bars: 5  # deterministic: alt-entry fires at bar[original_entry + 5].open
-description: >
-  Deterministic 5-bar-later alt-entry with no signal lookup. The alt-entry fires
-  at bar[original_entry + 5].open regardless of price action — no signal required.
-
-  This is the simplest alt-entry policy and the most testable baseline for the
-  entry-timing tier. It isolates the pure geometry re-threading effect (SL/TP
-  shift) from any signal-detection complexity.
-
-  R-unit geometry is preserved from the original pre-entry stop discipline.
-  If entry_offset_bars pushes the alt-entry past the canonical trade window,
-  policy_outcome_class='missed_window'; hypothetical_r=0.
-
-  Phase 61 Law #3 enforced via BarsView: forward walk reads
-  bars[alt_entry_bar : max_index] only; no future bar access during signal detection
-  (there is none — fully deterministic offset).
-
-  Law #6 phrasing discipline:
-    APPROVED: "Under counterfactual alt-entry policy
-    [ref:counterfactual:counterfactual.entry.late_entry_5_bars:hypothetical_exit_timestamp],
-    the deterministic 5-bar-later entry would have re-threaded SL/TP geometry
-    while preserving the R-unit discipline."
-    BANNED: "Waiting 5 bars would have improved your R."
-    BANNED: "Your early entry cost you 0.7R."
-
-  Divergence type: PRE_ENTRY — alt-entry diverges before the canonical entry bar
-  (5 bars after the canonical entry, but before any mid-trade stop/exit events).
+  entry_offset_bars: 5
+description: "Deterministic 5-bar-later alt-entry with no signal lookup. The alt-entry\
+  \ fires at bar[original_entry + 5].open regardless of price action — no signal required.\n\
+  This is the simplest alt-entry policy and the most testable baseline for the entry-timing\
+  \ tier. It isolates the pure geometry re-threading effect (SL/TP shift) from any\
+  \ signal-detection complexity.\nR-unit geometry is preserved from the original pre-entry\
+  \ stop discipline. If entry_offset_bars pushes the alt-entry past the canonical\
+  \ trade window, policy_outcome_class='missed_window'; hypothetical_r=0.\nPhase 61\
+  \ Law #3 enforced via BarsView: forward walk reads bars[alt_entry_bar : max_index]\
+  \ only; no future bar access during signal detection (there is none — fully deterministic\
+  \ offset).\nLaw #6 phrasing discipline:\n  APPROVED: \"Under counterfactual alt-entry\
+  \ policy\n  [ref:counterfactual:counterfactual.entry.late_entry_5_bars:hypothetical_exit_timestamp],\n\
+  \  the deterministic 5-bar-later entry would have re-threaded SL/TP geometry\n \
+  \ while preserving the R-unit discipline.\"\n  BANNED: \"Waiting 5 bars would have\
+  \ improved your R.\"\n  BANNED: \"Your early entry cost you 0.7R.\"\n\nDivergence\
+  \ type: PRE_ENTRY — alt-entry diverges before the canonical entry bar (5 bars after\
+  \ the canonical entry, but before any mid-trade stop/exit events).\n"
 phase: 61
-tags: [phase-61, entry, canonical, alt_entry, deterministic, tier_4, offset]
+tags:
+- phase-61
+- entry
+- canonical
+- alt_entry
+- deterministic
+- tier_4
+- offset
 hard_scoped: true
 divergence_type: PRE_ENTRY
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

@@ -156,9 +156,11 @@ def audit_yaml(path: pathlib.Path, registry_root: pathlib.Path) -> dict[str, Any
         if has_path:
             skill_path = data.get("skill_md_path")
             if skill_path:
-                # Resolve relative to VM107 root (parent of registry root's parent)
-                vm107_root = registry_root.parent
-                resolved = vm107_root / skill_path
+                # skill_md_path is like "VM107/skills/<id>/SKILL.md"
+                # which is relative to the FinGPT root (one level above VM107).
+                # registry_root = .../VM107/registry → .parent = VM107 → .parent = FinGPT root
+                fingpt_root = registry_root.parent.parent
+                resolved = fingpt_root / skill_path
                 row["skill_md_path_resolves"] = resolved.exists()
             else:
                 row["skill_md_path_resolves"] = False

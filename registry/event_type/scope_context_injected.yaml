@@ -1,40 +1,41 @@
 id: scope_context_injected
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: scope_context_injected
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted by ScopeDispatcher when a signed ScopeContext JWT-shaped token
+  is attached to an outbound downstream HTTP call (X-Agent-Scope header injection).
+  Scope audit trail event — provides an immutable record of which scope was injected
+  for which tool invocation and which profile. CTX-§5: scope injection is centralized
+  at the dispatcher; this event records every injection for audit purposes.
 
-description: >
-  Emitted by ScopeDispatcher when a signed ScopeContext JWT-shaped token is
-  attached to an outbound downstream HTTP call (X-Agent-Scope header injection).
-  Scope audit trail event — provides an immutable record of which scope was
-  injected for which tool invocation and which profile. CTX-§5: scope
-  injection is centralized at the dispatcher; this event records every
-  injection for audit purposes.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.scope_context_injected.ScopeContextInjectedPayload
-
 payload_fields:
-  profile_id: "Agent profile that originated the downstream call"
-  target_backend: "Downstream backend URL prefix (VM100, VM102, etc.)"
-  tool_name: "Name of the VM107 tool invoking the downstream call"
-  execution_id: "Bound execution_id in the ScopeContext (null for account-scoped only)"
-  narrative_visibility: "NarrativeVisibility enum value in the injected scope"
-  scope_expires_at: "ISO8601 expiry of the injected scope token"
-
+  profile_id: Agent profile that originated the downstream call
+  target_backend: Downstream backend URL prefix (VM100, VM102, etc.)
+  tool_name: Name of the VM107 tool invoking the downstream call
+  execution_id: Bound execution_id in the ScopeContext (null for account-scoped only)
+  narrative_visibility: NarrativeVisibility enum value in the injected scope
+  scope_expires_at: ISO8601 expiry of the injected scope token
 consumers:
-  - phase_56_event_store
-
+- phase_56_event_store
 related_capabilities:
-  - scope_dispatcher
-
+- scope_dispatcher
 related_events:
-  - scope_validation_passed
-  - scope_validation_failed
-
-tags: [phase-60, cognition, scope, audit]
+- scope_validation_passed
+- scope_validation_failed
+tags:
+- phase-60
+- cognition
+- scope
+- audit
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

@@ -1,86 +1,84 @@
 id: get_pattern_cluster_membership_tool
 type: tool
-status: shipped
+status: real
 shipped: 62
 last_changed: 2026-05-16
-
 name: get_pattern_cluster_membership
-description: >
-  Returns cluster membership for a given execution_id from the most recent
-  PatternClusterSnapshot. Calls VM100 GET
-  /api/journal/internal/adaptive/pattern-cluster-membership/{execution_id}.
+description: 'Returns cluster membership for a given execution_id from the most recent
+  PatternClusterSnapshot. Calls VM100 GET /api/journal/internal/adaptive/pattern-cluster-membership/{execution_id}.
   NEVER recomputes live — reads frozen Postgres rows only (CTX-DEC-16).
 
-  CTX-DEC-14 defense-in-depth: returns [] immediately if PATTERN is NOT in
-  the caller's adaptive_signal_categories frozenset. The MentorPipelineOrchestrator
-  ALSO prunes tools BEFORE planning — this is additional per-tool enforcement.
+  CTX-DEC-14 defense-in-depth: returns [] immediately if PATTERN is NOT in the caller''s
+  adaptive_signal_categories frozenset. The MentorPipelineOrchestrator ALSO prunes
+  tools BEFORE planning — this is additional per-tool enforcement.
 
-  Returns empty list [] on 404 (execution not in any cluster snapshot — normal
-  before the first monthly run or before N≥50 cohort accumulation). Returns []
-  on transport error (graceful degradation).
+  Returns empty list [] on 404 (execution not in any cluster snapshot — normal before
+  the first monthly run or before N≥50 cohort accumulation). Returns [] on transport
+  error (graceful degradation).
 
-  truth_mode=ADAPTIVE_OBSERVATION on returned rows (CTX-DEC-17).
-  SHADOW_ONLY framing — never surfaced in apply UI (CTX-DEC-15).
-  Phase 39 typed-API lock: VM107 calls VM100 APIs; never direct DB access.
+  truth_mode=ADAPTIVE_OBSERVATION on returned rows (CTX-DEC-17). SHADOW_ONLY framing
+  — never surfaced in apply UI (CTX-DEC-15). Phase 39 typed-API lock: VM107 calls
+  VM100 APIs; never direct DB access.
 
-  CTX-DEC-13: cluster membership reflects structured vector clustering only.
-  NO narrative/LLM substrate in the underlying clustering pipeline.
-  Cluster labels are deterministic centroid-hash descriptors (Pitfall 7).
+  CTX-DEC-13: cluster membership reflects structured vector clustering only. NO narrative/LLM
+  substrate in the underlying clustering pipeline. Cluster labels are deterministic
+  centroid-hash descriptors (Pitfall 7).
 
+  '
 capability_type: adaptive_pattern_cluster_membership_lookup
-
 signal_category: PATTERN
 vm100_endpoint_path: /api/journal/internal/adaptive/pattern-cluster-membership/{execution_id}
 http_method: GET
 parameters:
-  - name: execution_id
-    type: str (UUID)
-    required: true
-    description: UUID string of the trade execution to look up
-  - name: adaptive_signal_categories
-    type: frozenset
-    required: true
-    description: >
-      Frozenset of AdaptiveSignalCategory values resolved from ScopeContext.
-      If PATTERN not present, returns [] without calling VM100.
+- name: execution_id
+  type: str (UUID)
+  required: true
+  description: UUID string of the trade execution to look up
+- name: adaptive_signal_categories
+  type: frozenset
+  required: true
+  description: 'Frozenset of AdaptiveSignalCategory values resolved from ScopeContext.
+    If PATTERN not present, returns [] without calling VM100.
 
-return_type: list[dict]  # {cluster_id, cluster_label, cluster_snapshot_id, generated_at}
-return_on_error: []  # empty list — never raises (graceful degradation)
+    '
+return_type: list[dict]
+return_on_error: []
 error_modes:
-  - code: vm100_unavailable
-    http_status: null
-    description: Transport error — returns []
-  - code: vm100_404
-    http_status: 404
-    description: No cluster membership for this execution — returns []
-  - code: scope_pruned
-    http_status: null
-    description: PATTERN not in adaptive_signal_categories — returns [] without HTTP call
-
+- code: vm100_unavailable
+  http_status: null
+  description: Transport error — returns []
+- code: vm100_404
+  http_status: 404
+  description: No cluster membership for this execution — returns []
+- code: scope_pruned
+  http_status: null
+  description: PATTERN not in adaptive_signal_categories — returns [] without HTTP
+    call
 capabilities:
-  - adaptive_pattern_cluster_membership_read
-
+- adaptive_pattern_cluster_membership_read
 related_capabilities:
-  - pattern_cluster_signal
-  - get_pattern_cluster_stats_tool
-  - get_behavioral_evolution_tool
-  - get_drift_report_tool
-
+- pattern_cluster_signal
+- get_pattern_cluster_stats_tool
+- get_behavioral_evolution_tool
+- get_drift_report_tool
 phase: 62
 tags:
-  - phase-62
-  - tool
-  - adaptive
-  - pattern
-  - pattern-cluster
-  - shadow-only
-  - internal-api
-  - ctx-dec-13
-  - ctx-dec-14
-  - ctx-dec-15
-  - ctx-dec-16
-  - ctx-dec-17
-  - rg-10
-  - rg-13
-
+- phase-62
+- tool
+- adaptive
+- pattern
+- pattern-cluster
+- shadow-only
+- internal-api
+- ctx-dec-13
+- ctx-dec-14
+- ctx-dec-15
+- ctx-dec-16
+- ctx-dec-17
+- rg-10
+- rg-13
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

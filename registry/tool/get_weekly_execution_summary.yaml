@@ -1,67 +1,52 @@
-# Tool registry entry — Phase 60 Plan 11b TOOL GAP #3 CLOSURE
-#
-# get_weekly_execution_summary: batch-read executions + analytics_snapshot for a
-# canonical week window (week_start/week_end anchored dates) via VM100 internal endpoint.
-# Phase 39 typed-API lock — VM107 NEVER queries Postgres directly.
-#
-# CONTEXT.md §10 LOCKED:
-#   week_start/week_end are canonical anchored dates, NOT relative offsets.
-#   Anchored dates enable replay reproducibility.
-
 id: get_weekly_execution_summary
+type: tool
 category: reader
-version: "1.0.0"
-introduced_phase: "60-11b"
-
-description: >
-  Batch-read all Execution rows + analytics_snapshot for a canonical week window
-  (week_start, week_end, timezone) from VM100 Postgres. Returns a structured dict
-  of executions with instrument, timestamps, result_r, and snapshot_id for each
+version: 1.0.0
+introduced_phase: 60-11b
+description: 'Batch-read all Execution rows + analytics_snapshot for a canonical week
+  window (week_start, week_end, timezone) from VM100 Postgres. Returns a structured
+  dict of executions with instrument, timestamps, result_r, and snapshot_id for each
   closed execution in the week. Scoped to a single account; X-Agent-Scope enforced
   by VM100 endpoint (Pitfall 8 LOCKED). week_start/week_end are canonical anchored
   dates — NOT relative offsets — enabling replay reproducibility (CONTEXT.md §10 LOCKED).
 
-endpoint_pattern: "GET {VM100_INTERNAL_BASE_URL}/api/journal/internal/executions/week-summary"
+  '
+endpoint_pattern: GET {VM100_INTERNAL_BASE_URL}/api/journal/internal/executions/week-summary
 http_method: GET
-retry_profile: FAST_FAIL  # 4xx: no retry; 5xx: 2 retries (3 total attempts)
-
+retry_profile: FAST_FAIL
 hard_scoped: true
-scope_enforcement: account_id_equality_check  # scope.account_id must equal queried account_id
-
+scope_enforcement: account_id_equality_check
 allowed_agent_profiles:
-  - weekly_review_agent._reader
-  - weekly_review_agent._analyzer
-
+- weekly_review_agent._analyzer
+- weekly_review_agent._reader
 denied_agent_profiles:
-  - weekly_review_agent._writer   # writer never reads
-  - trade_auditor_agent._analyzer
-  - trade_auditor_agent._reader
-  - behavioral_mentor_agent._analyzer
-  - behavioral_mentor_agent._reader
-
+- weekly_review_agent._writer
+- trade_auditor_agent._analyzer
+- trade_auditor_agent._reader
+- behavioral_mentor_agent._analyzer
+- behavioral_mentor_agent._reader
 request_fields:
   account_id:
     type: str
     required: true
-    description: "Account to query — must match scope.account_id"
+    description: Account to query — must match scope.account_id
   week_start:
-    type: date   # CONTEXT.md §10 LOCKED — canonical anchored ISO date (YYYY-MM-DD)
+    type: date
     required: true
-    description: "Start of the canonical week window — anchored date, NOT timedelta"
+    description: Start of the canonical week window — anchored date, NOT timedelta
   week_end:
-    type: date   # CONTEXT.md §10 LOCKED — canonical anchored ISO date (YYYY-MM-DD)
+    type: date
     required: true
-    description: "End of the canonical week window — anchored date, NOT timedelta"
+    description: End of the canonical week window — anchored date, NOT timedelta
   timezone:
     type: str
     required: false
-    default: "UTC"
-    description: "IANA timezone string (e.g. 'UTC', 'America/New_York')"
+    default: UTC
+    description: IANA timezone string (e.g. 'UTC', 'America/New_York')
   scope_context:
     type: ScopeContext
     required: true
-    description: "ScopeContext injected by MentorPipelineOrchestrator — never self-supplied"
-
+    description: ScopeContext injected by MentorPipelineOrchestrator — never self-supplied
 response_fields:
   account_id:
     type: str
@@ -74,18 +59,21 @@ response_fields:
     item_fields:
       execution_id: str
       instrument: str
-      opened_at: "str | None"
-      closed_at: "str | None"
-      result_r: "float | None"
-      snapshot_id: "str | None"
-
+      opened_at: str | None
+      closed_at: str | None
+      result_r: float | None
+      snapshot_id: str | None
 data_sources:
-  - "Postgres journal.execution table (Phase 55)"
-  - "Postgres journal.trade_analytics_snapshot table (Phase 57)"
-  - "Postgres journal.trade_outcomes table (for result_r)"
-
+- Postgres journal.execution table (Phase 55)
+- Postgres journal.trade_analytics_snapshot table (Phase 57)
+- Postgres journal.trade_outcomes table (for result_r)
 phase_lock:
-  - "Phase 39: VM107 never queries Postgres directly — VM100 endpoint is the boundary"
-  - "CONTEXT.md §10: week_start/week_end are canonical anchored dates, not relative offsets"
-  - "Directive #4: VM100_INTERNAL_BASE_URL read in __init__, never at module scope"
-  - "Pitfall 8: scope enforcement happens at VM100 endpoint BEFORE any DB access"
+- 'Phase 39: VM107 never queries Postgres directly — VM100 endpoint is the boundary'
+- 'CONTEXT.md §10: week_start/week_end are canonical anchored dates, not relative
+  offsets'
+- 'Directive #4: VM100_INTERNAL_BASE_URL read in __init__, never at module scope'
+- 'Pitfall 8: scope enforcement happens at VM100 endpoint BEFORE any DB access'
+status: real
+impact_on_decision: HIGH
+deprecated: false
+tags: []

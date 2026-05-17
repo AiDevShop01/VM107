@@ -1,18 +1,16 @@
 id: order_submitted
 type: event_type
-status: shipped
+status: real
 shipped: 56
 planned_phase: null
 last_changed: 2026-05-09
-
-# Phase 56 extended schema per CONTEXT §12
 name: order_submitted
-description: >
-  Triggers on: User clicks Execute → Execution(state=PENDING) row
-  created. Intent event preceding broker confirmation; pairs with
-  fill_received on broker acknowledgement (G2 first half, CONTEXT §10).
-  Models async broker reality — PENDING and OPEN are real Execution
-  states (Phase 56 Decision §10).
+description: 'Triggers on: User clicks Execute → Execution(state=PENDING) row created.
+  Intent event preceding broker confirmation; pairs with fill_received on broker acknowledgement
+  (G2 first half, CONTEXT §10). Models async broker reality — PENDING and OPEN are
+  real Execution states (Phase 56 Decision §10).
+
+  '
 event_type: order_submitted
 category: execution
 version: 1.0
@@ -22,24 +20,27 @@ retention: permanent
 pii: false
 replayable: true
 phase: 56
-
 location:
   source: VM100/backend/journal/services/execution_service.py
   contracts:
     payload: fingpt_core.contracts.events.execution.OrderSubmittedEvent
-
 emitted_by: execution_service
 gap: G2
-
 correlation:
   pairs_with: fill_received
-  shared_correlation_id: true   # via Execution.pk per Pitfall 8 Option B
-
+  shared_correlation_id: true
 related_capabilities:
-  - execution
-  - execution_service
-  - campaign_service
-  - event
-
-tags: [phase-56, execution, intent, gap_g2, audit_trail]
+- execution
+- execution_service
+- campaign_service
+- event
+tags:
+- phase-56
+- execution
+- intent
+- gap_g2
+- audit_trail
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,49 +1,54 @@
 id: replay_narrator
 type: service
-status: shipped
+status: real
 shipped: 59
 last_changed: 2026-05-11
-
 name: ReplayNarrator
-description: >
-  Produces a list of ReplayLine objects (narrated events) for a closed
-  execution by rendering events through the Phase 59 replay template registry.
-  Each event is narrated using the template matching its event_type; unknown
-  events fall back to a generic template.
+description: 'Produces a list of ReplayLine objects (narrated events) for a closed
+  execution by rendering events through the Phase 59 replay template registry. Each
+  event is narrated using the template matching its event_type; unknown events fall
+  back to a generic template.
 
-  Template selection is governed by replay_template_version (CONTEXT §19
-  four-version discipline). Bumping the template version triggers re-narration
-  via the manual regen endpoint (CONTEXT §5).
+  Template selection is governed by replay_template_version (CONTEXT §19 four-version
+  discipline). Bumping the template version triggers re-narration via the manual regen
+  endpoint (CONTEXT §5).
 
-  CURRENT_REPLAY_TEMPLATE_VERSION is defined in template_registry.py and is
-  the authoritative semver for the active template set.
+  CURRENT_REPLAY_TEMPLATE_VERSION is defined in template_registry.py and is the authoritative
+  semver for the active template set.
 
-  VM100 module: journal.services.replay.replay_narrator
-  Implemented in Phase 59 Plan 03 (59-03).
+  VM100 module: journal.services.replay.replay_narrator Implemented in Phase 59 Plan
+  03 (59-03).
 
+  '
 module_path: journal.services.replay.replay_narrator
 class_name: ReplayNarrator
 producer: vm100
-implementation_version: "1.0.0"
-schema_version: "1.0"
-
+implementation_version: 1.0.0
+schema_version: '1.0'
 public_methods:
-  - name: narrate
-    signature: "narrate(execution_id: UUID, replay_template_version: str) -> list[ReplayLine]"
-    description: >
-      Narrates all lifecycle events for the execution using the specified
-      template version. Returns ordered list of ReplayLine objects.
+- name: narrate
+  signature: 'narrate(execution_id: UUID, replay_template_version: str) -> list[ReplayLine]'
+  description: 'Narrates all lifecycle events for the execution using the specified
+    template version. Returns ordered list of ReplayLine objects.
 
+    '
 capabilities:
-  - replay_narration
-  - template_rendering
-  - event_narration_pipeline
-
+- replay_narration
+- template_rendering
+- event_narration_pipeline
 related_capabilities:
-  - reconstruction_service
-  - replay_artifact_persister
-  - fetch_replay_frame_tool
-
+- reconstruction_service
+- replay_artifact_persister
+- fetch_replay_frame_tool
 phase: 59
-tags: [phase-59, replay, service, narrator, template-rendering, vm100]
+tags:
+- phase-59
+- replay
+- service
+- narrator
+- template-rendering
+- vm100
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

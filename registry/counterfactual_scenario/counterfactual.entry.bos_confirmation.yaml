@@ -1,40 +1,42 @@
 id: counterfactual.entry.bos_confirmation
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.entry_bos_confirmation.EntryBosConfirmationPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
-  swing_lookback: 10   # bars before entry to compute pre-entry swing high/low
-  max_wait_bars: 15    # if BOS doesn't occur within 15 bars, missed_window
-description: >
-  Waits for a break-of-structure (BOS) confirmation before alt-entering.
-  BOS is defined as the first bar whose close exceeds the pre-entry swing high
-  (LONG) or falls below the pre-entry swing low (SHORT), using swing_lookback
-  bars before the canonical entry for reference.
-
-  If the BOS signal fires within max_wait_bars, the alt-entry triggers at the
-  BOS confirmation bar; R-unit geometry is preserved. If BOS never fires within
-  the window, policy_outcome_class='missed_window'; hypothetical_r=0.
-
-  Phase 61 Law #3 enforced via BarsView: signal detection reads
-  bars[original_entry_bar - swing_lookback : current_T + 1] only.
-  Future bars never accessed.
-
-  Law #6 phrasing discipline:
-    APPROVED: "Under counterfactual alt-entry policy
-    [ref:counterfactual:counterfactual.entry.bos_confirmation:divergence_frame_id],
-    the BOS confirmation signal fired at replay frame T+5, and the trade would
-    have entered at a different price frame."
-    BANNED: "You should have waited for BOS confirmation."
-    BANNED: "Confirmed entries structurally outperform impulsive entries."
-
-  Divergence type: PRE_ENTRY — alt-entry diverges before the canonical entry bar.
+  swing_lookback: 10
+  max_wait_bars: 15
+description: "Waits for a break-of-structure (BOS) confirmation before alt-entering.\
+  \ BOS is defined as the first bar whose close exceeds the pre-entry swing high (LONG)\
+  \ or falls below the pre-entry swing low (SHORT), using swing_lookback bars before\
+  \ the canonical entry for reference.\nIf the BOS signal fires within max_wait_bars,\
+  \ the alt-entry triggers at the BOS confirmation bar; R-unit geometry is preserved.\
+  \ If BOS never fires within the window, policy_outcome_class='missed_window'; hypothetical_r=0.\n\
+  Phase 61 Law #3 enforced via BarsView: signal detection reads bars[original_entry_bar\
+  \ - swing_lookback : current_T + 1] only. Future bars never accessed.\nLaw #6 phrasing\
+  \ discipline:\n  APPROVED: \"Under counterfactual alt-entry policy\n  [ref:counterfactual:counterfactual.entry.bos_confirmation:divergence_frame_id],\n\
+  \  the BOS confirmation signal fired at replay frame T+5, and the trade would\n\
+  \  have entered at a different price frame.\"\n  BANNED: \"You should have waited\
+  \ for BOS confirmation.\"\n  BANNED: \"Confirmed entries structurally outperform\
+  \ impulsive entries.\"\n\nDivergence type: PRE_ENTRY — alt-entry diverges before\
+  \ the canonical entry bar.\n"
 phase: 61
-tags: [phase-61, entry, canonical, alt_entry, signal_driven, tier_4, bos, structure]
+tags:
+- phase-61
+- entry
+- canonical
+- alt_entry
+- signal_driven
+- tier_4
+- bos
+- structure
 hard_scoped: true
 divergence_type: PRE_ENTRY
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

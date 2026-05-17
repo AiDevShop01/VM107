@@ -1,21 +1,30 @@
 id: counterfactual.stop.atr_1_5
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.stop_atr.StopAtrPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
   atr_multiplier: 1.5
   atr_lookback_bars: 14
-description: >
-  Alternative stop policy placing SL at 1.5x ATR below entry (long) or above entry
-  (short). ATR computed from the 14 bars STRICTLY preceding the entry bar.
-  Phase 61 Law #3 enforced via BarsView; engine raises FutureLeakageError if
+description: 'Alternative stop policy placing SL at 1.5x ATR below entry (long) or
+  above entry (short). ATR computed from the 14 bars STRICTLY preceding the entry
+  bar. Phase 61 Law #3 enforced via BarsView; engine raises FutureLeakageError if
   ATR lookback extends past entry frame.
+
+  '
 phase: 61
-tags: [phase-61, stop, canonical, deterministic, atr]
+tags:
+- phase-61
+- stop
+- canonical
+- deterministic
+- atr
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

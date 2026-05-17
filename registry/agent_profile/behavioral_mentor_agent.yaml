@@ -1,62 +1,65 @@
 id: behavioral_mentor_agent
 type: agent_profile
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: behavioral_mentor_agent
-description: >
-  Cross-trade behavioral pattern critique agent. Account-scoped orchestration entry
-  point for the behavioral_mentor pipeline. Reads cross-trade deterministic evidence
-  (Phase 56 events, Phase 57 analytics, Phase 58 behavioral patterns, Neo4j edges)
-  across ALL executions within the account. NEVER reads prior auditor or mentor
+description: 'Cross-trade behavioral pattern critique agent. Account-scoped orchestration
+  entry point for the behavioral_mentor pipeline. Reads cross-trade deterministic
+  evidence (Phase 56 events, Phase 57 analytics, Phase 58 behavioral patterns, Neo4j
+  edges) across ALL executions within the account. NEVER reads prior auditor or mentor
   narratives (narrative_visibility=NONE). MentorPipelineOrchestrator drives stage
   order: reader → analyzer → writer.
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 parent_profile: null
 hard_scoped: true
-
 sub_profiles:
-  - behavioral_mentor_agent._reader
-  - behavioral_mentor_agent._analyzer
-  - behavioral_mentor_agent._writer
-
+- behavioral_mentor_agent._reader
+- behavioral_mentor_agent._analyzer
+- behavioral_mentor_agent._writer
 allowed_tools: []
 denied_tools:
-  - call_subordinate
-  - code_execution_tool
-  - trade_execution_tool
-
+- call_subordinate
+- code_execution_tool
+- trade_execution_tool
 constitutional_skills:
-  - citation-discipline
-  - hindsight-discipline
-  - adaptive-discipline
+- citation-discipline
+- hindsight-discipline
+- adaptive-discipline
 optional_skills:
-  - critique-discipline
-  - narrative-structure
-  - pattern-recognition
-
+- critique-discipline
+- narrative-structure
+- pattern-recognition
 memory_scope:
-  account_scope: "required"
-  execution_scope: "NONE"
-  cross_trade_visibility: "ACCOUNT_SCOPED"
-  narrative_visibility: "NONE"
+  account_scope: required
+  execution_scope: NONE
+  cross_trade_visibility: ACCOUNT_SCOPED
+  narrative_visibility: NONE
   adaptive_signal_categories:
-    - BEHAVIORAL
-
+  - BEHAVIORAL
 max_iterations: 5
-max_cost_usd: 0.60
-
+max_cost_usd: 0.6
 input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
 output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
-
-template_version: "1.0.0"
+template_version: 1.0.0
 template_version_changelog:
-  - version: "1.0.0"
-    date: "2026-05-12"
-    change: "Initial Phase 60 Wave 3 release — NESTED 3-tier cross-trade profile"
-  - version: "1.1.0"
-    date: "2026-05-16"
-    change: "Phase 62-03: add adaptive_signal_categories=[BEHAVIORAL] to memory_scope; add adaptive-discipline to constitutional_skills (CTX-DEC-14)"
-
-tags: [agent-profile, mentor, cross-trade, account-scoped, phase-60, wave-3]
+- version: 1.0.0
+  date: '2026-05-12'
+  change: Initial Phase 60 Wave 3 release — NESTED 3-tier cross-trade profile
+- version: 1.1.0
+  date: '2026-05-16'
+  change: 'Phase 62-03: add adaptive_signal_categories=[BEHAVIORAL] to memory_scope;
+    add adaptive-discipline to constitutional_skills (CTX-DEC-14)'
+tags:
+- agent-profile
+- mentor
+- cross-trade
+- account-scoped
+- phase-60
+- wave-3
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

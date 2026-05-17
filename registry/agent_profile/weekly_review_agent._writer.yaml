@@ -1,58 +1,62 @@
 id: weekly_review_agent._writer
 type: agent_profile
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: weekly_review_agent._writer
-description: >
-  Writer stage sub-profile for the weekly_review pipeline. Produces a structured
-  NarrativeEnvelope with a cited sentence array following the 5-section week-rollup
-  template (Setup of the Week / Behavioral Themes / Risk and Portfolio Observations /
-  Outcomes / Forward Mentor Note). The ONLY stage that may call persist_narrative.
+description: 'Writer stage sub-profile for the weekly_review pipeline. Produces a
+  structured NarrativeEnvelope with a cited sentence array following the 5-section
+  week-rollup template (Setup of the Week / Behavioral Themes / Risk and Portfolio
+  Observations / Outcomes / Forward Mentor Note). The ONLY stage that may call persist_narrative.
   Denied all read-tier and analyzer-tier tools (CTX-§2 LOCKED).
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 parent_profile: weekly_review_agent
 hard_scoped: true
-
 allowed_tools:
-  - persist_narrative
-  - skills_tool
-
+- persist_narrative
+- skills_tool
 denied_tools:
-  - call_subordinate
-  - code_execution_tool
-  - lookup_replay_artifact
-  - fetch_replay_frame
-  - behavioral_analysis
-  - execution_quality
-  - get_trade_context
-  - get_performance_history
-  - get_weekly_execution_summary
-  - get_regime_context
-  - get_cross_trade_behavioral_patterns
-
+- call_subordinate
+- code_execution_tool
+- lookup_replay_artifact
+- fetch_replay_frame
+- behavioral_analysis
+- execution_quality
+- get_trade_context
+- get_performance_history
+- get_weekly_execution_summary
+- get_regime_context
+- get_cross_trade_behavioral_patterns
 constitutional_skills:
-  - citation-discipline
+- citation-discipline
 optional_skills:
-  - narrative-structure
-
+- narrative-structure
 memory_scope:
-  account_scope: "required"
-  execution_scope: "NONE"
-  cross_trade_visibility: "ACCOUNT_SCOPED"
-  narrative_visibility: "NONE"
-
+  account_scope: required
+  execution_scope: NONE
+  cross_trade_visibility: ACCOUNT_SCOPED
+  narrative_visibility: NONE
 max_iterations: 4
 max_cost_usd: 0.35
-
 input_contract: fingpt_core.contracts.narrative.writer_io.WriterInput
 output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
-
-template_version: "1.0.0"
+template_version: 1.0.0
 template_version_changelog:
-  - version: "1.0.0"
-    date: "2026-05-12"
-    change: "Initial Phase 60 Wave 4 release — week-rollup writer with 5-section structural template"
-
-tags: [agent-profile, writer, weekly-review, week-window, account-scoped, phase-60, wave-4]
+- version: 1.0.0
+  date: '2026-05-12'
+  change: Initial Phase 60 Wave 4 release — week-rollup writer with 5-section structural
+    template
+tags:
+- agent-profile
+- writer
+- weekly-review
+- week-window
+- account-scoped
+- phase-60
+- wave-4
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

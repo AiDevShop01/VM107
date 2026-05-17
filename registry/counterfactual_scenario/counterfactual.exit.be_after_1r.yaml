@@ -1,20 +1,29 @@
 id: counterfactual.exit.be_after_1r
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.exit_be_after_1r.ExitBeAfter1RPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
   trigger_r_multiple: 1.0
-description: >
-  Move SL to break-even (entry price) after MFE crosses 1R. If MFE never crosses 1R,
-  the policy is never activated (outcome class: never_activated). If SL-at-BE is
-  subsequently hit, hypothetical_r = 0. If TP hits before BE trigger, original outcome
-  preserved. Phase 61 deterministic — not optimization.
+description: 'Move SL to break-even (entry price) after MFE crosses 1R. If MFE never
+  crosses 1R, the policy is never activated (outcome class: never_activated). If SL-at-BE
+  is subsequently hit, hypothetical_r = 0. If TP hits before BE trigger, original
+  outcome preserved. Phase 61 deterministic — not optimization.
+
+  '
 phase: 61
-tags: [phase-61, exit, canonical, breakeven, deterministic]
+tags:
+- phase-61
+- exit
+- canonical
+- breakeven
+- deterministic
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

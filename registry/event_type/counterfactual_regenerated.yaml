@@ -1,72 +1,77 @@
 id: counterfactual_regenerated_event
 type: event_type
-status: shipped
+status: real
 shipped: 61
 planned_phase: null
 last_changed: 2026-05-16
-
 name: counterfactual_regenerated
-description: >
-  Emitted when a counterfactual artifact is manually regenerated (GeneratedReason.MANUAL_REGEN
+description: 'Emitted when a counterfactual artifact is manually regenerated (GeneratedReason.MANUAL_REGEN
   path). Produced by CounterfactualPersister.persist() inside a single transaction.atomic()
-  block that ALSO writes counterfactual_artifact row (Pattern 51). Sequence number allocated
-  via nextval('execution_event_seq') inside the same atomic block (no allocation gap).
-  MANUAL_REGEN creates a NEW artifact row with a new scenario_version; the old row is
-  WORM-immutable and cannot be modified. Emitter must supply requested_by and reason_note.
+  block that ALSO writes counterfactual_artifact row (Pattern 51). Sequence number
+  allocated via nextval(''execution_event_seq'') inside the same atomic block (no
+  allocation gap). MANUAL_REGEN creates a NEW artifact row with a new scenario_version;
+  the old row is WORM-immutable and cannot be modified. Emitter must supply requested_by
+  and reason_note.
 
+  '
 event_type: counterfactual_regenerated
 category: counterfactual
 producer: vm107_tool
 causality_scope: EXECUTION
 replayable: true
 phase: 61
-
 payload_schema: CounterfactualRegeneratedEvent
 payload_fields:
-  counterfactual_id: "UUID of the newly created CounterfactualArtifact row (new version)"
-  execution_id: "UUID of the closed Execution this counterfactual branches from"
-  scenario_id: "Registry ID of the scenario"
-  scenario_version: "SemVer version string of the NEW scenario version"
-  truth_mode: "Always 'COUNTERFACTUAL' (Law #4 — hardcoded, never configurable)"
-
+  counterfactual_id: UUID of the newly created CounterfactualArtifact row (new version)
+  execution_id: UUID of the closed Execution this counterfactual branches from
+  scenario_id: Registry ID of the scenario
+  scenario_version: SemVer version string of the NEW scenario version
+  truth_mode: 'Always ''COUNTERFACTUAL'' (Law #4 — hardcoded, never configurable)'
 required_payload_fields:
-  - counterfactual_id
+- counterfactual_id
+- execution_id
+- scenario_id
+- scenario_version
+- truth_mode
+idempotency_key:
+  fields:
   - execution_id
   - scenario_id
   - scenario_version
-  - truth_mode
-
-idempotency_key:
-  fields: [execution_id, scenario_id, scenario_version]
-  note: >
-    Each MANUAL_REGEN must supply a new scenario_version to avoid IntegrityError (Law #7).
-    source_envelope_id is uuid5(NAMESPACE_OID, "{eid}:{scenario_id}:{scenario_version}").
+  note: 'Each MANUAL_REGEN must supply a new scenario_version to avoid IntegrityError
+    (Law #7). source_envelope_id is uuid5(NAMESPACE_OID, "{eid}:{scenario_id}:{scenario_version}").
     The new version becomes its own WORM-immutable row; old version row is untouched.
 
+    '
 sequence_namespace: execution_event_seq
-
 emitted_by:
-  - counterfactual_persister  # VM100/backend/journal/services/counterfactual/counterfactual_persister.py
-
+- counterfactual_persister
 trigger:
-  mechanism: >
-    CounterfactualPersister.persist(generated_reason='MANUAL_REGEN') is called by
-    VM107 tool invocation (on-demand analyst request). Caller must supply requested_by
-    and reason_note. The new scenario_version must differ from any existing row for
-    the same (execution_id, scenario_id) pair.
+  mechanism: 'CounterfactualPersister.persist(generated_reason=''MANUAL_REGEN'') is
+    called by VM107 tool invocation (on-demand analyst request). Caller must supply
+    requested_by and reason_note. The new scenario_version must differ from any existing
+    row for the same (execution_id, scenario_id) pair.
 
+    '
 related_events:
-  - counterfactual_generated  # AUTO variant
-  - replay_artifact_generated  # upstream replay artifact
-
+- counterfactual_generated
+- replay_artifact_generated
 capabilities:
-  - counterfactual_signal
-  - citation_evidence
-
+- counterfactual_signal
+- citation_evidence
 related_capabilities:
-  - counterfactual_persister
-  - counterfactual_reader
-
+- counterfactual_persister
+- counterfactual_reader
 aliases: []
-tags: [phase-61, counterfactual, event, vm107-produced, pattern-51, worm-guarded, manual-regen]
+tags:
+- phase-61
+- counterfactual
+- event
+- vm107-produced
+- pattern-51
+- worm-guarded
+- manual-regen
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

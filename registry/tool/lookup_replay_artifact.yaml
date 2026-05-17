@@ -1,63 +1,63 @@
 id: lookup_replay_artifact_tool
 type: tool
-status: shipped
+status: real
 shipped: 59
 last_changed: 2026-05-11
-
 name: lookup_replay_artifact
-description: >
-  Returns lightweight ReplayArtifactMeta for a given execution_id.
-  Calls VM100 GET /api/journal/internal/replay-artifacts/{execution_id}
-  (no-auth internal endpoint). Returns the latest artifact version unless
-  replay_version is specified. Returns ToolError on 404/503/504/transport —
-  never raises (Pitfall 11).
+description: 'Returns lightweight ReplayArtifactMeta for a given execution_id. Calls
+  VM100 GET /api/journal/internal/replay-artifacts/{execution_id} (no-auth internal
+  endpoint). Returns the latest artifact version unless replay_version is specified.
+  Returns ToolError on 404/503/504/transport — never raises (Pitfall 11).
 
-  CONTEXT §18 (three orthogonal VM107 tool surfaces):
-  This is the METADATA surface — fast lookup of artifact provenance without
-  fetching frames or chart data.
+  CONTEXT §18 (three orthogonal VM107 tool surfaces): This is the METADATA surface
+  — fast lookup of artifact provenance without fetching frames or chart data.
 
+  '
 capability_type: replay_lookup
-
 vm100_endpoint_path: /api/journal/internal/replay-artifacts/{execution_id}
 http_method: GET
 parameters:
-  - name: execution_id
-    type: UUID
-    required: true
-    description: UUID of the closed execution
-  - name: replay_version
-    type: int
-    required: false
-    default: null
-    description: "Specific version to fetch; null = latest"
-
+- name: execution_id
+  type: UUID
+  required: true
+  description: UUID of the closed execution
+- name: replay_version
+  type: int
+  required: false
+  default: null
+  description: Specific version to fetch; null = latest
 return_type: ReplayArtifactMeta
 return_on_error: ToolError
 error_modes:
-  - code: not_found
-    http_status: 404
-    description: No replay artifact exists for this execution_id
-  - code: vm100_unavailable
-    http_status: null
-    description: Transport-level failure (ConnectError, TimeoutException)
-  - code: vm100_degraded
-    http_status: 503
-    description: VM100 returned HTTP 503 or 504
-
+- code: not_found
+  http_status: 404
+  description: No replay artifact exists for this execution_id
+- code: vm100_unavailable
+  http_status: null
+  description: Transport-level failure (ConnectError, TimeoutException)
+- code: vm100_degraded
+  http_status: 503
+  description: VM100 returned HTTP 503 or 504
 contracts:
   response: fingpt_core.contracts.replay.artifact.ReplayArtifactMeta
   error: tools.replay.lookup_replay_artifact.ToolError
-
 capabilities:
-  - replay_artifact_metadata_lookup
-  - replay_provenance_inspection
-
+- replay_artifact_metadata_lookup
+- replay_provenance_inspection
 related_capabilities:
-  - fetch_replay_frame_tool
-  - fetch_replay_chart_slice_tool
-  - reconstruction_service
-  - replay_artifact_persister
-
+- fetch_replay_frame_tool
+- fetch_replay_chart_slice_tool
+- reconstruction_service
+- replay_artifact_persister
 phase: 59
-tags: [phase-59, replay, tool, agent-facing, internal-api]
+tags:
+- phase-59
+- replay
+- tool
+- agent-facing
+- internal-api
 hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

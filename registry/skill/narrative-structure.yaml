@@ -1,24 +1,33 @@
 id: narrative-structure
 type: skill
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: narrative-structure
-description: >
-  Shared narrative composition skill defining sentence sequence and prose
+description: 'Shared narrative composition skill defining sentence sequence and prose
   discipline. Per-profile variants override via path-cascade.
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 scope: optional
 applies_to_profiles:
-  - trade_auditor_agent
-  - behavioral_mentor_agent
-  - weekly_review_agent
+- trade_auditor_agent
+- behavioral_mentor_agent
+- weekly_review_agent
 skill_md_path: VM107/skills/narrative-structure/SKILL.md
-tags: [narrative, structure, writer, phase-60]
+tags:
+- narrative
+- structure
+- writer
+- phase-60
 trigger_patterns:
-  - "compose narrative"
-  - "structure critique"
-  - "format review"
+- compose narrative
+- structure critique
+- format review
 allowed_tools:
-  - skills_tool
+- skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

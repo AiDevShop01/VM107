@@ -1,33 +1,42 @@
 id: counterfactual.regime.avoid_news_window
 type: counterfactual_scenario
-status: shipped
+status: real
 shipped: 61
 scenario_tier: canonical
 mentor_visible: true
 weekly_review_eligible: true
 policy_contract_class: fingpt_pipelines.counterfactual.policies.regime_avoid_news_window.RegimeAvoidNewsWindowPolicy
 uses_future_information: false
-scenario_version: "1.0.0"
+scenario_version: 1.0.0
 parameters:
   window_minutes: 15
   news_tier: tier_1
-description: >
-  Non-participation gate: would have skipped the trade if the entry timestamp fell
-  within ±15 minutes of a tier-1 news event for the instrument. News calendar is a
-  canonical historical static reference (bundled JSON fixture — never live-fetched).
+description: 'Non-participation gate: would have skipped the trade if the entry timestamp
+  fell within ±15 minutes of a tier-1 news event for the instrument. News calendar
+  is a canonical historical static reference (bundled JSON fixture — never live-fetched).
   Phase 61 Law #3 enforced: the news calendar contains only pre-existing historical
-  data, not forward-looking events. Non-participation artifacts have
-  divergence_type=PRE_ENTRY and hypothetical_r=0.
+  data, not forward-looking events. Non-participation artifacts have divergence_type=PRE_ENTRY
+  and hypothetical_r=0.
 
-  V1 ships bundled news_calendar_v1.json fixture (2025-01 through 2025-12).
-  Future Phase 62 may replace with a queryable service via ScenarioDispatcher
-  service_registry.
+  V1 ships bundled news_calendar_v1.json fixture (2025-01 through 2025-12). Future
+  Phase 62 may replace with a queryable service via ScenarioDispatcher service_registry.
 
-  Law #6 phrasing discipline: APPROVED: "The
-  [ref:counterfactual:counterfactual.regime.avoid_news_window:gate_reason] policy
-  identified a tier-1 news event within the 15-minute window."
-  BANNED: "You should have waited until after the news."
+  Law #6 phrasing discipline: APPROVED: "The [ref:counterfactual:counterfactual.regime.avoid_news_window:gate_reason]
+  policy identified a tier-1 news event within the 15-minute window." BANNED: "You
+  should have waited until after the news."
+
+  '
 phase: 61
-tags: [phase-61, regime, canonical, non_participation, deterministic, news, tier_3]
+tags:
+- phase-61
+- regime
+- canonical
+- non_participation
+- deterministic
+- news
+- tier_3
 hard_scoped: true
 divergence_type: PRE_ENTRY
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

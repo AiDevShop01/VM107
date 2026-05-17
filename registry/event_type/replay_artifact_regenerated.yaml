@@ -1,75 +1,81 @@
 id: replay_artifact_regenerated_event
 type: event_type
-status: shipped
+status: real
 shipped: 59
 planned_phase: null
 last_changed: 2026-05-11
-
 name: replay_artifact_regenerated
-description: >
-  Emitted when a replay artifact is manually regenerated (GeneratedReason.MANUAL_REGEN path).
-  Produced by ReplayArtifactPersister.persist() inside a single transaction.atomic() block
-  that ALSO writes new replay_artifact + replay_line rows (Pattern 51 + RESEARCH Pattern 3).
-  Manual regen always creates a new replay_version row (CONTEXT §19 — independent version bumps).
-  Requires requested_by + requested_at + reason_note metadata (CONTEXT §5).
-  Downstream consumers can subscribe to this event to learn that a new replay version is
-  available for frontend consumption.
+description: 'Emitted when a replay artifact is manually regenerated (GeneratedReason.MANUAL_REGEN
+  path). Produced by ReplayArtifactPersister.persist() inside a single transaction.atomic()
+  block that ALSO writes new replay_artifact + replay_line rows (Pattern 51 + RESEARCH
+  Pattern 3). Manual regen always creates a new replay_version row (CONTEXT §19 —
+  independent version bumps). Requires requested_by + requested_at + reason_note metadata
+  (CONTEXT §5). Downstream consumers can subscribe to this event to learn that a new
+  replay version is available for frontend consumption.
 
+  '
 event_type: replay_artifact_regenerated
 category: replay
 producer: vm100
 causality_scope: EXECUTION
 replayable: true
 phase: 59
-
 payload_schema: ReplayArtifactRegeneratedEvent
 payload_fields:
-  replay_artifact_id: "UUID of the newly created ReplayArtifact row (new version)"
-  replay_version: "New monotonic version counter per execution_id (always > previous)"
-  artifact_type: "Renderer variant — 'narration_v1' in Phase 59"
-  ruleset_version: "Version string of the scoring ruleset used"
-  analysis_version: "Integer version of the ReconstructionService algorithm"
-  replay_template_version: "Version string of the replay template package used for regen"
-  line_count: "Number of ReplayLine rows inserted for this new artifact version"
-  generated_reason: "Always 'MANUAL_REGEN' for this event_type"
-
+  replay_artifact_id: UUID of the newly created ReplayArtifact row (new version)
+  replay_version: New monotonic version counter per execution_id (always > previous)
+  artifact_type: Renderer variant — 'narration_v1' in Phase 59
+  ruleset_version: Version string of the scoring ruleset used
+  analysis_version: Integer version of the ReconstructionService algorithm
+  replay_template_version: Version string of the replay template package used for
+    regen
+  line_count: Number of ReplayLine rows inserted for this new artifact version
+  generated_reason: Always 'MANUAL_REGEN' for this event_type
 required_payload_fields:
-  - replay_artifact_id
-  - replay_version
+- replay_artifact_id
+- replay_version
+- ruleset_version
+- replay_template_version
+- line_count
+idempotency_key:
+  fields:
+  - execution_id
   - ruleset_version
   - replay_template_version
-  - line_count
-
-idempotency_key:
-  fields: [execution_id, ruleset_version, replay_template_version, replay_version]
-  note: >
-    No idempotency guard for manual regen (each MANUAL_REGEN is intentional and
+  - replay_version
+  note: 'No idempotency guard for manual regen (each MANUAL_REGEN is intentional and
     creates a new replay_version). The replay_version field in the key means each
-    regen attempt produces a distinct event row. ReplayArtifact WORM trigger
-    prevents duplicate version rows at the DB level.
+    regen attempt produces a distinct event row. ReplayArtifact WORM trigger prevents
+    duplicate version rows at the DB level.
 
+    '
 sequence_namespace: execution_event_seq
-
 emitted_by:
-  - replay_artifact_persister  # VM100/backend/journal/services/replay/replay_artifact_persister.py
-
+- replay_artifact_persister
 trigger:
-  mechanism: >
-    ReplayArtifactPersister.persist(generated_reason='MANUAL_REGEN') is called by
-    the manual regen endpoint (59-06). All three metadata fields (requested_by,
+  mechanism: 'ReplayArtifactPersister.persist(generated_reason=''MANUAL_REGEN'') is
+    called by the manual regen endpoint (59-06). All three metadata fields (requested_by,
     requested_at, reason_note) must be provided or persist() raises ValueError.
 
+    '
 related_events:
-  - replay_artifact_generated  # AUTO variant (initial generation)
-
+- replay_artifact_generated
 capabilities:
-  - replay_signal
-  - citation_evidence
-
+- replay_signal
+- citation_evidence
 related_capabilities:
-  - replay_artifact_persister
-  - replay_manual_regen_endpoint
-
+- replay_artifact_persister
+- replay_manual_regen_endpoint
 aliases: []
-tags: [phase-59, replay, event, vm100-produced, pattern-51, worm-guarded, manual-regen]
+tags:
+- phase-59
+- replay
+- event
+- vm100-produced
+- pattern-51
+- worm-guarded
+- manual-regen
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,35 +1,39 @@
 id: order_submitted_replay_template
 type: replay_template
-status: shipped
+status: real
 shipped: 59
 last_changed: 2026-05-11
-
 name: order_submitted
 event_type: order_submitted
 replay_template_version: 1.0.0
 artifact_type: narration_v1
+template: '{occurred_at} — order submitted: {instrument} {side}, {lot_size} lots @
+  {requested_price}.
 
-template: |
-  {occurred_at} — order submitted: {instrument} {side}, {lot_size} lots @ {requested_price}.
+  '
 required_fields:
-  - instrument
-  - side
-  - lot_size
-  - requested_price
+- instrument
+- side
+- lot_size
+- requested_price
 optional_fields:
-  - order_id
-
+- order_id
 tone: observational
 language: en
 phase: 59
-
 capabilities:
-  - replay_narration
-  - citation_surface
-
+- replay_narration
+- citation_surface
 related_capabilities:
-  - replay_narrator
-  - replay_artifact_persister
-
-tags: [phase-59, replay, narration, deterministic, execution]
+- replay_narrator
+- replay_artifact_persister
+tags:
+- phase-59
+- replay
+- narration
+- deterministic
+- execution
 hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,56 +1,51 @@
----
 id: setup_quality_tool
 name: setup_quality_tool
 type: tool
-status: shipped
+status: real
 shipped: 57
 canonical_tool: setup_quality_tool
 aliases:
-  - get_strategy_drift
-  - evaluate_setup_quality
+- get_strategy_drift
+- evaluate_setup_quality
+description: 'Deterministic setup quality scoring for a given Execution. Reads the
+  active strategy YAML (via VM107 get_strategy_definition or VM100 internal endpoint),
+  checklist outcomes (Phase 56 checklist_completed Event + checklist data), and per-category
+  scores from this analytics run (regime, liquidity, compression). Scores how well
+  the trade setup matched strategy doctrine — checklist compliance, entry criteria
+  satisfaction, timeframe confluence. Detects strategy drift (strategy_drift_score)
+  and lists missed checklist items.
 
-description: >
-  Deterministic setup quality scoring for a given Execution. Reads the active
-  strategy YAML (via VM107 get_strategy_definition or VM100 internal endpoint),
-  checklist outcomes (Phase 56 checklist_completed Event + checklist data), and
-  per-category scores from this analytics run (regime, liquidity, compression).
-  Scores how well the trade setup matched strategy doctrine — checklist
-  compliance, entry criteria satisfaction, timeframe confluence. Detects
-  strategy drift (strategy_drift_score) and lists missed checklist items.
-
+  '
 category: analytics
 version: 1.0
 producer: vm107
 phase: 57
-
 location:
   source: VM107/tools/setup_quality_analysis.py
   endpoint:
     read:
-      - VM100/api/journal/internal/executions/{execution_id}
-      - VM100/api/journal/internal/strategies/{strategy_id}
-      - VM100/api/journal/internal/checklist/{execution_id}
+    - VM100/api/journal/internal/executions/{execution_id}
+    - VM100/api/journal/internal/strategies/{strategy_id}
+    - VM100/api/journal/internal/checklist/{execution_id}
     persist: VM100/api/journal/internal/analytics-snapshot (via AnalyticsService)
   contracts:
     request: fingpt_core.contracts.analytics.setup_quality.SetupQualityRequest
     response: fingpt_core.contracts.analytics.setup_quality.SetupQualityResult
-
 related_capabilities:
-  - behavioral_analysis_tool
-  - regime_analysis_tool
-  - liquidity_analysis_tool
-  - compression_analysis_tool
-
+- behavioral_analysis_tool
+- regime_analysis_tool
+- liquidity_analysis_tool
+- compression_analysis_tool
 tags:
-  - analytics
-  - setup_quality
-  - strategy_drift
-  - checklist
-  - phase_56
-  - phase_57
-
+- analytics
+- setup_quality
+- strategy_drift
+- checklist
+- phase_56
+- phase_57
 hard_scoped: false
 allowed_agent_profiles:
-  - agent_zero
-
+- agent_zero
 last_changed: 2026-05-10
+impact_on_decision: HIGH
+deprecated: false

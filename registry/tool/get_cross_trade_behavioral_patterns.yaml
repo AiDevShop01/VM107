@@ -1,46 +1,41 @@
----
 id: get_cross_trade_behavioral_patterns
 name: get_cross_trade_behavioral_patterns
 type: tool
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: analyzer
+description: 'TOOL GAP #2 CLOSURE — query Phase 58 Neo4j :EXHIBITS BehavioralPattern
+  cross-trade edges for an account via VM100 typed internal endpoint. Reads (Execution
+  {account_id})-[r:EXHIBITS]->(BehavioralPattern) across ALL executions for the account
+  within a time window, returning pattern_name, frequency, and recent_executions per
+  pattern. Phase 39 typed-API lock: VM107 NEVER queries Neo4j directly. Only behavioral_mentor_agent._analyzer
+  is permitted to invoke (analyzer tier, read-only, account-scoped).
 
-description: >
-  TOOL GAP #2 CLOSURE — query Phase 58 Neo4j :EXHIBITS BehavioralPattern cross-trade
-  edges for an account via VM100 typed internal endpoint. Reads
-  (Execution {account_id})-[r:EXHIBITS]->(BehavioralPattern) across ALL executions
-  for the account within a time window, returning pattern_name, frequency, and
-  recent_executions per pattern. Phase 39 typed-API lock: VM107 NEVER queries
-  Neo4j directly. Only behavioral_mentor_agent._analyzer is permitted to invoke
-  (analyzer tier, read-only, account-scoped).
-
+  '
 producer: VM107
-
 location:
   source: VM107/tools/get_cross_trade_behavioral_patterns.py
   endpoint: ${VM100_INTERNAL_BASE_URL}/api/journal/internal/cross-trade-patterns
   contracts:
     request: VM107.tools.get_cross_trade_behavioral_patterns.GetCrossTradeBehavioralPatternsRequest
     response: VM107.tools.get_cross_trade_behavioral_patterns.GetCrossTradeBehavioralPatternsResponse
-
 related_capabilities:
-  - behavioral_analysis_tool
-  - get_behavioral_edges
-
+- behavioral_analysis_tool
+- get_behavioral_edges
 tags:
-  - phase-60
-  - cognition
-  - analyzer
-  - neo4j
-  - behavioral-graph
-  - exhibits
-  - cross-trade
-  - phase-58
-
+- phase-60
+- cognition
+- analyzer
+- neo4j
+- behavioral-graph
+- exhibits
+- cross-trade
+- phase-58
 hard_scoped: true
 allowed_agent_profiles:
-  - behavioral_mentor_agent._analyzer
+- behavioral_mentor_agent._analyzer
+impact_on_decision: HIGH
+deprecated: false

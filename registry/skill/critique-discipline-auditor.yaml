@@ -1,25 +1,35 @@
 id: critique-discipline-auditor
 type: skill
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: critique-discipline-auditor
-description: >
-  Auditor-variant critique discipline for trade_auditor_agent. Scopes critique to a
-  single execution_id. Structures around Entry Assessment / Behavioral Signals /
-  Execution Quality. Prevents cross-trade references and multi-execution pattern
-  inference. Per-profile override of the base critique-discipline skill.
-version: "1.0.0"
+description: 'Auditor-variant critique discipline for trade_auditor_agent. Scopes
+  critique to a single execution_id. Structures around Entry Assessment / Behavioral
+  Signals / Execution Quality. Prevents cross-trade references and multi-execution
+  pattern inference. Per-profile override of the base critique-discipline skill.
+
+  '
+version: 1.0.0
 phase: 60
 scope: optional
 applies_to_profiles:
-  - trade_auditor_agent
-skill_md_path: VM107/agents/trade_auditor_agent/skills/critique-discipline/SKILL.md
-tags: [critique, auditor, single-execution, optional, phase-60]
+- trade_auditor_agent
+skill_md_path: VM107/skills/critique-discipline-auditor/SKILL.md
+tags:
+- critique
+- auditor
+- single-execution
+- optional
+- phase-60
 trigger_patterns:
-  - "critique execution"
-  - "audit trade"
-  - "assess entry"
-  - "evaluate execution quality"
+- critique execution
+- audit trade
+- assess entry
+- evaluate execution quality
 allowed_tools:
-  - skills_tool
+- skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

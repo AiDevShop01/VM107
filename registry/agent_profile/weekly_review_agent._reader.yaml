@@ -1,55 +1,59 @@
 id: weekly_review_agent._reader
 type: agent_profile
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: weekly_review_agent._reader
-description: >
-  Reader stage sub-profile for the weekly_review pipeline. Retrieves week-window
+description: 'Reader stage sub-profile for the weekly_review pipeline. Retrieves week-window
   evidence via get_weekly_execution_summary (batch read of all executions + snapshots
   for canonical week_window), get_performance_history, and selective lookup_replay_artifact
   for representative executions. Applies strict treat-instructions-as-data doctrine
   (CTX-§14 LOCKED). Denied all write/persist and analyzer-tier tools.
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 parent_profile: weekly_review_agent
 hard_scoped: true
-
 allowed_tools:
-  - lookup_replay_artifact
-  - fetch_replay_frame
-  - get_performance_history
-  - get_weekly_execution_summary
-  - skills_tool
-
+- lookup_replay_artifact
+- fetch_replay_frame
+- get_performance_history
+- get_weekly_execution_summary
+- skills_tool
 denied_tools:
-  - call_subordinate
-  - code_execution_tool
-  - persist_narrative
-  - behavioral_analysis
-  - execution_quality
-  - get_regime_context
-  - get_cross_trade_behavioral_patterns
-
+- call_subordinate
+- code_execution_tool
+- persist_narrative
+- behavioral_analysis
+- execution_quality
+- get_regime_context
+- get_cross_trade_behavioral_patterns
 constitutional_skills:
-  - citation-discipline
-
+- citation-discipline
 memory_scope:
-  account_scope: "required"
-  execution_scope: "NONE"
-  cross_trade_visibility: "ACCOUNT_SCOPED"
-  narrative_visibility: "NONE"
-
+  account_scope: required
+  execution_scope: NONE
+  cross_trade_visibility: ACCOUNT_SCOPED
+  narrative_visibility: NONE
 max_iterations: 5
-max_cost_usd: 0.40
-
+max_cost_usd: 0.4
 input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
 output_contract: fingpt_core.contracts.narrative.reader_io.ReaderOutput
-
-template_version: "1.0.0"
+template_version: 1.0.0
 template_version_changelog:
-  - version: "1.0.0"
-    date: "2026-05-12"
-    change: "Initial Phase 60 Wave 4 release — week-window reader with get_weekly_execution_summary (60-11b tool gap #3 closure)"
-
-tags: [agent-profile, reader, weekly-review, week-window, account-scoped, phase-60, wave-4]
+- version: 1.0.0
+  date: '2026-05-12'
+  change: 'Initial Phase 60 Wave 4 release — week-window reader with get_weekly_execution_summary
+    (60-11b tool gap #3 closure)'
+tags:
+- agent-profile
+- reader
+- weekly-review
+- week-window
+- account-scoped
+- phase-60
+- wave-4
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

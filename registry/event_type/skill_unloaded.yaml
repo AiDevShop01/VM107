@@ -1,36 +1,38 @@
 id: skill_unloaded
 type: event_type
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: skill_unloaded
-version: "1.0.0"
+version: 1.0.0
 phase: 60
 category: cognition
 producer: VM107
+description: 'Emitted when a skill is unloaded from a profile''s active context —
+  typically at the end of a pipeline run or when a dynamic optional skill is released
+  after use. Constitutional skills are generally unloaded only when the agent shuts
+  down. Carries skill_id, profile_id, scope. Pairing event is skill_loaded.
 
-description: >
-  Emitted when a skill is unloaded from a profile's active context —
-  typically at the end of a pipeline run or when a dynamic optional skill
-  is released after use. Constitutional skills are generally unloaded only
-  when the agent shuts down. Carries skill_id, profile_id, scope. Pairing
-  event is skill_loaded.
-
+  '
 payload_schema: fingpt_core.contracts.events.cognition.skill_unloaded.SkillUnloadedPayload
-
 payload_fields:
-  skill_id: "Registry ID of the unloaded skill"
-  profile_id: "Agent profile that unloaded the skill"
-  scope: "One of: constitutional | optional"
-  execution_id: "UUID of the trade execution if unloading after a specific run (null at shutdown)"
-
+  skill_id: Registry ID of the unloaded skill
+  profile_id: Agent profile that unloaded the skill
+  scope: 'One of: constitutional | optional'
+  execution_id: UUID of the trade execution if unloading after a specific run (null
+    at shutdown)
 consumers:
-  - phase_56_event_store
-
+- phase_56_event_store
 related_capabilities:
-  - skill_registry
-
+- skill_registry
 related_events:
-  - skill_loaded
-
-tags: [phase-60, cognition, skill, lifecycle]
+- skill_loaded
+tags:
+- phase-60
+- cognition
+- skill
+- lifecycle
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

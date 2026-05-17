@@ -3,92 +3,116 @@ type: event_type
 status: real
 shipped: 55
 planned_phase: null
-
-short_description: >
-  Lifecycle transition event emitted on every Campaign state change
+short_description: 'Lifecycle transition event emitted on every Campaign state change
   (12-state machine).
 
-long_description: |
-  Campaign state transitions emit one CAMPAIGN_STATE_TRANSITION Event
+  '
+long_description: 'Campaign state transitions emit one CAMPAIGN_STATE_TRANSITION Event
+
   row + schedule one campaign_state_changed domain signal (post-commit
+
   only, via transaction.on_commit). Two emissions per transition is the
+
   CONTEXT decision #6 invariant — the Event row is the audit trail, the
+
   signal is the orchestration trigger.
 
+
   The Pydantic payload (CampaignStateTransitionEvent) constrains
+
   from_state / to_state to the 12-value CampaignState Literal. Pydantic
+
   rejects Idea or Execution state values at validation — registry
+
   consumers can rely on the strict schema for replay, reasoning, and
+
   migration tooling.
 
+
   Phase 55 ships ONLY lifecycle-transition event types. Full event
+
   taxonomy (campaign events, market structure events, AI events, system
+
   events, etc.) is deferred to Phase 56 which builds the full event
+
   infrastructure on top of the slot Phase 55 defines.
 
+
   Per Plan 55-04 ISSUE-10 fix: the Event.payload column is built via
-  CampaignStateTransitionEvent(**kwargs).model_dump(mode='json') — NOT
+
+  CampaignStateTransitionEvent(**kwargs).model_dump(mode=''json'') — NOT
+
   a raw dict. Pydantic validates state Literals BEFORE the row is
+
   written; ValidationError surfaces immediately as a 5xx (programming
+
   error), NOT silent corruption of the audit trail. Replay reads can
+
   call model_validate(event.payload) to round-trip cleanly.
 
+
   Per Plan 55-05 Pattern 18: when a transition is routed through the
-  TradeJournalAdapter (legacy facade), source='adapter' is recorded
+
+  TradeJournalAdapter (legacy facade), source=''adapter'' is recorded
+
   in the payload. Direct service callers from Dagster / agents /
+
   frontend record their own source label. The source label
+
   distinguishes facade-routed transitions from direct service callers
+
   in the audit trail.
 
+
   Idempotency: the (campaign_id, target_state, source_envelope_id)
+
   tuple is enforced unique at the DB layer via the partial
+
   UniqueConstraint event_idempotency_unique_source_envelope (Plan
+
   55-02). Replay returns the existing Event row; no duplicates.
 
+  '
 location:
   source: VM100/backend/journal/services/campaign_service.py
   contracts:
     payload: fingpt_core.contracts.events.transitions.CampaignStateTransitionEvent
-
 emitted_by: campaign_service
 event_type_string: CAMPAIGN_STATE_TRANSITION
-
-# Pydantic payload field set (per BaseEvent + CampaignStateTransitionEvent).
 payload_fields:
-  - event_id            # UUID-as-string (BaseEvent)
-  - event_type          # Literal["CAMPAIGN_STATE_TRANSITION"]
-  - idea_id             # nullable for Campaign-only events
-  - campaign_id         # scoped FK
-  - execution_id        # nullable for Campaign-only events
-  - from_state          # CampaignState Literal
-  - to_state            # CampaignState Literal
-  - reason
-  - actor
-  - source              # Literal[frontend|dagster|agent|script|adapter]
-  - metadata            # dict[str, Any]
-  - payload_version
-  - created_at
-
-# Locked Literal constraint inherited from the Pydantic payload class.
+- event_id
+- event_type
+- idea_id
+- campaign_id
+- execution_id
+- from_state
+- to_state
+- reason
+- actor
+- source
+- metadata
+- payload_version
+- created_at
 state_literal: fingpt_core.contracts.trading.campaigns.CampaignState
-
 related_capabilities:
-  - campaign
-  - campaign_service
-  - event
-  - legacy_status_mapping
-
-tags: [phase-55, lifecycle, transition_event, audit_trail, primary_workflow]
+- campaign
+- campaign_service
+- event
+- legacy_status_mapping
+tags:
+- phase-55
+- lifecycle
+- transition_event
+- audit_trail
+- primary_workflow
 hard_scoped: true
 last_changed: 2026-05-09
-
-# Phase 56 extensions per CONTEXT §12 (capability registry extended schema)
 name: campaign_state_transition
-description: >
-  Triggers on: Campaign entity transitioning across the 12-state machine
-  (NEW → WATCHLIST → SETUP_FORMING → READY → EXECUTING → OPEN → MANAGING →
-  CLOSED → ANALYZING → REVIEWED, plus INVALIDATED / EXPIRED branches).
-  Emitted by CampaignService.transition_to().
+description: 'Triggers on: Campaign entity transitioning across the 12-state machine
+  (NEW → WATCHLIST → SETUP_FORMING → READY → EXECUTING → OPEN → MANAGING → CLOSED
+  → ANALYZING → REVIEWED, plus INVALIDATED / EXPIRED branches). Emitted by CampaignService.transition_to().
+
+  '
 event_type: campaign_state_transition
 category: lifecycle
 version: 1.0
@@ -98,7 +122,6 @@ retention: permanent
 pii: false
 replayable: true
 phase: 56
-# Note: Phase 55 emitted UPPERCASE event_type strings (CAMPAIGN_STATE_TRANSITION)
-# on the wire; CONTEXT §12 + Decision §3 naming rules use snake_case lowercase.
-# `event_type_string` (UPPERCASE) records the legacy wire value; `event_type`
-# (lowercase) is the canonical Phase 56 name. Documented in 56-14.
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

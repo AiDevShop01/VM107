@@ -1,53 +1,56 @@
 id: trade_auditor_agent._writer
 type: agent_profile
-status: shipped
+status: real
 shipped: 60
 last_changed: 2026-05-12
 name: trade_auditor_agent._writer
-description: >
-  Writer stage sub-profile for the trade_auditor pipeline. Produces a structured
-  NarrativeEnvelope with cited sentence array. ONLY stage allowed to call
+description: 'Writer stage sub-profile for the trade_auditor pipeline. Produces a
+  structured NarrativeEnvelope with cited sentence array. ONLY stage allowed to call
   persist_narrative. Denied all read-tier and analyzer-tier tools (CTX-§2 LOCKED).
-version: "1.0.0"
+
+  '
+version: 1.0.0
 phase: 60
 parent_profile: trade_auditor_agent
 hard_scoped: true
-
 allowed_tools:
-  - persist_narrative
-  - skills_tool
-
+- persist_narrative
+- skills_tool
 denied_tools:
-  - call_subordinate
-  - code_execution_tool
-  - lookup_replay_artifact
-  - fetch_replay_frame
-  - behavioral_analysis
-  - execution_quality
-  - get_trade_context
-  - get_behavioral_edges
-
+- call_subordinate
+- code_execution_tool
+- lookup_replay_artifact
+- fetch_replay_frame
+- behavioral_analysis
+- execution_quality
+- get_trade_context
+- get_behavioral_edges
 constitutional_skills:
-  - citation-discipline
+- citation-discipline
 optional_skills:
-  - narrative-structure
-
+- narrative-structure
 memory_scope:
-  account_scope: "required"
-  execution_scope: "required"
-  cross_trade_visibility: "NONE"
-  narrative_visibility: "NONE"
-
+  account_scope: required
+  execution_scope: required
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
 max_iterations: 3
 max_cost_usd: 0.25
-
 input_contract: fingpt_core.contracts.narrative.writer_io.WriterInput
 output_contract: fingpt_core.contracts.narrative.envelope.NarrativeEnvelope
-
-template_version: "1.0.0"
+template_version: 1.0.0
 template_version_changelog:
-  - version: "1.0.0"
-    date: "2026-05-12"
-    change: "Initial Phase 60 Wave 2 release — writer sub-profile, persist_narrative only"
-
-tags: [agent-profile, writer, single-execution, phase-60, wave-2, narrative-persistence]
+- version: 1.0.0
+  date: '2026-05-12'
+  change: Initial Phase 60 Wave 2 release — writer sub-profile, persist_narrative
+    only
+tags:
+- agent-profile
+- writer
+- single-execution
+- phase-60
+- wave-2
+- narrative-persistence
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
