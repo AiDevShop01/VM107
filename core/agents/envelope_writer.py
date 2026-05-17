@@ -1,20 +1,46 @@
-"""Phase 44 envelope persistence.
+"""Phase 44 envelope persistence. Phase 47.6: write-time registry provenance stamping.
 
 Writes AgentEnvelope to MongoDB agent_envelopes collection using the
 Phase 43.2 convention (_id = envelope_id = str(uuid4())).
 
 Public API:
-    build_envelope() — construct an AgentEnvelope from subordinate invocation result
-    write_envelope() — persist to MongoDB, returns envelope_id
+    stamp_at_write_time() — return 3 LD-10 provenance fields from live registry snapshot
+    build_envelope()      — construct an AgentEnvelope from subordinate invocation result
+    write_envelope()      — persist to MongoDB, returns envelope_id
+
+Phase 47.6 LD-10 / Pitfall 9:
+    stamp_at_write_time() calls CapabilityRegistry.get() at CALL TIME, not module init.
+    This ensures each persist captures the snapshot that was active at write time,
+    not the snapshot at module import time. Never cache the result.
 """
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Optional
 
 from core.contracts.envelope import AgentEnvelope
+from core.registry.capability_registry import CapabilityRegistry
 
 log = logging.getLogger(__name__)
+
+
+def stamp_at_write_time() -> dict:
+    """LD-10: source registry provenance fields at write time (Pitfall 9 guard).
+
+    Reads the live CapabilityRegistry snapshot at CALL TIME — never caches.
+    Every caller must invoke this at the persistence boundary, not at init time.
+
+    Returns:
+        dict with keys: registry_snapshot_hash, registry_snapshot_generated_at,
+                        registry_schema_version
+    """
+    reg = CapabilityRegistry.get()
+    return {
+        "registry_snapshot_hash": reg.snapshot_hash,
+        "registry_snapshot_generated_at": reg.snapshot.snapshot_generated_at,
+        "registry_schema_version": reg.snapshot.snapshot_schema_version,
+    }
 
 
 def build_envelope(
@@ -58,6 +84,7 @@ def build_envelope(
         source_envelope_id=source_envelope_id,
         journal_id=journal_id,
         status=status,  # type: ignore[arg-type]  # Pydantic validates Literal
+        **stamp_at_write_time(),  # Phase 47.6 LD-10: stamp at write time (Pitfall 9)
     )
 
 

@@ -83,13 +83,25 @@ def test_stamp_at_write_time_returns_three_fields():
     assert stamp["registry_schema_version"] == "1.0"
 
 
+def _import_persist_envelope():
+    """Import _persist_envelope with EVAL_MODEL env var set (avoids module-level KeyError)."""
+    import os
+    import importlib
+    # evaluation_runner has module-level os.environ["EVAL_MODEL"] — must be set before import
+    os.environ.setdefault("EVAL_MODEL", "test-model/fake")
+    # Force reimport if already cached without env var
+    import core.agents.evaluation_runner as mod
+    return mod._persist_envelope
+
+
 def test_evaluation_runner_stamps_mode_b():
     """_persist_envelope produces an envelope carrying the current snapshot_hash.
 
     Verified by patching CapabilityRegistry.get() to a known fake and inspecting
     the document inserted into the mock MongoDB collection.
     """
-    import json
+    import os
+    os.environ.setdefault("EVAL_MODEL", "test-model/fake")
 
     reg = _make_fake_registry(FAKE_HASH_A)
 
@@ -100,10 +112,11 @@ def test_evaluation_runner_stamps_mode_b():
     mock_db = MagicMock()
     mock_db.__getitem__ = MagicMock(side_effect=lambda name: mock_collection)
 
+    _persist_envelope = _import_persist_envelope()
+
     with patch("core.agents.envelope_writer.CapabilityRegistry") as mock_cls:
         mock_cls.get.return_value = reg
 
-        from core.agents.evaluation_runner import _persist_envelope
         _persist_envelope(
             db=mock_db,
             task_id="task-1",
@@ -126,8 +139,8 @@ def test_init_does_not_capture_hash():
     captured at module init, the patch would be too late and the test would fail.
     The test succeeds because the hash is only read at _persist_envelope() call time.
     """
-    import importlib
-    import core.agents.evaluation_runner  # ensure module is loaded
+    import os
+    os.environ.setdefault("EVAL_MODEL", "test-model/fake")
 
     reg = _make_fake_registry(FAKE_HASH_A)
 
@@ -137,11 +150,12 @@ def test_init_does_not_capture_hash():
     mock_db = MagicMock()
     mock_db.__getitem__ = MagicMock(side_effect=lambda name: mock_collection)
 
+    _persist_envelope = _import_persist_envelope()
+
     # Patch AFTER the module is already imported — proves lazy read
     with patch("core.agents.envelope_writer.CapabilityRegistry") as mock_cls:
         mock_cls.get.return_value = reg
 
-        from core.agents.evaluation_runner import _persist_envelope
         _persist_envelope(
             db=mock_db,
             task_id="task-neg",
@@ -160,10 +174,13 @@ def test_init_does_not_capture_hash():
 def test_two_persists_different_hashes():
     """L16 positive companion: one runner, two writes, two different hashes.
 
-    Instantiate a single runner object (or call _persist_envelope twice).
+    Call _persist_envelope twice from the same module (same process boot).
     Patch CapabilityRegistry to return hash A; call _persist; patch to hash B;
     call _persist again. Assert docs carry A and B respectively.
     """
+    import os
+    os.environ.setdefault("EVAL_MODEL", "test-model/fake")
+
     reg_a = _make_fake_registry(FAKE_HASH_A)
     reg_b = _make_fake_registry(FAKE_HASH_B)
 
@@ -173,7 +190,7 @@ def test_two_persists_different_hashes():
     mock_db = MagicMock()
     mock_db.__getitem__ = MagicMock(side_effect=lambda name: mock_collection)
 
-    from core.agents.evaluation_runner import _persist_envelope
+    _persist_envelope = _import_persist_envelope()
 
     # First write — hash A
     with patch("core.agents.envelope_writer.CapabilityRegistry") as mock_cls:

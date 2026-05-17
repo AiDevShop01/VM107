@@ -1,9 +1,10 @@
 """
 Phase 44 AgentEnvelope schema tests.
+Phase 47.6-04: Updated for CapabilityProvenanceMixin composition (LD-10).
 
 Covers:
-- All 11 required fields present with auto-generated envelope_id and timestamp
-- schema_version default of 1
+- All required fields present with auto-generated envelope_id and timestamp
+- schema_version default of 2 (bumped in Phase 47.6 per RESEARCH Open Q5)
 - parent_task_id and source_envelope_id default to None
 - status Literal validation (success/failure/degraded only)
 - validate_envelope_schema_version helper — pass and raise cases
@@ -12,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 _VM107_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -24,9 +26,16 @@ import pydantic
 from core.contracts.envelope import AgentEnvelope, validate_envelope_schema_version
 from core.contracts.exceptions import SchemaVersionMismatchError
 
+# Minimal valid provenance values for tests
+_VALID_HASH = "a" * 8
+_VALID_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+
 
 def _make_envelope(**overrides) -> AgentEnvelope:
-    """Create a minimal valid AgentEnvelope with optional field overrides."""
+    """Create a minimal valid AgentEnvelope v2 with optional field overrides.
+
+    Phase 47.6: provenance fields are required — included in defaults.
+    """
     defaults = dict(
         task_id="t1",
         agent_id="idea_agent",
@@ -36,6 +45,9 @@ def _make_envelope(**overrides) -> AgentEnvelope:
         cost={"tokens": 100, "cost_usd": 0.001, "latency_ms": 500},
         reason_chain=["affinity_match", "peak_soft"],
         status="success",
+        registry_snapshot_hash=_VALID_HASH,
+        registry_snapshot_generated_at=_VALID_TS,
+        registry_schema_version="1.0",
     )
     defaults.update(overrides)
     return AgentEnvelope(**defaults)
@@ -45,7 +57,7 @@ def test_envelope_creation_minimal():
     """
     Minimal valid envelope succeeds; auto-generated fields are present.
     parent_task_id and source_envelope_id default to None.
-    schema_version defaults to 1.
+    schema_version defaults to 2 (Phase 47.6 bump).
     """
     env = _make_envelope()
     # Auto-generated fields
@@ -55,7 +67,7 @@ def test_envelope_creation_minimal():
     # Defaults
     assert env.parent_task_id is None
     assert env.source_envelope_id is None
-    assert env.schema_version == 1
+    assert env.schema_version == 2  # Phase 47.6 bump (was 1)
     # Explicit fields
     assert env.task_id == "t1"
     assert env.agent_id == "idea_agent"
@@ -79,14 +91,15 @@ def test_envelope_valid_statuses(valid_status):
 def test_validate_envelope_schema_version_pass():
     """validate_envelope_schema_version returns envelope unchanged when versions match."""
     env = _make_envelope()
-    result = validate_envelope_schema_version(env, expected=1)
+    # Default schema_version is now 2 (Phase 47.6 bump)
+    result = validate_envelope_schema_version(env, expected=2)
     assert result is env
 
 
 def test_schema_version_mismatch():
     """validate_envelope_schema_version raises SchemaVersionMismatchError on mismatch."""
-    # Manually build a v2 envelope (schema_version=2 instead of default 1)
-    env_v2 = _make_envelope(schema_version=2)
+    # Build a default v2 envelope and test mismatch against expected=1
+    env_v2 = _make_envelope()  # default schema_version=2
     with pytest.raises(SchemaVersionMismatchError) as exc_info:
         validate_envelope_schema_version(env_v2, expected=1)
     err = exc_info.value
@@ -95,13 +108,15 @@ def test_schema_version_mismatch():
 
 
 def test_envelope_model_dump_all_fields():
-    """model_dump() produces dict with all 11 fields and UUID string envelope_id."""
+    """model_dump() produces dict with all required fields including provenance fields."""
     env = _make_envelope()
     d = env.model_dump()
     required_keys = {
         "envelope_id", "task_id", "parent_task_id", "agent_id",
         "input", "output", "model_used", "cost", "reason_chain",
         "source_envelope_id", "schema_version", "status", "timestamp",
+        # Phase 47.6 provenance fields (LD-10)
+        "registry_snapshot_hash", "registry_snapshot_generated_at", "registry_schema_version",
     }
     assert required_keys <= set(d.keys())
     # envelope_id is a UUID string (36 chars, 4 hyphens)
