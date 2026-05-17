@@ -174,28 +174,22 @@ def validate_identity_uniqueness(
 def validate_dependency_graph(
     entries: list[CapabilitySnapshotEntry],
 ) -> list[CapabilitySnapshotEntry]:
-    """Stage 4: All related_capabilities and dependencies must refer to known ids.
+    """Stage 4: Hard dependencies must refer to known ids.
 
-    Iterates sorted(entries, key=(type, id)) and raises on FIRST unresolved reference.
+    `dependencies` are hard dependencies (blocking, must be resolvable).
+    `related_capabilities` are soft informational cross-references (not validated here).
+
+    Rationale: related_capabilities often reference future or external capabilities
+    not yet registered. Validating them as hard deps would break the registry for
+    any YAML that documents conceptual relationships to unregistered capabilities.
+    Only `dependencies` represent hard runtime requirements that must be resolved.
+
+    Iterates sorted(entries, key=(type, id)) and raises on FIRST unresolved dependency.
     """
     known_ids = {e.id for e in entries}
 
     for entry in sorted(entries, key=lambda e: (e.type.value, e.id)):
-        # Check related_capabilities
-        for ref in entry.related_capabilities:
-            if ref not in known_ids:
-                raise RegistryValidationError(
-                    stage=4,
-                    type="unresolved_related_capability",
-                    capability_id=entry.id,
-                    missing_ref=ref,
-                    message=(
-                        f"Stage 4 dependency graph error: '{entry.id}' lists "
-                        f"related_capabilities=[..., '{ref}', ...] but '{ref}' "
-                        f"is not registered in the capability registry."
-                    ),
-                )
-        # Check dependencies
+        # Check hard dependencies only (related_capabilities are soft/informational)
         for ref in entry.dependencies:
             if ref not in known_ids:
                 raise RegistryValidationError(

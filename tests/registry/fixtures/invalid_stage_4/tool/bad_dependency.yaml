@@ -1,15 +1,15 @@
 id: bad_dependency_tool
 type: tool
 status: real
-short_description: "Tool with broken dependency reference"
-long_description: "References nonexistent_tool in related_capabilities to trigger stage 4."
+short_description: "Tool with broken hard dependency reference"
+long_description: "References nonexistent_tool in dependencies to trigger stage 4."
 contracts_request: null
 contracts_response: null
 impact_on_decision: MEDIUM
 allowed_agent_profiles: []
-dependencies: []
-related_capabilities:
+dependencies:
   - nonexistent_tool
+related_capabilities: []
 deprecated: false
 tags:
   - test

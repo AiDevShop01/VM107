@@ -31,6 +31,11 @@ def load_all_yamls(registry_root: Path) -> list[tuple[Path, dict]]:
     results: list[tuple[Path, dict]] = []
 
     for yaml_path in sorted(registry_root.rglob("*.yaml")):
+        # Skip _reserved subdirectories — they are namespace claims, not registered
+        # capabilities. Their type field (e.g., event_type_reserved_namespace) is
+        # intentionally outside the 16 locked CapabilityType values.
+        if "_reserved" in yaml_path.parts:
+            continue
         try:
             with yaml_path.open("r", encoding="utf-8") as f:
                 raw = yaml.safe_load(f)

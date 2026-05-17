@@ -1,0 +1,49 @@
+id: agent_zero
+type: agent_profile
+status: real
+shipped: 0
+last_changed: 2026-05-17
+name: agent_zero
+description: 'The base orchestration agent profile. agent_zero is the root-level
+  general-purpose agent that has access to the full tool set (subject to HARD_ALLOWED_TOOLS
+  runtime gate). All tools with allowed_agent_profiles: [agent_zero] are accessible
+  to the base orchestration agent. Specific subordinate agents (trade_auditor_agent,
+  behavioral_mentor_agent, weekly_review_agent, idea_agent, strategy_agent) have
+  narrower scopes and are sub-profiles or separate profiles.
+
+  This profile was always implicitly registered via HARD_ALLOWED_TOOLS in
+  core/agents/tool_scope.py. Backfilled to Phase 47.6 registry coverage standard.
+  '
+version: 1.0.0
+phase: 0
+parent_profile: null
+hard_scoped: false
+sub_profiles: []
+allowed_tools: []
+denied_tools: []
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 20
+max_cost_usd: 5.0
+input_contract: null
+output_contract: null
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: '2026-05-17'
+    change: Backfilled to Phase 47.6 registry coverage standard
+tags:
+  - agent-profile
+  - base-agent
+  - orchestration
+  - backfill
+  - phase-47.6-coverage
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
