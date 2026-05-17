@@ -22,15 +22,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from fingpt_core.contracts.narrative.envelope import NarrativeEnvelope
 from fingpt_core.contracts.narrative.scope import ScopeContext
 from fingpt_core.contracts.errors import ContractValidationError
+from core.agents.envelope_writer import stamp_at_write_time
 
 logger = logging.getLogger("fingpt.tools.persist_narrative")
 
@@ -42,6 +44,10 @@ class PersistNarrativeRequest(BaseModel):
     """Request contract for persist_narrative tool.
 
     All fields required. frozen=True + extra='forbid' per Phase 60 contract discipline.
+
+    Phase 47.6 LD-10: 3 registry provenance fields are required (no defaults on
+    registry_snapshot_hash or registry_snapshot_generated_at — Pitfall 5 enforcement).
+    Callers source these from stamp_at_write_time() at persist boundary.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -60,6 +66,10 @@ class PersistNarrativeRequest(BaseModel):
     writer_profile_id: str
     requested_by: str | None = None
     reason_note: str | None = None
+    # Phase 47.6 LD-10: registry provenance stamping fields (required — no defaults)
+    registry_snapshot_hash: str = Field(..., min_length=8, max_length=64)
+    registry_snapshot_generated_at: datetime  # required, no default
+    registry_schema_version: str = Field(default="1.0")
 
 
 class PersistNarrativeResponse(BaseModel):

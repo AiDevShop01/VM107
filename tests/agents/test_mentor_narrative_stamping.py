@@ -45,6 +45,22 @@ def _make_minimal_narrative_envelope():
     )
 
 
+def _make_scope_context():
+    """Build a minimal valid ScopeContext for test use."""
+    from fingpt_core.contracts.narrative.scope import ScopeContext, TruthMode, NarrativeVisibility
+    now = datetime(2026, 5, 17, tzinfo=timezone.utc)
+    future = datetime(2026, 5, 18, tzinfo=timezone.utc)
+    return ScopeContext(
+        profile_id="trade_auditor_agent",
+        account_id=None,
+        execution_id=None,
+        truth_mode=TruthMode.HISTORICAL,
+        narrative_visibility=NarrativeVisibility.NONE,
+        issued_at=now,
+        expires_at=future,
+    )
+
+
 def test_persist_narrative_request_has_provenance_fields():
     """PersistNarrativeRequest carries the 3 provenance fields (registry_snapshot_hash etc.)."""
     import pydantic
@@ -63,14 +79,9 @@ def test_persist_narrative_request_rejects_missing_hash():
     """PersistNarrativeRequest raises ValidationError if registry_snapshot_hash is absent."""
     import pydantic
     from tools.persist_narrative import PersistNarrativeRequest
-    from fingpt_core.contracts.narrative.scope import ScopeContext
 
     envelope = _make_minimal_narrative_envelope()
-    scope = ScopeContext(
-        scope_id=str(uuid4()),
-        agent_profile="trade_auditor_agent",
-        pipeline_stage="writer",
-    )
+    scope = _make_scope_context()
 
     with pytest.raises(pydantic.ValidationError):
         PersistNarrativeRequest(
@@ -91,55 +102,38 @@ def test_persist_narrative_request_rejects_missing_hash():
 
 
 def test_persist_narrative_tool_passes_stamp():
-    """PersistNarrativeTool.persist() builds payload including 3 stamp fields from stamp_at_write_time().
+    """PersistNarrativeTool._build_payload() serializes provenance fields to JSON payload.
 
-    Verified by checking the payload sent to VM100 contains the 3 provenance fields.
+    Verified by constructing a PersistNarrativeRequest with provenance fields
+    and confirming the resulting JSON payload includes them.
     """
     import os
-    import asyncio
     os.environ.setdefault("VM100_INTERNAL_BASE_URL", "http://vm100-test:8000")
 
     from tools.persist_narrative import PersistNarrativeTool, PersistNarrativeRequest
-    from fingpt_core.contracts.narrative.scope import ScopeContext
 
     envelope = _make_minimal_narrative_envelope()
-    scope = ScopeContext(
-        scope_id=str(uuid4()),
-        agent_profile="trade_auditor_agent",
-        pipeline_stage="writer",
+    scope = _make_scope_context()
+
+    tool = PersistNarrativeTool()
+    request = PersistNarrativeRequest(
+        envelope=envelope,
+        scope_context=scope,
+        ruleset_version="v1.0",
+        analysis_version=1,
+        template_version="t1.0",
+        scope_origin="test",
+        truth_mode="HISTORICAL",
+        source_snapshot_id=uuid4(),
+        source_replay_artifact_id=None,
+        generated_by="test",
+        generated_reason="test",
+        writer_profile_id="trade_auditor_agent._writer",
+        registry_snapshot_hash=VALID_HASH,
+        registry_snapshot_generated_at=VALID_TS,
+        registry_schema_version="1.0",
     )
-
-    reg = _make_fake_registry()
-
-    with patch("core.agents.envelope_writer.CapabilityRegistry") as mock_cls:
-        mock_cls.get.return_value = reg
-
-        with patch("tools.persist_narrative.stamp_at_write_time") as mock_stamp:
-            mock_stamp.return_value = {
-                "registry_snapshot_hash": VALID_HASH,
-                "registry_snapshot_generated_at": VALID_TS,
-                "registry_schema_version": "1.0",
-            }
-
-            tool = PersistNarrativeTool()
-            request = PersistNarrativeRequest(
-                envelope=envelope,
-                scope_context=scope,
-                ruleset_version="v1.0",
-                analysis_version=1,
-                template_version="t1.0",
-                scope_origin="test",
-                truth_mode="HISTORICAL",
-                source_snapshot_id=uuid4(),
-                source_replay_artifact_id=None,
-                generated_by="test",
-                generated_reason="test",
-                writer_profile_id="trade_auditor_agent._writer",
-                registry_snapshot_hash=VALID_HASH,
-                registry_snapshot_generated_at=VALID_TS,
-                registry_schema_version="1.0",
-            )
-            payload = tool._build_payload(request)
+    payload = tool._build_payload(request)
 
     assert "registry_snapshot_hash" in payload
     assert payload["registry_snapshot_hash"] == VALID_HASH
@@ -158,14 +152,9 @@ def test_orchestrator_stamps_persist_call():
     os.environ.setdefault("VM100_INTERNAL_BASE_URL", "http://vm100-test:8000")
 
     from helpers.mentor_pipeline_orchestrator import MentorPipelineOrchestrator
-    from fingpt_core.contracts.narrative.scope import ScopeContext, TruthMode
+    from fingpt_core.contracts.narrative.scope import TruthMode
 
-    # Build all mock dependencies
-    scope = ScopeContext(
-        scope_id=str(uuid4()),
-        agent_profile="trade_auditor_agent",
-        pipeline_stage="writer",
-    )
+    scope = _make_scope_context()
 
     # Track what PersistNarrativeRequest was built
     captured_request = {}
@@ -188,29 +177,18 @@ def test_orchestrator_stamps_persist_call():
     mock_dispatcher = MagicMock()
     mock_dispatcher.attach_header.return_value = {}
 
-    envelope = _make_minimal_narrative_envelope()
-
-    # Patch reader, analyzer, writer stages to return quickly
-    from fingpt_core.contracts.narrative.reader_io import ReaderOutput
-    from fingpt_core.contracts.narrative.analyzer_io import AnalyzerOutput
-    from fingpt_core.contracts.narrative.scope import ScopeContext as SC
-
     async def mock_invoke(profile, input, headers=None, **kwargs):
         if "_reader" in profile:
             return {
                 "execution_id": None,
                 "scope_context": scope.model_dump(mode="json"),
-                "replay_artifact_id": None,
-                "evidence_bundle": [],
-                "loaded_knowledge": [],
+                "retrieved_evidence": {},
             }
         elif "_analyzer" in profile:
             return {
                 "execution_id": None,
                 "scope_context": scope.model_dump(mode="json"),
-                "analytical_findings": [],
-                "dominant_patterns": [],
-                "recommended_focus_areas": [],
+                "findings": {},
             }
         elif "_writer" in profile:
             return {
@@ -225,8 +203,6 @@ def test_orchestrator_stamps_persist_call():
 
     mock_confidence = MagicMock()
     mock_confidence.compute.return_value = MagicMock()
-
-    reg = _make_fake_registry()
 
     orchestrator = MentorPipelineOrchestrator(
         profile="trade_auditor_agent",

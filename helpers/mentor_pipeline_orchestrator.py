@@ -56,6 +56,7 @@ from fingpt_core.contracts.adaptive.enums import AdaptiveSignalCategory
 from helpers.citation_validator import CitationValidator, CitationViolation
 from helpers.confidence_vector_calculator import ConfidenceVectorCalculator
 from helpers.scope_dispatcher import ScopeDispatcher
+from core.agents.envelope_writer import stamp_at_write_time
 
 logger = logging.getLogger("fingpt.helpers.mentor_pipeline_orchestrator")
 
@@ -316,6 +317,9 @@ class MentorPipelineOrchestrator:
 
         # ── Persist via VM100 internal endpoint (Phase 39 typed-API lock) ─────
         # Phase 60.1 (G7+G22): pass scope_headers so VM100 receives X-Agent-Scope.
+        # Phase 47.6 LD-10: stamp_at_write_time() called HERE — at the persist boundary,
+        # not at init/boot time (Pitfall 9). This ensures the snapshot that was active
+        # at PERSIST time is recorded, even if the snapshot changed mid-pipeline.
         # Build PersistNarrativeRequest from run() parameters. Lazy import keeps
         # this module loadable without VM100_INTERNAL_BASE_URL (tests that mock
         # the persister entirely never touch tools.persist_narrative at import time).
@@ -334,6 +338,7 @@ class MentorPipelineOrchestrator:
             generated_by="dagster_sensor",
             generated_reason="AUTO",
             writer_profile_id=f"{self._profile}._writer",
+            **stamp_at_write_time(),  # Phase 47.6 LD-10: stamp at write time (Pitfall 9)
         )
         await self._persist.persist(persist_request, headers=scope_headers)
 
