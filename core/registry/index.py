@@ -45,24 +45,27 @@ def get_index_for_profile(
             continue
         if e.deprecated:
             continue
-        # Profile matching: exact match or base-id match for sub-profiles
-        # e.g., "agent_zero._writer" base is "agent_zero"
+        # Profile matching — mirrors is_capability_in_scope() logic exactly.
+        # hard_scoped=True: exact match only (no base-profile fallback).
+        # hard_scoped=False: exact match OR base-id match for sub-profiles.
         allowed = False
-        for listed_profile in e.allowed_agent_profiles:
-            if listed_profile == profile_id:
-                allowed = True
-                break
-            # Check sub-profile: if profile_id is "agent_zero", it matches
-            # "agent_zero._writer" if the listed profile starts with "agent_zero."
-            if listed_profile.startswith(profile_id + "."):
-                allowed = True
-                break
-            # Also: if profile_id is a sub-profile like "agent_zero._writer",
-            # check if "agent_zero" is listed (soft-scoped)
+        if e.hard_scoped:
+            # Exact match only — base profile cannot inherit a hard-scoped capability.
+            allowed = profile_id in e.allowed_agent_profiles
+        else:
             base_of_caller = profile_id.split(".")[0]
-            if listed_profile == base_of_caller:
-                allowed = True
-                break
+            for listed_profile in e.allowed_agent_profiles:
+                if listed_profile == profile_id:
+                    allowed = True
+                    break
+                # Sub-profile slot: "agent_zero" matches "agent_zero._writer" etc.
+                if listed_profile.startswith(profile_id + "."):
+                    allowed = True
+                    break
+                # Caller is a sub-profile: "agent_zero._writer" → base is "agent_zero"
+                if listed_profile == base_of_caller:
+                    allowed = True
+                    break
         if not allowed:
             continue
 

@@ -1,0 +1,36 @@
+id: call_subordinate
+type: tool
+status: real
+shipped: 0
+last_changed: 2026-05-17
+name: call_subordinate
+short_description: Delegates a task to a sub-agent and waits for its response.
+long_description: |
+  Core orchestration primitive. Only the Coordinator (agent_zero) may invoke
+  sub-agents. All other profiles are HARD-denied at runtime via
+  core/agents/tool_scope.py SENSITIVE_TOOLS + per-profile denial stubs
+  under agents/<profile>/tools/call_subordinate.py.
+
+  SENSITIVE — listed in core/agents/tool_scope.py SENSITIVE_TOOLS.
+  hard_scoped: true (exact profile match required, no sub-profile fallback).
+
+phase: 0
+category: orchestration
+producer: VM107
+location:
+  source: VM107/tools/call_subordinate.py
+
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - agent_zero
+
+related_capabilities:
+  - code_execution_tool
+dependencies: []
+deprecated: false
+tags:
+  - phase-0
+  - core
+  - orchestration
+  - sensitive
