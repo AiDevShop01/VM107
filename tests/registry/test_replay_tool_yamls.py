@@ -71,7 +71,7 @@ def test_tool_yaml_has_required_phase47_6_fields(name: str):
     assert "type" in data, f"{name}: missing 'type'"
     assert data["type"] == "tool", f"{name}: type must be 'tool'"
     assert "status" in data, f"{name}: missing 'status'"
-    assert data["status"] == "shipped", f"{name}: status must be 'shipped'"
+    assert data["status"] == "real", f"{name}: status must be 'real' (LD-3 normalized)"
     assert "shipped" in data, f"{name}: missing 'shipped'"
     assert data["shipped"] == 59, f"{name}: shipped must be 59"
     assert "last_changed" in data, f"{name}: missing 'last_changed'"
@@ -149,7 +149,7 @@ def test_service_yaml_has_required_fields(name: str):
     assert "type" in data, f"{name}: missing 'type'"
     assert data["type"] == "service", f"{name}: type must be 'service'"
     assert "status" in data, f"{name}: missing 'status'"
-    assert data["status"] == "shipped", f"{name}: status must be 'shipped'"
+    assert data["status"] == "real", f"{name}: status must be 'real' (LD-3 normalized)"
 
     # Location
     assert "module_path" in data, f"{name}: missing 'module_path'"
