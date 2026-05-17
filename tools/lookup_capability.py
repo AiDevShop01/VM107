@@ -78,15 +78,20 @@ def _log_introspection(
     returned_count: Optional[int],
     filters: Optional[dict],
     discovery_reason: Optional[str],
-    reasoning_context_id: str,
+    reasoning_context_id: str = "unknown",  # overridden by env.envelope_id when envelope active
 ) -> Optional[CapabilityIntrospectionEvent]:
-    """Build a CapabilityIntrospectionEvent and attempt to log it to the envelope.
+    """Build a CapabilityIntrospectionEvent and append it to the active envelope.
 
-    Wave 1 (Plan 03): builds the event but does NOT yet append to the envelope.
-    The envelope_context contextvar is checked so callers in CLI/dev contexts
-    do NOT crash (current_envelope returns None → silent skip).
+    Phase 47.6 Plan 06 (Wave 3 — LD-6d wired):
+    Reads the current_envelope contextvar and appends an immutable
+    CapabilityIntrospectionEvent to envelope.capability_introspection_log.
 
-    # Wave 3 Plan 06: append to envelope.capability_introspection_log
+    CLI/dev safety: if no envelope is active (current_envelope returns None),
+    silently skips — never crashes.
+
+    B2 invariant: This function ONLY writes to capability_introspection_log.
+    It NEVER writes to capability_refusal_log. That log is the sole domain
+    of tool_dispatcher.py (invocation attempts only, per CONTEXT.md #6c).
     """
     from core.agents.envelope_context import current_envelope
 
@@ -104,9 +109,13 @@ def _log_introspection(
         filters=filters,
         discovery_reason=discovery_reason,
         occurred_at=datetime.now(tz=timezone.utc),
-        reasoning_context_id=getattr(env, "reasoning_context_id", "unknown"),
+        reasoning_context_id=str(getattr(env, "envelope_id", "unknown") or "unknown"),
     )
-    # Wave 3 Plan 06: append to envelope.capability_introspection_log
+    # LD-6d: append-only log — NEVER mutate existing entries
+    env.capability_introspection_log.append(event)
+    # NOTE (B2): intentionally NOT writing to capability_refusal_log here.
+    # Introspection of a stub is NOT a refusal. Refusal is invocation-attempt
+    # only — handled by tool_dispatcher.py (Task 2).
     return event
 
 

@@ -51,57 +51,46 @@ def real_registry(tmp_path):
 
 
 @pytest.fixture
-def stub_registry(tmp_path):
-    """Registry containing one stub capability and one real capability."""
+def stub_registry_with_stub_summary(real_registry):
+    """Provide the real registry but patch lookup() to return a stub summary.
+
+    Using the real registry avoids the 5-stage validation complexity for
+    mini test registries. We patch CapabilityRegistry.lookup() to return
+    a synthetic CapabilitySummary with status=stub for the 'some_stub_capability' id.
+    """
     from core.registry.capability_registry import CapabilityRegistry
-    import yaml
+    from fingpt_core.contracts.capability_registry import (
+        CapabilitySummary, CapabilityStatus, CapabilityType, ImpactLevel,
+    )
 
-    registry_root = tmp_path / "registry"
-    tool_dir = registry_root / "tool"
-    tool_dir.mkdir(parents=True)
+    stub_summary = CapabilitySummary(
+        id="some_stub_capability",
+        type=CapabilityType.TOOL,
+        status=CapabilityStatus.STUB,
+        short_description="A stub tool",
+        long_description="Not yet implemented",
+        contracts={"request": None, "response": None},
+        impact_on_decision=ImpactLevel.HIGH,
+        allowed_agent_profiles=("agent_zero",),
+        dependencies=(),
+        related_capabilities=(),
+        deprecated=False,
+        tags=("test",),
+        api_structure="function",
+        location={"source": "test", "planned_phase": "Phase 99"},
+        unblocks_when=(),
+        last_changed="2026-05-17",
+    )
 
-    (tool_dir / "some_real_tool.yaml").write_text(yaml.dump({
-        "id": "some_real_tool",
-        "type": "tool",
-        "status": "real",
-        "short_description": "A real tool",
-        "long_description": "A fully implemented tool",
-        "contracts": {"request": None, "response": None},
-        "impact_on_decision": "LOW",
-        "allowed_agent_profiles": ["agent_zero"],
-        "dependencies": [],
-        "related_capabilities": [],
-        "deprecated": False,
-        "tags": ["test"],
-        "api_structure": "function",
-        "location": {"source": "test", "planned_phase": None},
-        "unblocks_when": [],
-        "last_changed": "2026-05-17",
-    }))
+    original_lookup = real_registry.lookup
 
-    (tool_dir / "some_stub_capability.yaml").write_text(yaml.dump({
-        "id": "some_stub_capability",
-        "type": "tool",
-        "status": "stub",
-        "short_description": "A stub tool",
-        "long_description": "Not yet implemented",
-        "contracts": {"request": None, "response": None},
-        "impact_on_decision": "HIGH",
-        "allowed_agent_profiles": ["agent_zero"],
-        "dependencies": [],
-        "related_capabilities": [],
-        "deprecated": False,
-        "tags": ["test"],
-        "api_structure": "function",
-        "location": {"source": "test", "planned_phase": "Phase 99"},
-        "unblocks_when": [],
-        "last_changed": "2026-05-17",
-    }))
+    def patched_lookup(capability_id):
+        if capability_id == "some_stub_capability":
+            return stub_summary
+        return original_lookup(capability_id)
 
-    CapabilityRegistry._instance = None
-    CapabilityRegistry.initialize(registry_root)
-    yield CapabilityRegistry.get()
-    CapabilityRegistry._instance = None
+    with patch.object(real_registry, "lookup", side_effect=patched_lookup):
+        yield real_registry
 
 
 @pytest.fixture
@@ -238,7 +227,7 @@ def test_outside_envelope_no_crash(real_registry):
     assert result.status == "ok"
 
 
-def test_introspection_of_stub_does_NOT_trigger_refusal(stub_registry, fresh_envelope):
+def test_introspection_of_stub_does_NOT_trigger_refusal(stub_registry_with_stub_summary, fresh_envelope):
     """B2 fix: lookup("some_stub_capability") writes ONLY to capability_introspection_log.
 
     capability_refusal_log MUST remain empty after mere introspection of a stub.

@@ -22,7 +22,11 @@ from pydantic import BaseModel, Field
 
 from core.contracts.exceptions import SchemaVersionMismatchError
 from fingpt_core.provenance import CapabilityProvenanceMixin
-from fingpt_core.contracts.capability_registry import REGISTRY_SNAPSHOT_PRE_47_6
+from fingpt_core.contracts.capability_registry import (
+    REGISTRY_SNAPSHOT_PRE_47_6,
+    CapabilityIntrospectionEvent,
+    CapabilityRefusalEvent,
+)
 
 
 class AgentEnvelope(CapabilityProvenanceMixin, BaseModel):
@@ -67,6 +71,17 @@ class AgentEnvelope(CapabilityProvenanceMixin, BaseModel):
     schema_version: int = 2  # bumped from 1 in Phase 47.6 per RESEARCH Open Q5
     status: Literal["success", "failure", "degraded"]
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Phase 47.6 Plan 06 — LD-6d introspection log + LD-6c refusal log (B2 FIX)
+    # capability_introspection_log: every lookup()/list() call — append-only
+    # capability_refusal_log: ONLY invocation attempts (written by tool_dispatcher)
+    # These are TWO SEPARATE lists; introspection NEVER writes to refusal_log.
+    capability_introspection_log: list[CapabilityIntrospectionEvent] = Field(
+        default_factory=list
+    )
+    capability_refusal_log: list[CapabilityRefusalEvent] = Field(
+        default_factory=list
+    )  # B2 FIX — sole writer: tool_dispatcher.py
 
 
 def read_envelope_tolerant(doc: dict) -> AgentEnvelope:
