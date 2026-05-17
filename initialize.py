@@ -1,3 +1,6 @@
+import os
+from pathlib import Path
+
 from agent import AgentConfig
 from helpers import runtime, settings, defer, extension
 from helpers.print_style import PrintStyle
@@ -6,6 +9,51 @@ from helpers.agent_yaml_v2_validator import (
     AgentYamlV2Error,
     is_v2_profile,
 )
+
+
+@extension.extensible
+def initialize_capability_registry() -> None:
+    """Phase 47.6 — boot CapabilityRegistry from env-driven path.
+
+    Env-driven config; no fallback default (project memory rule + LD-1).
+    CAPABILITY_REGISTRY_ROOT must be set in docker-compose.yml / .env.production.
+
+    Raises:
+        SystemExit: If CAPABILITY_REGISTRY_ROOT is not set, or if any of the
+                    7 registry validation stages fail (LD-2 hard-fail discipline).
+
+    This function is idempotent in the sense that CapabilityRegistry.initialize()
+    raises RuntimeError if called twice — run_ui.py calls initialize_capability_registry()
+    exactly once before any agent dispatch.
+    """
+    from core.registry.capability_registry import CapabilityRegistry
+    from fingpt_core.contracts.capability_registry import RegistryValidationError
+
+    try:
+        registry_root = Path(os.environ["CAPABILITY_REGISTRY_ROOT"])
+    except KeyError as exc:
+        raise SystemExit(
+            "CAPABILITY_REGISTRY_ROOT env var REQUIRED. "
+            "No fallback default per project memory rule + LD-1. "
+            "Set in docker-compose.yml / .env.production."
+        ) from exc
+
+    try:
+        CapabilityRegistry.initialize(registry_root)
+        snapshot = CapabilityRegistry.get().snapshot
+        PrintStyle().print(
+            f"CapabilityRegistry initialized: "
+            f"entries={len(snapshot.entries)} "
+            f"hash={snapshot.snapshot_hash[:16]}…"
+        )
+    except RegistryValidationError as exc:
+        raise SystemExit(
+            f"CapabilityRegistry validation FAILED — VM107 cannot start (LD-2 hard-fail). "
+            f"Fix registry YAMLs and restart. Error: {exc}"
+        ) from exc
+    except RuntimeError:
+        # Already initialized (e.g., re-import in test context). Not an error.
+        pass
 
 
 @extension.extensible

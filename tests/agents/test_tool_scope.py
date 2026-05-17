@@ -20,6 +20,23 @@ if str(_VM107_ROOT) not in sys.path:
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _registry_for_tool_scope(tmp_path):
+    """Phase 47.6: ensure CapabilityRegistry is initialized for tool_scope tests.
+
+    After the Phase 47.6 Wave 4 refactor, is_tool_allowed() delegates to the
+    registry. Without initialization, all tools return True (permissive default).
+    This fixture ensures the real registry is loaded for all tests in this file.
+    """
+    from core.registry.capability_registry import CapabilityRegistry
+
+    original = CapabilityRegistry._instance
+    if CapabilityRegistry._instance is None:
+        CapabilityRegistry.initialize(_VM107_ROOT / "registry")
+    yield
+    CapabilityRegistry._instance = original
+
+
 def test_idea_agent_blocked():
     """
     check_tool_scope raises UnauthorizedToolError when idea_agent tries to

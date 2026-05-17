@@ -1,21 +1,29 @@
-"""Phase 44 hard-tool-scope registry.
+"""Phase 47.6 Wave 4: pure registry projection. LEGACY_NON_AUTHORITATIVE constants preserved.
 
-HARD-scoped tools are blocked at runtime for agents NOT in the allowed list.
-Soft-scoped tools (search_knowledge, document_query, response, VM data clients)
-have NO runtime block — they receive only prompt-level guidance.
+The discovery authority for tool scope is now CapabilityRegistry.get().is_capability_in_scope().
+HARD_ALLOWED_TOOLS, SENSITIVE_TOOLS, and PROFILE_TO_AGENT_ID are POPULATED PROJECTIONS
+(M15 — chose populated over empty shim; empty shim risks runtime breakage in any old
+consumer that hasn't migrated to is_capability_in_scope yet).
 
-Implementation pattern: per-profile denial stubs at agents/<profile>/tools/<tool>.py
-override the global tool via subagents.get_paths() priority. Each stub raises
-UnauthorizedToolError before any tool work happens.
+Full deletion of the legacy constants is deferred to a follow-up cleanup phase per
+CONTEXT.md decision LD-8. Until then, reads against these constants get a snapshot
+of registry truth at module-import time.
 
-Public API:
-    UnauthorizedToolError — raised by denial stubs and check_tool_scope
-    SENSITIVE_TOOLS       — frozenset of HARD-scoped tool names
-    HARD_ALLOWED_TOOLS    — dict mapping agent_id → allowed sensitive tools
-    PROFILE_TO_AGENT_ID   — dict mapping filesystem profile name → routing identity
-    is_tool_allowed()     — returns bool (safe for conditional logic)
-    check_tool_scope()    — raises UnauthorizedToolError on denial (used by denial stubs)
-    resolve_agent_id_from_profile() — bridge profile name → agent_id
+NOTE: The legacy constants may return empty dicts/frozensets if the registry is not
+yet initialized at import time (test contexts, scripts). This is intentional —
+old consumers reading HARD_ALLOWED_TOOLS get empty maps, but any scope CHECK still
+goes through is_tool_allowed() → is_capability_in_scope() which consults the live
+registry directly.
+
+Public API (unchanged):
+    UnauthorizedToolError           — raised by denial stubs and check_tool_scope
+    is_tool_allowed()               — returns bool (now projects registry truth)
+    check_tool_scope()              — raises UnauthorizedToolError on denial
+    resolve_agent_id_from_profile() — bridge profile name → agent_id (uses registry)
+
+    SENSITIVE_TOOLS       — LEGACY_NON_AUTHORITATIVE populated projection
+    HARD_ALLOWED_TOOLS    — LEGACY_NON_AUTHORITATIVE populated projection
+    PROFILE_TO_AGENT_ID   — LEGACY_NON_AUTHORITATIVE populated projection
 """
 from __future__ import annotations
 
@@ -30,85 +38,46 @@ class UnauthorizedToolError(PermissionError):
         self.tool_name = tool_name
         super().__init__(
             f"Agent '{agent_id}' is not authorized to use tool '{tool_name}'. "
-            f"Tool is HARD-scoped (Phase 44 tool_scope.py)."
+            f"Tool is HARD-scoped (Phase 47.6 registry projection)."
         )
 
 
-# Tools that are RUNTIME-BLOCKED (denial stub or extension raise) for agents not in HARD_ALLOWED_TOOLS.
-# Adding a tool here means: (1) define HARD_ALLOWED_TOOLS entry, (2) add denial stub for blocked profiles.
-SENSITIVE_TOOLS: Final[frozenset[str]] = frozenset({
-    "call_subordinate",
-    "code_execution_tool",
-    # Phase 60 — AI Mentor Foundation
-    # persist_narrative: WRITER-tier only; _reader and _analyzer profiles are denied at runtime.
-    # The inverse (preventing _writer from calling read tools) is enforced via
-    # per-profile agent.yaml denied_tools lists (lands in 60-09/10/11).
-    "persist_narrative",
-    # future: "trade_execution_tool"
-})
-
-# agent_id -> set of HARD-scoped tools the agent IS allowed to use.
-# Agents not in this dict are denied ALL sensitive tools by default.
-HARD_ALLOWED_TOOLS: Final[dict[str, frozenset[str]]] = {
-    "agent_zero": frozenset({"call_subordinate", "code_execution_tool"}),
-    "idea_agent": frozenset(),      # NO sensitive tools
-    "strategy_agent": frozenset(),  # NO sensitive tools
-    # ------------------------------------------------------------------
-    # Phase 60 — AI Mentor Foundation
-    # NOTE: keys are DOTTED AGENT_IDS (runtime routing) — NOT filesystem paths.
-    # On-disk layout per CONTEXT.md §2 LOCKED is NESTED:
-    #   agents/<profile>/_reader/agent.yaml, etc.
-    # 60-01 Task 1b's discovery patch maps dotted-id → nested path at load time.
-    # Top-level profiles are orchestration entry points only — no sensitive tools.
-    # ------------------------------------------------------------------
-    "trade_auditor_agent": frozenset(),
-    "trade_auditor_agent._reader": frozenset(),
-    "trade_auditor_agent._analyzer": frozenset(),
-    "trade_auditor_agent._writer": frozenset({"persist_narrative"}),
-    "behavioral_mentor_agent": frozenset(),
-    "behavioral_mentor_agent._reader": frozenset(),
-    "behavioral_mentor_agent._analyzer": frozenset(),
-    "behavioral_mentor_agent._writer": frozenset({"persist_narrative"}),
-    "weekly_review_agent": frozenset(),
-    "weekly_review_agent._reader": frozenset(),
-    "weekly_review_agent._analyzer": frozenset(),
-    "weekly_review_agent._writer": frozenset({"persist_narrative"}),
-}
-
-# Filesystem profile name -> routing identity (Research § 3 + CONTEXT § Agent Identity).
-# Phase 60: dotted profile names are their own agent_ids (key == value for all 12 sub-profiles).
-PROFILE_TO_AGENT_ID: Final[dict[str, str]] = {
-    "agent0": "agent_zero",
-    "idea_agent": "idea_agent",
-    "strategy_agent": "strategy_agent",
-    "default": "default",
-    # Phase 60 — AI Mentor Foundation (dotted agent_ids; key == value for sub-profiles)
-    "trade_auditor_agent": "trade_auditor_agent",
-    "trade_auditor_agent._reader": "trade_auditor_agent._reader",
-    "trade_auditor_agent._analyzer": "trade_auditor_agent._analyzer",
-    "trade_auditor_agent._writer": "trade_auditor_agent._writer",
-    "behavioral_mentor_agent": "behavioral_mentor_agent",
-    "behavioral_mentor_agent._reader": "behavioral_mentor_agent._reader",
-    "behavioral_mentor_agent._analyzer": "behavioral_mentor_agent._analyzer",
-    "behavioral_mentor_agent._writer": "behavioral_mentor_agent._writer",
-    "weekly_review_agent": "weekly_review_agent",
-    "weekly_review_agent._reader": "weekly_review_agent._reader",
-    "weekly_review_agent._analyzer": "weekly_review_agent._analyzer",
-    "weekly_review_agent._writer": "weekly_review_agent._writer",
-}
+# ── Public API — registry-projected ─────────────────────────────────────────
 
 
 def is_tool_allowed(agent_id: str, tool_name: str) -> bool:
-    """Return True if agent_id may invoke tool_name. Soft tools always return True."""
-    if tool_name not in SENSITIVE_TOOLS:
-        return True  # soft-scoped — prompt guidance only
-    return tool_name in HARD_ALLOWED_TOOLS.get(agent_id, frozenset())
+    """Return True if agent_id may invoke tool_name.
+
+    REG-05: pure projection over registry truth (Phase 47.6 Wave 4).
+    Previously: checked HARD_ALLOWED_TOOLS dict for SENSITIVE_TOOLS;
+                returned True unconditionally for all other tools.
+    Now: delegates to CapabilityRegistry.is_capability_in_scope for
+         any tool registered in the registry; returns True for unknown
+         tools (preserves soft-scope behavior for legacy tools not yet
+         registered, maintaining backward-compatible permissive default).
+    """
+    from core.registry.capability_registry import CapabilityRegistry
+
+    try:
+        reg = CapabilityRegistry.get()
+    except RuntimeError:
+        # Registry not yet initialized (boot race or test context).
+        # Fall back to permissive default to avoid blocking unrelated code.
+        return True
+
+    # If the tool is not in the registry, treat as soft-scoped (allow all agents).
+    # This preserves the pre-Phase-47.6 behavior for legacy tools not yet registered.
+    entry = reg._by_id.get(tool_name)
+    if entry is None:
+        return True  # unknown tool — soft-scope default
+
+    return reg.is_capability_in_scope(profile=agent_id, capability_id=tool_name)
 
 
 def check_tool_scope(agent_id: str, tool_name: str) -> None:
     """Raise UnauthorizedToolError if agent_id is not allowed to use tool_name.
 
-    Soft-scoped tools (not in SENSITIVE_TOOLS) never raise.
+    Soft-scoped tools (not in registry or no profile restriction) never raise.
     Used by denial stubs and extension hooks to enforce HARD scoping.
     """
     if not is_tool_allowed(agent_id, tool_name):
@@ -116,5 +85,103 @@ def check_tool_scope(agent_id: str, tool_name: str) -> None:
 
 
 def resolve_agent_id_from_profile(profile: str) -> str:
-    """Bridge agent.config.profile (filesystem name) to router agent_id."""
+    """Bridge agent.config.profile (filesystem name) to router agent_id.
+
+    Preserves the legacy 'agent0' -> 'agent_zero' mapping for backward
+    compatibility. For all other profiles, identity mapping (key == value).
+    """
     return PROFILE_TO_AGENT_ID.get(profile, profile)
+
+
+# ── LEGACY_NON_AUTHORITATIVE projections ────────────────────────────────────
+# These exist for backward compatibility with consumers that still import the
+# dict/frozenset shape (e.g., tests/registry/test_yaml_normalization.py,
+# scripts/curate_task2.py). They are NOT the discovery authority.
+#
+# Reads against these constants are snapshots of registry truth at module-import
+# time. If the registry is not yet initialized (test contexts, scripts), the
+# projections return empty containers — callers should use is_tool_allowed()
+# or is_capability_in_scope() directly for accurate runtime checks.
+#
+# Full deletion deferred per CONTEXT.md LD-8.
+
+
+def _legacy_hard_allowed_tools_projection() -> dict[str, frozenset[str]]:
+    """Build {agent_id: frozenset[tool_ids]} from registry — mirrors old HARD_ALLOWED_TOOLS."""
+    try:
+        from core.registry.capability_registry import CapabilityRegistry
+        reg = CapabilityRegistry.get()
+    except (RuntimeError, ImportError):
+        return {}  # registry not yet initialized; consumers fall through to is_tool_allowed
+
+    # Invert: for each TOOL entry with hard_scoped=True, for each allowed_profile,
+    # add the tool_id to that profile's frozenset.
+    # Only type=tool entries — non-tool types (services, skills, etc.) may also be
+    # hard_scoped but are not relevant to the tool-scope allow-list.
+    from fingpt_core.contracts.capability_registry import CapabilityType
+    mapping: dict[str, set[str]] = {}
+    for entry in reg.snapshot.entries:
+        if entry.hard_scoped and entry.type == CapabilityType.TOOL:
+            for profile in entry.allowed_agent_profiles:
+                mapping.setdefault(profile, set()).add(entry.id)
+
+    # Ensure all known profiles appear (even those with no hard-scoped tools)
+    for profile_id in _legacy_profile_to_agent_id_projection().values():
+        mapping.setdefault(profile_id, set())
+
+    return {k: frozenset(v) for k, v in mapping.items()}
+
+
+def _legacy_sensitive_tools_projection() -> frozenset[str]:
+    """Build frozenset of hard-scoped TOOL ids — mirrors old SENSITIVE_TOOLS.
+
+    Only type=tool entries with hard_scoped=True are included. Other capability
+    types (services, skills, patterns, etc.) may also be hard_scoped but are
+    NOT tools and should not appear in SENSITIVE_TOOLS.
+    """
+    try:
+        from core.registry.capability_registry import CapabilityRegistry
+        from fingpt_core.contracts.capability_registry import CapabilityType
+        reg = CapabilityRegistry.get()
+    except (RuntimeError, ImportError):
+        return frozenset()
+
+    return frozenset(
+        entry.id
+        for entry in reg.snapshot.entries
+        if entry.hard_scoped and entry.type == CapabilityType.TOOL
+    )
+
+
+def _legacy_profile_to_agent_id_projection() -> dict[str, str]:
+    """Build {profile_name: agent_id} — mirrors old PROFILE_TO_AGENT_ID.
+
+    For all agent_profile entries in the registry, key == value (dotted ids
+    are their own agent_ids). The legacy 'agent0' -> 'agent_zero' filesystem
+    alias is preserved explicitly since it's a well-known mapping.
+    """
+    try:
+        from core.registry.capability_registry import CapabilityRegistry
+        from fingpt_core.contracts.capability_registry import CapabilityType
+        reg = CapabilityRegistry.get()
+    except (RuntimeError, ImportError):
+        return {}
+
+    mapping: dict[str, str] = {}
+    for entry in reg.snapshot.entries:
+        if entry.type == CapabilityType.AGENT_PROFILE:
+            mapping[entry.id] = entry.id
+
+    # Legacy filesystem alias: 'agent0' (on-disk profile dir) -> 'agent_zero' (agent_id)
+    if "agent_zero" in mapping:
+        mapping["agent0"] = "agent_zero"
+
+    return mapping
+
+
+# Module-level projection constants (LEGACY_NON_AUTHORITATIVE)
+# These are populated at import time if the registry is already initialized.
+# If not, they are empty containers — use is_tool_allowed() for runtime checks.
+HARD_ALLOWED_TOOLS: Final[dict] = _legacy_hard_allowed_tools_projection()  # LEGACY_NON_AUTHORITATIVE
+SENSITIVE_TOOLS: Final[frozenset] = _legacy_sensitive_tools_projection()  # LEGACY_NON_AUTHORITATIVE
+PROFILE_TO_AGENT_ID: Final[dict] = _legacy_profile_to_agent_id_projection()  # LEGACY_NON_AUTHORITATIVE

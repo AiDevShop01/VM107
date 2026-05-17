@@ -26,6 +26,10 @@ def run():
 def run_migration_checks() -> None:
     initialize.initialize_migration()
     initialize.initialize_validate_phase60_profiles()
+    # Phase 47.6: boot CapabilityRegistry BEFORE any agent dispatch (LD-8).
+    # Must run after initialize_migration() (env vars are loaded) but before
+    # init_a0() (which dispatches agents that call CapabilityRegistry.get()).
+    initialize.initialize_capability_registry()
 
 
 def prepare_web_runtime() -> tuple[UiServerRuntime, str, int]:

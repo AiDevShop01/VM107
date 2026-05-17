@@ -1,8 +1,19 @@
 import asyncio
+from pathlib import Path
+
 from helpers import runtime, whisper, settings
 from helpers.print_style import PrintStyle
 from helpers import kokoro_tts
 import models
+
+# Phase 47.6 LD-8 — defense-in-depth assertion.
+# Runs at module import time (before any async preload tasks).
+# Guards against accidental re-introduction of capability-discovery walker code.
+# Narrowed to _11_tools_prompt.py only per Pitfall 7.
+from core.agents.boot_assertions import assert_no_filesystem_walkers
+
+_REPO_ROOT = Path(__file__).parent
+assert_no_filesystem_walkers(repo_root=_REPO_ROOT)
 
 
 async def preload():

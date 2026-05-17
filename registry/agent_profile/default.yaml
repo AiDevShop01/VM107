@@ -1,0 +1,40 @@
+id: default
+type: agent_profile
+status: real
+shipped: 0
+last_changed: 2026-05-17
+name: default
+description: |
+  Default fallback agent profile. Used when no specific profile is configured.
+  Maps to agent_id 'default'. General-purpose profile with soft-scope tools only.
+version: 1.0.0
+phase: 0
+hard_scoped: false
+sub_profiles: []
+allowed_tools:
+  - search_knowledge
+  - document_query
+  - response
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - persist_narrative
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 10
+max_cost_usd: 1.0
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-0
+  - core
+  - default
+  - agent-profile
