@@ -222,7 +222,7 @@ class CapabilityRegistry:
             api_structure=raw.get("api_structure", ""),
             location=location,
             unblocks_when=tuple(raw.get("unblocks_when", [])),
-            last_changed=raw.get("last_changed", "") or "",
+            last_changed=str(raw.get("last_changed", "") or ""),
         )
 
     def list(

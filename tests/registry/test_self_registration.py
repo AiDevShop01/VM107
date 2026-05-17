@@ -45,7 +45,7 @@ def test_lookup_capability_yaml_loads():
 
     # If we got here without an exception, all 7 stages passed
     assert reg is not None
-    assert reg.snapshot.entry_count >= 152
+    assert len(reg.snapshot.entries) >= 152
 
 
 # ---------------------------------------------------------------------------

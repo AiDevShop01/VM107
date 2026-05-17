@@ -1,0 +1,54 @@
+id: lookup_capability
+type: tool
+status: real
+shipped: 47.6
+last_changed: 2026-05-17
+
+short_description: Meta-tool — capability registry navigation
+long_description: |
+  Returns a typed CapabilitySummary for a known id, or a filtered list across
+  the registry. Read-only, soft-scoped on all profiles. NO semantic search.
+  Use list() only for explicit cognitive moves (user asks "what can you do?",
+  planner enumerating a category). Use lookup(id) when uncertain about a known
+  capability. Stub/experimental capabilities are discoverable but NOT invokable
+  per Phase 47.6 LD-6c.
+
+location:
+  source: VM107/tools/lookup_capability.py
+  contracts:
+    request: fingpt_core.contracts.capability_registry.summary.CapabilitySummary
+    response: fingpt_core.contracts.capability_registry.summary.CapabilitySummary
+
+api_structure: |
+  lookup(id: str, discovery_reason: str=None) -> LookupResult
+  list(*, type=None, status=None, tags=None, allowed_profile=None,
+       impact=None, discovery_reason=None) -> ListResult
+
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - agent_zero
+  - idea_agent
+  - strategy_agent
+  - trade_auditor_agent
+  - trade_auditor_agent._reader
+  - trade_auditor_agent._analyzer
+  - trade_auditor_agent._writer
+  - behavioral_mentor_agent
+  - behavioral_mentor_agent._reader
+  - behavioral_mentor_agent._analyzer
+  - behavioral_mentor_agent._writer
+  - weekly_review_agent
+  - weekly_review_agent._reader
+  - weekly_review_agent._analyzer
+  - weekly_review_agent._writer
+
+related_capabilities: []
+dependencies: []
+deprecated: false
+tags:
+  - phase-47.6
+  - meta
+  - registry
+  - introspection
+  - governance
+hard_scoped: false
