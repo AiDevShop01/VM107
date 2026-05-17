@@ -96,8 +96,14 @@ def test_walker_path_when_flag_false(monkeypatch):
         import asyncio
         result = asyncio.get_event_loop().run_until_complete(mod.build_prompt(agent))
 
-    # Walker was called (filesystem-driven path)
-    mock_get_paths.assert_called_once()
+    # Walker was called (filesystem-driven path).
+    # Note: the @extensible decorator also calls subagents.get_paths for extension tracking,
+    # so we check that it was called at least once with (agent, "prompts") specifically.
+    walker_call_args = [call.args for call in mock_get_paths.call_args_list]
+    assert any(
+        len(args) >= 2 and args[1] == "prompts"
+        for args in walker_call_args
+    ), f"get_paths never called with 'prompts' arg. Calls: {walker_call_args}"
     mock_walker.assert_called_once()
 
 
