@@ -1,0 +1,18 @@
+id: duplicate_id
+type: agent_profile
+status: real
+short_description: "Second entry with same duplicate_id"
+long_description: "Same id as tool/duplicate_id to trigger stage 3 uniqueness failure."
+contracts_request: null
+contracts_response: null
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+location:
+  source: VM107/tests/registry/fixtures/valid/_placeholder.txt

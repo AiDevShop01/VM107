@@ -1,0 +1,17 @@
+id: missing_impact_tool
+type: tool
+status: real
+short_description: "Tool missing impact_on_decision"
+long_description: "Missing impact_on_decision to trigger stage 2 validation failure."
+contracts_request: null
+contracts_response: null
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+location:
+  source: VM107/tests/registry/fixtures/valid/_placeholder.txt

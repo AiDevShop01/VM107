@@ -1,0 +1,19 @@
+id: bad_dependency_tool
+type: tool
+status: real
+short_description: "Tool with broken dependency reference"
+long_description: "References nonexistent_tool in related_capabilities to trigger stage 4."
+contracts_request: null
+contracts_response: null
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities:
+  - nonexistent_tool
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+location:
+  source: VM107/tests/registry/fixtures/valid/_placeholder.txt

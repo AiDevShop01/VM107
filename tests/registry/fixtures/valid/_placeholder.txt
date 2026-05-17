@@ -1,0 +1,1 @@
+Placeholder file referenced by fixture YAMLs to satisfy stage 6 file-existence check.

@@ -1,0 +1,20 @@
+id: bad_applies_to_skill
+type: skill
+status: real
+short_description: "Skill referencing nonexistent agent_profile"
+long_description: "References nonexistent_agent in applies_to_profiles to trigger stage 7."
+contracts_request: null
+contracts_response: null
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+applies_to_profiles:
+  - nonexistent_agent_for_stage7
+location:
+  source: VM107/tests/registry/fixtures/valid/_placeholder.txt

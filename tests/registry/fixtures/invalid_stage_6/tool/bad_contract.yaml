@@ -1,0 +1,18 @@
+id: bad_contract_tool
+type: tool
+status: real
+short_description: "Tool with unresolvable contract class"
+long_description: "References nonexistent.module.NotAClass in contracts_request to trigger stage 6."
+contracts_request: "nonexistent.module.NotAClass"
+contracts_response: null
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+location:
+  source: VM107/tests/registry/fixtures/valid/_placeholder.txt
