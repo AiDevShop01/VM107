@@ -125,10 +125,15 @@ def test_veto_entry_carries_threshold_and_op_from_policy_constants():
 def _stub_main_loop_iteration(backtest_result, *, run_critic):
     """Inline mirror of the Plan 08b main_loop iteration contract.
 
-    Two-gate sequence:
-      1. acceptance_floor classifier
-      2. hard_vetoes check
-      3. Critic LLM (ONLY if neither gate terminated)
+    Three-gate sequence (deterministic gates first, Critic last):
+      1. hard_vetoes check — CATASTROPHIC, terminates as HARD_VETO; ranked
+         BEFORE acceptance because veto-layer is search-space pruning
+         ("should this search continue at all?") whereas acceptance-floor
+         is search-quality gating ("is this strategy worth refining?").
+         CONTEXT § Decision 9 ranks vetoes as universal viability constraints.
+      2. acceptance_floor classifier — HARD_REJECT terminates pre-critic
+         per CONTEXT § Decision 8.
+      3. Critic LLM (ONLY if both deterministic gates pass).
 
     Returns (termination_reason_or_none, critic_was_called).
     """
@@ -137,15 +142,15 @@ def _stub_main_loop_iteration(backtest_result, *, run_critic):
     )
     from core.agents.refinement_orchestrator.hard_vetoes import check_hard_vetoes
 
-    # Gate 1: acceptance floor.
-    acceptance = classify_acceptance(backtest_result)
-    if acceptance.classification.value == "HARD_REJECT":
-        return ("HARD_REJECT", False)
-
-    # Gate 2: hard vetoes (catastrophic only — fires regardless of acceptance pass).
+    # Gate 1: hard vetoes (catastrophic viability — must fire before everything else).
     vetoes = check_hard_vetoes(backtest_result)
     if vetoes:
         return ("HARD_VETO", False)
+
+    # Gate 2: acceptance floor.
+    acceptance = classify_acceptance(backtest_result)
+    if acceptance.classification.value == "HARD_REJECT":
+        return ("HARD_REJECT", False)
 
     # Gate 3: Critic LLM (only reached if both deterministic gates pass).
     _ = run_critic(backtest_result)
