@@ -1,0 +1,33 @@
+# REGISTER_CAPABILITY: type=skill, id=trend-continuation-critic, path=VM107/registry/skill/trend-continuation-critic.yaml
+# Phase 48 § Decision 1: family-specific Critic overlay. Loaded by
+# strategy_refinement_critic when StrategySpec.strategy_family == TREND_CONTINUATION.
+id: trend-continuation-critic
+type: skill
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: trend-continuation-critic
+description: >
+  Trend-continuation-strategy refinement critique discipline. Penalizes
+  whipsaw sensitivity, late entries, tight ATR-stop fragility in trending
+  regimes, and pyramid-style exposure without protective exits.
+version: "1.0.0"
+phase: 48
+scope: optional
+producer: VM107
+skill_md_path: VM107/agents/strategy_refinement_critic/skills/trend-continuation-critic/SKILL.md
+location:
+  source: VM107/agents/strategy_refinement_critic/skills/trend-continuation-critic/SKILL.md
+applies_to_profiles:
+  - strategy_refinement_critic
+allowed_agent_profiles:
+  - strategy_refinement_critic
+tags:
+  - phase-48
+  - critique
+  - refinement
+  - trend-continuation
+  - bounded-loop
+hard_scoped: true
+impact_on_decision: HIGH
+deprecated: false

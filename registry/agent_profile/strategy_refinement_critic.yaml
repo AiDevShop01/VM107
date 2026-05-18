@@ -1,0 +1,71 @@
+# REGISTER_CAPABILITY: type=agent_profile, id=strategy_refinement_critic, path=VM107/registry/agent_profile/strategy_refinement_critic.yaml
+# Phase 48 § Decision 1: bounded refinement evaluator. Transformation-pure;
+# never rewrites artifacts. Loaded one family-skill overlay per invocation
+# via family_skill_map. Anti-pattern enforcement: profile name is NEVER
+# "critic_agent" (semantic bleed from Phase 60 mentor + Phase 46 mesh).
+id: strategy_refinement_critic
+type: agent_profile
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: strategy_refinement_critic
+description: >
+  Bounded refinement evaluator. Reads strategy artifacts (StrategySpec,
+  CodeModule, BuildReport, BacktestResult) and emits a structured
+  CriticVerdict (ACCEPT | REFINE | REJECT) with typed RefinementTarget
+  objects. Transformation-pure: never rewrites artifacts. Per-family
+  heuristics arrive via the orchestrator-selected SKILL.md overlay.
+version: "1.0.0"
+phase: 48
+parent_profile: null
+hard_scoped: false
+sub_profiles: []
+allowed_tools:
+  - search_knowledge
+  - document_query
+  - response
+  - lookup_capability
+  - skills_tool
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+constitutional_skills: []
+optional_skills:
+  - breakout-critic
+  - mean-reversion-critic
+  - trend-continuation-critic
+  - auction-rotation-critic
+  - volatility-expansion-critic
+allowed_skills:
+  - breakout-critic
+  - mean-reversion-critic
+  - trend-continuation-critic
+  - auction-rotation-critic
+  - volatility-expansion-critic
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 10
+max_cost_usd: 1.0
+input_contract: null
+output_contract: null
+template_version: "1.0.0"
+template_version_changelog:
+  - version: "1.0.0"
+    date: "2026-05-18"
+    change: Initial Phase 48 ship — bounded refinement adjudicator profile.
+tags:
+  - agent-profile
+  - critique
+  - refinement
+  - phase-48
+  - bounded-loop
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+producer: VM107
+location:
+  source: VM107/agents/strategy_refinement_critic/agent.yaml

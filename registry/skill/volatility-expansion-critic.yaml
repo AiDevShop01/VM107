@@ -1,0 +1,34 @@
+# REGISTER_CAPABILITY: type=skill, id=volatility-expansion-critic, path=VM107/registry/skill/volatility-expansion-critic.yaml
+# Phase 48 § Decision 1: family-specific Critic overlay. Loaded by
+# strategy_refinement_critic when StrategySpec.strategy_family == VOLATILITY_EXPANSION.
+id: volatility-expansion-critic
+type: skill
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: volatility-expansion-critic
+description: >
+  Volatility-expansion-strategy refinement critique discipline. Penalizes
+  stale volatility regime detection, late expansion entries, confusion
+  between compression and expansion phases, and absence of an expansion-
+  failure abort.
+version: "1.0.0"
+phase: 48
+scope: optional
+producer: VM107
+skill_md_path: VM107/agents/strategy_refinement_critic/skills/volatility-expansion-critic/SKILL.md
+location:
+  source: VM107/agents/strategy_refinement_critic/skills/volatility-expansion-critic/SKILL.md
+applies_to_profiles:
+  - strategy_refinement_critic
+allowed_agent_profiles:
+  - strategy_refinement_critic
+tags:
+  - phase-48
+  - critique
+  - refinement
+  - volatility-expansion
+  - bounded-loop
+hard_scoped: true
+impact_on_decision: HIGH
+deprecated: false

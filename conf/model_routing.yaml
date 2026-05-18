@@ -39,10 +39,11 @@ mode_weights:
 # Per-goal caps live on the goal document (budget_max_cost_usd) — NOT here.
 budget_caps:
   agent_types:
-    agent_zero:     {max_usd_per_day: 5.00}
-    idea_agent:     {max_usd_per_day: 2.00}   # Phase 44 — cheap model pin, low initial cap
-    strategy_agent: {max_usd_per_day: 2.00}   # Phase 44 — may raise if VM clients amplify cost
-    default:        {max_usd_per_day: 1.00}
+    agent_zero:                  {max_usd_per_day: 5.00}
+    idea_agent:                  {max_usd_per_day: 2.00}   # Phase 44 — cheap model pin, low initial cap
+    strategy_agent:              {max_usd_per_day: 2.00}   # Phase 44 — may raise if VM clients amplify cost
+    strategy_refinement_critic:  {max_usd_per_day: 2.00}   # Phase 48 — bounded refinement loop (3 iter × ~$0.50/critic call ceiling)
+    default:                     {max_usd_per_day: 1.00}
   system:
     max_usd_per_day: 50.00
 
@@ -158,6 +159,28 @@ affinity:
   # All tiers pinned to DeepSeek Flash (same rationale as idea_agent).
   strategy_agent:
     chat:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    utility:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    default:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+
+  # Phase 48 — Strategy Refinement Critic. Bounded refinement evaluator.
+  # Same Phase 44.1 DeepSeek Flash pin (only active cloud LLM); future
+  # quality upgrade can target the analysis task_type independently when
+  # additional provider keys land (saved chain in git history).
+  strategy_refinement_critic:
+    chat:
+      primary:   ["deepseek/deepseek-v4-flash"]
+      secondary: ["deepseek/deepseek-v4-flash"]
+      local:     ["deepseek/deepseek-v4-flash"]
+    analysis:
       primary:   ["deepseek/deepseek-v4-flash"]
       secondary: ["deepseek/deepseek-v4-flash"]
       local:     ["deepseek/deepseek-v4-flash"]

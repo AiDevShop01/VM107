@@ -1,0 +1,33 @@
+# REGISTER_CAPABILITY: type=skill, id=breakout-critic, path=VM107/registry/skill/breakout-critic.yaml
+# Phase 48 § Decision 1: family-specific Critic overlay. Loaded by
+# strategy_refinement_critic when StrategySpec.strategy_family == BREAKOUT.
+id: breakout-critic
+type: skill
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: breakout-critic
+description: >
+  Breakout-strategy refinement critique discipline. Penalizes overfit
+  breakout thresholds, false-breakout sensitivity, single-regime
+  concentration, and weak post-breakout confirmation logic.
+version: "1.0.0"
+phase: 48
+scope: optional
+producer: VM107
+skill_md_path: VM107/agents/strategy_refinement_critic/skills/breakout-critic/SKILL.md
+location:
+  source: VM107/agents/strategy_refinement_critic/skills/breakout-critic/SKILL.md
+applies_to_profiles:
+  - strategy_refinement_critic
+allowed_agent_profiles:
+  - strategy_refinement_critic
+tags:
+  - phase-48
+  - critique
+  - refinement
+  - breakout
+  - bounded-loop
+hard_scoped: true
+impact_on_decision: HIGH
+deprecated: false
