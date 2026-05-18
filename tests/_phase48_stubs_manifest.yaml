@@ -1,0 +1,416 @@
+# Phase 48 Wave 0 — declarative test-stub manifest.
+#
+# Consumed by VM107/tests/_phase48_generate_stubs.py to materialize ~80
+# pytest.skip stubs at the listed paths. One row per test file referenced
+# by a Phase 48 Wave 1+ `<verify>` command (PLAN.md files 48-01..48-09).
+#
+# Generator is idempotent — existing files are skipped, never overwritten.
+# Source of truth for path enumeration: PLAN.md `<files>` blocks across
+# every Wave 1+ plan; cross-checked against 48-RESEARCH.md § Wave 0 Gaps.
+#
+# Fields per entry:
+#   path  — relative to VM107/ (i.e. begins with `tests/`)
+#   req   — REQ-48-* requirement ID this stub covers
+#   plan  — the Phase 48 plan that ships the real implementation
+#   async — true if the stub should use `@pytest.mark.asyncio` template
+
+stubs:
+  # ============================================================
+  # Plan 48-01 — Pydantic schemas, exceptions, typed wrappers, termination enum
+  # ============================================================
+  - path: tests/core/contracts/test_critic_verdict_schema.py
+    req: REQ-48-D1
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_critic_verdict_no_stall_field.py
+    req: REQ-48-D7
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_critic_verdict_confidence_clamp.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: false
+  - path: tests/core/contracts/test_refinement_target_schema.py
+    req: REQ-48-D5
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_refinement_context_envelope_schema.py
+    req: REQ-48-D5
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_refinement_loop_state_schema.py
+    req: REQ-48-D3
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_refinement_outcome_schema.py
+    req: REQ-48-D4
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_deterministic_acceptance_result_schema.py
+    req: REQ-48-D8
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_execution_cost_schema.py
+    req: REQ-48-D14
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_strategy_family_enum.py
+    req: REQ-48-D10
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_hypothesis_immutability.py
+    req: REQ-48-D6
+    plan: "48-01"
+    async: false
+  - path: tests/core/contracts/test_phase48_exceptions.py
+    req: REQ-48-EXCEPTIONS
+    plan: "48-01"
+    async: false
+  - path: tests/core/agents/test_invocation_phase48_wrappers.py
+    req: REQ-48-D2
+    plan: "48-01"
+    async: true
+  - path: tests/core/agents/test_termination_reasons.py
+    req: REQ-48-D4
+    plan: "48-01"
+    async: false
+
+  # ============================================================
+  # Plan 48-02 — Mongo migrations (014-018) + collection registry YAMLs
+  # ============================================================
+  - path: tests/migrations/test_migration_014_refinement_loops.py
+    req: REQ-48-D3
+    plan: "48-02"
+    async: false
+  - path: tests/migrations/test_migration_015_accepted_strategies.py
+    req: REQ-48-D11
+    plan: "48-02"
+    async: false
+  - path: tests/migrations/test_migration_016_rejected_strategies.py
+    req: REQ-48-D12
+    plan: "48-02"
+    async: false
+  - path: tests/migrations/test_migration_017_iteration_artifact_fields.py
+    req: REQ-48-D13
+    plan: "48-02"
+    async: false
+  - path: tests/migrations/test_migration_018_critic_verdicts.py
+    req: REQ-48-D1
+    plan: "48-02"
+    async: false
+  - path: tests/registry/test_phase48_collection_yamls.py
+    req: REQ-48-REG
+    plan: "48-02"
+    async: false
+
+  # ============================================================
+  # Plan 48-03 — Orchestrator skeleton + state persistence + Phase 56 client
+  # ============================================================
+  - path: tests/core/agents/test_refinement_loop_state_persistence.py
+    req: REQ-48-D3
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_snapshot_freeze.py
+    req: REQ-48-D15
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_mid_loop_registry_freeze.py
+    req: REQ-48-D15
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_orchestrator_purity.py
+    req: REQ-48-D2
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_orchestrator_call_surface.py
+    req: REQ-48-D2
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_iteration_artifact_stamping.py
+    req: REQ-48-D13
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_loop_resumability.py
+    req: REQ-48-D17
+    plan: "48-03"
+    async: true
+  - path: tests/core/agents/test_no_artifact_discard.py
+    req: REQ-48-D13
+    plan: "48-03"
+    async: false
+  - path: tests/core/agents/test_trajectory_preservation.py
+    req: REQ-48-D13
+    plan: "48-03"
+    async: false
+  - path: tests/core/events/test_phase56_client.py
+    req: REQ-48-PHASE56-CLIENT
+    plan: "48-03"
+    async: false
+  - path: tests/core/events/test_replay_snapshot_validation.py
+    req: REQ-48-D15
+    plan: "48-03"
+    async: false
+  - path: tests/registry/test_refinement_orchestrator_service_yaml.py
+    req: REQ-48-D2
+    plan: "48-03"
+    async: false
+
+  # ============================================================
+  # Plan 48-04 — Acceptance floor + hard vetoes + per-iteration persistence
+  # ============================================================
+  - path: tests/core/agents/test_acceptance_floor.py
+    req: REQ-48-D8
+    plan: "48-04"
+    async: false
+  - path: tests/core/agents/test_iteration_persistence_completeness.py
+    req: REQ-48-D8
+    plan: "48-04"
+    async: false
+  - path: tests/core/agents/test_hard_vetoes_pre_critic.py
+    req: REQ-48-D9
+    plan: "48-04"
+    async: false
+  - path: tests/core/agents/test_hard_vetoes_family_agnostic.py
+    req: REQ-48-D9
+    plan: "48-04"
+    async: false
+  - path: tests/core/agents/test_veto_history.py
+    req: REQ-48-D9
+    plan: "48-04"
+    async: false
+  - path: tests/core/agents/test_policy_constants.py
+    req: REQ-48-D8
+    plan: "48-04"
+    async: false
+
+  # ============================================================
+  # Plan 48-05 — Identity drift gate + convergence detection + budget governance
+  # ============================================================
+  - path: tests/core/agents/test_identity_score_determinism.py
+    req: REQ-48-D10
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_identity_thresholds.py
+    req: REQ-48-D10
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_identity_anchored_to_origin.py
+    req: REQ-48-D10
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_field_mutability_weights.py
+    req: REQ-48-D10
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_identity_no_embeddings.py
+    req: REQ-48-D10
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_convergence_detection.py
+    req: REQ-48-D7
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_convergence_severity_drift.py
+    req: REQ-48-D7
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_budget_iteration_cap.py
+    req: REQ-48-D14
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_budget_loop_cap.py
+    req: REQ-48-D14
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_budget_preflight.py
+    req: REQ-48-D14
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_critic_budget_blind.py
+    req: REQ-48-D14
+    plan: "48-05"
+    async: false
+  - path: tests/core/agents/test_cost_category_separation.py
+    req: REQ-48-D14
+    plan: "48-05"
+    async: false
+
+  # ============================================================
+  # Plan 48-06 — strategy_refinement_critic profile + 5 family SKILL.md overlays + tool scope
+  # ============================================================
+  - path: tests/agents/test_tool_scope.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: false
+  - path: tests/core/agents/test_family_skill_map.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: false
+  - path: tests/core/agents/test_critic_transformation_purity.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: true
+  - path: tests/skills/test_refinement_critic_skills.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: false
+  - path: tests/registry/test_phase48_skill_yamls.py
+    req: REQ-48-REG
+    plan: "48-06"
+    async: false
+  - path: tests/registry/test_strategy_refinement_critic_profile_yaml.py
+    req: REQ-48-D1
+    plan: "48-06"
+    async: false
+
+  # ============================================================
+  # Plan 48-07 — 10 refinement lifecycle event types + Phase 56 emission lifecycle
+  # ============================================================
+  - path: tests/core/agents/test_event_emission_lifecycle.py
+    req: REQ-48-D18
+    plan: "48-07"
+    async: true
+  - path: tests/core/agents/test_event_atomic_with_persistence.py
+    req: REQ-48-D18
+    plan: "48-07"
+    async: true
+  - path: tests/core/agents/test_orchestrator_sole_emitter.py
+    req: REQ-48-D18
+    plan: "48-07"
+    async: false
+  - path: tests/registry/test_phase48_event_type_yamls.py
+    req: REQ-48-REG
+    plan: "48-07"
+    async: false
+
+  # ============================================================
+  # Plan 48-08a — Refinement routing + accepted/rejected WORM collections + registry/strategy/ emitter
+  # ============================================================
+  - path: tests/core/agents/test_refinement_routing_strategy_scope.py
+    req: REQ-48-D5
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_refinement_routing_code_scope.py
+    req: REQ-48-D5
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_refinement_routing_mixed.py
+    req: REQ-48-D5
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_refinement_routing_validation.py
+    req: REQ-48-D5
+    plan: "48-08a"
+    async: false
+  - path: tests/core/agents/test_loop_entry_contract.py
+    req: REQ-48-D6
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_orphan_rejection.py
+    req: REQ-48-D6
+    plan: "48-08a"
+    async: false
+  - path: tests/core/agents/test_accepted_event_emission.py
+    req: REQ-48-D11
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_accepted_strategy_immutability.py
+    req: REQ-48-D11
+    plan: "48-08a"
+    async: false
+  - path: tests/core/agents/test_rejected_event_emission.py
+    req: REQ-48-D12
+    plan: "48-08a"
+    async: true
+  - path: tests/core/agents/test_rejection_no_registry_emit.py
+    req: REQ-48-D12
+    plan: "48-08a"
+    async: false
+  - path: tests/core/agents/test_failure_surface_summary.py
+    req: REQ-48-D12
+    plan: "48-08a"
+    async: false
+  - path: tests/core/registry/test_strategy_yaml_emitter.py
+    req: REQ-48-D11
+    plan: "48-08a"
+    async: false
+
+  # ============================================================
+  # Plan 48-08b — E2E golden tests (one per termination reason) + parametrized anti-pattern suite
+  # ============================================================
+  - path: tests/core/agents/test_anti_patterns.py
+    req: REQ-48-D19
+    plan: "48-08b"
+    async: false
+  - path: tests/integration/test_phase48_golden_accept.py
+    req: REQ-48-E2E-GOLDEN-ACCEPT
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_reject.py
+    req: REQ-48-E2E-GOLDEN-REJECT
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_max_iterations.py
+    req: REQ-48-E2E-GOLDEN-MAX-ITER
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_convergence.py
+    req: REQ-48-E2E-GOLDEN-CONVERGENCE
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_identity_drift.py
+    req: REQ-48-E2E-GOLDEN-IDENTITY-DRIFT
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_hard_veto.py
+    req: REQ-48-E2E-GOLDEN-VETO
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_budget_iteration.py
+    req: REQ-48-E2E-GOLDEN-BUDGET-ITER
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_budget_loop.py
+    req: REQ-48-E2E-GOLDEN-BUDGET-LOOP
+    plan: "48-08b"
+    async: true
+  - path: tests/integration/test_phase48_golden_build_failure.py
+    req: REQ-48-E2E-GOLDEN-BUILD-FAILURE
+    plan: "48-08b"
+    async: true
+
+  # ============================================================
+  # Plan 48-09 — HTTP API (POST /pipeline/refine + GET /tasks/{id}) + REGISTER_CAPABILITY completeness
+  # ============================================================
+  - path: tests/api/v1/agents/pipeline/test_refine_async_only.py
+    req: REQ-48-D16
+    plan: "48-09"
+    async: true
+  - path: tests/api/v1/agents/pipeline/test_refine_404.py
+    req: REQ-48-D16
+    plan: "48-09"
+    async: true
+  - path: tests/api/v1/agents/pipeline/test_refine_422.py
+    req: REQ-48-D16
+    plan: "48-09"
+    async: true
+  - path: tests/api/v1/agents/pipeline/test_refine_event_order.py
+    req: REQ-48-D16
+    plan: "48-09"
+    async: true
+  - path: tests/api/v1/tasks/test_get_task_shape.py
+    req: REQ-48-D17
+    plan: "48-09"
+    async: true
+  - path: tests/api/v1/tasks/test_no_streaming.py
+    req: REQ-48-D17
+    plan: "48-09"
+    async: true
+  - path: tests/planning/test_phase48_register_capability_directives.py
+    req: REQ-48-REG
+    plan: "48-09"
+    async: false
+  - path: tests/registry/test_phase48_register_capability_completeness.py
+    req: REQ-48-REG
+    plan: "48-09"
+    async: false
