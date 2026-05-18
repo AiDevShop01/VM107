@@ -137,13 +137,19 @@ def test_duplicate_variables():
 
 
 def test_valid_strategy_spec():
-    """StrategySpec should accept all valid fields."""
+    """StrategySpec should accept all valid fields.
+
+    Phase 48 Plan 48-01: strategy_family REQUIRED. Added BREAKOUT here.
+    """
+    from core.contracts.schemas import StrategyFamily
+
     spec = StrategySpec(
         name="Liquidity Reversal Strategy",
         features=["equal_highs", "volume_delta", "fvg_strength"],
         rules=["Entry: FVG sweep with volume confirmation", "Exit: 2:1 RR"],
         timeframes=["M15", "H1"],
         version="1.0.0",
+        strategy_family=StrategyFamily.MEAN_REVERSION,
     )
 
     assert spec.name == "Liquidity Reversal Strategy"

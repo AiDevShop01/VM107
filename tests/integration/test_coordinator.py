@@ -20,7 +20,7 @@ _VM107_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
 
-from core.contracts.schemas import Hypothesis, StrategySpec
+from core.contracts.schemas import Hypothesis, StrategySpec, StrategyFamily
 from core.agents.invocation_exceptions import (
     IdeaAgentDegradedError,
     StrategyAgentDegradedError,
@@ -49,6 +49,7 @@ def fake_strategy_spec():
         rules=["enter on crossover in trend direction", "stop below recent swing"],
         timeframes=["1H", "4H"],
         version="1.0.0",
+        strategy_family=StrategyFamily.TREND_CONTINUATION,
     )
 
 

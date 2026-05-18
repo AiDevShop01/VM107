@@ -92,14 +92,16 @@ def test_run_strategy_returns_spec(valid_hypothesis):
     """
     from unittest.mock import patch
     from core.agents.invocation import run_strategy
-    from core.contracts.schemas import StrategySpec
+    from core.contracts.schemas import StrategySpec, StrategyFamily
 
+    # Phase 48 Plan 48-01: strategy_family REQUIRED.
     spec_json = StrategySpec(
         name="Momentum Trend",
         features=["rsi_14", "ema_20"],
         rules=["rsi > 60"],
         timeframes=["1h"],
         version="1.0.0",
+        strategy_family=StrategyFamily.TREND_CONTINUATION,
     ).model_dump_json()
 
     with patch("core.agents.invocation._call_subordinate_sync", return_value=spec_json):

@@ -20,7 +20,7 @@ if str(_VM107_ROOT) not in sys.path:
     sys.path.insert(0, str(_VM107_ROOT))
 
 import pytest
-from core.contracts.schemas import Hypothesis, StrategySpec
+from core.contracts.schemas import Hypothesis, StrategySpec, StrategyFamily
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +111,7 @@ def valid_strategy_json() -> str:
         rules=["rsi > 60"],
         timeframes=["1h"],
         version="1.0.0",
+        strategy_family=StrategyFamily.TREND_CONTINUATION,
     ).model_dump_json()
 
 

@@ -56,12 +56,18 @@ def test_hypothesis_schema_version_default():
 
 
 def test_strategy_spec_schema_version_default():
-    """StrategySpec.schema_version defaults to 1."""
+    """StrategySpec.schema_version defaults to 1.
+
+    Phase 48 Plan 48-01: strategy_family REQUIRED — added here for fixture validity.
+    """
+    from core.contracts.schemas import StrategyFamily
+
     s = StrategySpec(
         name="RSI crossover",
         features=["rsi_14"],
         rules=["rsi > 70 sell"],
         timeframes=["1h"],
         version="1.0.0",
+        strategy_family=StrategyFamily.MEAN_REVERSION,
     )
     assert s.schema_version == 1

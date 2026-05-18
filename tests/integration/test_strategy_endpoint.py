@@ -28,7 +28,7 @@ if str(_VM107_ROOT) not in sys.path:
 import pytest
 from flask import Flask
 
-from core.contracts.schemas import Hypothesis, StrategySpec
+from core.contracts.schemas import Hypothesis, StrategySpec, StrategyFamily
 from core.agents.invocation_exceptions import StrategyAgentDegradedError
 
 # Force the endpoint module into sys.modules under its dotted path so that
@@ -137,6 +137,7 @@ def _valid_strategy_spec() -> StrategySpec:
         rules=["rsi > 60"],
         timeframes=["1h"],
         version="1.0.0",
+        strategy_family=StrategyFamily.TREND_CONTINUATION,
     )
 
 
