@@ -1,0 +1,44 @@
+# REGISTER_CAPABILITY: type=event_type, id=refinement_loop_started, path=VM107/registry/event_type/refinement_loop_started.yaml
+id: refinement_loop_started
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: refinement_loop_started
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator at the VERY START of a bounded
+  refinement loop — AFTER initial state freeze (loop_registry_snapshot_hash
+  set), BEFORE iteration 0. First event in the lifecycle for the loop;
+  pairing terminal events are loop_terminated, strategy_accepted, or
+  strategy_rejected. Carries the loop_id, originating task_id, root
+  Hypothesis id, strategy_family, and frozen registry snapshot hash.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.RefinementLoopStartedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  task_id: Async task id from the /pipeline/refine endpoint
+  root_hypothesis_id: Immutable anchor hypothesis (Phase 48 § Decision 6)
+  strategy_family: StrategyFamily enum value frozen at iter 0
+  registry_snapshot_hash: Frozen CapabilityRegistry snapshot hash for the loop
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - loop_terminated
+  - strategy_accepted
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

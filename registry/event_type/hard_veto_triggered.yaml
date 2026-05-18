@@ -1,0 +1,41 @@
+# REGISTER_CAPABILITY: type=event_type, id=hard_veto_triggered, path=VM107/registry/event_type/hard_veto_triggered.yaml
+id: hard_veto_triggered
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: hard_veto_triggered
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator when one or more deterministic
+  HARD_VETO thresholds breach (max_drawdown, win_rate, consecutive_losses,
+  regime_coverage). Emitted PRE-Critic — Critic never sees vetoed
+  iterations. Carries the list of triggering (metric, threshold, actual)
+  tuples. Loop terminates with TerminationReason.HARD_VETO immediately
+  after this event.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.HardVetoTriggeredPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Iteration on which the veto fired
+  vetoes_triggered: List of dicts {metric, threshold, actual} for each breached gate
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - loop_terminated
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

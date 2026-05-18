@@ -1,0 +1,46 @@
+# REGISTER_CAPABILITY: type=event_type, id=critic_verdict_received, path=VM107/registry/event_type/critic_verdict_received.yaml
+id: critic_verdict_received
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: critic_verdict_received
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator IMMEDIATELY after the
+  strategy_refinement_critic returns a parsed CriticVerdict for the current
+  iteration. Records the verdict (ACCEPT|REFINE|REJECT), confidence,
+  refinement_targets_count, and the verdict id for trajectory replay.
+  Critic NEVER emits this — orchestrator is the sole emitter.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.CriticVerdictReceivedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Iteration the verdict belongs to
+  critic_verdict_id: UUID of the persisted CriticVerdict doc
+  verdict: Literal[ACCEPT, REFINE, REJECT]
+  confidence: Critic confidence [0.0, 1.0]
+  refinement_targets_count: Number of RefinementTarget rows emitted by Critic
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - strategy_accepted
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

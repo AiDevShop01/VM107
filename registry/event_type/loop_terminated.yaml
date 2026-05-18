@@ -1,0 +1,44 @@
+# REGISTER_CAPABILITY: type=event_type, id=loop_terminated, path=VM107/registry/event_type/loop_terminated.yaml
+id: loop_terminated
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: loop_terminated
+version: 1.0.0
+phase: 48
+category: lifecycle
+producer: VM107
+description: >
+  Terminal lifecycle event emitted by the refinement_orchestrator at the
+  VERY END of every refinement loop — AFTER strategy_accepted /
+  strategy_rejected (when applicable). Records the canonical
+  TerminationReason, final iteration count, and total cost in USD across
+  all stages (LLM + INFRASTRUCTURE). Pairing event is refinement_loop_started.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.LoopTerminatedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  termination_reason: TerminationReason enum value (9 base + 5 BUILD_FAILURE sub-states)
+  final_iteration: Iteration number at termination (0..max_iterations)
+  total_cost_usd: Aggregate USD cost across all iteration stages
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - refinement_loop_started
+  - strategy_accepted
+  - strategy_rejected
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+tags:
+  - phase-48
+  - lifecycle
+  - refinement_loop
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

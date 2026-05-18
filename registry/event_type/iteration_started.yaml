@@ -1,0 +1,44 @@
+# REGISTER_CAPABILITY: type=event_type, id=iteration_started, path=VM107/registry/event_type/iteration_started.yaml
+id: iteration_started
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: iteration_started
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator at the START of each refinement
+  iteration (iteration 0 included) — BEFORE Strategy / Code / Build /
+  Backtest / Critic dispatch. Carries the loop_id, current iteration_number,
+  root_hypothesis_id, and frozen registry_snapshot_hash so consumers can
+  index into the per-iteration artifact set deterministically.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.IterationStartedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Zero-based iteration counter (0..max_iterations-1)
+  root_hypothesis_id: Immutable anchor hypothesis
+  registry_snapshot_hash: Frozen CapabilityRegistry snapshot hash for the loop
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - refinement_loop_started
+  - critic_verdict_received
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

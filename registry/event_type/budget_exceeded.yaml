@@ -1,0 +1,43 @@
+# REGISTER_CAPABILITY: type=event_type, id=budget_exceeded, path=VM107/registry/event_type/budget_exceeded.yaml
+id: budget_exceeded
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: budget_exceeded
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator (NEVER by the Critic — Critic is
+  budget-blind per Anti-Pattern lock) when either the per-ITERATION cap or
+  the per-LOOP aggregate cap is exhausted. Carries scope ("ITERATION" or
+  "LOOP"), the consumed USD, and the cap. Loop terminates with
+  TerminationReason.BUDGET_EXCEEDED_ITERATION or BUDGET_EXCEEDED_LOOP
+  after this event.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.BudgetExceededPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Iteration on which the cap exhausted
+  scope: Literal[ITERATION, LOOP]
+  consumed_usd: Aggregate USD consumed in the applicable scope
+  cap_usd: Budget cap that was exceeded
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - loop_terminated
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

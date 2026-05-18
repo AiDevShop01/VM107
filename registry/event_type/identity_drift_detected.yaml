@@ -1,0 +1,43 @@
+# REGISTER_CAPABILITY: type=event_type, id=identity_drift_detected, path=VM107/registry/event_type/identity_drift_detected.yaml
+id: identity_drift_detected
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: identity_drift_detected
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator when the AST-level identity score
+  between the current iteration StrategySpec and the iteration-0
+  StrategySpec drops below the tightening floor. Carries the score, the
+  threshold, and a breakdown of which IMMUTABLE_CORE / REFINABLE /
+  MINOR_TUNING fields contributed to the drift. Loop terminates with
+  TerminationReason.IDENTITY_DRIFT after this event.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.IdentityDriftDetectedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Iteration on which drift was detected
+  identity_score: Computed similarity score (0.0=fully drifted, 1.0=identical)
+  threshold: Tightening threshold the score fell below
+  identity_diff_breakdown: Per-field-mutability-class drift contribution
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - loop_terminated
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

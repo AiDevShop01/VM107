@@ -1,0 +1,41 @@
+# REGISTER_CAPABILITY: type=event_type, id=convergence_stall_detected, path=VM107/registry/event_type/convergence_stall_detected.yaml
+id: convergence_stall_detected
+type: event_type
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: convergence_stall_detected
+version: 1.0.0
+phase: 48
+category: cognition
+producer: VM107
+description: >
+  Emitted by the refinement_orchestrator when the same (scope,
+  canonical_issue_id, issue_type) RefinementTarget tuple repeats across
+  consecutive iterations — indicating the loop has stalled on a structural
+  issue the agents cannot resolve. Carries the list of repeated targets.
+  Loop terminates with TerminationReason.CONVERGENCE_STALL after this event.
+causality_scope_default: IDEA  # V1: refinement_loop scope folded under IDEA with correlation_id=loop_id (avoids Phase 56 schema migration). Future: extend Phase 56 enum if cross-loop event archaeology becomes painful.
+payload_schema: core.contracts.events.refinement.ConvergenceStallDetectedPayload
+payload_fields:
+  loop_id: UUID of the refinement loop (correlation_id)
+  iteration_number: Iteration on which the stall was confirmed
+  repeated_targets: List of dicts {scope, canonical_issue_id, issue_type} that repeated
+consumers:
+  - phase_56_event_store
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - iteration_started
+  - critic_verdict_received
+  - loop_terminated
+  - strategy_rejected
+tags:
+  - phase-48
+  - cognition
+  - lifecycle
+  - refinement_loop
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
