@@ -15,7 +15,7 @@ For each YAML this test asserts:
      impact_on_decision (HIGH|MEDIUM|LOW), worm=true, producer=VM107,
      storage=mongodb, phase=48.
   4. `schema:` points at a real Pydantic class importable from
-     fingpt_core.contracts.schemas (where Plan 48-01 just landed the contracts).
+     core.contracts.schemas (where Plan 48-01 just landed the contracts).
      critic_verdicts.yaml -> CriticVerdict
      refinement_loops.yaml -> RefinementLoopState
      accepted_strategies.yaml and rejected_strategies.yaml: schema field
@@ -47,7 +47,7 @@ MIGRATIONS_DIR = REPO_ROOT / "core" / "migrations" / "scripts"
 COLLECTIONS_UNDER_TEST = {
     "refinement_loops.yaml": {
         "migration": "014_refinement_loops.py",
-        "expected_schema": "fingpt_core.contracts.schemas.RefinementLoopState",
+        "expected_schema": "core.contracts.schemas.RefinementLoopState",
     },
     "accepted_strategies.yaml": {
         "migration": "015_accepted_strategies.py",
@@ -59,7 +59,7 @@ COLLECTIONS_UNDER_TEST = {
     },
     "critic_verdicts.yaml": {
         "migration": "018_critic_verdicts.py",
-        "expected_schema": "fingpt_core.contracts.schemas.CriticVerdict",
+        "expected_schema": "core.contracts.schemas.CriticVerdict",
     },
 }
 

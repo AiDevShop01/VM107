@@ -1,0 +1,54 @@
+# REGISTER_CAPABILITY: type=collection, id=accepted_strategies, path=VM107/registry/collection/accepted_strategies.yaml
+id: accepted_strategies
+type: collection
+status: real
+shipped: 48
+planned_phase: null
+last_changed: 2026-05-18
+phase: 48
+producer: VM107
+storage: mongodb
+backend: mongodb
+worm: true
+# schema: Plan 48-08a defines the AcceptedStrategy Pydantic contract on the
+#         acceptance emitter. Until then, the doc shape lives in
+#         CONTEXT.md § Decision 11 and is enforced at write time by the emitter.
+short_description: 'Promoted operational research assets (CONTEXT § Decision 11).
+  Once a refinement loop terminates with ACCEPTED, an immutable WORM document is
+  written here. Strategies are first-class operational cognition, not transient
+  pipeline state.'
+long_description: 'accepted_strategies is the canonical truth substrate for
+  strategies that survived a refinement loop and earned promotion to operational
+  status. Doc carries accepted_strategy_id, root_hypothesis_id, strategy_family,
+  refinement_loop_id, final {strategy_spec, code_module, backtest_result,
+  critic_verdict} ids, the registry_snapshot_hash at acceptance, the full
+  iteration_artifact_ids trajectory, accepted_at, accepted_by (orchestrator
+  service version), and acceptance_reason. WORM: no editing, no mutation, no
+  "updating accepted strategy" — a new refinement loop accepted under the same
+  hypothesis writes a new row with a fresh accepted_strategy_id (versioning via
+  Phase 45 Q9 semver). Registry fan-out to VM107/registry/strategy/<id>.yaml is
+  Plan 48-08a''s job.
+
+  '
+indexes:
+- accepted_strategy_id_1                 # unique
+- root_hypothesis_id_1_accepted_at_-1    # compound, newest-first per hypothesis
+- strategy_family_1_accepted_at_-1       # compound, family-level discovery
+migration: VM107/core/migrations/scripts/015_accepted_strategies.py
+related_capabilities:
+- refinement_orchestrator
+- refinement_loops
+- strategy_refinement_critic
+- agent_envelopes
+aliases: []
+tags:
+- phase-48
+- cognition
+- refinement
+- worm
+- mongo
+- accepted
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

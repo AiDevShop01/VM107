@@ -1,0 +1,50 @@
+# REGISTER_CAPABILITY: type=collection, id=refinement_loops, path=VM107/registry/collection/refinement_loops.yaml
+id: refinement_loops
+type: collection
+status: real
+shipped: 48
+planned_phase: null
+last_changed: 2026-05-18
+phase: 48
+producer: VM107
+storage: mongodb
+backend: mongodb
+worm: true
+schema: core.contracts.schemas.RefinementLoopState
+short_description: 'Orchestrator-owned RefinementLoopState records — one row per
+  refinement loop invocation. Canonical state for Phase 48 bounded refinement
+  pipeline.'
+long_description: 'RefinementLoopState (CONTEXT § Decision 3) is the orchestrator-
+  owned canonical state for a single refinement loop invocation. Each document
+  captures the loop_id, root_hypothesis_id, strategy_family, frozen
+  loop_registry_snapshot_hash, iteration counter, trajectory index of per-iteration
+  artifact IDs, identity scores, veto history, budget snapshot, and termination
+  reason. WORM: once written, immutable — Plan 48-03 orchestrator is the sole
+  writer (single-writer enforcement at application layer; Mongo has no native WORM).
+  Plan 48-03 persist_atomically reads/updates only via dedicated typed wrapper.
+
+  '
+indexes:
+- loop_id_1                              # unique
+- root_hypothesis_id_1_started_at_-1     # compound, newest-first
+- termination_reason_1_updated_at_-1     # compound, telemetry
+- task_id_1                              # unique sparse (task scheduler join)
+migration: VM107/core/migrations/scripts/014_refinement_loops.py
+related_capabilities:
+- refinement_orchestrator
+- accepted_strategies
+- rejected_strategies
+- critic_verdicts
+- agent_envelopes
+aliases: []
+tags:
+- phase-48
+- cognition
+- refinement
+- worm
+- mongo
+- bounded-loop
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

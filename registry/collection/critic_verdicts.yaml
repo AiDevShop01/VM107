@@ -1,0 +1,50 @@
+# REGISTER_CAPABILITY: type=collection, id=critic_verdicts, path=VM107/registry/collection/critic_verdicts.yaml
+id: critic_verdicts
+type: collection
+status: real
+shipped: 48
+planned_phase: null
+last_changed: 2026-05-18
+phase: 48
+producer: VM107
+storage: mongodb
+backend: mongodb
+worm: true
+schema: core.contracts.schemas.CriticVerdict
+short_description: 'CriticVerdict documents — one per (loop_id, iteration_number)
+  pair (CONTEXT § Decision 1 + Decision 13). The strategy_refinement_critic
+  profile is the sole writer; orchestrator reads to drive routing.'
+long_description: 'critic_verdicts persists every CriticVerdict emitted by the
+  strategy_refinement_critic profile during a refinement loop. Doc carries
+  verdict (ACCEPT|REFINE|REJECT), confidence, refinement_targets (typed
+  RefinementTarget objects with structured canonical_issue_id taxonomy),
+  failure_modes, rationale (LLM narrative — narrate-don''t-decide),
+  loaded_skills (replay provenance), source_critic_verdict_id (prior verdict in
+  same loop), registry_snapshot_hash (inherited from loop), and the parent
+  loop_id + iteration_number. WORM: critic NEVER rewrites artifacts —
+  transformation purity (CONTEXT § Decision 1). The unique compound index
+  (loop_id, iteration_number) enforces "one verdict per iteration" at the
+  storage layer.
+
+  '
+indexes:
+- loop_id_1_iteration_number_1           # UNIQUE compound (one verdict per loop+iter)
+migration: VM107/core/migrations/scripts/018_critic_verdicts.py
+related_capabilities:
+- refinement_orchestrator
+- refinement_loops
+- strategy_refinement_critic
+- accepted_strategies
+- rejected_strategies
+aliases: []
+tags:
+- phase-48
+- cognition
+- refinement
+- worm
+- mongo
+- critic
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

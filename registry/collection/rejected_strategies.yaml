@@ -1,0 +1,56 @@
+# REGISTER_CAPABILITY: type=collection, id=rejected_strategies, path=VM107/registry/collection/rejected_strategies.yaml
+id: rejected_strategies
+type: collection
+status: real
+shipped: 48
+planned_phase: null
+last_changed: 2026-05-18
+phase: 48
+producer: VM107
+storage: mongodb
+backend: mongodb
+worm: true
+# schema: Plan 48-08a defines the RejectedStrategy Pydantic contract on the
+#         rejection emitter. Doc shape pinned in CONTEXT.md § Decision 12.
+short_description: 'First-class research-failure cognition artifacts (CONTEXT
+  § Decision 12). Append-only WORM. Becomes the substrate for Phase 49/62
+  failure-mode learning ("what regions of strategy space have already
+  failed?").'
+long_description: 'rejected_strategies stores the full trajectory of every
+  refinement loop that terminated for any reason other than ACCEPTED:
+  CRITIC_REJECT, HARD_VETO, IDENTITY_DRIFT, CONVERGENCE_STALL, BUDGET_*,
+  MAX_ITERATIONS, BUILD_FAILURE (+5 sub-states). Each doc captures
+  rejected_strategy_id, root_hypothesis_id, strategy_family,
+  refinement_loop_id, termination_reason, iteration_count, final
+  identity_score, final critic_verdict_id, veto_history, refinement_history,
+  iteration_artifact_ids trajectory, registry_snapshot_hash, rejected_at, and
+  failure_surface_summary{primary_failure_mode, secondary_failure_modes}.
+  Append-only WORM — no cleanup, no reclassification, no deletion ever.
+  Rejected != capability — NO registry/strategy/<id>.yaml fan-out.
+
+  '
+indexes:
+- rejected_strategy_id_1                 # unique
+- root_hypothesis_id_1                   # for hypothesis-level failure mining
+- termination_reason_1                   # for failure-mode mining
+- strategy_family_1                      # for family-level failure analysis
+- rejected_at_-1                         # for time-ordered audit
+migration: VM107/core/migrations/scripts/016_rejected_strategies.py
+related_capabilities:
+- refinement_orchestrator
+- refinement_loops
+- strategy_refinement_critic
+- agent_envelopes
+aliases: []
+tags:
+- phase-48
+- cognition
+- refinement
+- worm
+- mongo
+- rejected
+- failure-memory
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
