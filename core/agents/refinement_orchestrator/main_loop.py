@@ -392,7 +392,7 @@ def _run_iteration_zero(
     state: RefinementLoopState,
     hypothesis: Hypothesis,
     governor: BudgetGovernor,
-) -> tuple[StrategySpec, CodeModule, Any, Any, dict[str, str]]:
+) -> tuple[StrategySpec, CodeModule, Any, Any, dict[str, str], RefinementLoopState]:
     """Run the iter-0 pipeline (Strategy → Code → Build → Backtest).
 
     Persists each artifact with an ``_id`` and records the bundle on
@@ -410,7 +410,9 @@ def _run_iteration_zero(
 
     # Critical: record the identity anchor (§ Decision 10).
     update_loop_state(db, state.loop_id, spec_iter0_id=spec_iter0_id)
-    state.spec_iter0_id = spec_iter0_id
+    # RefinementLoopState is frozen (BaseContract frozen=True) — rebuild via
+    # model_copy so the live state in main_loop reflects the persisted change.
+    state = state.model_copy(update={"spec_iter0_id": spec_iter0_id})
 
     # Code.
     code_iter0 = run_code(spec_iter0, db=db, task_id=state.loop_id)
@@ -438,7 +440,7 @@ def _run_iteration_zero(
     }
     append_iteration_artifact(db, state.loop_id, 0, bundle)
 
-    return spec_iter0, code_iter0, build_iter0, backtest_iter0, bundle
+    return spec_iter0, code_iter0, build_iter0, backtest_iter0, bundle, state
 
 
 def _route_next_iteration(
@@ -545,7 +547,7 @@ def run_refinement_loop(
     # 5) Iteration 0 — generate the origin StrategySpec + downstream artifacts.
     iteration_artifact_ids: list[dict[str, Any]] = []
     try:
-        spec_curr, code_curr, build_curr, backtest_curr, iter0_bundle = (
+        spec_curr, code_curr, build_curr, backtest_curr, iter0_bundle, state = (
             _run_iteration_zero(
                 db,
                 state=state,
@@ -605,7 +607,7 @@ def run_refinement_loop(
         vetoes = check_hard_vetoes(backtest_curr)
         if vetoes:
             update_loop_state(db, state.loop_id, veto_history=vetoes)
-            state.veto_history = list(vetoes)
+            state = state.model_copy(update={"veto_history": list(vetoes)})
             try:
                 emit_hard_veto_triggered(
                     loop_id=state.loop_id,
@@ -689,10 +691,11 @@ def run_refinement_loop(
         _persist_artifact(db, _CRITIC_VERDICTS, verdict_payload, verdict_id)
         iteration_artifact_ids[-1]["critic_verdict_id"] = verdict_id
         final_iteration_ids["critic_verdict_id"] = verdict_id
-        state.critic_history = list(state.critic_history) + [verdict_id]
+        new_critic_history = list(state.critic_history) + [verdict_id]
         update_loop_state(
-            db, state.loop_id, critic_history=state.critic_history
+            db, state.loop_id, critic_history=new_critic_history
         )
+        state = state.model_copy(update={"critic_history": new_critic_history})
 
         try:
             emit_critic_verdict_received(
@@ -711,10 +714,11 @@ def run_refinement_loop(
         if iteration >= 1:
             spec_iter0 = _load_spec_iter0(state, db)
             identity_score, diff_breakdown = compute_score(spec_curr, spec_iter0)
-            state.identity_scores = list(state.identity_scores) + [identity_score]
+            new_identity_scores = list(state.identity_scores) + [identity_score]
             update_loop_state(
-                db, state.loop_id, identity_scores=state.identity_scores
+                db, state.loop_id, identity_scores=new_identity_scores
             )
+            state = state.model_copy(update={"identity_scores": new_identity_scores})
             if should_terminate_for_drift(identity_score, iteration):
                 threshold = IDENTITY_THRESHOLDS.get(iteration, 0.90)
                 try:
