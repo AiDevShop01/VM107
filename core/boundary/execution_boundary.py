@@ -29,6 +29,19 @@ class ExecutionBoundary:
 
     Returns specific status for each violation type.
     Logs WARNING at 80% threshold (once per limit per task).
+
+    Phase 48 Plan 48-05 (additive extension):
+        Two optional loop-level cap attributes — ``loop_per_iteration_cap_usd``
+        and ``loop_total_cap_usd`` — surface the refinement-loop budget caps
+        on the boundary object so downstream consumers (telemetry, replay)
+        can observe them without re-parsing policy_constants. Defaults are
+        ``None`` so EVERY existing Phase 38 caller is unchanged.
+        Enforcement of these caps lives in
+        ``core.agents.refinement_orchestrator.budget_governor.BudgetGovernor``
+        (different layer, raises ``LoopBudgetExceeded`` from
+        ``core.contracts.exceptions``). Phase 38 ``BoundaryStatus.*_EXCEEDED``
+        path is unrelated and continues to flow through ``check()`` for
+        per-agent caps.
     """
 
     def __init__(
@@ -36,6 +49,9 @@ class ExecutionBoundary:
         config: ResolvedBoundaryConfig,
         budget_tracker: BudgetTrackerInterface,
         agent_name: str,
+        *,
+        loop_per_iteration_cap_usd: float | None = None,
+        loop_total_cap_usd: float | None = None,
     ):
         """
         Initialize execution boundary.
@@ -44,10 +60,19 @@ class ExecutionBoundary:
             config: Resolved boundary configuration with all limits
             budget_tracker: Budget tracker for daily spend
             agent_name: Name of agent for budget tracking
+            loop_per_iteration_cap_usd: Phase 48 refinement-loop per-iteration
+                USD cap (default None — preserves Phase 38 callers).
+            loop_total_cap_usd: Phase 48 refinement-loop per-loop aggregate
+                USD cap (default None — preserves Phase 38 callers).
         """
         self._config = config
         self._budget_tracker = budget_tracker
         self._agent_name = agent_name
+
+        # Phase 48 additive: refinement-loop caps (informational on the
+        # boundary; enforcement is in BudgetGovernor).
+        self.loop_per_iteration_cap_usd = loop_per_iteration_cap_usd
+        self.loop_total_cap_usd = loop_total_cap_usd
 
         # Pre-calculate 80% warning thresholds
         self._warn_steps = int(config.max_steps * 0.8)
