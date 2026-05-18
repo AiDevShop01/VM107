@@ -1,0 +1,50 @@
+# REGISTER_CAPABILITY: type=service, id=refinement_orchestrator, path=VM107/registry/service/refinement_orchestrator.yaml
+id: refinement_orchestrator
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: RefinementOrchestrator
+description: >
+  Deterministic Python service that runs bounded refinement loops over
+  immutable Hypothesis identities. Pure cognition-workflow compiler — no
+  LLM, no agent.yaml, no profile. Owns loop policy (max iterations,
+  identity drift, hard vetoes, acceptance floors, budget caps, snapshot
+  freeze) and emits Phase 56 refinement lifecycle events. Critic profile
+  evaluates artifacts; orchestrator governs the loop.
+version: 1.0.0
+phase: 48
+producer: VM107
+location:
+  source: VM107/core/agents/refinement_orchestrator
+related_capabilities:
+  - strategy_refinement_critic
+  - lookup_capability
+  - run_idea_agent
+  - run_strategy_agent
+  - run_code_agent
+  - run_build
+  - run_backtest
+  - run_critic
+related_events:
+  - refinement_loop_started
+  - iteration_started
+  - critic_verdict_received
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+  - strategy_accepted
+  - strategy_rejected
+  - loop_terminated
+tags:
+  - phase-48
+  - cognition
+  - orchestration
+  - deterministic
+  - refinement
+  - bounded-loop
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
