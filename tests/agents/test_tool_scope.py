@@ -185,15 +185,16 @@ def test_hard_allowed_tools_registry():
 
 @pytest.mark.parametrize(
     "tool_name",
-    ["call_subordinate", "code_execution_tool", "trade_execution_tool"],
+    ["call_subordinate", "code_execution_tool"],
 )
 def test_strategy_refinement_critic_hard_blocked(tool_name):
     """Phase 48 Plan 06 — strategy_refinement_critic HARD-blocked from sensitive tools.
 
-    The 3 sensitive tools (call_subordinate, code_execution_tool,
-    trade_execution_tool) are restricted to agent_zero via their registry
-    allowed_agent_profiles list. strategy_refinement_critic, as a non-coordinator
-    profile, is denied at the tool_scope layer.
+    Registry-projected enforcement: call_subordinate + code_execution_tool are
+    hard_scoped=true with allowed_agent_profiles=[agent_zero] in their tool
+    registry YAMLs. strategy_refinement_critic, as a non-coordinator profile,
+    is denied at the tool_scope layer. trade_execution_tool denial is enforced
+    at the runtime denial-stub layer (per-profile tools/<tool>.py override).
     """
     from core.agents.tool_scope import UnauthorizedToolError, check_tool_scope
 

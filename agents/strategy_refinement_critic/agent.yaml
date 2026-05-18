@@ -1,0 +1,55 @@
+schema_version: 2
+title: Strategy Refinement Critic
+description: >
+  Bounded refinement evaluator. Takes strategy artifacts (StrategySpec,
+  CodeModule, BuildReport, BacktestResult) and emits a structured
+  CriticVerdict (ACCEPT | REFINE | REJECT) with a typed list of
+  RefinementTarget objects. Transformation-pure: never rewrites artifacts.
+  Per-family heuristics arrive via the orchestrator-selected SKILL.md
+  overlay (Phase 60 pattern).
+parent_profile: null
+
+# Phase 47.6 tool scope — runtime enforcement via the registry projection
+# (core/agents/tool_scope.py). The 3 sensitive tools are HARD-blocked at
+# both layers: (a) tool registry allowed_agent_profiles=[agent_zero], and
+# (b) per-profile denial stubs in tools/<tool>.py raising UnauthorizedToolError.
+allowed_tools:
+  - search_knowledge
+  - document_query
+  - response
+  - lookup_capability
+  - skills_tool
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+# Family overlays loaded deterministically by the orchestrator from
+# core/agents/family_skill_map.py — exactly ONE skill per invocation.
+# Skills themselves are registered at registry/skill/<id>.yaml.
+constitutional_skills: []
+optional_skills:
+  - breakout-critic
+  - mean-reversion-critic
+  - trend-continuation-critic
+  - auction-rotation-critic
+  - volatility-expansion-critic
+allowed_skills:
+  - breakout-critic
+  - mean-reversion-critic
+  - trend-continuation-critic
+  - auction-rotation-critic
+  - volatility-expansion-critic
+
+# Critic evaluates artifacts, not trades. No account/execution scope.
+memory_scope:
+  account_scope: "NONE"
+  execution_scope: "NONE"
+  cross_trade_visibility: "NONE"
+  narrative_visibility: "NONE"
+
+max_iterations: 10
+max_cost_usd: 1.0
+
+input_contract: null
+output_contract: null
