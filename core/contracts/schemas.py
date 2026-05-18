@@ -261,11 +261,32 @@ class BacktestMetrics(BaseContract):
     Backtest performance metrics.
 
     Sub-model used within BacktestResult.
+
+    Phase 48 Plan 48-04 additive fields (default values are PASS-the-floor
+    sentinels so existing Phase 44 / Plan 48-01 3-arg construction stays
+    backwards-compatible — pre-Phase-48 backtests that didn't measure these
+    metrics get neutral defaults that won't trigger acceptance-floor or
+    veto failures):
+
+    - profit_factor: float = 999.0
+        Phase 46 ROADMAP V1 floor metric. acceptance_floor.py requires
+        profit_factor >= 1.2 for CRITIC_ELIGIBLE; the default sentinel of
+        999.0 keeps legacy callers above-floor.
+    - consecutive_losses: int = 0
+        CONTEXT § Decision 9 veto metric (catastrophic at >10). Default 0
+        keeps legacy callers below-veto.
+    - regime_coverage: float = 1.0
+        CONTEXT § Decision 9 veto metric (catastrophic at <0.20) AND
+        Plan 06 confidence-clamp signal. Default 1.0 keeps legacy callers
+        above-veto.
     """
 
     win_rate: float
     rr: float
     max_drawdown: float
+    profit_factor: float = 999.0
+    consecutive_losses: int = 0
+    regime_coverage: float = 1.0
 
 
 class BacktestResult(BaseContract):
