@@ -25,11 +25,23 @@ import logging
 import uuid
 from typing import Any, Final, Optional
 
-from core.contracts.schemas import Hypothesis, StrategySpec
+from core.contracts.schemas import (
+    BacktestResult,
+    BuildReport,
+    CodeModule,
+    CriticVerdict,
+    Hypothesis,
+    RefinementContextEnvelope,
+    RefinementLoopState,
+    StrategySpec,
+)
 from core.agents.structured_output import safe_parse, PlainTextResult
 from core.agents.invocation_exceptions import (
-    InvalidInputError,
+    BacktesterDegradedError,
+    CodeAgentDegradedError,
+    CriticDegradedError,
     IdeaAgentDegradedError,
+    InvalidInputError,
     StrategyAgentDegradedError,
 )
 
@@ -39,12 +51,20 @@ __all__ = [
     "route_coordinator_input",
     "run_idea",
     "run_strategy",
+    "run_code",
+    "run_build",
+    "run_backtest",
+    "run_critic",
     "MAX_PARALLEL_SUBAGENTS",
     "SUBSTANTIVE_KEYWORDS",
     "IdeaAgentDegradedError",
     "StrategyAgentDegradedError",
+    "CodeAgentDegradedError",
+    "BacktesterDegradedError",
+    "CriticDegradedError",
     "InvalidInputError",
     "_call_subordinate_sync",
+    "_invoke_build_agent",
 ]
 
 log = logging.getLogger(__name__)
@@ -291,6 +311,7 @@ def run_strategy(
     db: Any = None,
     task_id: Optional[str] = None,
     parent_task_id: Optional[str] = None,
+    refinement_context: Optional[RefinementContextEnvelope] = None,
 ) -> StrategySpec:
     """Invoke Strategy Agent → StrategySpec (typed).
 
@@ -300,12 +321,20 @@ def run_strategy(
 
     Same retry-once-then-fail policy as run_idea.
 
+    Phase 48 Plan 48-01 — additive kwarg ``refinement_context``: when present
+    (Phase 48 refinement loop, iteration > 0), the envelope is folded into the
+    prompt payload so the Strategy Agent regenerates from the SAME immutable
+    Hypothesis PLUS the prior critic's RefinementTargets. Default ``None``
+    preserves Phase 44 call sites.
+
     Args:
         hypothesis: MUST be a Hypothesis instance. Any other type raises
             InvalidInputError immediately, before any LLM call.
         db: MongoDB database handle. If None, envelope persistence is skipped.
         task_id: Phase 42 task identifier. Defaults to generated UUID.
         parent_task_id: Optional parent task.
+        refinement_context: Phase 48 RefinementContextEnvelope (optional).
+            When set, the prompt-include helper threads it through verbatim.
 
     Returns:
         StrategySpec.
@@ -325,12 +354,16 @@ def run_strategy(
 
     _task_id = task_id or f"api-{uuid.uuid4()}"
 
+    # Phase 48: fold refinement_context into the subordinate prompt as a typed
+    # JSON envelope (NOT prose). Default empty when caller passes None.
+    sub_payload = _build_strategy_prompt_payload(hypothesis, refinement_context)
+
     attempt = 0
     while attempt < 2:
         attempt += 1
         try:
             _sub_result = _call_subordinate_sync(
-                "strategy_agent", hypothesis.model_dump_json()
+                "strategy_agent", sub_payload
             )
         except RuntimeError as e:
             log.error("strategy_agent bootstrap/runtime failure: %s", e, exc_info=True)
@@ -382,5 +415,457 @@ def run_strategy(
             write_envelope(db, envelope)
 
     raise StrategyAgentDegradedError(
+        error_chain=[f"attempt_{i + 1}_degraded" for i in range(2)]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 48 Plan 48-01 — typed wrappers for the refinement loop
+# ---------------------------------------------------------------------------
+#
+# These four wrappers (run_code / run_build / run_backtest / run_critic) close
+# the Phase 45 deferral and add the new Phase 48 critic. Patterns mirror
+# run_idea / run_strategy:
+#   - LLM-mediated wrappers use _call_subordinate_sync + safe_parse +
+#     retry-once-then-fail.
+#   - run_build is DETERMINISTIC (pure-Python service path — NO LLM, NO retry).
+#   - Each wrapper threads refinement_context (where applicable) into the
+#     prompt as a typed JSON envelope.
+#   - Each LLM-mediated wrapper persists an AgentEnvelope (success or degraded)
+#     when a `db` handle is provided.
+#
+# REGISTER_CAPABILITY: type=tool, id=run_code,
+#   path=VM107/core/agents/invocation.py:run_code
+# REGISTER_CAPABILITY: type=tool, id=run_build,
+#   path=VM107/core/agents/invocation.py:run_build
+# REGISTER_CAPABILITY: type=tool, id=run_backtest,
+#   path=VM107/core/agents/invocation.py:run_backtest
+# REGISTER_CAPABILITY: type=tool, id=run_critic,
+#   path=VM107/core/agents/invocation.py:run_critic
+# (Actual YAML files for these capabilities are deferred to Plan 09 registry
+# consolidation — the orchestrator service YAML at Plan 02 lists them as
+# related_capabilities.)
+# ---------------------------------------------------------------------------
+
+
+def _build_strategy_prompt_payload(
+    hypothesis: Hypothesis,
+    refinement_context: Optional[RefinementContextEnvelope],
+) -> str:
+    """Compose the Strategy Agent subordinate's input payload.
+
+    Phase 44 sent ``hypothesis.model_dump_json()`` alone. Phase 48 folds an
+    optional RefinementContextEnvelope into a small JSON wrapper so the
+    Strategy Agent prompt template can read targets without prose injection.
+    """
+    if refinement_context is None:
+        return hypothesis.model_dump_json()
+    import json as _json
+    return _json.dumps({
+        "hypothesis": hypothesis.model_dump(mode="json"),
+        "refinement_context": refinement_context.model_dump(mode="json"),
+    })
+
+
+def _build_code_prompt_payload(
+    spec: StrategySpec,
+    refinement_context: Optional[RefinementContextEnvelope],
+) -> str:
+    """Compose the Code Agent subordinate's input payload."""
+    if refinement_context is None:
+        return spec.model_dump_json()
+    import json as _json
+    return _json.dumps({
+        "strategy_spec": spec.model_dump(mode="json"),
+        "refinement_context": refinement_context.model_dump(mode="json"),
+    })
+
+
+def _build_critic_prompt_payload(
+    state: RefinementLoopState,
+    spec: StrategySpec,
+    code: CodeModule,
+    build: BuildReport,
+    result: BacktestResult,
+) -> str:
+    """Compose the strategy_refinement_critic subordinate's input payload."""
+    import json as _json
+    return _json.dumps({
+        "loop_state": state.model_dump(mode="json"),
+        "strategy_spec": spec.model_dump(mode="json"),
+        "code_module": code.model_dump(mode="json"),
+        "build_report": build.model_dump(mode="json"),
+        "backtest_result": result.model_dump(mode="json"),
+    })
+
+
+def _invoke_build_agent(module: CodeModule) -> BuildReport:
+    """Deterministic Build Agent dispatch — pure-Python service path.
+
+    Phase 45 / Phase 48 § Decision 14: build_agent is NOT an LLM agent profile.
+    Late-imports build_agent.run() (when the module ships) to avoid circular
+    deps. Until Plan 03+ ships the build pipeline, this returns a minimal
+    success envelope so the typed-wrapper signature is testable.
+
+    Test paths patch this function directly (see
+    tests/core/agents/test_invocation_phase48_wrappers.py:test_run_build_*).
+    """
+    try:
+        from core.agents import build_agent  # type: ignore[import]
+    except ImportError:
+        # Plan 03 hasn't shipped build_agent yet — return a deterministic
+        # placeholder so the wrapper contract is stable. Plan 03 replaces
+        # this path with a real compile + static-analysis dispatch.
+        return BuildReport(
+            status="success",
+            artifact_id=None,
+            errors=[],
+            warnings=["build_agent module not yet shipped (Plan 03)"],
+        )
+    return build_agent.run(module)
+
+
+def run_code(
+    spec: StrategySpec,
+    *,
+    db: Any = None,
+    task_id: Optional[str] = None,
+    parent_task_id: Optional[str] = None,
+    refinement_context: Optional[RefinementContextEnvelope] = None,
+) -> CodeModule:
+    """Invoke Code Agent → CodeModule (typed).
+
+    Phase 48 Plan 48-01 — closes Phase 45 deferral.
+
+    Same retry-once-then-fail policy as run_idea / run_strategy. When
+    ``refinement_context`` is provided (CODE_MODULE-scoped refinement), the
+    Code Agent regenerates from the CURRENT StrategySpec plus the prior
+    iteration's RefinementTargets. STRATEGY_SPEC-scoped refinements do NOT
+    flow through this wrapper — the orchestrator regenerates Strategy first
+    (CONTEXT § Decision 5).
+
+    Args:
+        spec: REQUIRED StrategySpec instance — Code Agent never auto-calls Strategy.
+        db: MongoDB database handle. If None, envelope persistence is skipped.
+        task_id: Phase 42 task identifier. Defaults to generated UUID.
+        parent_task_id: Optional parent task.
+        refinement_context: Optional Phase 48 RefinementContextEnvelope.
+
+    Returns:
+        CodeModule.
+
+    Raises:
+        InvalidInputError: spec is not a StrategySpec instance.
+        CodeAgentDegradedError: Both attempts returned PlainTextResult.
+    """
+    from core.agents.envelope_writer import build_envelope, write_envelope
+
+    if not isinstance(spec, StrategySpec):
+        raise InvalidInputError(
+            f"run_code requires a StrategySpec instance, got {type(spec).__name__}."
+        )
+
+    _task_id = task_id or f"api-{uuid.uuid4()}"
+    sub_payload = _build_code_prompt_payload(spec, refinement_context)
+
+    attempt = 0
+    while attempt < 2:
+        attempt += 1
+        try:
+            _sub_result = _call_subordinate_sync("code_agent", sub_payload)
+        except RuntimeError as e:
+            log.error("code_agent bootstrap/runtime failure: %s", e, exc_info=True)
+            raise CodeAgentDegradedError(
+                error_chain=[f"runtime_failure: {type(e).__name__}: {e}"]
+            ) from e
+        if isinstance(_sub_result, tuple):
+            raw, telemetry = _sub_result
+        else:
+            raw, telemetry = _sub_result, {}
+        result = safe_parse(raw, CodeModule)
+
+        if isinstance(result, CodeModule):
+            if db is not None:
+                envelope = build_envelope(
+                    task_id=_task_id,
+                    parent_task_id=parent_task_id,
+                    agent_id="code_agent",
+                    input_payload={"strategy_spec_name": spec.name},
+                    output_payload=result.model_dump(),
+                    telemetry=telemetry,
+                    status="success",
+                    source_envelope_id=None,
+                )
+                write_envelope(db, envelope)
+            return result
+
+        assert isinstance(result, PlainTextResult)
+        log.warning(
+            "code_agent degraded on attempt %d/2 — error_chain=%s",
+            attempt,
+            result.error_chain,
+        )
+        if db is not None:
+            envelope = build_envelope(
+                task_id=_task_id,
+                parent_task_id=parent_task_id,
+                agent_id="code_agent",
+                input_payload={"strategy_spec_name": spec.name},
+                output_payload={
+                    "plain_text": result.raw_output,
+                    "error_chain": result.error_chain,
+                },
+                telemetry=telemetry,
+                status="degraded",
+                source_envelope_id=None,
+            )
+            write_envelope(db, envelope)
+
+    raise CodeAgentDegradedError(
+        error_chain=[f"attempt_{i + 1}_degraded" for i in range(2)]
+    )
+
+
+def run_build(module: CodeModule) -> BuildReport:
+    """Invoke deterministic Build Agent → BuildReport.
+
+    Phase 45 deferral closed here. Pure-Python service path — NO LLM call,
+    NO retry. CONTEXT § Decision 14 + § code_context: build_agent is the
+    reference architecture for orchestrator-style services.
+
+    Args:
+        module: CodeModule to build.
+
+    Returns:
+        BuildReport with status ∈ {"success", "failure"}.
+
+    Raises:
+        InvalidInputError: module is not a CodeModule instance.
+    """
+    if not isinstance(module, CodeModule):
+        raise InvalidInputError(
+            f"run_build requires a CodeModule instance, got {type(module).__name__}."
+        )
+    return _invoke_build_agent(module)
+
+
+def run_backtest(
+    module: CodeModule,
+    *,
+    db: Any = None,
+    task_id: Optional[str] = None,
+    parent_task_id: Optional[str] = None,
+) -> BacktestResult:
+    """Invoke Backtester Agent → BacktestResult (typed).
+
+    Phase 48 Plan 48-01 — closes Phase 45 deferral.
+
+    Phase 45 / 48 plan note: Backtester invocation is mediated by an LLM-driven
+    agent profile (translating CodeModule to a backtester job, parsing back
+    metrics), so retry-once-then-fail applies on the LLM step. The underlying
+    compute (VM102 backtester) is deterministic and tracked separately as
+    ExecutionCost(category="INFRASTRUCTURE").
+
+    Args:
+        module: REQUIRED CodeModule instance.
+        db: MongoDB database handle. Envelope persistence skipped if None.
+        task_id: Phase 42 task identifier.
+        parent_task_id: Optional parent task.
+
+    Returns:
+        BacktestResult.
+
+    Raises:
+        InvalidInputError: module is not a CodeModule instance.
+        BacktesterDegradedError: Both attempts returned PlainTextResult.
+    """
+    from core.agents.envelope_writer import build_envelope, write_envelope
+
+    if not isinstance(module, CodeModule):
+        raise InvalidInputError(
+            f"run_backtest requires a CodeModule instance, got {type(module).__name__}."
+        )
+
+    _task_id = task_id or f"api-{uuid.uuid4()}"
+    sub_payload = module.model_dump_json()
+
+    attempt = 0
+    while attempt < 2:
+        attempt += 1
+        try:
+            _sub_result = _call_subordinate_sync("backtester_agent", sub_payload)
+        except RuntimeError as e:
+            log.error("backtester_agent bootstrap/runtime failure: %s", e, exc_info=True)
+            raise BacktesterDegradedError(
+                error_chain=[f"runtime_failure: {type(e).__name__}: {e}"]
+            ) from e
+        if isinstance(_sub_result, tuple):
+            raw, telemetry = _sub_result
+        else:
+            raw, telemetry = _sub_result, {}
+        result = safe_parse(raw, BacktestResult)
+
+        if isinstance(result, BacktestResult):
+            if db is not None:
+                envelope = build_envelope(
+                    task_id=_task_id,
+                    parent_task_id=parent_task_id,
+                    agent_id="backtester_agent",
+                    input_payload={"code_module_version": module.version},
+                    output_payload=result.model_dump(),
+                    telemetry=telemetry,
+                    status="success",
+                    source_envelope_id=None,
+                )
+                write_envelope(db, envelope)
+            return result
+
+        assert isinstance(result, PlainTextResult)
+        log.warning(
+            "backtester_agent degraded on attempt %d/2 — error_chain=%s",
+            attempt,
+            result.error_chain,
+        )
+        if db is not None:
+            envelope = build_envelope(
+                task_id=_task_id,
+                parent_task_id=parent_task_id,
+                agent_id="backtester_agent",
+                input_payload={"code_module_version": module.version},
+                output_payload={
+                    "plain_text": result.raw_output,
+                    "error_chain": result.error_chain,
+                },
+                telemetry=telemetry,
+                status="degraded",
+                source_envelope_id=None,
+            )
+            write_envelope(db, envelope)
+
+    raise BacktesterDegradedError(
+        error_chain=[f"attempt_{i + 1}_degraded" for i in range(2)]
+    )
+
+
+def run_critic(
+    state: RefinementLoopState,
+    spec: StrategySpec,
+    code: CodeModule,
+    build: BuildReport,
+    result: BacktestResult,
+    *,
+    db: Any = None,
+    task_id: Optional[str] = None,
+    parent_task_id: Optional[str] = None,
+) -> CriticVerdict:
+    """Invoke strategy_refinement_critic → CriticVerdict (typed).
+
+    Phase 48 Plan 48-01 — new Phase 48 wrapper. Uses model-routing affinity
+    entry ``strategy_refinement_critic`` (Plan 06 adds the YAML routing entry).
+
+    safe_parse(CriticVerdict) + retry-once-then-fail. Second failure raises
+    CriticDegradedError — the orchestrator maps to
+    TerminationReason.CRITIC_DEGRADED for replay-archaeology granularity
+    (CONTEXT § Decision 4).
+
+    Args:
+        state: Current RefinementLoopState.
+        spec: Current StrategySpec (latest iteration).
+        code: Current CodeModule.
+        build: Latest BuildReport.
+        result: Latest BacktestResult.
+        db: MongoDB database handle. Envelope persistence skipped if None.
+        task_id: Phase 42 task identifier.
+        parent_task_id: Optional parent task.
+
+    Returns:
+        CriticVerdict (verdict ∈ {ACCEPT, REFINE, REJECT}).
+
+    Raises:
+        InvalidInputError: any input is the wrong type.
+        CriticDegradedError: Both attempts returned PlainTextResult.
+    """
+    from core.agents.envelope_writer import build_envelope, write_envelope
+
+    if not isinstance(state, RefinementLoopState):
+        raise InvalidInputError(
+            f"run_critic requires a RefinementLoopState, got {type(state).__name__}."
+        )
+    if not isinstance(spec, StrategySpec):
+        raise InvalidInputError(
+            f"run_critic requires a StrategySpec, got {type(spec).__name__}."
+        )
+    if not isinstance(code, CodeModule):
+        raise InvalidInputError(
+            f"run_critic requires a CodeModule, got {type(code).__name__}."
+        )
+    if not isinstance(build, BuildReport):
+        raise InvalidInputError(
+            f"run_critic requires a BuildReport, got {type(build).__name__}."
+        )
+    if not isinstance(result, BacktestResult):
+        raise InvalidInputError(
+            f"run_critic requires a BacktestResult, got {type(result).__name__}."
+        )
+
+    _task_id = task_id or f"api-{uuid.uuid4()}"
+    sub_payload = _build_critic_prompt_payload(state, spec, code, build, result)
+
+    attempt = 0
+    while attempt < 2:
+        attempt += 1
+        try:
+            _sub_result = _call_subordinate_sync(
+                "strategy_refinement_critic", sub_payload
+            )
+        except RuntimeError as e:
+            log.error("strategy_refinement_critic bootstrap/runtime failure: %s", e, exc_info=True)
+            raise CriticDegradedError(
+                error_chain=[f"runtime_failure: {type(e).__name__}: {e}"]
+            ) from e
+        if isinstance(_sub_result, tuple):
+            raw, telemetry = _sub_result
+        else:
+            raw, telemetry = _sub_result, {}
+        verdict = safe_parse(raw, CriticVerdict)
+
+        if isinstance(verdict, CriticVerdict):
+            if db is not None:
+                envelope = build_envelope(
+                    task_id=_task_id,
+                    parent_task_id=parent_task_id,
+                    agent_id="strategy_refinement_critic",
+                    input_payload={"loop_id": state.loop_id, "iteration": state.iteration},
+                    output_payload=verdict.model_dump(),
+                    telemetry=telemetry,
+                    status="success",
+                    source_envelope_id=None,
+                )
+                write_envelope(db, envelope)
+            return verdict
+
+        assert isinstance(verdict, PlainTextResult)
+        log.warning(
+            "strategy_refinement_critic degraded on attempt %d/2 — error_chain=%s",
+            attempt,
+            verdict.error_chain,
+        )
+        if db is not None:
+            envelope = build_envelope(
+                task_id=_task_id,
+                parent_task_id=parent_task_id,
+                agent_id="strategy_refinement_critic",
+                input_payload={"loop_id": state.loop_id, "iteration": state.iteration},
+                output_payload={
+                    "plain_text": verdict.raw_output,
+                    "error_chain": verdict.error_chain,
+                },
+                telemetry=telemetry,
+                status="degraded",
+                source_envelope_id=None,
+            )
+            write_envelope(db, envelope)
+
+    raise CriticDegradedError(
         error_chain=[f"attempt_{i + 1}_degraded" for i in range(2)]
     )

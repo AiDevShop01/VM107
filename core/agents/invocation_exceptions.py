@@ -46,6 +46,38 @@ class StrategyAgentDegradedError(_AgentDegradedError):
         super().__init__("strategy_agent", error_chain or [])
 
 
+# Phase 48 Plan 48-01 — typed degraded exceptions for the new wrappers.
+# Same retry-once-then-fail discipline as IdeaAgentDegradedError /
+# StrategyAgentDegradedError. Orchestrator catches these and maps to
+# TerminationReason.STRATEGY_DEGRADED / CODE_DEGRADED / BACKTEST_DEGRADED /
+# CRITIC_DEGRADED for replay-archaeology granularity (CONTEXT § Decision 4).
+
+
+class CodeAgentDegradedError(_AgentDegradedError):
+    """Raised when Code Agent returns PlainTextResult on both initial call + retry."""
+
+    def __init__(self, error_chain: list[str] | None = None) -> None:
+        super().__init__("code_agent", error_chain or [])
+
+
+class BacktesterDegradedError(_AgentDegradedError):
+    """Raised when Backtester Agent returns PlainTextResult on both initial call + retry."""
+
+    def __init__(self, error_chain: list[str] | None = None) -> None:
+        super().__init__("backtester_agent", error_chain or [])
+
+
+class CriticDegradedError(_AgentDegradedError):
+    """Raised when strategy_refinement_critic returns PlainTextResult on both attempts.
+
+    Orchestrator maps this to TerminationReason.CRITIC_DEGRADED (the
+    BUILD_FAILURE sub-state for replay archaeology).
+    """
+
+    def __init__(self, error_chain: list[str] | None = None) -> None:
+        super().__init__("strategy_refinement_critic", error_chain or [])
+
+
 class EvaluationContractViolation(_AgentDegradedError):
     """Raised when the evaluation runner degrades on both initial call and retry.
 
