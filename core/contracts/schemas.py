@@ -488,6 +488,12 @@ class RefinementLoopState(BaseContract):
     termination_reason: Optional[str] = None
     started_at: datetime
     updated_at: datetime
+    # Phase 48 Plan 48-03 — anchored-identity field per CONTEXT § Decision 10.
+    # main_loop (Plan 08b) writes the iter-0 StrategySpec ID into this field
+    # after iteration 0 completes; subsequent iterations look it up here when
+    # calling identity_scorer.compute_score. Identity ALWAYS anchors to iter 0
+    # (NEVER iter N-1) so creeping drift is impossible.
+    spec_iter0_id: Optional[str] = None
     schema_version: int = 1
 
 
