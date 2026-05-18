@@ -499,6 +499,33 @@ def _build_critic_prompt_payload(
     })
 
 
+def _derived_confidence_ceiling(backtest_result: BacktestResult) -> float:
+    """Phase 48 Plan 06 HYBRID confidence-clamp ceiling.
+
+    CONTEXT § Decision 1 (planner Q7): the LLM Critic emits a raw confidence;
+    the orchestrator (run_critic) clamps to a deterministic ceiling computed
+    from backtest robustness signals so the Critic never claims more certainty
+    than the underlying evidence supports.
+
+    Formula:
+        sample_size_ratio   = min(1.0, sample_size / 250)
+        regime_coverage_ratio = backtest_result.metrics.regime_coverage
+        derived_ceiling     = 0.5 + 0.3 * sample_size_ratio
+                                  + 0.2 * regime_coverage_ratio
+
+    Properties:
+        - Minimum ceiling = 0.5 (a Critic can never claim less than coin-flip)
+        - Maximum ceiling = 1.0 (perfect sample + perfect regime coverage)
+        - Pure function: same inputs -> same output (no I/O, no globals).
+
+    The Critic-budget-blind invariant (Plan 05) is unaffected — this helper
+    reads BacktestResult, not RefinementLoopState.budget_snapshot.
+    """
+    sample_size_ratio = min(1.0, backtest_result.sample_size / 250.0)
+    regime_coverage_ratio = backtest_result.metrics.regime_coverage
+    return 0.5 + 0.3 * sample_size_ratio + 0.2 * regime_coverage_ratio
+
+
 def _invoke_build_agent(module: CodeModule) -> BuildReport:
     """Deterministic Build Agent dispatch — pure-Python service path.
 
@@ -830,13 +857,28 @@ def run_critic(
         verdict = safe_parse(raw, CriticVerdict)
 
         if isinstance(verdict, CriticVerdict):
+            # Phase 48 Plan 06 HYBRID confidence clamp (CONTEXT § Decision 1):
+            # the LLM emits a raw confidence; we clamp to the deterministic
+            # derived_ceiling so the Critic never overstates certainty given
+            # the backtest's robustness signals. Both raw + clamped values
+            # persist via the envelope output_payload so replay archaeology
+            # can recover the original LLM emission.
+            raw_confidence = verdict.confidence
+            derived_ceiling = _derived_confidence_ceiling(result)
+            clamped = min(raw_confidence, derived_ceiling)
+            if clamped != raw_confidence:
+                verdict = verdict.model_copy(update={"confidence": clamped})
+
             if db is not None:
+                output_payload = verdict.model_dump()
+                output_payload["raw_confidence"] = raw_confidence
+                output_payload["derived_confidence_ceiling"] = derived_ceiling
                 envelope = build_envelope(
                     task_id=_task_id,
                     parent_task_id=parent_task_id,
                     agent_id="strategy_refinement_critic",
                     input_payload={"loop_id": state.loop_id, "iteration": state.iteration},
-                    output_payload=verdict.model_dump(),
+                    output_payload=output_payload,
                     telemetry=telemetry,
                     status="success",
                     source_envelope_id=None,

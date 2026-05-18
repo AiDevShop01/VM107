@@ -192,17 +192,24 @@ def test_run_critic_persists_raw_confidence_alongside_clamped(
     backtest = _make_backtest(sample_size=50, regime_coverage=0.2)
     raw_verdict_json = _verdict_with_raw_confidence(0.95)
 
-    captured_envelopes: list[dict] = []
+    captured: list[dict] = []
 
-    def _capture_write(db, envelope):
-        captured_envelopes.append(envelope)
+    def _capture_build(**kwargs):
+        # Echo back kwargs as an envelope dict — bypasses stamp_at_write_time
+        # which requires an initialized CapabilityRegistry.
+        captured.append(kwargs)
+        return dict(kwargs)
+
+    def _noop_write(db, envelope):
         return envelope
 
     with patch(
         "core.agents.invocation._call_subordinate_sync",
         return_value=raw_verdict_json,
     ), patch(
-        "core.agents.envelope_writer.write_envelope", side_effect=_capture_write
+        "core.agents.envelope_writer.build_envelope", side_effect=_capture_build
+    ), patch(
+        "core.agents.envelope_writer.write_envelope", side_effect=_noop_write
     ):
         result = run_critic(
             loop_state,
@@ -214,8 +221,8 @@ def test_run_critic_persists_raw_confidence_alongside_clamped(
         )
 
     assert result.confidence == pytest.approx(0.60, abs=1e-9)
-    assert len(captured_envelopes) == 1
-    payload = captured_envelopes[0]["output_payload"]
+    assert len(captured) == 1
+    payload = captured[0]["output_payload"]
     assert payload["confidence"] == pytest.approx(0.60, abs=1e-9)
     assert payload["raw_confidence"] == pytest.approx(0.95, abs=1e-9)
     assert payload["derived_confidence_ceiling"] == pytest.approx(
