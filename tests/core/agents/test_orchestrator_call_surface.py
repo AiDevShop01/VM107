@@ -26,8 +26,10 @@ _APPROVED_ROOTS = {
     "core.agents.invocation",
     "core.contracts",
     "core.registry.capability_registry",
+    "core.registry.strategy_yaml_emitter",  # Plan 08a: acceptance_path auto-emits YAML
     "core.events.phase56_client",
     "core.events",  # re-export package
+    "core.events.refinement_events",  # Plan 08a: acceptance/rejection paths emit lifecycle events
     "helpers.mongo",
     "core.agents.refinement_orchestrator",  # internal cross-import
 }

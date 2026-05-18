@@ -76,7 +76,11 @@ def test_emit_strategy_yaml_required_fields_present(tmp_path: Path):
     parsed = yaml.safe_load(path.read_text())
     assert parsed["id"] == "acc_phase48_test_001"
     assert parsed["type"] == "strategy"
-    assert parsed["status"] == "accepted"
+    # Phase 47.6 CapabilityStatus — must be one of {stub, experimental, real, deprecated}.
+    assert parsed["status"] == "real"
+    # Decision 11 strategy lifecycle enum — separate field per the planner deviation
+    # captured in 48-08a-SUMMARY (status enum collision with 47.6 CapabilityStatus).
+    assert parsed["strategy_lifecycle_status"] == "accepted"
     assert parsed["shipped"] == 48
     assert parsed["phase"] == 48
     assert parsed["producer"] == "VM107"

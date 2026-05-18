@@ -181,5 +181,8 @@ def test_accept_strategy_writes_registry_yaml(mongo_test_db, valid_hypothesis_id
     text = yaml_path.read_text()
     assert "REGISTER_CAPABILITY" in text
     assert "type: strategy" in text
-    assert "status: accepted" in text
+    # Phase 47.6 CapabilityStatus: status=real (registry-level).
+    # Decision 11 lifecycle: strategy_lifecycle_status=accepted (strategy-specific).
+    assert "status: real" in text
+    assert "strategy_lifecycle_status: accepted" in text
     assert accepted_id in text
