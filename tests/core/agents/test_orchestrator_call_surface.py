@@ -30,6 +30,7 @@ _APPROVED_ROOTS = {
     "core.events.phase56_client",
     "core.events",  # re-export package
     "core.events.refinement_events",  # Plan 08a: acceptance/rejection paths emit lifecycle events
+    "core.agents.family_skill_map",  # Plan 08b main_loop: deterministic skill dispatch per family
     "helpers.mongo",
     "core.agents.refinement_orchestrator",  # internal cross-import
 }
