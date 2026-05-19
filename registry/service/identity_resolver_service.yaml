@@ -1,8 +1,8 @@
 id: identity_resolver_service
 name: identity_resolver_service
 type: service
-status: planned  # Plan 02 ships the implementation and flips to `real`
-shipped: null
+status: real  # Plan 02 Task 02-01 shipped 2026-05-19 — flipped from planned
+shipped: "58.1"
 planned_phase: "58.1"
 phase: "58.1"
 producer: vm100
@@ -14,14 +14,22 @@ description: |
   trade_id or journal_id request field per Phase 55-00 identity reconciliation.
 
   Resolver priority order (verified against models.py):
-    1. int → api.Trade.id (BIGINT hypertable PK)
+    1. int → Execution.legacy_trade_id (BIGINT back-reference to api.Trade.id;
+            api.Trade is managed=False so we lookup via the canonical Execution
+            row rather than the unmanaged hypertable)
     2. UUID → Execution.id (fewest indirections to current execution)
     3. UUID → TradeJournal.id (DRAFT journals always exist here)
     4. miss → 404 with `tried: [trade_id_int, execution_id_uuid, journal_id_uuid]`
 
-  Plan 02 ships the implementation:
+  Implementation (Plan 02 Task 02-01):
     - VM100/backend/journal/services/identity_resolver_service.py
-    - VM100/backend/journal/routers/internal_router.py (new endpoint)
+    - VM100/backend/journal/routers/internal_router.py — endpoint at
+      GET /api/journal/internal/resolve-trade-identity?id={value}
+notes: |
+  Plan 02 Task 02-01 (2026-05-19): service body + endpoint shipped. The
+  6 graduated tests at VM100/backend/journal/tests/test_resolve_trade_identity.py
+  exercise all 4 priority steps + 2 miss paths. Status flipped from
+  `planned` to `real` in this commit.
 location:
   source: VM100/backend/journal/services/identity_resolver_service.py
   endpoint: VM100/api/journal/internal/resolve-trade-identity
