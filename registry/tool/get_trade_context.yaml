@@ -1,0 +1,49 @@
+id: get_trade_context
+name: get_trade_context
+type: tool
+status: real
+shipped: 47.2
+amended: "58.1"
+canonical_tool: get_trade_context
+aliases: []
+description: |
+  Curated trade journal data tool. Accepts either trade_id (Execution UUID or
+  api.Trade.id int) or journal_id (TradeJournal UUID); resolves internally via
+  VM100 GET /api/journal/internal/resolve-trade-identity, then fetches trade
+  detail via GET /api/v1/trades/{trade_id}. Returns NotAvailableResponse on
+  unresolved IDs (honest miss — Phase 47.2 lock).
+category: journal-context
+version: "1.1.0"  # 1.0 = Phase 47.2 single-ID; 1.1 = Phase 58.1 dual-ID + NotAvailable
+producer: vm107
+phase: 47.2
+amended_phase: "58.1"
+location:
+  source: VM107/tools/get_trade_context.py
+  endpoint:
+    resolve: VM100/api/journal/internal/resolve-trade-identity
+    read: VM100/api/v1/trades/{trade_id}
+  contracts:
+    request: fingpt_core.contracts.agents.trade_context.GetTradeContextRequest
+    response: fingpt_core.contracts.agents.trade_context.GetTradeContextResponse
+    miss: fingpt_core.contracts.agents.not_available.NotAvailableResponse
+related_capabilities:
+  - get_primitives
+  - get_liquidity_context
+  - get_trade_quality_score
+tags:
+  - journal
+  - trade-context
+  - tier-2
+  - dual-id
+  - honest-miss
+  - phase_47_2
+  - phase_58_1
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+  - trade_auditor_agent
+  - behavioral_mentor_agent
+  - weekly_review_agent
+last_changed: 2026-05-19
+impact_on_decision: MEDIUM
+deprecated: false

@@ -1,0 +1,35 @@
+id: identity_resolver_service
+name: identity_resolver_service
+type: service
+status: planned  # Plan 02 ships the implementation and flips to `real`
+shipped: null
+planned_phase: "58.1"
+phase: "58.1"
+producer: vm100
+last_changed: 2026-05-19
+description: |
+  Phase 58.1 F-4 — Resolves a trade-identity input (int trade_id, Execution
+  UUID, or TradeJournal UUID) to a normalized (trade_id, execution_id,
+  journal_id) triple. Used by get_trade_context to honor either the
+  trade_id or journal_id request field per Phase 55-00 identity reconciliation.
+
+  Resolver priority order (verified against models.py):
+    1. int → api.Trade.id (BIGINT hypertable PK)
+    2. UUID → Execution.id (fewest indirections to current execution)
+    3. UUID → TradeJournal.id (DRAFT journals always exist here)
+    4. miss → 404 with `tried: [trade_id_int, execution_id_uuid, journal_id_uuid]`
+
+  Plan 02 ships the implementation:
+    - VM100/backend/journal/services/identity_resolver_service.py
+    - VM100/backend/journal/routers/internal_router.py (new endpoint)
+location:
+  source: VM100/backend/journal/services/identity_resolver_service.py
+  endpoint: VM100/api/journal/internal/resolve-trade-identity
+related_capabilities:
+  - get_trade_context
+tags:
+  - identity-resolution
+  - phase_58_1
+  - phase_55_identity
+hard_scoped: true
+deprecated: false

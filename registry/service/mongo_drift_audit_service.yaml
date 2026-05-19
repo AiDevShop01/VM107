@@ -1,0 +1,37 @@
+id: mongo_drift_audit_service
+name: mongo_drift_audit_service
+type: service
+status: planned  # Plan 01 ships the implementation and flips to `real`
+shipped: null
+planned_phase: "58.1"
+phase: "58.1"
+producer: vm100
+last_changed: 2026-05-19
+description: |
+  Phase 58.1 F-3 — audit-only comparator that diffs legacy Mongo
+  `journal_entries.notes[]` against canonical Postgres `journal_note` per
+  TradeJournal.id. Persists daily verdict (status in {clean, drift, error,
+  no_data}) to the `mongo_drift_audit` Postgres table (migration 0039 — Plan 00).
+
+  The 7-consecutive-clean-day SQL gate against this table authorizes the
+  Plan 02 final commit that deletes `JournalMongoSync.append_note()`.
+  Per RESEARCH § R3 mitigation: days where `journals_checked == 0` get
+  `status='no_data'` and do NOT count toward the streak (low-activity weeks
+  take wall-clock-longer to accrue 7 clean days).
+
+  NOT the Phase 58 ExecutionMongoProjector — that writes only to the
+  `workflow_state` collection and is snapshot-anchored, not note-anchored.
+location:
+  source: VM100/backend/journal/services/mongo_drift_audit_service.py
+  endpoint: VM100/api/journal/internal/mongo-drift-audit
+related_capabilities: []
+consumed_by:
+  - mongo_drift_audit_job  # Dagster — schedule cron '0 6 * * *' UTC
+tags:
+  - legacy-retirement
+  - drift-audit
+  - phase_58_1
+  - mongo
+  - decommission-gate
+hard_scoped: true
+deprecated: false
