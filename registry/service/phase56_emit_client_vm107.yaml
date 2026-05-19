@@ -1,0 +1,56 @@
+# REGISTER_CAPABILITY: type=service, id=phase56_emit_client_vm107, path=VM107/registry/service/phase56_emit_client_vm107.yaml
+id: phase56_emit_client_vm107
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: Phase56EmitClientVM107
+phase: 48
+producer: VM107
+version: "1.0.0"
+description: >
+  VM107-side Phase 56 event-store emit client. POSTs refinement-lifecycle
+  events to VM100's Phase 56 event store at
+  POST /api/journal/internal/events/emit.
+
+  Retry policy (Plan 48-03 Task 3.1 contract):
+    - HTTP 2xx -> return None
+    - HTTP 4xx -> raise Phase56EmitError IMMEDIATELY (no retry — client error)
+    - HTTP 5xx -> retry exactly ONCE, then raise Phase56EmitError
+    - httpx.ConnectError -> retry exactly ONCE, then raise Phase56EmitError
+
+  Env-driven config (Directive #4): VM100_INTERNAL_BASE_URL is read via
+  os.environ[...] direct subscript at every emit call. Missing env raises
+  KeyError at the call site — fail-fast beats silent misconfiguration.
+
+  Also exports validate_snapshot_for_replay(stored_hash) -> None which
+  raises SnapshotMismatchError when the live CapabilityRegistry snapshot
+  hash differs from the loop's stored hash (CONTEXT § Decision 15 HARD
+  FAIL replay contract). Used by replay_query_service_extension_vm107.
+location:
+  source: VM107/core/events/phase56_client.py
+related_capabilities:
+  - refinement_events_emitter_vm107
+  - refinement_orchestrator
+  - replay_query_service_extension_vm107
+related_events:
+  - refinement_loop_started
+  - iteration_started
+  - critic_verdict_received
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+  - strategy_accepted
+  - strategy_rejected
+  - loop_terminated
+tags:
+  - phase-48
+  - phase-56
+  - event-store
+  - emit-client
+  - http-client
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,77 @@
+# REGISTER_CAPABILITY: type=tool, id=run_critic, path=VM107/registry/tool/run_critic.yaml
+id: run_critic
+type: tool
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: run_critic
+phase: 48
+producer: VM107
+version: "1.0.0"
+short_description: |
+  Phase 48 typed wrapper invoking the strategy_refinement_critic agent
+  profile. Returns a typed CriticVerdict (ACCEPT | REFINE | REJECT) +
+  structured RefinementTarget list. NEVER prose, NEVER unstructured.
+long_description: |
+  run_critic dispatches the strategy_refinement_critic Agent Zero profile
+  with EXACTLY ONE family-skill overlay (deterministically selected via
+  family_skill_map from StrategySpec.strategy_family — CONTEXT § Decision 1).
+  Returns a typed CriticVerdict with:
+    .verdict: Literal["ACCEPT", "REFINE", "REJECT"]
+    .confidence: float — clamped to HYBRID derived ceiling
+    .refinement_targets: list[RefinementTarget] (structured, never prose)
+    .failure_modes: list[str] (canonical IDs)
+    .rationale: str (LLM narrative — narrate, don't decide)
+    .loaded_skills: list[str] (for replay provenance)
+    .source_critic_verdict_id: Optional[str] (prior verdict in same loop)
+    .registry_snapshot_hash: str (inherited from loop)
+
+  HYBRID confidence clamp (CONTEXT § Decision 1 / planner Q7): the LLM emits
+  a raw confidence; run_critic clamps to a deterministic ceiling computed
+  from BacktestResult robustness signals so the Critic never claims more
+  certainty than the underlying evidence supports.
+
+  Critic-budget-blind invariant (Decision 14): run_critic signature MUST NOT
+  carry budget/governor/cost kwargs. test_anti_patterns.py inspects the
+  signature at test time; this YAML is the registry counterpart of that
+  invariant.
+
+  CONTEXT § Decision 1 tool scope (HYBRID):
+    HARD-blocked: call_subordinate, code_execution_tool, trade_execution_tool
+    SOFT-allowed: search_knowledge, document_query, response, lookup_capability,
+                  skills_tool, VM107 internal envelope/result query helpers.
+
+  Allowed only from refinement_orchestrator service (or test contexts).
+location:
+  source: VM107/core/agents/invocation.py:run_critic
+api_structure: |
+  Args:
+    state: RefinementLoopState — opaque, used to build prompt payload + chain
+    spec: StrategySpec
+    code: CodeModule
+    build: BuildReport
+    result: BacktestResult
+    db: Optional MongoDB handle for envelope persistence
+
+  Returns: CriticVerdict (typed Pydantic, schema_version=1)
+
+  Raises:
+    CriticDegradedError — agent failed safe_parse after retry-once
+    SchemaVersionMismatchError — schema mismatch on output
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - strategy_refinement_critic
+related_capabilities:
+  - run_strategy
+  - run_code
+  - run_build
+  - run_backtest
+  - strategy_refinement_critic
+tags:
+  - phase-48
+  - typed-wrapper
+  - cognition
+  - evaluation
+  - critic
+deprecated: false

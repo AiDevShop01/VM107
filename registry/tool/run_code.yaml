@@ -1,0 +1,63 @@
+# REGISTER_CAPABILITY: type=tool, id=run_code, path=VM107/registry/tool/run_code.yaml
+id: run_code
+type: tool
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: run_code
+phase: 48
+producer: VM107
+version: "1.0.0"
+short_description: |
+  Phase 48 typed wrapper invoking the Code Agent on a StrategySpec, returning a
+  CodeModule. Used by refinement_orchestrator + strategy_refinement_critic
+  (read-only inspection).
+long_description: |
+  run_code is the typed Pydantic-bounded wrapper around the Code Agent
+  subordinate dispatch. The orchestrator invokes it during iteration 0
+  (initial code generation) and during refinement iterations when a
+  CODE_MODULE-scoped RefinementTarget is routed via Plan 08a's
+  route_refinement helper. Wraps safe_parse(CodeModule) with retry-once-then-
+  fail discipline (Phase 43.2 + Phase 44).
+
+  Threads an optional RefinementContextEnvelope into the prompt as a typed
+  JSON wrapper — Code Agent NEVER receives prose feedback; it sees structured
+  targets only. Phase 48 § Decision 5 transformation boundary: run_code
+  regenerates CodeModule from the SAME StrategySpec when refinement is
+  CODE_MODULE-scoped; STRATEGY_SPEC-scoped refinements re-run run_strategy
+  first (orchestrator policy, not run_code's concern).
+
+  Persists an AgentEnvelope (success or degraded) via build_envelope +
+  write_envelope when a db handle is provided. The envelope's
+  source_envelope_id chains to the prior iteration's envelope per Phase 44.
+location:
+  source: VM107/core/agents/invocation.py:run_code
+api_structure: |
+  Args:
+    spec: StrategySpec (typed Pydantic) — frozen at call time
+    db: Optional MongoDB handle for envelope persistence
+    task_id: Optional task_id for envelope chain
+    source_envelope_id: Optional prior envelope for chain provenance
+    refinement_context: Optional RefinementContextEnvelope (Phase 48)
+    state: Optional RefinementLoopState (Phase 48 — only when refining)
+
+  Returns: CodeModule (typed Pydantic, schema_version=1)
+
+  Raises:
+    CodeAgentDegradedError — Code Agent failed safe_parse after retry-once
+    SchemaVersionMismatchError — output schema_version != expected
+impact_on_decision: HIGH
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+related_capabilities:
+  - run_strategy
+  - run_build
+  - run_backtest
+  - refinement_orchestrator
+tags:
+  - phase-48
+  - typed-wrapper
+  - cognition
+  - refinement
+deprecated: false

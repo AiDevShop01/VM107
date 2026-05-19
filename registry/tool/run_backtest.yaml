@@ -1,0 +1,65 @@
+# REGISTER_CAPABILITY: type=tool, id=run_backtest, path=VM107/registry/tool/run_backtest.yaml
+id: run_backtest
+type: tool
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: run_backtest
+phase: 48
+producer: VM107
+version: "1.0.0"
+short_description: |
+  Phase 48 typed wrapper invoking the Backtester Agent on a CodeModule +
+  BuildReport, returning a BacktestResult. The canonical evaluation
+  substrate; Critic NEVER queries raw VM102 datasets.
+long_description: |
+  run_backtest dispatches the Backtester Agent (LLM-mediated or sandbox-
+  executed depending on Phase 45.1 Q1 resolution) and returns a typed
+  BacktestResult. The result is the canonical evaluation substrate
+  consumed by:
+    - strategy_refinement_critic (via run_critic's prompt payload)
+    - Phase 48 deterministic acceptance floor (classify_acceptance)
+    - Phase 48 hard vetoes (check_hard_vetoes)
+    - downstream Phase 49 / 62 learning / outcome calibration
+
+  CONTEXT § Decision 1: Critic NEVER queries raw VM102 datasets — Backtester
+  is the SOLE evaluation surface. Critic reads BacktestResult.metrics
+  (sample_size, win_rate, max_drawdown, profit_factor, regime_coverage, ...)
+  and reasons about them. Critic NEVER asks for "more data" beyond what
+  BacktestResult exposes.
+
+  Persists an AgentEnvelope with status=success/degraded; chains via
+  source_envelope_id to the upstream BuildReport's envelope.
+location:
+  source: VM107/core/agents/invocation.py:run_backtest
+api_structure: |
+  Args:
+    module: CodeModule (typed Pydantic) — the compiled code
+    build: BuildReport (typed Pydantic) — must be status="success" or
+           "warnings_only"
+    db: Optional MongoDB handle for envelope persistence
+    task_id: Optional task_id for envelope chain
+    source_envelope_id: Optional prior envelope for chain provenance
+
+  Returns: BacktestResult (typed Pydantic, schema_version=1)
+    .metrics.sample_size, .metrics.win_rate, .metrics.max_drawdown,
+    .metrics.profit_factor, .metrics.regime_coverage, ...
+    .status: success | failure
+
+  Raises:
+    BacktesterDegradedError — agent failed safe_parse after retry-once
+    SchemaVersionMismatchError — schema mismatch on output
+impact_on_decision: HIGH
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+related_capabilities:
+  - run_build
+  - run_critic
+  - refinement_orchestrator
+tags:
+  - phase-48
+  - typed-wrapper
+  - evaluation
+  - canonical-substrate
+deprecated: false

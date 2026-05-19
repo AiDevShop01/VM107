@@ -1,0 +1,53 @@
+# REGISTER_CAPABILITY: type=service, id=refinement_pipeline_endpoint, path=VM107/registry/service/refinement_pipeline_endpoint.yaml
+id: refinement_pipeline_endpoint
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: RefinementPipelineEndpoint
+phase: 48
+producer: VM107
+version: "1.0.0"
+description: >
+  POST /api/v1/agents/pipeline/refine — async-only external HTTP entry
+  surface for the bounded refinement loop. Validates hypothesis_id +
+  schema_version + async flag; persists initial RefinementLoopState; emits
+  refinement_loop_started (SOLE event emitted from the HTTP surface);
+  dispatches the loop to the Phase 42 scheduler via
+  enqueue_refinement_worker; returns 202 + {task_id, loop_id, started_at}.
+
+  CONTEXT § Decision 16: refinement transaction boundary — "begin bounded
+  refinement search on this immutable research intent." § Decision 17:
+  V1 is async-only; sync HTTP invocation makes no sense for 5-20-minute
+  cognition workflows. § Decision 18: sole-emitter invariant — endpoint
+  emits exactly ONE refinement event (refinement_loop_started); main_loop
+  emits the rest from the worker context.
+
+  Response shape:
+    202 Accepted
+    {"task_id": "task_...", "loop_id": "loop_...", "started_at": "..."}
+
+  Hard-fails:
+    404 — hypothesis_id missing from hypotheses collection
+    422 — schema_version != 1, async != true, malformed body
+    503 — Phase 42 scheduler dispatch failure (transient)
+location:
+  source: VM107/api/v1/agents/pipeline/refine.py
+  endpoint: POST /api/v1/agents/pipeline/refine
+related_capabilities:
+  - refinement_orchestrator
+  - run_refinement_loop
+  - get_task
+  - phase56_emit_client_vm107
+related_events:
+  - refinement_loop_started
+tags:
+  - phase-48
+  - endpoint
+  - http
+  - entry-surface
+  - async-only
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

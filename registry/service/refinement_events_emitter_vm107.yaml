@@ -1,0 +1,60 @@
+# REGISTER_CAPABILITY: type=service, id=refinement_events_emitter_vm107, path=VM107/registry/service/refinement_events_emitter_vm107.yaml
+id: refinement_events_emitter_vm107
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: RefinementEventsEmitterVM107
+phase: 48
+producer: VM107
+version: "1.0.0"
+description: >
+  Typed emit helpers for all 10 Phase 48 refinement lifecycle events. Each
+  helper validates payload shape against a typed Pydantic schema then calls
+  phase56_client.emit_event with the hardcoded event_type + correlation_id
+  + causality_scope='IDEA'.
+
+  Sole-emitter invariant (CONTEXT § Decision 18): the orchestrator
+  (refinement_orchestrator service + the HTTP entry endpoint) is the SOLE
+  EMITTER of refinement lifecycle events. This module is the typed
+  emission boundary; AST guard at test time forbids importing it from
+  outside the authorized importer set (orchestrator package + endpoint).
+
+  10 typed helpers:
+    emit_refinement_loop_started
+    emit_iteration_started
+    emit_critic_verdict_received
+    emit_hard_veto_triggered
+    emit_identity_drift_detected
+    emit_convergence_stall_detected
+    emit_budget_exceeded
+    emit_strategy_accepted
+    emit_strategy_rejected
+    emit_loop_terminated
+location:
+  source: VM107/core/events/refinement_events.py
+related_capabilities:
+  - phase56_emit_client_vm107
+  - refinement_orchestrator
+  - refinement_pipeline_endpoint
+related_events:
+  - refinement_loop_started
+  - iteration_started
+  - critic_verdict_received
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+  - strategy_accepted
+  - strategy_rejected
+  - loop_terminated
+tags:
+  - phase-48
+  - phase-56
+  - event-emission
+  - typed-helpers
+  - sole-emitter
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,43 @@
+# REGISTER_CAPABILITY: type=service, id=strategy_yaml_emitter, path=VM107/registry/service/strategy_yaml_emitter.yaml
+id: strategy_yaml_emitter
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: StrategyYAMLEmitter
+phase: 48
+producer: VM107
+version: "1.0.0"
+description: >
+  Auto-generates registry/strategy/<accepted_strategy_id>.yaml on Phase 48
+  strategy acceptance (CONTEXT § Decision 11). Called by Plan 08a's
+  accept_strategy path when the orchestrator promotes a strategy to the
+  accepted_strategies collection.
+
+  Output YAML carries:
+    - REGISTER_CAPABILITY header comment with type=strategy, id=<id>, path=...
+    - Discovery metadata (strategy_family, validated_regimes, ...)
+    - Operational descriptors (allowed_execution_modes, risk_class, ...)
+    - Lineage links (root_hypothesis_id, refinement_loop_id,
+      final_strategy_spec_id, final_code_module_id)
+    - Status enum: accepted | deprecated | shadow | experimental
+    - schema_version: 1
+
+  CONTEXT § Decision 11: accepted strategies are first-class operational
+  cognition assets; the YAML registry entry is the discovery surface but
+  does NOT duplicate the Mongo accepted_strategies canonical truth.
+location:
+  source: VM107/core/registry/strategy_yaml_emitter.py
+related_capabilities:
+  - refinement_orchestrator
+related_events:
+  - strategy_accepted
+tags:
+  - phase-48
+  - registry
+  - yaml-emission
+  - acceptance-path
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,66 @@
+# REGISTER_CAPABILITY: type=tool, id=get_task, path=VM107/registry/tool/get_task.yaml
+id: get_task
+type: tool
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: get_task
+phase: 48
+producer: VM107
+version: "1.0.0"
+short_description: |
+  Phase 48 polling endpoint reader — returns the state-machine view of a
+  refinement task by task_id. Plain JSON; NO streaming, NO prose.
+long_description: |
+  get_task is the typed reader behind GET /api/v1/tasks/get_task?task_id=X.
+  Returns the canonical 10-field RefinementTaskState payload per CONTEXT
+  § Decision 17:
+    {task_id, state, current_iteration, current_stage, budget_remaining_usd,
+     started_at, updated_at, termination_reason, loop_id,
+     loop_registry_snapshot_hash}
+
+  Maps RefinementLoopState.termination_reason + iteration state to a 9-state
+  RefinementTaskState enum:
+    None + iter==0          -> RUNNING
+    None + iter>0           -> REFINING
+    ACCEPTED                -> ACCEPTED
+    CRITIC_REJECT / HARD_VETO / MAX_ITERATIONS -> REJECTED
+    BUDGET_EXCEEDED_ITERATION / BUDGET_EXCEEDED_LOOP -> BUDGET_EXCEEDED
+    CONVERGENCE_STALL       -> CONVERGENCE_STALL
+    IDENTITY_DRIFT          -> IDENTITY_DRIFT
+    BUILD_FAILURE + 4 degraded sub-states + BUILD_FAILED -> FAILED
+
+  CONTEXT § Decision 17 no-streaming invariant: response carries ONLY
+  state-machine fields — NO raw agent thoughts, NO LLM responses, NO
+  refinement_targets prose. The polling endpoint is bounded orchestration
+  state surface, NOT interactive chat. test_no_streaming.py enforces this
+  via recursive forbidden-key walk.
+
+  Path-parameter routing note (Plan 09 deviation): helpers/api.py
+  register_api_route() uses /api/<path:path> greedy matching which does NOT
+  support curly-brace path parameters. The endpoint accepts ?task_id=X
+  query parameter; the URL is GET /api/v1/tasks/get_task?task_id=X.
+location:
+  source: VM107/api/v1/tasks/get_task.py
+  endpoint: GET /api/v1/tasks/get_task
+api_structure: |
+  Query parameter:
+    task_id: str (required) — the task_id returned from POST /api/v1/agents/pipeline/refine
+
+  Returns: 200 + RefinementTaskState 10-field JSON | 404 if task_id unknown
+
+  Raises: never — errors surface as HTTP status codes.
+impact_on_decision: MEDIUM
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+related_capabilities:
+  - refinement_pipeline_endpoint
+  - refinement_orchestrator
+tags:
+  - phase-48
+  - polling
+  - state-machine
+  - endpoint
+  - http
+deprecated: false

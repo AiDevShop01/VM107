@@ -1,0 +1,61 @@
+# REGISTER_CAPABILITY: type=service, id=replay_query_service_extension_vm107, path=VM107/registry/service/replay_query_service_extension_vm107.yaml
+id: replay_query_service_extension_vm107
+type: service
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: ReplayQueryServiceExtensionVM107
+phase: 48
+producer: VM107
+version: "1.0.0"
+description: >
+  VM107-side wrapper that reads back refinement-loop event timelines from
+  Phase 56's event store with HARD FAIL snapshot validation.
+
+  Public surface:
+    get_refinement_timeline(loop_id) -> list[dict]
+      1. Look up RefinementLoopState by loop_id to find stored
+         loop_registry_snapshot_hash.
+      2. validate_snapshot_for_replay(stored_hash) — raises
+         SnapshotMismatchError if live registry snapshot differs.
+         CONTEXT § Decision 15 HARD FAIL: no best-effort replay against
+         a mutated capability surface.
+      3. Read events filtered by correlation_id=loop_id, ordered by
+         occurred_at ASC (Phase 56 per-entity sequence ordering preserved).
+      4. Return ordered event timeline.
+
+  Plan 09 deviation Rule 3 (Blocking): the canonical Phase 56
+  ReplayQueryService lives in VM100's Django backend; a Phase 56 cross-VM
+  read API was not in scope for Plan 09. Until VM100 ships an HTTP
+  endpoint exposing get_events_by_correlation_id, this VM107 extension
+  reads from a local 'events' Mongo collection (test substrate). The
+  public surface (get_refinement_timeline + snapshot HARD FAIL) is the
+  canonical contract; the underlying read substrate is swappable to the
+  future VM100 API without changing callers.
+location:
+  source: VM107/core/events/replay_query_service_extension.py
+related_capabilities:
+  - phase56_emit_client_vm107
+  - refinement_events_emitter_vm107
+  - refinement_orchestrator
+related_events:
+  - refinement_loop_started
+  - iteration_started
+  - critic_verdict_received
+  - hard_veto_triggered
+  - identity_drift_detected
+  - convergence_stall_detected
+  - budget_exceeded
+  - strategy_accepted
+  - strategy_rejected
+  - loop_terminated
+tags:
+  - phase-48
+  - phase-56
+  - replay
+  - timeline
+  - snapshot-hard-fail
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

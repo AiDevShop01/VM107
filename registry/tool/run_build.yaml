@@ -1,0 +1,59 @@
+# REGISTER_CAPABILITY: type=tool, id=run_build, path=VM107/registry/tool/run_build.yaml
+id: run_build
+type: tool
+status: real
+shipped: 48
+last_changed: 2026-05-18
+name: run_build
+phase: 48
+producer: VM107
+version: "1.0.0"
+short_description: |
+  Phase 48 typed wrapper invoking the deterministic Build Agent on a
+  CodeModule, returning a BuildReport. NO LLM, NO retry (pure-Python service
+  per CONTEXT § Decision 2).
+long_description: |
+  run_build is the deterministic Build Agent dispatch — pure-Python service,
+  NOT an LLM agent profile. Compiles + statically analyzes a CodeModule and
+  emits a BuildReport with status (success | failure | warnings_only),
+  errors[], warnings[], and an optional artifact_id (the compiled module
+  registered in the local artifact store).
+
+  CONTEXT § Decision 14: Build does NOT retry. A deterministic compiler
+  failure is a deterministic compiler failure; retry would only mask state.
+  Failure terminates the loop with BUILD_FAILED termination_reason (via
+  CodeAgentDegradedError -> BUILD_FAILURE bucket per Plan 03 emit_loop_
+  terminated taxonomy).
+
+  Late-imports core.agents.build_agent.run() to avoid circular deps; until
+  build_agent ships its full pipeline, returns a deterministic placeholder
+  success envelope (Phase 45 stub pattern carried into Phase 48).
+location:
+  source: VM107/core/agents/invocation.py:run_build
+api_structure: |
+  Args:
+    module: CodeModule (typed Pydantic) — the code to compile
+
+  Returns: BuildReport (typed Pydantic, schema_version=1)
+    .status: Literal["success", "failure", "warnings_only"]
+    .artifact_id: Optional[str]
+    .errors: list[str]
+    .warnings: list[str]
+
+  Raises: NEVER — Build errors surface as BuildReport.status == "failure"
+    or BuildReport.errors, NOT exceptions. Orchestrator catches the failure
+    status and maps to BUILD_FAILED termination.
+impact_on_decision: HIGH
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+related_capabilities:
+  - run_code
+  - run_backtest
+  - refinement_orchestrator
+tags:
+  - phase-48
+  - typed-wrapper
+  - deterministic
+  - refinement
+deprecated: false
