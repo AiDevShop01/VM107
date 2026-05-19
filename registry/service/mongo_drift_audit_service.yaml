@@ -1,12 +1,13 @@
 id: mongo_drift_audit_service
 name: mongo_drift_audit_service
 type: service
-status: planned  # Plan 01 ships the implementation and flips to `real`
-shipped: null
+status: real  # Plan 01 of Phase 58.1 — body shipped 2026-05-19
+shipped: "58.1"
 planned_phase: "58.1"
 phase: "58.1"
 producer: vm100
 last_changed: 2026-05-19
+notes: "Plan 01 of Phase 58.1 — body shipped 2026-05-19. Wires the daily comparator via Dagster mongo_drift_audit_schedule (06:00 UTC) → VM100 GET /api/journal/internal/mongo-drift-audit. The 7-day clean-streak gate is_legacy_delete_safe() authorizes Plan 02's gated legacy delete."
 description: |
   Phase 58.1 F-3 — audit-only comparator that diffs legacy Mongo
   `journal_entries.notes[]` against canonical Postgres `journal_note` per
