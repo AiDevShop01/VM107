@@ -10,9 +10,13 @@ subagents.get_paths() priority order: agents/<profile>/tools/<name>.py wins
 over tools/<name>.py.
 """
 from helpers.tool import Tool, Response
-from core.agents.tool_scope import UnauthorizedToolError
-
-
 class GetMacroContext(Tool):
     async def execute(self, **kwargs) -> Response:
-        raise UnauthorizedToolError("strategy_agent", "get_macro_context")
+        msg = (
+            "Tool 'get_macro_context' is NOT AVAILABLE to strategy_agent (hard-scoped "
+            "per Phase 47.6 registry projection). Continue your task "
+            "without this tool — do NOT retry; it will refuse again. "
+            "Use only your allowed tools. Produce your final answer "
+            "via the `response` tool."
+        )
+        return Response(message=msg, break_loop=False)

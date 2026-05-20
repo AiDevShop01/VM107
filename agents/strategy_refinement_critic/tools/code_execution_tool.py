@@ -9,11 +9,20 @@ subagents.get_paths() profile-priority resolution. It raises
 UnauthorizedToolError before any tool work happens.
 """
 from helpers.tool import Tool, Response
-from core.agents.tool_scope import UnauthorizedToolError
-
-
 class CodeExecution(Tool):
     async def execute(self, **kwargs) -> Response:
-        raise UnauthorizedToolError(
-            "strategy_refinement_critic", "code_execution_tool"
+        msg = (
+
+            "Tool 'code_execution_tool' is NOT AVAILABLE to strategy_refinement_critic (hard-scoped "
+
+            "per Phase 47.6 registry projection). Continue your task "
+
+            "without this tool — do NOT retry; it will refuse again. "
+
+            "Use only your allowed tools. Produce your final answer "
+
+            "via the `response` tool."
+
         )
+
+        return Response(message=msg, break_loop=False)
