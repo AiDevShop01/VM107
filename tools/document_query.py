@@ -7,7 +7,21 @@ from helpers.document_query import DocumentQueryHelper
 class DocumentQueryTool(Tool):
 
     async def execute(self, **kwargs):
-        document_uri = kwargs.get("document")
+        # Accept any of `document` (canonical, per prompt), `documents`,
+        # `path`, `paths`, `file_path`, `file_paths` as the argument name —
+        # agents (and humans) frequently reach for `file_paths` since it's
+        # the more conventional name in Python/CLI usage. Each accepts a
+        # string or list. Found 2026-05-20 UAT-40.2-02 (agent passed
+        # file_paths=[/a0/usr/.../feature-models.md] and got a misleading
+        # "no document provided" error).
+        document_uri = (
+            kwargs.get("document")
+            or kwargs.get("documents")
+            or kwargs.get("path")
+            or kwargs.get("paths")
+            or kwargs.get("file_path")
+            or kwargs.get("file_paths")
+        )
         document_uris = []
 
         if isinstance(document_uri, list):
@@ -16,7 +30,16 @@ class DocumentQueryTool(Tool):
             document_uris = [document_uri]
 
         if not document_uris:
-            return Response(message="Error: no document provided", break_loop=False)
+            return Response(
+                message=(
+                    "Error: no document provided. Pass the path/url via the "
+                    "`document` arg (canonical, per the documented tool prompt) "
+                    "or any of `documents`, `path`, `paths`, `file_path`, "
+                    "`file_paths` (accepted as aliases). Value can be a string "
+                    "or a list of strings."
+                ),
+                break_loop=False,
+            )
 
         queries = (
             kwargs["queries"]
