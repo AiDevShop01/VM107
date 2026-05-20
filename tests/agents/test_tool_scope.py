@@ -251,17 +251,20 @@ async def test_denial_stub_idea_call_subordinate():
 
     Validates the per-profile override mechanism works end-to-end.
     """
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub("agents/idea_agent/tools/call_subordinate.py")
     Delegation = mod.Delegation
 
     stub = Delegation.__new__(Delegation)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "idea_agent"
-    assert exc_info.value.tool_name == "call_subordinate"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "call_subordinate" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "idea_agent" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 @pytest.mark.asyncio
@@ -270,17 +273,20 @@ async def test_denial_stub_strategy_call_subordinate():
     Denial stub agents/strategy_agent/tools/call_subordinate.py raises
     UnauthorizedToolError when execute() is awaited.
     """
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub("agents/strategy_agent/tools/call_subordinate.py")
     Delegation = mod.Delegation
 
     stub = Delegation.__new__(Delegation)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "strategy_agent"
-    assert exc_info.value.tool_name == "call_subordinate"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "call_subordinate" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "strategy_agent" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 @pytest.mark.asyncio
@@ -289,17 +295,20 @@ async def test_denial_stub_idea_code_execution():
     Denial stub agents/idea_agent/tools/code_execution_tool.py raises
     UnauthorizedToolError when execute() is awaited.
     """
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub("agents/idea_agent/tools/code_execution_tool.py")
     CodeExecution = mod.CodeExecution
 
     stub = CodeExecution.__new__(CodeExecution)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "idea_agent"
-    assert exc_info.value.tool_name == "code_execution_tool"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "code_execution_tool" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "idea_agent" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 @pytest.mark.asyncio
@@ -308,17 +317,20 @@ async def test_denial_stub_strategy_code_execution():
     Denial stub agents/strategy_agent/tools/code_execution_tool.py raises
     UnauthorizedToolError when execute() is awaited.
     """
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub("agents/strategy_agent/tools/code_execution_tool.py")
     CodeExecution = mod.CodeExecution
 
     stub = CodeExecution.__new__(CodeExecution)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "strategy_agent"
-    assert exc_info.value.tool_name == "code_execution_tool"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "code_execution_tool" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "strategy_agent" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -329,7 +341,6 @@ async def test_denial_stub_strategy_code_execution():
 @pytest.mark.asyncio
 async def test_denial_stub_critic_call_subordinate():
     """Phase 48 Plan 06 — strategy_refinement_critic call_subordinate stub denies."""
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub(
         "agents/strategy_refinement_critic/tools/call_subordinate.py"
@@ -337,17 +348,20 @@ async def test_denial_stub_critic_call_subordinate():
     Delegation = mod.Delegation
 
     stub = Delegation.__new__(Delegation)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "strategy_refinement_critic"
-    assert exc_info.value.tool_name == "call_subordinate"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "call_subordinate" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "strategy_refinement_critic" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 @pytest.mark.asyncio
 async def test_denial_stub_critic_code_execution():
     """Phase 48 Plan 06 — strategy_refinement_critic code_execution_tool stub denies."""
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub(
         "agents/strategy_refinement_critic/tools/code_execution_tool.py"
@@ -355,17 +369,20 @@ async def test_denial_stub_critic_code_execution():
     CodeExecution = mod.CodeExecution
 
     stub = CodeExecution.__new__(CodeExecution)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "strategy_refinement_critic"
-    assert exc_info.value.tool_name == "code_execution_tool"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "code_execution_tool" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "strategy_refinement_critic" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 @pytest.mark.asyncio
 async def test_denial_stub_critic_trade_execution():
     """Phase 48 Plan 06 — strategy_refinement_critic trade_execution_tool stub denies."""
-    from core.agents.tool_scope import UnauthorizedToolError
 
     mod = _load_denial_stub(
         "agents/strategy_refinement_critic/tools/trade_execution_tool.py"
@@ -373,11 +390,15 @@ async def test_denial_stub_critic_trade_execution():
     TradeExecution = mod.TradeExecution
 
     stub = TradeExecution.__new__(TradeExecution)
-    with pytest.raises(UnauthorizedToolError) as exc_info:
-        await stub.execute()
-
-    assert exc_info.value.agent_id == "strategy_refinement_critic"
-    assert exc_info.value.tool_name == "trade_execution_tool"
+    # Stubs return a soft refusal Response (not raise) so the agent
+    # loop can recover instead of crashing. Refactored 2026-05-20
+    # for UAT-FINDING-AZ02. See agents/{agent_id}/tools/* docstrings.
+    result = await stub.execute()
+    assert result.break_loop is False, "stub must not break the agent loop"
+    assert "trade_execution_tool" in result.message, f"refusal message must name the tool; got: {result.message!r}"
+    assert "strategy_refinement_critic" in result.message, f"refusal message must name the agent; got: {result.message!r}"
+    assert "NOT AVAILABLE" in result.message or "not available" in result.message.lower(), \
+        f"refusal message must be clear: {result.message!r}"
 
 
 def test_critic_prompts_loop_blind():
