@@ -41,3 +41,8 @@ tags:
   - phase_55_identity
 hard_scoped: true
 deprecated: false
+# Phase 47.6 LD-3 required field. MEDIUM: resolver determines whether
+# get_trade_context can find the row (miss = trader sees "not available"
+# instead of trade context), but the resolver itself doesn't shape the
+# trade decision — it's a lookup substrate.
+impact_on_decision: MEDIUM

@@ -36,3 +36,7 @@ tags:
   - decommission-gate
 hard_scoped: true
 deprecated: false
+# Phase 47.6 LD-3 required field. LOW: audit-only background process that
+# gates a legacy-code deletion. Does not feed any agent-facing decision —
+# decommission gate is read by a release engineer, not the agent loop.
+impact_on_decision: LOW
