@@ -976,9 +976,16 @@ class Agent:
     async def validate_tool_request(self, tool_request: Any):
         if not isinstance(tool_request, dict):
             raise ValueError("Tool request must be a dictionary")
-        if not tool_request.get("tool_name") or not isinstance(tool_request.get("tool_name"), str):
+        # BUG-18: accept "tool" as alias for "tool_name" (matches dispatcher line 881)
+        tool_name = tool_request.get("tool_name") or tool_request.get("tool")
+        if not tool_name or not isinstance(tool_name, str):
             raise ValueError("Tool request must have a tool_name (type string) field")
-        if not tool_request.get("tool_args") or not isinstance(tool_request.get("tool_args"), dict):
+        # BUG-18: accept "args" as alias for "tool_args" (matches dispatcher line 882)
+        # Use None sentinel rather than truthy check so empty dict {} passes for zero-arg tools
+        tool_args = tool_request.get("tool_args")
+        if tool_args is None:
+            tool_args = tool_request.get("args")
+        if tool_args is None or not isinstance(tool_args, dict):
             raise ValueError("Tool request must have a tool_args (type dictionary) field")
 
 
