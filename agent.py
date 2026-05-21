@@ -1028,6 +1028,26 @@ class Agent:
         # search for tools in agent's folder hierarchy
         paths = subagents.get_paths(self, "tools", name + ".py")
 
+        # BUG-17 (Phase 62.1): Tools in subdirs (tools/replay/, tools/adaptive/, etc.) are
+        # invisible to flat name lookup. Fall back to recursive glob across all hierarchical
+        # tools roots. Flat lookup still wins when both match — no behavior change for the
+        # 100+ top-level tools that work today.
+        if not paths:
+            import glob as _glob
+            import logging as _logging
+            import os as _os
+            _tools_roots = subagents.get_paths(self, "tools", must_exist_completely=False)
+            for _root in _tools_roots:
+                if not _root or not _os.path.isdir(_root):
+                    continue
+                _matches = _glob.glob(_os.path.join(_root, "**", name + ".py"), recursive=True)
+                if _matches:
+                    _logging.getLogger("fingpt.agent.get_tool").debug(
+                        "BUG-17 subdir fallback: resolved '%s' to %s", name, _matches[0]
+                    )
+                    paths = [_matches[0]]
+                    break
+
         for path in paths:
             try:
                 classes = extract_tools.load_classes_from_file(path, Tool)  # type: ignore[arg-type]
