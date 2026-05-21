@@ -22,13 +22,43 @@ recommended order:
 4. **`fetch_replay_frame(artifact_id, frame_index=None)`** — Retrieve specific
    replay frames. Use sparingly — only entry/exit frames for cited representative trades.
 
-## ReaderOutput Shape
+## Output Instructions
 
-**ALWAYS respond with a single raw JSON object matching this schema. No markdown
-fences in the response body, no `{"text": "..."}` wrapper, no
-`{"reader_output": {...}}` wrapper, no explanatory prose before or after the
-JSON.** The orchestrator calls `ReaderOutput.model_validate()` and rejects any
-deviation. All 5 fields below are REQUIRED.
+Call the `response` tool with `tool_args.text` set to a JSON-encoded string
+matching the ReaderOutput contract. The orchestrator calls
+`ReaderOutput.model_validate(json.loads(tool_args.text))` — your `text` value
+MUST be a valid serialised `ReaderOutput`.
+
+Set `schema_version: "1.0"` in every response without exception.
+`schema_version` MUST be the string `"1.0"` (NOT integer 2 or any other value).
+
+**CORRECT final turn:**
+
+```json
+{
+  "tool_name": "response",
+  "tool_args": {
+    "text": "{\"schema_version\":\"1.0\",\"execution_id\":null, ...}"
+  }
+}
+```
+
+**WRONG — do NOT do this:**
+
+```json
+{
+  "schema_version": "1.0",
+  "execution_id": null,
+  ...
+}
+```
+
+Emitting bare JSON (not wrapped in `response` tool) will cause the orchestrator
+to reject your output at the tool-parsing layer before `model_validate` is reached.
+
+## ReaderOutput Contract Shape
+
+All 5 fields below are REQUIRED. `schema_version` must be the string `"1.0"`.
 
 **Populated example (evidence available):**
 
@@ -36,7 +66,7 @@ deviation. All 5 fields below are REQUIRED.
 {
   "schema_version": "1.0",
   "execution_id": null,
-  "scope_context": { /* copy verbatim from the scope_context provided in input */ },
+  "scope_context": { "copy verbatim from the scope_context provided in input": true },
   "retrieved_evidence": {
     "week_summary": {
       "account_id": "acc-001",
@@ -54,21 +84,21 @@ deviation. All 5 fields below are REQUIRED.
         }
       ]
     },
-    "performance_history": { /* from get_performance_history */ },
-    "replay_artifacts": [ /* from lookup_replay_artifact for representative executions */ ],
-    "replay_frames": [ /* from fetch_replay_frame, empty list if not retrieved */ ]
+    "performance_history": { "from get_performance_history": true },
+    "replay_artifacts": [],
+    "replay_frames": []
   },
   "suspicious_payload": []
 }
 ```
 
-**Empty example (no evidence — STILL emit JSON, do NOT write a prose explanation):**
+**Empty example (no evidence — STILL emit JSON via the response tool, do NOT write prose):**
 
 ```json
 {
   "schema_version": "1.0",
   "execution_id": null,
-  "scope_context": { /* copy verbatim from the scope_context provided in input */ },
+  "scope_context": { "copy verbatim from the scope_context provided in input": true },
   "retrieved_evidence": {
     "week_summary": null,
     "performance_history": null,
@@ -85,6 +115,47 @@ still emit the full envelope above. Never replace the envelope with prose.
 
 Note: `execution_id` is null for week-rollup runs. The week_summary.executions
 list is the primary evidence base for the analyzer's 4 internal lenses.
+
+## Few-Shot Example
+
+**INPUT (ReaderInput arriving as your user message):**
+
+```json
+{
+  "schema_version": "1.0",
+  "execution_id": null,
+  "scope_context": {
+    "profile_id": "weekly_review_agent",
+    "account_id": "acc-001"
+  },
+  "source_mentions": []
+}
+```
+
+**TOOL SEQUENCE:**
+
+Turn 1 — call `get_weekly_execution_summary`:
+```json
+{"tool_name": "get_weekly_execution_summary", "tool_args": {"account_id": "acc-001", "week_start": "2026-05-04", "week_end": "2026-05-10", "timezone": "America/New_York"}}
+```
+
+Turn 2 — call `get_performance_history`:
+```json
+{"tool_name": "get_performance_history", "tool_args": {"account_id": "acc-001"}}
+```
+
+Turn 3 — call `response` with JSON-encoded ReaderOutput in `tool_args.text`:
+```json
+{
+  "tool_name": "response",
+  "tool_args": {
+    "text": "{\"schema_version\":\"1.0\",\"execution_id\":null,\"scope_context\":{\"profile_id\":\"weekly_review_agent\",\"account_id\":\"acc-001\"},\"retrieved_evidence\":{\"week_summary\":{\"account_id\":\"acc-001\",\"week_start\":\"2026-05-04\",\"week_end\":\"2026-05-10\",\"timezone\":\"America/New_York\",\"executions\":[{\"execution_id\":\"exec-abc\",\"instrument\":\"EURUSD\",\"result_r\":1.5}]},\"performance_history\":{\"win_rate\":0.55},\"replay_artifacts\":[],\"replay_frames\":[]},\"suspicious_payload\":[]}"
+  }
+}
+```
+
+Note: `tool_args.text` is a single JSON string. The outer structure is the
+`response` tool call wrapper. Do NOT separate them or emit bare JSON.
 
 ## Week Window Call Shape
 
