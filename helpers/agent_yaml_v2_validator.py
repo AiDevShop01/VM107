@@ -153,6 +153,25 @@ def validate_agent_yaml_v2(profile_name: str, agent: "SubAgent") -> None:
         if dotted_path:
             _validate_import_path(profile_name, field_name, dotted_path)
 
+    # --- BUG-23 / Phase 62.1: model_tier and thinking_mode capability flags ---
+    # model_tier must be one of the allowed literal values if set.
+    model_tier = getattr(agent, "model_tier", None)
+    if model_tier is not None and model_tier not in ("utility", "chat"):
+        raise AgentYamlV2Error(
+            f"Profile '{profile_name}': model_tier = {model_tier!r} is not valid. "
+            "Allowed values: 'utility', 'chat'. "
+            "(BUG-23 / Phase 62.1 capability flag)"
+        )
+    # thinking_mode must be bool if set — Pydantic enforces the type, but we emit
+    # a clearer error message here in case YAML gave us a non-bool.
+    thinking_mode = getattr(agent, "thinking_mode", None)
+    if thinking_mode is not None and not isinstance(thinking_mode, bool):
+        raise AgentYamlV2Error(
+            f"Profile '{profile_name}': thinking_mode = {thinking_mode!r} must be a "
+            "boolean (true or false). "
+            "(BUG-23 / Phase 62.1 capability flag)"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Private helpers

@@ -76,6 +76,15 @@ class SubAgent(SubAgentListItem):
     input_contract: str | None = None
     output_contract: str | None = None
 
+    # BUG-23 / Phase 62.1: capability flags — optional, default to chat-tier + thinking on.
+    # model_tier:    "utility" routes to the globally-configured utility model;
+    #                "chat" (default/absent) routes to the chat model unchanged.
+    # thinking_mode: False disables thinking for mechanical tool-dispatch stages;
+    #                True (default/absent) preserves provider default (thinking on for DeepSeek).
+    # Brain-level agent.yaml files MUST NOT set these — only sub-profiles use them.
+    model_tier: Literal["utility", "chat"] | None = None
+    thinking_mode: bool | None = None
+
 
 def get_agents_list(project_name: str | None = None) -> list[SubAgentListItem]:
     return list(get_agents_dict(project_name).values())
@@ -367,6 +376,9 @@ def _merge_agents(base: SubAgent | None, override: SubAgent | None) -> SubAgent 
         max_cost_usd=_pick("max_cost_usd"),
         input_contract=_pick("input_contract"),
         output_contract=_pick("output_contract"),
+        # BUG-23 / Phase 62.1 capability flags
+        model_tier=_pick("model_tier"),
+        thinking_mode=_pick("thinking_mode"),
     )
 
 
