@@ -130,6 +130,23 @@ class ContractTool(Tool):
                 )
                 self.args = {k: v for k, v in self.args.items() if not k.startswith("X-")}
 
+            # BUG-21a: LLMs sometimes nest X-* headers inside a 'headers' dict in tool_args,
+            # e.g. {"trade_id": "abc", "headers": {"X-Agent-Scope": "..."}}.
+            # BUG-16's top-level X-* strip does NOT catch this nested form.
+            # 'headers' is never a legitimate field for any ContractTool subclass — strip it
+            # unconditionally and log the contents so prompt drift is observable.
+            if "headers" in self.args:
+                _headers_val = self.args["headers"]
+                _nested_keys = list(_headers_val.keys()) if isinstance(_headers_val, dict) else []
+                logging.getLogger("fingpt.tools.vm_contracts").warning(
+                    "ContractTool[%s]: stripped nested 'headers' field from tool_args "
+                    "(value=%r, nested_keys=%s) — 'headers' is never a valid tool arg (BUG-21a fallback)",
+                    type(self).__name__,
+                    _headers_val if not isinstance(_headers_val, dict) else "<dict>",
+                    _nested_keys,
+                )
+                self.args = {k: v for k, v in self.args.items() if k != "headers"}
+
             # Validate request
             request = self._validate_request(self.args)
 

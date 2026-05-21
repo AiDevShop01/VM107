@@ -144,3 +144,70 @@ def test_contract_tool_does_not_strip_normal_keys():
     )
     # The normal key must still be in args
     assert tool.args.get("foo") == "normal_value"
+
+
+# ---------------------------------------------------------------------------
+# BUG-21a tests: nested headers dict strip
+# ---------------------------------------------------------------------------
+
+
+def test_contract_tool_strips_nested_headers_dict_with_x_keys(caplog):
+    """BUG-21a: ContractTool must strip a 'headers' dict from tool_args.
+
+    The LLM sometimes nests X-Agent-Scope inside tool_args.headers:
+        {"trade_id": "abc", "headers": {"X-Agent-Scope": "..."}}
+    BUG-16's top-level X-* strip doesn't catch this. After BUG-21a,
+    the 'headers' field must be removed entirely and a WARNING logged.
+    """
+    tool = _make_foo_tool({"foo": "abc", "headers": {"X-Agent-Scope": "JWT.abc.def"}})
+    with caplog.at_level(logging.WARNING, logger="fingpt.tools.vm_contracts"):
+        response = asyncio.get_event_loop().run_until_complete(tool.execute())
+    # Validation must NOT fail — headers was stripped before Pydantic validation
+    assert "Contract validation failed" not in response.message, (
+        f"headers dict was not stripped — got: {response.message}"
+    )
+    # 'headers' must be removed from args
+    assert "headers" not in tool.args, (
+        f"'headers' key still in tool.args after execute(): {tool.args}"
+    )
+    # WARNING log must reference 'headers' and BUG-21a
+    assert any(
+        "headers" in record.message and "BUG-21a" in record.message
+        for record in caplog.records
+    ), f"Expected BUG-21a warning about headers; got: {[r.message for r in caplog.records]}"
+
+
+def test_contract_tool_strips_nested_headers_with_non_dict_value(caplog):
+    """BUG-21a: ContractTool must strip 'headers' even when its value is not a dict.
+
+    A string/int/None 'headers' field is equally invalid as a tool arg.
+    Strip it and log WARNING regardless of the value type.
+    """
+    tool = _make_foo_tool({"foo": "bar", "headers": "garbage"})
+    with caplog.at_level(logging.WARNING, logger="fingpt.tools.vm_contracts"):
+        response = asyncio.get_event_loop().run_until_complete(tool.execute())
+    assert "Contract validation failed" not in response.message, (
+        f"headers string was not stripped — got: {response.message}"
+    )
+    assert "headers" not in tool.args, (
+        f"'headers' key still in tool.args after execute(): {tool.args}"
+    )
+    assert any(
+        "headers" in record.message and "BUG-21a" in record.message
+        for record in caplog.records
+    ), f"Expected BUG-21a warning; got: {[r.message for r in caplog.records]}"
+
+
+def test_contract_tool_no_warning_when_no_headers_field():
+    """BUG-21a: ContractTool must not log or alter args when 'headers' is absent.
+
+    This is the happy-path baseline for BUG-21a: a tool call with no 'headers'
+    field in args must pass through silently with no extra WARNING.
+    """
+    tool = _make_foo_tool({"foo": "clean"})
+    response = asyncio.get_event_loop().run_until_complete(tool.execute())
+    assert "Contract validation failed" not in response.message, (
+        f"Clean args unexpectedly rejected: {response.message}"
+    )
+    assert "headers" not in tool.args
+    assert tool.args.get("foo") == "clean"
