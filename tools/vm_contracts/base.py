@@ -118,6 +118,18 @@ class ContractTool(Tool):
         timestamp = datetime.utcnow().isoformat() + "Z"
 
         try:
+            # BUG-16: LLMs sometimes hallucinate X-Agent-Scope (or other X-* transport-layer
+            # headers) into tool_args. Strip them before Pydantic validation so extra="forbid"
+            # contracts don't reject the call. Log a WARNING so prompt drift is visible.
+            _stripped_keys = [k for k in self.args if k.startswith("X-")]
+            if _stripped_keys:
+                logging.getLogger("fingpt.tools.vm_contracts").warning(
+                    "ContractTool[%s]: stripped transport-layer keys from tool_args: %s (BUG-16 fallback)",
+                    type(self).__name__,
+                    _stripped_keys,
+                )
+                self.args = {k: v for k, v in self.args.items() if not k.startswith("X-")}
+
             # Validate request
             request = self._validate_request(self.args)
 
