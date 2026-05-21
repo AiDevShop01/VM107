@@ -1,4 +1,4 @@
-"""Phase 62.1 — Prompt lint test scaffold: reader sub-profile contract compliance.
+"""Phase 62.1 — Prompt lint test: reader sub-profile contract compliance.
 
 Three reader prompt directories are tested:
   - agents/trade_auditor_agent/_reader/prompts/
@@ -6,15 +6,13 @@ Three reader prompt directories are tested:
   - agents/weekly_review_agent/_reader/prompts/
 
 Each directory must contain:
-  - agent.system.main.role.md     (schema_version, STRICT OUTPUT CONTRACT, final-turn shape)
-  - agent.system.main.specifics.md (schema_version, few-shot examples)
+  - agent.system.main.role.md     (schema_version "1.0", STRICT OUTPUT CONTRACT,
+                                   final-turn shape, Prohibited outputs)
+  - agent.system.main.specifics.md (schema_version "1.0", wrapper instruction,
+                                    no 'raw JSON object', few-shot example)
 
-BUG-13 (partial) surfaced that:
-  - trade_auditor role.md had schema_version: 2 (integer) — now fixed to "1.0" (string)
-  - behavioral_mentor and weekly_review reader prompts have NOT been audited yet
-  - Strict output contract sections and few-shot examples are absent from most files
-
-Wave 1 (Plan 62.1-01) fixes all three reader profile prompts to be contract-compliant.
+This test is the permanent gate against future prompt drift introduced by BUG-13.
+All tests are LIVE (no xfail) after Plan 03 ships the prompt hardening.
 """
 from __future__ import annotations
 
@@ -31,10 +29,11 @@ if str(_VM107_ROOT) not in sys.path:
 # Reader prompt file paths
 # ---------------------------------------------------------------------------
 
+PROFILES = ["trade_auditor_agent", "behavioral_mentor_agent", "weekly_review_agent"]
+
 _READER_DIRS = {
-    "trade_auditor": _VM107_ROOT / "agents" / "trade_auditor_agent" / "_reader" / "prompts",
-    "behavioral_mentor": _VM107_ROOT / "agents" / "behavioral_mentor_agent" / "_reader" / "prompts",
-    "weekly_review": _VM107_ROOT / "agents" / "weekly_review_agent" / "_reader" / "prompts",
+    p: _VM107_ROOT / "agents" / p / "_reader" / "prompts"
+    for p in PROFILES
 }
 
 _READER_ROLE_FILES = {
@@ -44,145 +43,126 @@ _READER_SPECIFICS_FILES = {
     name: d / "agent.system.main.specifics.md" for name, d in _READER_DIRS.items()
 }
 
-_ALL_AGENTS = list(_READER_DIRS.keys())
-
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
-def _read_prompt(path: Path) -> str:
+def _read_role(profile: str) -> str:
+    path = _READER_ROLE_FILES[profile]
+    if not path.exists():
+        pytest.skip(f"Prompt file not found: {path}")
+    return path.read_text(encoding="utf-8")
+
+
+def _read_specifics(profile: str) -> str:
+    path = _READER_SPECIFICS_FILES[profile]
     if not path.exists():
         pytest.skip(f"Prompt file not found: {path}")
     return path.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# role.md tests (5 assertions × 3 profiles = 15 parameterized cases)
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason="BUG-13 prompts pending in Phase 62.1 Plan 01 — currently only 1 of 3 role.md files have STRICT OUTPUT CONTRACT section",
-    strict=False,
-    run=True,
-)
-def test_all_three_reader_role_md_have_strict_output_contract_section():
-    """All three reader role.md files must contain a STRICT OUTPUT CONTRACT section.
-
-    The section heading must be present to ensure the LLM receives an explicit
-    constraint about JSON-only output at the very beginning of its system prompt.
-    Wave 1 will add this section to behavioral_mentor and weekly_review role.md.
-    """
-    missing = []
-    for agent_name, role_path in _READER_ROLE_FILES.items():
-        content = _read_prompt(role_path)
-        if "STRICT OUTPUT CONTRACT" not in content:
-            missing.append(agent_name)
-    if missing:
-        pytest.fail(
-            f"Missing STRICT OUTPUT CONTRACT section in role.md for: {missing}. "
-            "Wave 1 (Plan 62.1-01) will add these sections."
-        )
+@pytest.mark.parametrize("profile", PROFILES)
+def test_role_md_has_strict_output_contract(profile: str) -> None:
+    """role.md must contain a STRICT OUTPUT CONTRACT section heading."""
+    role = _read_role(profile)
+    assert "STRICT OUTPUT CONTRACT" in role, (
+        f"{profile} role.md missing STRICT OUTPUT CONTRACT section. "
+        "This is the primary LLM discipline anchor."
+    )
 
 
-@pytest.mark.xfail(
-    reason="BUG-13 prompts pending in Phase 62.1 Plan 01 — schema_version string '1.0' required in all role.md",
-    strict=False,
-    run=True,
-)
-def test_all_three_reader_role_md_schema_version_is_string_1_0():
-    """All three reader role.md files must declare schema_version as string '1.0'.
-
-    The drift between integer ``2`` and string ``"1.0"`` in trade_auditor role.md
-    was fixed in the Wave 0 session. This test locks that all three are consistent.
-    """
-    non_conformant = []
-    for agent_name, role_path in _READER_ROLE_FILES.items():
-        content = _read_prompt(role_path)
-        # Accept both YAML-style `schema_version: "1.0"` and inline `schema_version: 1.0`
-        if 'schema_version: "1.0"' not in content and "schema_version: '1.0'" not in content:
-            non_conformant.append(agent_name)
-    if non_conformant:
-        pytest.fail(
-            f"schema_version is not string '1.0' in role.md for: {non_conformant}. "
-            "Wave 1 (Plan 62.1-01) will fix these."
-        )
+@pytest.mark.parametrize("profile", PROFILES)
+def test_role_md_schema_version_is_string_1_0(profile: str) -> None:
+    """role.md must declare schema_version as string '1.0' (not integer 2)."""
+    role = _read_role(profile)
+    has_string_version = (
+        'schema_version: "1.0"' in role
+        or "schema_version: '1.0'" in role
+    )
+    assert has_string_version, (
+        f"{profile} role.md does not contain schema_version: \"1.0\" (string). "
+        "Integer schema_version: 2 was the BUG-13 root cause."
+    )
 
 
-@pytest.mark.xfail(
-    reason="BUG-13 prompts pending in Phase 62.1 Plan 01 — schema_version string '1.0' required in all specifics.md",
-    strict=False,
-    run=True,
-)
-def test_all_three_reader_specifics_md_schema_version_is_string_1_0():
-    """All three reader specifics.md files must declare schema_version as string '1.0'."""
-    non_conformant = []
-    for agent_name, specifics_path in _READER_SPECIFICS_FILES.items():
-        content = _read_prompt(specifics_path)
-        if 'schema_version: "1.0"' not in content and "schema_version: '1.0'" not in content:
-            non_conformant.append(agent_name)
-    if non_conformant:
-        pytest.fail(
-            f"schema_version is not string '1.0' in specifics.md for: {non_conformant}. "
-            "Wave 1 (Plan 62.1-01) will fix these."
-        )
+@pytest.mark.parametrize("profile", PROFILES)
+def test_role_md_has_final_turn_shape(profile: str) -> None:
+    """role.md must include tool_args + text + response as final-turn shape elements."""
+    role = _read_role(profile)
+    assert "tool_args" in role, f"{profile} role.md missing tool_args in final-turn shape"
+    assert "text" in role, f"{profile} role.md missing 'text' key in final-turn shape"
+    assert "response" in role.lower(), f"{profile} role.md missing 'response' tool reference"
 
 
-@pytest.mark.xfail(
-    reason="BUG-13 prompts pending in Phase 62.1 Plan 01 — required final-turn shape example missing from most role.md files",
-    strict=False,
-    run=True,
-)
-def test_all_three_reader_role_md_have_required_final_turn_shape_example():
-    """All three reader role.md files must include a Required final-turn shape example.
-
-    The example must show the exact ``{tool_name: "response", tool_args: {text: "<JSON>"}}``
-    wrapper so the LLM has a concrete structural anchor rather than inferred guidance.
-    """
-    missing = []
-    for agent_name, role_path in _READER_ROLE_FILES.items():
-        content = _read_prompt(role_path)
-        # Accept variations of the final-turn shape section heading
-        has_shape = (
-            "Required final-turn shape" in content
-            or "required final-turn shape" in content.lower()
-            or "final_turn_shape" in content
-        )
-        if not has_shape:
-            missing.append(agent_name)
-    if missing:
-        pytest.fail(
-            f"Missing 'Required final-turn shape' example in role.md for: {missing}. "
-            "Wave 1 (Plan 62.1-01) will add these."
-        )
+@pytest.mark.parametrize("profile", PROFILES)
+def test_role_md_has_prohibited_outputs_section(profile: str) -> None:
+    """role.md must enumerate Prohibited outputs to block markdown/prose LLM drift."""
+    role = _read_role(profile)
+    assert "Prohibited" in role or "prohibited" in role, (
+        f"{profile} role.md missing Prohibited outputs section. "
+        "This enumeration prevents the LLM from emitting markdown trade reports."
+    )
 
 
-@pytest.mark.xfail(
-    reason="BUG-13 prompts pending in Phase 62.1 Plan 01 — few-shot examples missing from most specifics.md files",
-    strict=False,
-    run=True,
-)
-def test_all_three_reader_specifics_md_have_few_shot_example():
-    """All three reader specifics.md files must include at least one few-shot example.
+@pytest.mark.parametrize("profile", PROFILES)
+def test_role_md_has_required_final_turn_shape_example(profile: str) -> None:
+    """role.md must include a Required final-turn shape example heading."""
+    role = _read_role(profile)
+    has_shape_heading = (
+        "Required final-turn shape" in role
+        or "required final-turn shape" in role.lower()
+        or "final_turn_shape" in role
+    )
+    assert has_shape_heading, (
+        f"{profile} role.md missing 'Required final-turn shape' example heading. "
+        "The concrete structural anchor is required for LLM output discipline."
+    )
 
-    Few-shot examples (worked input → output pairs) are the primary mechanism for
-    anchoring LLM behavior to the contract.  The absence of few-shot examples in
-    specifics.md is a known cause of DeepSeek producing markdown instead of JSON.
-    """
-    missing = []
-    for agent_name, specifics_path in _READER_SPECIFICS_FILES.items():
-        content = _read_prompt(specifics_path)
-        # Few-shot examples typically contain "Example input" or "Example output"
-        # or are delimited by markdown code blocks with JSON
-        has_few_shot = (
-            "example" in content.lower()
-            and ("input" in content.lower() or "output" in content.lower())
-        )
-        if not has_few_shot:
-            missing.append(agent_name)
-    if missing:
-        pytest.fail(
-            f"Missing few-shot example in specifics.md for: {missing}. "
-            "Wave 1 (Plan 62.1-01) will add these."
-        )
+
+# ---------------------------------------------------------------------------
+# specifics.md tests (3 assertions × 3 profiles = 9 parameterized cases)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_specifics_md_schema_version_is_string_1_0(profile: str) -> None:
+    """specifics.md must declare schema_version as string '1.0'."""
+    spec = _read_specifics(profile)
+    has_string_version = (
+        'schema_version: "1.0"' in spec
+        or "schema_version: '1.0'" in spec
+    )
+    assert has_string_version, (
+        f"{profile} specifics.md does not contain schema_version: \"1.0\" (string)."
+    )
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_specifics_md_no_raw_json_object_contradiction(profile: str) -> None:
+    """specifics.md must NOT contain the contradictory 'raw JSON object' instruction."""
+    spec = _read_specifics(profile)
+    assert "raw JSON object" not in spec, (
+        f"{profile} specifics.md still contains 'raw JSON object' phrasing "
+        "that contradicts the role.md tool-call wrapper protocol (BUG-13)."
+    )
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_specifics_md_has_wrapper_instruction(profile: str) -> None:
+    """specifics.md must contain tool_args.text or tool_args['text'] wrapper instruction."""
+    spec = _read_specifics(profile)
+    has_wrapper = (
+        "tool_args.text" in spec
+        or 'tool_args["text"]' in spec
+        or "tool_args['text']" in spec
+    )
+    assert has_wrapper, (
+        f"{profile} specifics.md missing tool_args.text wrapper instruction. "
+        "The specifics.md must tell the LLM to use the response tool wrapper."
+    )
