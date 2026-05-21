@@ -164,18 +164,37 @@ async def invoke_mentor_subordinate(
             inner_parsed = json.loads(inner_text)
             parsed = inner_parsed
         except json.JSONDecodeError:
-            # tool_args.text is prose, not JSON. Surface a sentinel so the
-            # orchestrator's model_validate fails with a recognizable error
-            # rather than the noisy 5-validation-error cascade.
-            logger.warning(
-                "mentor_subordinate_invoker: profile=%s response.tool_args.text is prose, not JSON (len=%d)",
-                profile,
-                len(inner_text),
-            )
-            parsed = {
-                "_unwrapped_prose": inner_text,
-                "_orig_tool_call": parsed,
-            }
+            # BUG-13 (Phase 62.1): Try to extract the outermost {...} block from
+            # prose-wrapped output before falling through to the prose sentinel.
+            # LLMs frequently emit "Here is the result: { ...valid JSON... } Thanks!"
+            # — recover the JSON when it's structurally extractable.
+            import re as _re
+            _match = _re.search(r"\{.*\}", inner_text, _re.DOTALL)
+            if _match:
+                try:
+                    _extracted = json.loads(_match.group(0))
+                    logger.warning(
+                        "mentor_subordinate_invoker: profile=%s extracted JSON block from prose-wrapped tool_args.text (extraction len=%d / inner len=%d) — BUG-13 extraction guard fired",
+                        profile,
+                        len(_match.group(0)),
+                        len(inner_text),
+                    )
+                    parsed = _extracted
+                    # success — skip the prose sentinel
+                    inner_text = None  # signal that we recovered
+                except json.JSONDecodeError:
+                    pass  # extracted block was also invalid; fall to sentinel
+            if inner_text is not None:
+                # Extraction did not recover; preserve the existing sentinel path
+                logger.warning(
+                    "mentor_subordinate_invoker: profile=%s response.tool_args.text is prose, not JSON (len=%d) — BUG-13 extraction guard found no recoverable block",
+                    profile,
+                    len(inner_text),
+                )
+                parsed = {
+                    "_unwrapped_prose": inner_text,
+                    "_orig_tool_call": parsed,
+                }
 
     # Seal topic for compression (mirrors tools/call_subordinate.py:36)
     try:
