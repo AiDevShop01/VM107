@@ -113,9 +113,12 @@ def _wrap_unified_call_with_thinking(call_data: dict, enabled: bool, profile: st
             merged_extra_body = dict(existing_extra_body)
             merged_extra_body["thinking"] = {"type": thinking_type}
             kw["extra_body"] = merged_extra_body
-            log.debug(
-                "BUG-23: injecting extra_body.thinking.type=%r for profile %r",
-                thinking_type, profile,
+            log.info(
+                "BUG-23 thinking_mode_toggle: profile=%r model=%r"
+                " thinking_type=%r extra_body_injected=True",
+                profile,
+                kw.get("model", "unknown"),
+                thinking_type,
             )
         else:
             log.debug("BUG-23: extra_body.thinking already set upstream — not overwriting")
