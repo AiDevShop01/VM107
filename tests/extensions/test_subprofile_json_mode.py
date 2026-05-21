@@ -1,27 +1,33 @@
-"""Phase 62.1 BUG-22 unit tests: SubprofileJsonMode extension injects response_format.
+"""Phase 62.1 BUG-22 unit tests: SubprofileJsonMode extension infrastructure.
 
-The extension injects response_format={"type":"json_object"} into LLM calls made
-by sub-profile agents (_reader/_analyzer/_writer) so DeepSeek emits pure JSON
-instead of markdown-with-embedded-JSON audit reports.
+BUG-22 history:
+  response_format={"type":"json_object"} was implemented and tested live against
+  deepseek/deepseek-v4-flash. The extension infrastructure worked correctly (the
+  chat_model_call_before hook fires, the monkey-patch plumbing is correct), but
+  the json_object mode itself proved counter-productive:
+
+  - DeepSeek v4-flash in json_object mode emits bare ReaderOutput dicts instead
+    of the required {"tool_name": "response", "tool_args": {"text": "..."}} wrapper.
+  - This breaks Agent Zero's monologue loop (validate_tool_request raises on bare
+    ReaderOutput; response tool returns error prose; monologue() returns non-JSON).
+
+  The extension is kept as a graceful no-op so the plumbing is proven and the
+  infrastructure is ready for a future model that correctly handles json_object mode.
 
 Test coverage:
-  1. Sub-profile _reader → response_format=json_object injected
-  2. Sub-profile _analyzer → response_format=json_object injected
-  3. Sub-profile _writer → response_format=json_object injected
-  4. Parent agent (no sub-profile suffix) → NO injection
-  5. Empty profile → NO injection
-  6. Explicit response_format already set → honour caller's value (no override)
-  7. call_data["model"] has no unified_call → graceful no-op (log warning)
-  8. call_data is None → graceful no-op
-  9. agent is None → graceful no-op
+  1. Profile detection: _reader / _analyzer / _writer suffixes identified correctly
+  2. Parent profile → not identified as sub-profile
+  3. Empty profile → not identified as sub-profile
+  4. Extension execute() is a graceful no-op — unified_call is NOT patched
+  5. call_data=None → no exception
+  6. agent=None → no exception
 """
 from __future__ import annotations
 
 import asyncio
-import logging
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -93,61 +99,27 @@ class TestSubprofileJsonMode:
     def _run(self, coro):
         return asyncio.get_event_loop().run_until_complete(coro)
 
-    def test_reader_injects_json_object(self):
-        """_reader sub-profile call must receive response_format=json_object."""
+    def test_reader_no_injection_noop(self):
+        """BUG-22 is a no-op: unified_call must NOT be patched for _reader.
+
+        json_object mode broke deepseek-v4-flash tool-call output (see module docstring).
+        The extension is kept for future activation but currently does nothing.
+        """
         ext = _make_extension("trade_auditor_agent._reader")
-        model, received = _make_model_with_tracker()
-        call_data = _call_data_for(model)
-
-        self._run(ext.execute(call_data=call_data))
-
-        # After execute(), model.unified_call is patched.
-        # Call it and inspect what kwargs it forwarded.
-        self._run(model.unified_call(messages=[]))
-        assert len(received) == 1
-        assert received[0].get("response_format") == {"type": "json_object"}, (
-            f"response_format not injected: {received[0]}"
-        )
-
-    def test_analyzer_injects_json_object(self):
-        """_analyzer sub-profile call must receive response_format=json_object."""
-        ext = _make_extension("behavioral_mentor_agent._analyzer")
-        model, received = _make_model_with_tracker()
-        call_data = _call_data_for(model)
-
-        self._run(ext.execute(call_data=call_data))
-        self._run(model.unified_call(messages=[]))
-
-        assert received[0].get("response_format") == {"type": "json_object"}
-
-    def test_writer_injects_json_object(self):
-        """_writer sub-profile call must receive response_format=json_object."""
-        ext = _make_extension("trade_auditor_agent._writer")
-        model, received = _make_model_with_tracker()
-        call_data = _call_data_for(model)
-
-        self._run(ext.execute(call_data=call_data))
-        self._run(model.unified_call(messages=[]))
-
-        assert received[0].get("response_format") == {"type": "json_object"}
-
-    def test_parent_agent_no_injection(self):
-        """Parent agent (no sub-profile suffix) must NOT get response_format injected."""
-        ext = _make_extension("trade_auditor_agent")
         model, received = _make_model_with_tracker()
         original_unified_call = model.unified_call
         call_data = _call_data_for(model)
 
         self._run(ext.execute(call_data=call_data))
 
-        # unified_call should NOT be monkey-patched — still the same object
+        # unified_call must NOT be monkey-patched (no-op implementation)
         assert model.unified_call is original_unified_call, (
-            "Parent agent unified_call was unexpectedly patched"
+            "BUG-22 no-op violated: unified_call was patched but should not be"
         )
 
-    def test_empty_profile_no_injection(self):
-        """Empty profile → extension is a no-op."""
-        ext = _make_extension("")
+    def test_analyzer_no_injection_noop(self):
+        """BUG-22 is a no-op: unified_call must NOT be patched for _analyzer."""
+        ext = _make_extension("behavioral_mentor_agent._analyzer")
         model, received = _make_model_with_tracker()
         original_unified_call = model.unified_call
         call_data = _call_data_for(model)
@@ -155,34 +127,35 @@ class TestSubprofileJsonMode:
         self._run(ext.execute(call_data=call_data))
         assert model.unified_call is original_unified_call
 
-    def test_explicit_response_format_not_overridden(self):
-        """If caller already sets response_format, the patch must honour it."""
-        ext = _make_extension("trade_auditor_agent._reader")
+    def test_writer_no_injection_noop(self):
+        """BUG-22 is a no-op: unified_call must NOT be patched for _writer."""
+        ext = _make_extension("trade_auditor_agent._writer")
         model, received = _make_model_with_tracker()
+        original_unified_call = model.unified_call
         call_data = _call_data_for(model)
 
         self._run(ext.execute(call_data=call_data))
+        assert model.unified_call is original_unified_call
 
-        # Caller explicitly sets a different format
-        caller_format = {"type": "text"}
-        self._run(model.unified_call(messages=[], response_format=caller_format))
+    def test_parent_agent_no_injection(self):
+        """Parent agent profile → no-op regardless."""
+        ext = _make_extension("trade_auditor_agent")
+        model, _ = _make_model_with_tracker()
+        original_unified_call = model.unified_call
+        call_data = _call_data_for(model)
 
-        assert received[0].get("response_format") == caller_format, (
-            f"Caller's response_format was overridden: {received[0]}"
-        )
+        self._run(ext.execute(call_data=call_data))
+        assert model.unified_call is original_unified_call
 
-    def test_model_without_unified_call_is_graceful_noop(self, caplog):
-        """If model has no unified_call, extension logs a warning and skips."""
-        ext = _make_extension("trade_auditor_agent._reader")
-        model = MagicMock(spec=[])  # no unified_call attribute
-        call_data = {"model": model}
+    def test_empty_profile_no_injection(self):
+        """Empty profile → no-op."""
+        ext = _make_extension("")
+        model, _ = _make_model_with_tracker()
+        original_unified_call = model.unified_call
+        call_data = _call_data_for(model)
 
-        with caplog.at_level(logging.WARNING, logger="fingpt.chat_model_call_before.subprofile_json_mode"):
-            self._run(ext.execute(call_data=call_data))
-
-        assert any(
-            "BUG-22" in r.message for r in caplog.records
-        ), f"Expected BUG-22 warning; got: {[r.message for r in caplog.records]}"
+        self._run(ext.execute(call_data=call_data))
+        assert model.unified_call is original_unified_call
 
     def test_call_data_none_is_graceful_noop(self):
         """call_data=None must not raise."""

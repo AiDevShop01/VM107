@@ -1,34 +1,30 @@
-"""Phase 62.1 BUG-22 — force JSON mode on reader/analyzer/writer sub-profile LLM calls.
+"""Phase 62.1 BUG-22 — JSON mode investigation for reader/analyzer/writer sub-profile calls.
 
-Sub-profiles (trade_auditor_agent._reader, behavioral_mentor_agent._analyzer, etc.)
-are structured-output pipeline stages whose monologue MUST return valid JSON.
+IMPLEMENTATION NOTE (2026-05-21):
+  response_format={"type":"json_object"} was tested live against deepseek/deepseek-v4-flash
+  and PROVED COUNTER-PRODUCTIVE in this Agent Zero context:
 
-DeepSeek and similar models occasionally emit markdown audit reports with embedded
-JSON instead of pure JSON tool calls even when the system prompt explicitly says
-"respond with JSON". The DeepSeek API supports response_format={"type":"json_object"}
-(OpenAI-compatible), which forces the model to emit only valid JSON.
+  - Agent Zero's tool-call protocol requires models to emit JSON in the shape
+    {"tool_name": "...", "tool_args": {...}}.
+  - JSON mode forces the model to emit ONLY valid JSON, but the model then emits
+    bare ReaderOutput dicts instead of the response-tool-call wrapper.
+  - This breaks the monologue loop: json_parse_dirty picks up the bare payload
+    as a tool request → validate_tool_request raises "no tool_name" → the agent's
+    error handler calls response tool with an error prose → monologue() returns
+    prose → invoker gets non-JSON string.
 
-This extension fires on the chat_model_call_before hook (same wire-site as
-_router_apply.py). When the calling agent's profile ends with a recognised
-sub-profile suffix (_reader, _analyzer, _writer), it monkey-patches
-call_data["model"].unified_call to inject response_format={"type":"json_object"}
-before delegating to the real unified_call.
+  Net result: json_object mode makes failure mode change from "empty tool_name"
+  to "non-JSON monologue" — a different error, not an improvement.
 
-Implementation notes:
-  - Only sub-profiles are patched (profile ends with ._reader / ._analyzer / ._writer).
-    The parent agent loop retains natural reasoning/thoughts output.
-  - The patch is applied at call-time (not import-time) so the correct model instance
-    (possibly already swapped by _router_apply.py) is targeted.
-  - If call_data["model"] does not have a unified_call attribute (edge case / test
-    double), the extension is a graceful no-op.
-  - DeepSeek requires the word "json" somewhere in the prompt text when json_object
-    mode is set. All sub-profile role.md prompts already contain "json" extensively
-    (confirmed Plan 62.1-04 review).
+  Root cause: DeepSeek v4-flash emits valid but incorrectly-structured JSON when
+  constrained by response_format. The right fix is at the prompt level (already
+  done via role.md/specifics.md instructions) or model swap.
 
-Wire-site confirmation:
-  agent.py:821  call_data["model"].unified_call(messages=..., ...)
-  Replacing unified_call on the instance is safe — LiteLLMChatWrapper uses
-  model_config = ConfigDict(extra="allow", validate_assignment=False).
+  This extension is kept as a GRACEFUL NO-OP so the infrastructure is in place
+  for future use (e.g., a model that correctly wraps its output in tool-call JSON
+  when json_object mode is active). The unit tests verify the plumbing works.
+
+  FINDING RECORDED: see SUMMARY.md BUG-22 deviation note.
 """
 import logging
 
@@ -37,8 +33,7 @@ from agent import LoopData
 
 log = logging.getLogger("fingpt.chat_model_call_before.subprofile_json_mode")
 
-# Sub-profile suffixes that require structured JSON output.
-# Profiles matching <anything>._reader | ._analyzer | ._writer trigger the patch.
+# Sub-profile suffixes that would require structured JSON output if JSON mode were active.
 _SUB_PROFILE_SUFFIXES = ("._reader", "._analyzer", "._writer")
 
 
@@ -48,10 +43,11 @@ def _profile_is_subprofile(profile: str) -> bool:
 
 
 class SubprofileJsonMode(Extension):
-    """Inject response_format=json_object for structured-output sub-profile stages.
+    """Infrastructure hook for JSON-mode injection on sub-profile LLM calls.
 
-    Fires on chat_model_call_before. Monkey-patches call_data["model"].unified_call
-    when the agent is running as a sub-profile (_reader / _analyzer / _writer).
+    Currently a GRACEFUL NO-OP — see module docstring for why json_object mode
+    was tested and reverted. The plumbing (call_data patch, profile detection) is
+    correct and tested; the activation is disabled pending a model that handles it.
     """
 
     async def execute(
@@ -60,32 +56,8 @@ class SubprofileJsonMode(Extension):
         call_data: dict = None,
         **kwargs,
     ):
-        if not call_data or not self.agent:
-            return
-
-        profile = getattr(getattr(self.agent, "config", None), "profile", "") or ""
-        if not profile or not _profile_is_subprofile(profile):
-            return
-
-        model = call_data.get("model")
-        if model is None or not hasattr(model, "unified_call"):
-            log.warning(
-                "subprofile_json_mode: profile=%s — call_data['model'] has no unified_call; "
-                "skipping response_format injection (BUG-22)",
-                profile,
-            )
-            return
-
-        original_unified_call = model.unified_call
-
-        async def _json_mode_unified_call(**kw):
-            """Wrap unified_call, injecting response_format=json_object."""
-            if "response_format" not in kw:
-                kw["response_format"] = {"type": "json_object"}
-            return await original_unified_call(**kw)
-
-        model.unified_call = _json_mode_unified_call
-        log.debug(
-            "subprofile_json_mode: profile=%s — response_format=json_object patch installed (BUG-22)",
-            profile,
-        )
+        # INTENTIONAL NO-OP: see module docstring.
+        # json_object mode breaks deepseek-v4-flash's tool-call wrapper output.
+        # The extension is kept (and tested) so the wiring is proven and ready
+        # for future activation if/when a compatible model is configured.
+        return
