@@ -36,5 +36,9 @@ memory_scope:
 max_iterations: 4
 max_cost_usd: 0.30
 
+# BUG-23 / Phase 62.1: utility tier with thinking off for mechanical evidence gathering
+model_tier: utility
+thinking_mode: false
+
 input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
 output_contract: fingpt_core.contracts.narrative.reader_io.ReaderOutput
