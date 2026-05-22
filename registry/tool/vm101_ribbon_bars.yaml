@@ -1,0 +1,77 @@
+id: vm101_ribbon_bars_tool
+type: tool
+status: real
+shipped: 65
+last_changed: 2026-05-22
+name: vm101_ribbon_bars
+description: 'Returns last-N closes for a single ribbon symbol in ascending time
+  order. Used to render Mission Control sparklines in the Active Positions table
+  (Phase 65 Plan 13). Per-symbol fail-soft: unknown or no-data symbols return
+  ``available: false`` with empty ``bars`` list — NEVER a 4xx/5xx.
+
+
+  Mission Control consumes this endpoint via ``mission_control.services.sparkline_helper.fetch_sparkline``
+  (VM100), which delegates to VM101QuoteClient.fetch_bars(symbol, n). The client
+  returns ``list[float]`` of closes; empty list means the symbol is degraded and
+  the UI renders a flat/hidden sparkline.
+
+
+  Symbol mapping mirrors the quotes endpoint (SPX→SPX500, NDX→NAS100, BTC→BTCUSD,
+  VIX/DXY/US10Y on literal symbol values). Default timeframe M15 — Phase 76 may
+  add per-symbol timeframe override.
+
+  '
+capability_type: market_bars_read
+vm101_endpoint_path: /api/v1/bars
+http_method: GET
+parameters:
+- name: symbol
+  type: string
+  required: true
+  description: One ribbon symbol (e.g. SPX, NDX, BTC).
+- name: n
+  type: int
+  required: false
+  default: 24
+  description: Number of bars to fetch. Clamped to [1, MAX_BAR_COUNT (240)].
+- name: timeframe
+  type: string
+  required: false
+  default: M15
+  description: OHLC timeframe.
+return_type: BarsResponse
+return_on_error: unavailable_with_empty_bars
+error_modes:
+- code: vm101_unavailable
+  http_status: null
+  description: Transport-level failure (VM100 client returns [])
+- code: vm101_degraded
+  http_status: 5xx
+  description: VM101 returned 5xx (VM100 client returns [])
+- code: no_data
+  http_status: 200
+  description: 200 OK + available=false + bars=[] when symbol has no OHLC rows
+contracts:
+  response_schema_module: api.v1.quotes.BarsResponse
+  client_module: mission_control.services.clients.vm101_quote_client.VM101QuoteClient
+  helper_module: mission_control.services.sparkline_helper
+capabilities:
+- sparkline_data
+- last_n_closes
+- bar_history_read
+related_capabilities:
+- vm101_ribbon_quotes_tool
+- mission_control_active_positions
+phase: 65
+tags:
+- phase-65
+- mission-control
+- sparkline
+- market-data
+- vm101
+- read-api
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

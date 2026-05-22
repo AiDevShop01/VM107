@@ -1,0 +1,79 @@
+id: vm101_ribbon_quotes_tool
+type: tool
+status: real
+shipped: 65
+last_changed: 2026-05-22
+name: vm101_ribbon_quotes
+description: 'Returns latest price + delta for one or more Mission Control ribbon
+  symbols. Per-symbol fail-soft: unknown or unavailable symbols return ``available:
+  false`` with a diagnostic ``reason`` field — never a 4xx/5xx.
+
+
+  Mission Control consumes this endpoint via ``mission_control.services.clients.vm101_quote_client``
+  (VM100). The VM100 client maps any ``available: false`` tile to ``_demo: true``
+  on the RibbonTile contract, so the ribbon UI keeps showing REAL data for the
+  symbols that have it and DEMO chips for the rest.
+
+
+  Symbol mapping (ribbon-side → VM101 OHLC symbol):
+
+  - SPX → SPX500 (cTrader)
+
+  - NDX → NAS100 (cTrader)
+
+  - BTC → BTCUSD (cTrader)
+
+  - VIX, DXY, US10Y → literal symbol values (FRED-fed in future; currently DEMO)
+
+
+  Quote freshness is M15 (15-minute bars). Phase 76 will add per-tile freshness
+  metadata via FreshnessContract.
+
+  '
+capability_type: market_quote_read
+vm101_endpoint_path: /api/v1/quotes
+http_method: GET
+parameters:
+- name: symbols
+  type: string
+  required: false
+  default: SPX,NDX,VIX,DXY,US10Y,BTC
+  description: Comma-separated list of ribbon symbols, in display order. Defaults
+    to all 6 TILE_BASE symbols.
+return_type: QuotesResponse
+return_on_error: per_symbol_unavailable
+error_modes:
+- code: vm101_unavailable
+  http_status: null
+  description: Transport-level failure (handled by VM100 client → all-tiles DEMO)
+- code: vm101_degraded
+  http_status: 5xx
+  description: VM101 returned 5xx (handled by VM100 client → all-tiles DEMO)
+- code: per_symbol_unavailable
+  http_status: 200
+  description: Endpoint OK but specific symbol has no OHLC data — that tile only
+    is marked available=false
+contracts:
+  response_schema_module: api.v1.quotes.QuotesResponse
+  ribbon_tile_contract: fingpt_core.contracts.mission_control.contract.RibbonTile
+  client_module: mission_control.services.clients.vm101_quote_client.VM101QuoteClient
+capabilities:
+- ribbon_tile_read
+- latest_price_lookup
+- market_delta_pct
+related_capabilities:
+- vm101_ribbon_bars_tool
+- mission_control_ribbon_aggregator
+phase: 65
+tags:
+- phase-65
+- mission-control
+- ribbon
+- market-data
+- vm101
+- read-api
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
