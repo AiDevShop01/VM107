@@ -14,12 +14,24 @@ from typing import Any
 
 @dataclass
 class MigrationScript:
-    """Represents a discovered migration script."""
+    """Represents a discovered migration script.
+
+    Two conventions are supported:
+      - "context" style: module exposes ``upgrade(context: dict) -> None`` and
+        ``downgrade(context: dict) -> None``. The context dict contains
+        ``mongo`` (dict of db name -> pymongo.Database), ``neo4j`` (driver),
+        ``qdrant`` (client). Older migrations (001-006, 004, 010).
+      - "db" style: module exposes ``up(db: pymongo.Database) -> None`` and
+        ``down(db: pymongo.Database) -> None``. The runner passes the
+        ``fingpt_agents`` database directly. Newer migrations (007+, the
+        Phase 47.6 stamping set, Phase 48 refinement collections).
+    """
     id: str          # e.g., "001_init_fingpt_agents"
     number: int      # e.g., 1
     name: str        # e.g., "init_fingpt_agents"
-    module: Any      # Imported module with upgrade/downgrade
+    module: Any      # Imported module with upgrade/downgrade or up/down
     checksum: str    # SHA256 hash of file contents
+    style: str = "context"  # "context" (upgrade/downgrade(ctx)) or "db" (up/down(db))
 
 
 def discover_migrations() -> list[MigrationScript]:
@@ -58,14 +70,16 @@ def discover_migrations() -> list[MigrationScript]:
         # Import module
         module = _import_migration(filepath)
 
-        # Validate module has upgrade/downgrade
-        if not hasattr(module, "upgrade"):
+        # Detect convention: prefer "context" (upgrade/downgrade) when present,
+        # fall back to "db" (up/down). Reject if neither is exposed.
+        if hasattr(module, "upgrade") and hasattr(module, "downgrade"):
+            style = "context"
+        elif hasattr(module, "up") and hasattr(module, "down"):
+            style = "db"
+        else:
             raise ValueError(
-                f"Migration {migration_id} missing upgrade() function"
-            )
-        if not hasattr(module, "downgrade"):
-            raise ValueError(
-                f"Migration {migration_id} missing downgrade() function"
+                f"Migration {migration_id} must expose either "
+                f"upgrade(context)+downgrade(context) or up(db)+down(db)"
             )
 
         migrations.append(
@@ -74,7 +88,8 @@ def discover_migrations() -> list[MigrationScript]:
                 number=number,
                 name=name,
                 module=module,
-                checksum=checksum
+                checksum=checksum,
+                style=style,
             )
         )
 

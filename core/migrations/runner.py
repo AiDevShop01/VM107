@@ -36,8 +36,11 @@ class MigrationRunner:
 
         Args:
             context: Dictionary with keys:
-                - mongo: dict of db_name -> pymongo.Database
-                - neo4j: Neo4j session or None
+                - mongo: dict of db_name -> pymongo.Database (must include ``fingpt_agents``)
+                - neo4j: ``neo4j.GraphDatabase.driver(...)`` instance, or None.
+                  Migrations 003 and 010 call ``context["neo4j"].session()`` —
+                  this is a DRIVER, not a session. (The docstring previously said
+                  "session"; that was wrong — verified against scripts/003 and 010.)
                 - qdrant: Qdrant client or None
         """
         self.context = context
@@ -80,9 +83,11 @@ class MigrationRunner:
 
             # Check if already applied
             if migration_id in applied_migrations:
-                # Verify checksum hasn't changed
+                # Verify checksum hasn't changed (skip check for legacy records
+                # that pre-date the checksum field — see _get_applied_migrations).
                 stored_checksum = applied_migrations[migration_id]["checksum"]
-                if migration.checksum != stored_checksum:
+                if stored_checksum not in ("legacy", "manual_completion_2026-05-22") and \
+                        migration.checksum != stored_checksum:
                     raise MigrationError(
                         f"Checksum mismatch for {migration_id}. "
                         f"Expected {stored_checksum}, got {migration.checksum}. "
@@ -97,8 +102,18 @@ class MigrationRunner:
 
             if not dry_run:
                 try:
-                    # Execute upgrade function
-                    migration.module.upgrade(self.context)
+                    # Dispatch on style — see MigrationScript docstring for the two conventions.
+                    if migration.style == "context":
+                        migration.module.upgrade(self.context)
+                    elif migration.style == "db":
+                        # "db" style expects a single pymongo.Database arg —
+                        # by convention this is `fingpt_agents` (the canonical
+                        # tracking + cross-cutting collection home).
+                        migration.module.up(self._db)
+                    else:
+                        raise MigrationError(
+                            f"Unknown migration style '{migration.style}' for {migration_id}"
+                        )
 
                     # Record in migrations_applied
                     self._record_migration(migration)
@@ -139,8 +154,15 @@ class MigrationRunner:
 
         if not dry_run:
             try:
-                # Execute downgrade function
-                migration.module.downgrade(self.context)
+                # Dispatch on style — see MigrationScript docstring.
+                if migration.style == "context":
+                    migration.module.downgrade(self.context)
+                elif migration.style == "db":
+                    migration.module.down(self._db)
+                else:
+                    raise MigrationError(
+                        f"Unknown migration style '{migration.style}' for {migration_id}"
+                    )
 
                 # Remove from migrations_applied
                 self._migrations_collection.delete_one({"_id": migration_id})
@@ -152,14 +174,20 @@ class MigrationRunner:
                 raise MigrationError(f"Rollback {migration_id} failed: {e}") from e
 
     def _get_applied_migrations(self) -> dict[str, dict]:
-        """Get all applied migrations from database."""
+        """Get all applied migrations from database.
+
+        Tolerant of legacy records that pre-date this schema (e.g. early
+        Phase 41 entries written by hand without ``checksum``). Missing fields
+        are filled with ``"legacy"`` so checksum-drift detection treats them
+        as "applied but unverifiable" rather than crashing.
+        """
         applied = {}
         for doc in self._migrations_collection.find():
             applied[doc["_id"]] = {
-                "checksum": doc["checksum"],
-                "applied_at": doc["applied_at"],
+                "checksum": doc.get("checksum", "legacy"),
+                "applied_at": doc.get("applied_at"),
                 "environment": doc.get("environment", "unknown"),
-                "version": doc.get("version", 1)
+                "version": doc.get("version", 1),
             }
         return applied
 

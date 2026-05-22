@@ -23,9 +23,19 @@ def upgrade(context: dict) -> None:
     """
     db = context["mongo"]["fingpt_agents"]
 
-    # ===== 1. RENAME agent_objectives → agent_goals =====
-    print("Renaming agent_objectives → agent_goals...")
-    db["agent_objectives"].rename("agent_goals")
+    # ===== 1. RENAME agent_objectives → agent_goals (idempotent) =====
+    # Phase 41 created `agent_objectives`; Phase 42 renames to `agent_goals`.
+    # On fresh deploys the source collection never existed — treat the rename
+    # as a no-op when `agent_objectives` is absent.
+    existing = set(db.list_collection_names())
+    if "agent_objectives" in existing and "agent_goals" not in existing:
+        print("Renaming agent_objectives → agent_goals...")
+        db["agent_objectives"].rename("agent_goals")
+    elif "agent_goals" not in existing:
+        print("Creating agent_goals (no Phase 41 collection to rename — fresh deploy)...")
+        db.create_collection("agent_goals")
+    else:
+        print("agent_goals already exists — skipping rename")
 
     # ===== 2. UPDATE agent_goals schema =====
     print("Updating agent_goals validator...")
@@ -131,7 +141,9 @@ def upgrade(context: dict) -> None:
         }
     })
 
-    db["brain_state"].create_index([("_id", 1)], unique=True)
+    # Note: do NOT create a unique index on _id — Mongo's implicit `_id_` index
+    # is already unique, and Mongo 8 rejects an explicit `unique=True` spec on it
+    # (InvalidIndexSpecificationOption / code 197). Keep only the non-implicit index.
     db["brain_state"].create_index([("updated_at", -1)])
 
     # ===== 5. UPDATE agent_progress schema =====
