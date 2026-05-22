@@ -1,0 +1,104 @@
+id: vm102.structural_events
+type: tool
+status: real
+shipped: 65
+last_changed: 2026-05-22
+name: vm102.structural_events
+description: 'Returns FVG lifecycle events (CREATED / TOUCHED / FILLED / INVALIDATED)
+  for one or more symbols on a chosen timeframe. Operational boundary — VM102 does
+  NOT expose any user/account context; this endpoint takes ``symbols=`` + ``timeframe=``
+  only. The mapping from user-focus → symbols lives in the Mission Control aggregator
+  (Plan 65-03), not here.
+
+
+  Per-VM-boundary fail-soft: empty result is HTTP 200 with ``{events: [], _demo: true}``,
+  never 4xx/5xx. The aggregator can mix REAL and DEMO across symbols without
+  per-symbol error handling.
+
+
+  Forward-compat: ``event_types=sweep|bos|choch`` returns HTTP 400 with an explicit
+  ``future`` list. Candidate plans 65-20 (sweep), 65-21 (BOS/CHOCH), 65-22 (composite)
+  widen the accepted set additively without breaking existing JSON consumers.
+
+  '
+capability_type: structural_intelligence_read
+vm: vm102
+vm102_endpoint_path: /api/v1/structural-events
+http_method: GET
+parameters:
+- name: symbols
+  type: string
+  required: true
+  description: Comma-separated list of symbols (1..20 distinct). Symbols are uppercased
+    server-side.
+- name: timeframe
+  type: string
+  required: false
+  default: M15
+  description: One of M1/M5/M15/M30/H1/H4/D1.
+- name: event_types
+  type: string
+  required: false
+  default: fvg
+  description: v1 accepts ONLY "fvg". Future values sweep / bos / choch return HTTP 400.
+- name: since
+  type: datetime
+  required: false
+  description: ISO-8601 lower bound on event.created_at. Default = utcnow - 24h.
+- name: limit
+  type: integer
+  required: false
+  default: 50
+  description: 1..500.
+return_type: dict
+return_shape: '{"events": StructuralEventContract[], "_demo": bool}'
+return_on_error: empty_demo_envelope
+error_modes:
+- code: unsupported_event_type
+  http_status: 400
+  description: event_types contains a value outside v1 supported set ({fvg}). Response
+    body includes the `future` list of plan-deferred values.
+- code: symbols_count_out_of_range
+  http_status: 400
+  description: Fewer than 1 or more than 20 distinct symbols requested.
+- code: empty_demo
+  http_status: 200
+  description: No events for any requested symbol (this is NOT an error — degraded-mode
+    fallback per Pattern 91).
+provides_event_types:
+- fvg_created
+- fvg_touched
+- fvg_filled
+- fvg_invalidated
+contracts:
+  response_event_contract: VM102.backend.contracts.structural.StructuralEventContract
+  client_module: mission_control.services.clients.vm102_structural_client.VM102StructuralClient
+capabilities:
+- structural_event_read
+- fvg_lifecycle_query
+related_capabilities:
+- vm102.regime_current
+- vm100.mission_control.aggregator
+- vm100.mission_control.intelligence_feed_composer
+forward_compat:
+  sweep_events: 'candidate plan 65-20 — SWEEP_DETECTED event_type'
+  bos_choch_events: 'candidate plan 65-21 — BOS_UP/DOWN, CHOCH_UP/DOWN'
+  composite_intelligence: 'candidate plan 65-22 — multi-event synthesis'
+consumed_by:
+- vm100.mission_control.aggregator
+- vm100.mission_control.intelligence_feed_composer
+phase: 65
+tags:
+- phase-65
+- phase-65-19
+- mission-control
+- structural-intelligence
+- fvg
+- vm102
+- read-api
+- bounded-context
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

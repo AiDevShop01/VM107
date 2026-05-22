@@ -1,0 +1,58 @@
+id: fvg_created
+type: event_type
+status: real
+shipped: 65
+planned_phase: null
+last_changed: 2026-05-22
+name: fvg_created
+description: 'An FVG (Fair Value Gap) zone was first detected and is still active
+  with no touches yet. Lifecycle origin event for a new FVG. Emitted by the VM102
+  structural-events tool when a zone row has ``status="active"`` AND ``last_touch
+  is None``.
+
+  '
+wire_value: FVG_CREATED
+event_type: fvg_created
+category: structural
+version: 1.0
+producer: vm102
+payload_schema: VM102.backend.contracts.structural.StructuralEventContract
+retention: permanent
+pii: false
+replayable: true
+phase: 65
+location:
+  source: VM102/backend/services/fvg_event_normalizer.py
+  emitted_via: VM102/backend/api/v1/structural_events.py (GET /api/v1/structural-events)
+  contracts:
+    payload: VM102.backend.contracts.structural.StructuralEventContract
+emitted_by: fvg_event_normalizer
+gap: null
+correlation:
+  pairs_with:
+  - fvg_touched
+  - fvg_filled
+  - fvg_invalidated
+  shared_correlation_id: true
+  correlation_field: event_id (prefix = zone_id)
+produced_by:
+- vm102.structural_events
+consumed_by:
+- vm100.mission_control.intelligence_feed_composer
+severity_default: info
+related_capabilities:
+- structural_intelligence
+- liquidity_zone_lifecycle
+- vm102.structural_events
+tags:
+- phase-65
+- phase-65-19
+- structural
+- fvg
+- lifecycle
+- mission-control
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

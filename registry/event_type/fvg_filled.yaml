@@ -1,0 +1,58 @@
+id: fvg_filled
+type: event_type
+status: real
+shipped: 65
+planned_phase: null
+last_changed: 2026-05-22
+name: fvg_filled
+description: 'An FVG zone has been fully filled by price retracement and is no longer
+  active. Terminal state — the zone will not produce further FVG_TOUCHED events.
+  Emitted by the VM102 structural-events tool when a zone row has ``status="filled"``.
+
+  '
+wire_value: FVG_FILLED
+event_type: fvg_filled
+category: structural
+version: 1.0
+producer: vm102
+payload_schema: VM102.backend.contracts.structural.StructuralEventContract
+retention: permanent
+pii: false
+replayable: true
+phase: 65
+location:
+  source: VM102/backend/services/fvg_event_normalizer.py
+  emitted_via: VM102/backend/api/v1/structural_events.py (GET /api/v1/structural-events)
+  contracts:
+    payload: VM102.backend.contracts.structural.StructuralEventContract
+emitted_by: fvg_event_normalizer
+gap: null
+correlation:
+  pairs_with:
+  - fvg_created
+  - fvg_touched
+  - fvg_invalidated
+  shared_correlation_id: true
+  correlation_field: event_id (prefix = zone_id)
+produced_by:
+- vm102.structural_events
+consumed_by:
+- vm100.mission_control.intelligence_feed_composer
+severity_default: warn
+related_capabilities:
+- structural_intelligence
+- liquidity_zone_lifecycle
+- vm102.structural_events
+tags:
+- phase-65
+- phase-65-19
+- structural
+- fvg
+- lifecycle
+- mission-control
+- terminal-state
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

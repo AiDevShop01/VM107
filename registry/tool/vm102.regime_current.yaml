@@ -1,0 +1,78 @@
+id: vm102.regime_current
+type: tool
+status: real
+shipped: 65
+last_changed: 2026-05-22
+name: vm102.regime_current
+description: 'Returns the current regime summary for a single symbol × timeframe
+  as a compressed RegimeSummaryContract (UI-facing). The wrapper MAPS DOWN from the
+  internal feature_pipeline.RegimeDetection ORM row — analytical fields (features,
+  quality, volatility, id, candle_timestamp) are stripped at the boundary so the
+  operational surface never round-trips them.
+
+
+  Bounded-context lock: this endpoint takes ``symbol`` + ``timeframe`` only. No
+  ``account_id``, no user context. VM102 must not know about users.
+
+
+  Forward-compat: ``RegimeSummaryContract.regime_type`` is an open string today.
+  Composite regime intelligence (candidate plan 65-22) can emit strings like
+  ``"COMPRESSION → EXPANSION"`` without schema refactor.
+
+  '
+capability_type: regime_intelligence_read
+vm: vm102
+vm102_endpoint_path: /api/v1/regime/current
+http_method: GET
+parameters:
+- name: symbol
+  type: string
+  required: true
+  description: Single instrument symbol, e.g. EURUSD.
+- name: timeframe
+  type: string
+  required: true
+  description: One of M1/M5/M15/M30/H1/H4/D1.
+return_type: RegimeSummaryContract
+return_shape: '{label, regime_type, structure, confidence, bias, updated_at}'
+return_on_error: 404_no_regime_data
+error_modes:
+- code: no_regime_data
+  http_status: 404
+  description: No RegimeDetection row exists for the requested symbol × timeframe.
+    The VM100 client maps this to the locked DEMO regime shape (label="—", bias="neutral",
+    _demo=true).
+analytical_source: 'feature_pipeline.RegimeDetection (internal ORM — features/quality/volatility
+  stripped at the boundary; contract decoupling lock)'
+contracts:
+  response_contract: VM102.backend.contracts.structural.RegimeSummaryContract
+  internal_source: VM102.backend.feature_pipeline.models.RegimeDetection
+  client_module: mission_control.services.clients.vm102_structural_client.VM102StructuralClient
+capabilities:
+- regime_summary_read
+- bias_chip_lookup
+related_capabilities:
+- vm102.structural_events
+- vm100.mission_control.aggregator
+- vm100.mission_control.intelligence_feed_composer
+forward_compat:
+  composite_regime: 'candidate plan 65-22 — regime_type field is open-string; composite
+    values (e.g. "COMPRESSION → EXPANSION") will work without schema refactor.'
+consumed_by:
+- vm100.mission_control.aggregator
+- vm100.mission_control.intelligence_feed_composer
+phase: 65
+tags:
+- phase-65
+- phase-65-19
+- mission-control
+- regime
+- vm102
+- read-api
+- bounded-context
+- contract-decoupling
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
