@@ -66,3 +66,47 @@ class WidgetCapability(BaseModel):
     impact_on_decision: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
     allowed_agent_profiles: list[str] = Field(default_factory=list)
     deprecated: bool = False
+
+    # ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ─────────────────
+    # These are populated explicitly on every Phase-65 widget YAML so the
+    # Phase 47.6 schema validator passes today and Phases 71/74/76 can read
+    # them as-is without a retroactive YAML migration.
+    #
+    # evidence_drawer.supported (Phase 71)  — does <EvidenceDrawer/> attach?
+    # conversation_modes        (Phase 71)  — which <ConversationalAI/> modes
+    #                                          this panel accepts.
+    # notification_channels_consumed (Phase 74) — which NotificationChannel
+    #                                          stream this widget reacts to.
+    # freshness_class           (Phase 76)  — FreshnessClass for the widget's
+    #                                          primary data.
+    evidence_drawer: dict = Field(default_factory=lambda: {"supported": False})
+    conversation_modes: list[
+        Literal[
+            "pre-trade",
+            "macro",
+            "execution",
+            "reflection",
+            "research",
+            "strategy",
+        ]
+    ] = Field(default_factory=list)
+    notification_channels_consumed: list[
+        Literal[
+            "opportunities",
+            "invalidation",
+            "macro",
+            "risk",
+            "behavioral",
+        ]
+    ] = Field(default_factory=list)
+    freshness_class: list[
+        Literal[
+            "REAL_TIME",
+            "NEAR_REAL_TIME",
+            "AI_GENERATED",
+            "SESSION_CACHED",
+            "DAILY",
+            "BACKFILL",
+            "STATIC",
+        ]
+    ] = Field(default_factory=list)
