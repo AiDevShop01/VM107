@@ -1,0 +1,81 @@
+id: mission.mid.active_positions
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission MID — Active Positions
+category: Trading
+description: |
+  MID-state-only active positions table — surfaces all OPEN executions
+  for the focused account with live quote-driven unrealized P&L, R
+  multiple, time-in-trade, and per-row `data-mc-anchor` attributes used
+  by Phase 71's EvidenceDrawer attachment. Reads `/api/v1/accounts/{id}/trades`
+  for the open-position list and binds each row to a live quote stream
+  via `VM101QuoteClient`. No N+1: positions + quotes resolved in batched
+  client calls inside the MissionControl aggregator.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [mid]
+supported_devices: [desktop]
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/active_positions.py
+  - fingpt_core.contracts.mission_control.ActivePositionContract
+
+dependencies:
+  - kind: endpoint
+    ref: "/api/v1/accounts/{id}/trades"
+  - kind: service
+    ref: vm101_quote_client
+
+events_consumed: [TradeOpened, TradeClosed, QuoteUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - account_trades_endpoint_unavailable
+  - vm101_quote_unavailable
+  - empty_positions
+  - quote_stale_warning
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/states/MissionMid.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.ActivePositionContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.mid.open_risk
+  - mission.trader_state_strip
+  - vm101_quote_client
+  - execution_service
+
+tags: [phase-65, mission_control, mid_state]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [execution, reflection]
+notification_channels_consumed: [risk, invalidation]
+freshness_class: [NEAR_REAL_TIME]

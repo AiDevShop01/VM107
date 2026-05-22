@@ -1,0 +1,75 @@
+id: mission.mid.catalyst_countdown
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission MID — Catalyst Countdown
+category: Trading
+description: |
+  MID-state-only catalyst countdown panel — surfaces the next high-impact
+  macro/economic catalyst (calendar event) with countdown clock, expected
+  vol-impact tag, and affected-pair chips. Reads from the analytics
+  calendar endpoint `/api/analytics/calendar`. Surfaces only while the
+  trader is in active MID state (markets open, positions managed).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [mid]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/catalyst_countdown.py
+  - fingpt_core.contracts.mission_control.CatalystContract
+
+dependencies:
+  - kind: endpoint
+    ref: /api/analytics/calendar
+
+events_consumed: [CalendarUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - calendar_endpoint_unavailable
+  - no_upcoming_catalysts
+  - stale_calendar_warning
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/states/MissionMid.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.CatalystContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.context_ribbon
+  - mission.mid.active_positions
+  - calendar_service
+
+tags: [phase-65, mission_control, mid_state]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [macro, execution]
+notification_channels_consumed: [macro]
+freshness_class: [SESSION_CACHED]

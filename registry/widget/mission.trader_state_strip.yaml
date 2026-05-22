@@ -1,0 +1,81 @@
+id: mission.trader_state_strip
+type: widget
+status: partial
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission Trader State Strip
+category: Telemetry
+description: |
+  Persistent 6-cell trader-state strip — surfaces today's P&L, daily-plan
+  progress, risk used, and 3 behavioral cells (the biometric cell is
+  `[DEMO]` in Phase 65 pending a behavioral telemetry source). Reads
+  from `/api/v1/accounts/{id}` for P&L + risk, `/equity-curve` for plan
+  progress trace, and `/api/journal/cross-trade-patterns` for behavioral
+  edge state.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/trader_state_strip.py
+  - fingpt_core.contracts.mission_control.TraderStateStripContract
+
+dependencies:
+  - kind: endpoint
+    ref: "/api/v1/accounts/{id}"
+  - kind: endpoint
+    ref: "/api/v1/accounts/{id}/equity-curve"
+  - kind: endpoint
+    ref: /api/journal/cross-trade-patterns
+
+events_consumed: [TradeOpened, TradeClosed, EquityCurveUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - account_endpoint_unavailable
+  - equity_curve_unavailable
+  - cross_trade_patterns_unavailable
+  - biometric_demo_only
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/TraderStateStrip.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.TraderStateStripContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.mid.open_risk
+  - mission.mid.behavioral_nudges
+  - daily_summary_service
+
+tags: [phase-65, mission_control, chrome, persistent]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [reflection, execution]
+notification_channels_consumed: [risk, behavioral]
+freshness_class: [NEAR_REAL_TIME]

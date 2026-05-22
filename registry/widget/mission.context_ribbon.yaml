@@ -1,0 +1,86 @@
+id: mission.context_ribbon
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission Context Ribbon
+category: Workflow
+description: |
+  Top-of-screen 6-tile market context ribbon — persistent across all four
+  Mission Control states (PRE/OPEN/MID/CLOSE). Surfaces session clock,
+  regime label, top-mover sparkline, freshness chip, system-health chip,
+  and ALT pair quote. Reads from the aggregator's `ribbon` slot
+  (`MissionControlContract.ribbon`) populated by `VM101QuoteClient`
+  (Phase 65-04) + `/api/freshness/overview` + `/api/health/system`.
+  Ribbon refresh is decoupled from chrome panels: 60s ribbon-tile cache
+  vs 15s chrome contract cache.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/ribbon.py
+  - fingpt_core.contracts.mission_control.RibbonTileContract
+
+dependencies:
+  - kind: service
+    ref: vm101_quote_client
+  - kind: service
+    ref: vm102_market_client
+  - kind: endpoint
+    ref: /api/freshness/overview
+  - kind: endpoint
+    ref: /api/health/system
+
+events_consumed: [RegimeChanged, QuoteUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:ribbon:{date_minute}"
+  ttl_seconds: 60
+  invalidate_on: [QuoteUpdated]
+
+error_states:
+  - quote_feed_unavailable
+  - freshness_endpoint_unavailable
+  - system_health_endpoint_unavailable
+  - stale_data_warning
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/MissionRibbon.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.RibbonTileContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.nav
+  - mission.ai_narrative
+  - vm101_quote_client
+  - vm102_market_client
+
+tags: [phase-65, mission_control, chrome, persistent]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: [macro, risk]
+freshness_class: [NEAR_REAL_TIME]

@@ -1,0 +1,78 @@
+id: mission.mid.behavioral_nudges
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission MID — Behavioral Nudges
+category: Intelligence
+description: |
+  MID-state-only behavioral nudges panel — surfaces real-time behavioral
+  edge findings from `BehavioralEdgesService` for the current open
+  execution. Reads `/api/journal/behavioral-edges/{execution_id}` directly
+  from the service (no N+1 enrichment loop). Nudges are deterministic
+  rule-driven in Phase 65 (over-trade detection, plan-deviation warning,
+  cluster-correlation alert) and become AI-augmented in Phase 66+.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states: [mid]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/behavioral_nudges.py
+  - fingpt_core.contracts.mission_control.BehavioralNudgeContract
+
+dependencies:
+  - kind: endpoint
+    ref: "/api/journal/behavioral-edges/{execution_id}"
+  - kind: service
+    ref: behavioral_edges_service
+
+events_consumed: [BehavioralEdgeAdded]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - behavioral_edges_unavailable
+  - no_active_execution
+  - empty_nudges
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/states/MissionMid.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.BehavioralNudgeContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.trader_state_strip
+  - behavioral_edges_service
+  - cross_trade_pattern_service
+
+tags: [phase-65, mission_control, mid_state]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [reflection, execution]
+notification_channels_consumed: [behavioral]
+freshness_class: [AI_GENERATED, NEAR_REAL_TIME]

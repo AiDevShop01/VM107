@@ -1,0 +1,84 @@
+id: mission.intelligence_feed
+type: widget
+status: partial
+shipped: 65
+planned_phase: 66
+last_changed: "2026-05-22"
+
+name: Mission Intelligence Feed
+category: Intelligence
+description: |
+  Three-tab persistent intelligence feed — STRUCTURAL (real, sourced from
+  VM102 `/api/v1/structural-events` via `VM102StructuralClient` shipped
+  in 65-19), MACRO (Phase 66 emitter; Phase 65 always-DEMO via composer
+  with fixed dedup id `macro:demo-phase-66`), DISCOVERIES (real, sourced
+  from Phase 54 cross-trade patterns at `/api/journal/cross-trade-patterns`).
+  Items conform to the locked `IntelligenceItem` shape (id / tab /
+  severity / provenance slots) — provenance is `None` in Phase 65, populated
+  in Phase 71.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/intelligence_feed.py
+  - fingpt_core.contracts.mission_control.IntelligenceItemContract
+
+dependencies:
+  - kind: service
+    ref: vm102_market_client
+  - kind: service
+    ref: vm107_narrative_client
+  - kind: endpoint
+    ref: /api/journal/cross-trade-patterns
+
+events_consumed: [IntelligenceItemAdded]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - vm102_structural_unavailable
+  - vm107_narrative_unavailable
+  - cross_trade_patterns_unavailable
+  - empty_feed
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/IntelligenceFeed.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.IntelligenceItemContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.ai_narrative
+  - vm102_structural_client
+  - vm107_narrative_client
+  - cross_trade_pattern_service
+
+tags: [phase-65, mission_control, chrome, persistent]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [macro, research]
+notification_channels_consumed: [macro, opportunities]
+freshness_class: [NEAR_REAL_TIME, AI_GENERATED]

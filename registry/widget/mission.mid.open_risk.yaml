@@ -1,0 +1,80 @@
+id: mission.mid.open_risk
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission MID — Open Risk
+category: Risk
+description: |
+  MID-state-only open-risk grid — surfaces aggregate exposure across all
+  open executions for the focused account: total R at risk, % of daily
+  loss limit consumed, correlation cluster bars, max-drawdown trace from
+  the equity curve. Reads `/api/v1/accounts/{id}` for risk envelope and
+  `/equity-curve` for the rolling drawdown trace. Critical for MID-state
+  decision-making — a P1 panel that drives the trader's continue/cut
+  judgment.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [mid]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/open_risk.py
+  - fingpt_core.contracts.mission_control.OpenRiskContract
+
+dependencies:
+  - kind: endpoint
+    ref: "/api/v1/accounts/{id}"
+  - kind: endpoint
+    ref: "/api/v1/accounts/{id}/equity-curve"
+
+events_consumed: [TradeOpened, TradeClosed, EquityCurveUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - account_endpoint_unavailable
+  - equity_curve_unavailable
+  - no_open_risk
+  - daily_loss_limit_breached
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/states/MissionMid.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.OpenRiskContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.mid.active_positions
+  - mission.trader_state_strip
+  - daily_summary_service
+
+tags: [phase-65, mission_control, mid_state]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [execution, strategy]
+notification_channels_consumed: [risk]
+freshness_class: [NEAR_REAL_TIME]

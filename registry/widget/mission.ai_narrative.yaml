@@ -1,0 +1,77 @@
+id: mission.ai_narrative
+type: widget
+status: partial
+shipped: 65
+planned_phase: 66
+last_changed: "2026-05-22"
+
+name: Mission AI Narrative
+category: Intelligence
+description: |
+  AI-emitted global narrative panel — surfaces the polled `GlobalNarrative`
+  envelope produced by VM107 (Phase 66 emitter; Phase 65 ships a stub via
+  `vm107_narrative_client.py` returning a deterministic [DEMO] payload).
+  Renders headline, citation count, confidence chip, and reserves a
+  provenance slot for Phase 71 EvidenceDrawer attach. Phase 65 carries
+  `phase_demo_flag: true` because the real VM107 narrative emitter ships
+  in Phase 66; until then panels render `[DEMO]` chips.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/global_narrative.py
+  - fingpt_core.contracts.mission_control.GlobalNarrativeContract
+
+dependencies:
+  - kind: service
+    ref: vm107_narrative_client
+
+events_consumed: [NarrativeUpdated]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - vm107_narrative_unavailable
+  - empty_narrative
+  - stale_narrative_warning
+
+phase_demo_flag: true
+
+location:
+  source: VM100/frontend/components/mission/MissionNarrative.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.GlobalNarrativeContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.intelligence_feed
+  - vm107_narrative_client
+  - narrative_template_engine
+
+tags: [phase-65, mission_control, chrome, persistent]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: true
+conversation_modes: [macro, execution]
+notification_channels_consumed: [macro]
+freshness_class: [AI_GENERATED]

@@ -1,0 +1,74 @@
+id: mission.agent_ticker
+type: widget
+status: partial
+shipped: 65
+planned_phase: 66
+last_changed: "2026-05-22"
+
+name: Mission Agent Ticker
+category: Telemetry
+description: |
+  Compact agent-activity ticker cycling 5 placeholder lines drawn from
+  the 14 locked Phase 66 agent IDs. Phase 65 ships as `[DEMO]` only —
+  real agent telemetry events arrive in Phase 66 via VM107's agent
+  telemetry emitter. Predecessor of the full Phase 74
+  `<AgentActivityPanel>` (per-agent expansion, supervisory chips).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P3
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: polled
+
+primary_data_contracts:
+  - VM100/backend/journal/contracts/mission_control/agent_ticker.py
+  - fingpt_core.contracts.mission_control.AgentActivityContract
+
+dependencies:
+  - kind: service
+    ref: vm107_narrative_client
+
+events_consumed: [AgentActivity]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: redis
+  key: "mc:{state}:{account_id}:{date_hour}"
+  ttl_seconds: 15
+  invalidate_on: [TradeOpened, TradeClosed, RegimeChanged]
+
+error_states:
+  - vm107_agent_telemetry_unavailable
+  - empty_ticker
+  - all_demo
+
+phase_demo_flag: true
+
+location:
+  source: VM100/frontend/components/mission/AgentTicker.jsx
+  contracts:
+    - fingpt_core.contracts.mission_control.AgentActivityContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.ai_narrative
+  - vm107_narrative_client
+
+tags: [phase-65, mission_control, chrome, persistent]
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class: [AI_GENERATED]

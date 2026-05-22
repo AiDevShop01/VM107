@@ -1,0 +1,68 @@
+id: mission.nav
+type: widget
+status: real
+shipped: 65
+planned_phase: null
+last_changed: "2026-05-22"
+
+name: Mission Nav
+category: Workflow
+description: |
+  Left-rail Mission Control navigation — display-only nav with exact-label
+  match for Phase 70 sub-sections plus 10 disabled placeholder groups for
+  forthcoming workflows. Persists pin/expand state in `localStorage` under
+  `mission_nav_pinned`. No backend dependencies — every entry resolves
+  client-side. State transitions are emitted via the `StateChanged` event
+  consumed by the `MissionControlProvider` (plan 65-14).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: static
+
+primary_data_contracts: []
+
+dependencies: []
+
+events_consumed: [StateChanged]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: localStorage
+  key: mission_nav_pinned
+  ttl_seconds: null
+  invalidate_on: []
+
+error_states:
+  - localstorage_unavailable
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/MissionNav.jsx
+  contracts: []
+
+emitted_by: null
+
+related_capabilities:
+  - mission.context_ribbon
+  - mission_control_provider
+
+tags: [phase-65, mission_control, chrome, persistent, nav]
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class: [STATIC]
