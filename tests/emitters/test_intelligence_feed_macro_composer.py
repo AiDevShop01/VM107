@@ -69,9 +69,14 @@ def test_macro_composer_applies_novelty_gate():
     ]
     mock_calendar = MagicMock(get_next_24h_events=MagicMock(return_value=mock_events))
 
-    # NoveltyEngine returns high score for FOMC, low for the other
-    def mock_novelty_score(event):
-        if event.risk_severity == "CRITICAL":
+    # NoveltyEngine score is called with NoveltyDimensions (not the raw event object).
+    # Alternate high/low scores per call so both code paths are exercised.
+    call_counter = {"n": 0}
+
+    def mock_novelty_score(dims):
+        call_counter["n"] += 1
+        if call_counter["n"] == 1:
+            # First call (FOMC — high impact dims) → threshold crossed
             return MagicMock(score=0.85, threshold_crossed=True)
         return MagicMock(score=0.3, threshold_crossed=False)
 
