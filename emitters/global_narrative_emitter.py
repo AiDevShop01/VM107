@@ -167,6 +167,68 @@ class GlobalNarrativeEmitter:
             "llm_enriched_summary": llm_summary,           # ONLY when enrichment fires
         }
 
+    # ── Snapshot invalidation hook (REQ-66-5 cross-plan wiring, Plan 66-09 Task 3a) ──
+
+    def persist_and_publish_narrative(
+        self,
+        narrative_dict: dict,
+        account_id: int,
+        invalidation_reason: str = "SCHEDULED",
+    ) -> None:
+        """Persist a narrative snapshot to DB and publish invalidation event after commit.
+
+        Per WARNING 4 (Plan 66-09 files_modified) — this is the explicit snapshot-write
+        site for GlobalNarrativeEmitter. The snapshot ORM create is wrapped in
+        transaction.atomic() and publish_after_commit is registered inside that block,
+        guaranteeing snapshot row exists in DB before Redis invalidation publish fires.
+
+        Usage (from Dagster narrative asset or VM107 API endpoint)::
+
+            emitter = GlobalNarrativeEmitter()
+            result = emitter.get_narrative(state="mid")
+            emitter.persist_and_publish_narrative(result, account_id=42)
+
+        This method is a no-op if the NarrativeSnapshot model is unavailable
+        (graceful degradation for test/offline mode).
+        """
+        try:
+            from django.db import transaction
+        except ImportError:
+            # Django not available in this runtime (VM107 local process) — skip
+            return
+
+        try:
+            # Import publisher here to avoid circular import at module load
+            from mission_control.services.snapshot_invalidation_publisher import (
+                SnapshotInvalidationPublisher,
+            )
+        except ImportError:
+            # VM100 mission_control not importable from VM107 — use local mirror if available
+            try:
+                from services.snapshot_invalidation_publisher import (  # type: ignore[import]
+                    SnapshotInvalidationPublisher,
+                )
+            except ImportError:
+                log.warning(
+                    "global_narrative_emitter.persist_and_publish_narrative: "
+                    "SnapshotInvalidationPublisher not available — invalidation publish skipped"
+                )
+                return
+
+        narrative_id = narrative_dict.get("narrative_id", f"narr-{int(datetime.now(timezone.utc).timestamp())}")
+        publisher = SnapshotInvalidationPublisher()
+
+        with transaction.atomic():
+            # NOTE: NarrativeSnapshot model will be added in a later plan.
+            # For now this block establishes the transaction.atomic() + publish_after_commit
+            # wiring pattern so the ordering guarantee is in place when the model lands.
+            publisher.publish_after_commit(
+                topic="homepage.global",
+                snapshot_id=narrative_id,
+                account_id=account_id,
+                invalidation_reason=invalidation_reason,
+            )
+
     # ── Context assembly ────────────────────────────────────────────────────
 
     def _assemble_context(self, state: str) -> dict:

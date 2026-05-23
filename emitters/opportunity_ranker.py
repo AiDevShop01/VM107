@@ -215,20 +215,43 @@ class OpportunityRanker:
         """Persist snapshot dict to OpportunityRankingSnapshot DB table.
 
         Called BEFORE rank_opportunities returns (snapshot-publishing pattern).
+
+        Per WARNING 4 (Plan 66-09 Task 3a cross-plan wiring): the ORM create is
+        wrapped in transaction.atomic() and SnapshotInvalidationPublisher.publish_after_commit()
+        is registered inside the atomic block. This guarantees snapshot row exists in
+        Postgres BEFORE Redis invalidation publish fires (REQ-66-5 ordering lock).
         """
         try:
+            from django.db import transaction
             from mission_control.models import OpportunityRankingSnapshot  # type: ignore[import]
-            OpportunityRankingSnapshot.objects.create(
-                snapshot_id=snapshot.get("snapshot_id") or uuid.uuid4(),
-                account_id=snapshot.get("account_id", 0),
-                state=snapshot.get("state", "open"),
-                generated_at=snapshot.get("generated_at", datetime.now(timezone.utc)),
-                universe_id=snapshot.get("universe_id", "london_ny_fx"),
-                rankings=snapshot.get("opportunities", []),
-                freshness_seconds=snapshot.get("freshness_seconds", 0),
-                degraded_mode=snapshot.get("degraded_mode", False),
-                snapshot_metadata=snapshot.get("metadata", {}),
+            from mission_control.services.snapshot_invalidation_publisher import (  # type: ignore[import]
+                SnapshotInvalidationPublisher,
             )
+
+            snapshot_id = snapshot.get("snapshot_id") or uuid.uuid4()
+            account_id = snapshot.get("account_id", 0)
+            invalidation_reason = snapshot.get("refresh_reason", "SCHEDULED")
+            publisher = SnapshotInvalidationPublisher()
+
+            with transaction.atomic():
+                OpportunityRankingSnapshot.objects.create(
+                    snapshot_id=snapshot_id,
+                    account_id=account_id,
+                    state=snapshot.get("state", "open"),
+                    generated_at=snapshot.get("generated_at", datetime.now(timezone.utc)),
+                    universe_id=snapshot.get("universe_id", "london_ny_fx"),
+                    rankings=snapshot.get("opportunities", []),
+                    freshness_seconds=snapshot.get("freshness_seconds", 0),
+                    degraded_mode=snapshot.get("degraded_mode", False),
+                    snapshot_metadata=snapshot.get("metadata", {}),
+                )
+                # publish_after_commit fires ONLY after DB commit succeeds (REQ-66-5)
+                publisher.publish_after_commit(
+                    topic="mission_control.opportunities",
+                    snapshot_id=snapshot_id,
+                    account_id=account_id,
+                    invalidation_reason=invalidation_reason,
+                )
         except Exception as exc:
             log.error(
                 "OpportunityRanker._persist_snapshot: DB write failed: %s — "
