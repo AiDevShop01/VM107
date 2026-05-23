@@ -1,0 +1,35 @@
+# Phase 66 v1 NoveltyEngine config. Tunable per RESEARCH §1 Discretion.
+
+# Threshold used for general narrative novelty gating
+narrative_threshold: 0.7  # score >= threshold → threshold_crossed=True
+
+# Stricter threshold used by DISCOVERIES composer (CONTEXT.md §4 + checker WARNING 2)
+# MUST be > narrative_threshold so discoveries stay rare and meaningful.
+discoveries_threshold: 0.85
+
+# Backward-compat alias — legacy `threshold` key still resolves to narrative_threshold.
+# (Remove this alias in a future cleanup phase once all call sites migrate.)
+threshold: 0.7
+
+dimensions:
+  macro_novelty:
+    weight: 0.25
+    high_trigger_codes: [MACRO_EVENT_ARRIVAL, MACRO_FORECAST_SURPRISE]
+  regime_novelty:
+    weight: 0.25
+    high_trigger_codes: [REGIME_TRANSITION, REGIME_CONFLICT]
+  structural_novelty:
+    weight: 0.20
+    high_trigger_codes: [STRUCTURAL_BREAK, CROSS_ASSET_DIVERGENCE]
+  volatility_novelty:
+    weight: 0.15
+    high_trigger_codes: [VOLATILITY_EXPANSION]
+    medium_trigger: true  # alone does not cross; needs co-occurrence
+  behavioral_novelty:
+    weight: 0.15
+    high_trigger_codes: [BEHAVIOR_ANOMALY, RISK_ESCALATION]
+
+# Co-occurrence pairs that elevate MEDIUM triggers to HIGH:
+co_occurrence_lifts:
+  - dims: [volatility_novelty, opportunity_clustering]
+    lift: 0.2  # added to combined score when both > 0.5
