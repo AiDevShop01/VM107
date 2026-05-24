@@ -1,0 +1,64 @@
+id: vm100.analytics_calendar
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm100.analytics_calendar
+description: 'VM100 analytics calendar read facade. Read-only access to economic
+  event data from the ref_economic_events Postgres table. NOT a new schema — this
+  is a thin read facade over infrastructure introduced in earlier phases.
+  Methods: get_next_24h_events() returns all events in the next 24-hour window
+  ordered by scheduled_at ASC; get_top_event() returns the single highest-impact
+  event in the next 24h window. Used by VM107 MACRO intelligence feed composer to
+  populate macro context items. Impact filter: HIGH / MEDIUM / LOW — default is
+  HIGH only for get_top_event(). Timezone: all timestamps returned as UTC ISO-8601.'
+capability_type: read_facade
+vm: vm100
+backed_by_table: ref_economic_events
+service_class: VM100.backend.analytics.services.analytics_calendar_service.AnalyticsCalendarService
+methods:
+- name: get_next_24h_events
+  http_path: /api/v1/analytics/calendar/next-24h
+  http_method: GET
+  parameters:
+  - name: impact
+    type: string
+    required: false
+    default: 'HIGH,MEDIUM'
+    description: 'Comma-separated impact filter. Values: HIGH, MEDIUM, LOW'
+  return_shape: 'list[EconomicEventContract]'
+- name: get_top_event
+  http_path: /api/v1/analytics/calendar/top-event
+  http_method: GET
+  parameters:
+  - name: impact
+    type: string
+    required: false
+    default: HIGH
+    description: 'Minimum impact level. Default: HIGH'
+  return_shape: 'EconomicEventContract | null'
+output_shape: EconomicEventContract
+timezone: UTC ISO-8601
+contracts:
+  response_contract: VM100.backend.contracts.calendar.EconomicEventContract
+consumed_by:
+- vm107.intelligence_feed.macro
+related_capabilities:
+- vm107.intelligence_feed.macro
+- vm107.narratives.global
+forward_compat:
+  calendar_push: 'candidate plan 66-33 — WebSocket push when high-impact event
+    crosses 60m threshold'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- calendar
+- read-facade
+- vm100
+- economic-events
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

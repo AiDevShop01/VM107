@@ -1,0 +1,71 @@
+id: vm100.ws.mission_control
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm100.ws.mission_control
+description: 'VM100 WebSocket multiplexer for Mission Control real-time data delivery.
+  Single persistent connection per client delivers all Mission Control streams.
+  Auth: JWT at CONNECT time (close codes 4401/4403/4429 for invalid/expired/rate-limited).
+  Auto-subscribed topics on connect: homepage.global, mission_control.opportunities,
+  mission_control.intelligence_feed, agent.telemetry. Dynamic topic subscription:
+  trade.supervision.{trade_id} on demand during ACTIVE_SUPERVISION state.
+  Message envelope: {topic, event_type, payload, ts}. Heartbeat: 30s server-side
+  ping with 60s timeout (client must pong). Reconnect: exponential backoff with
+  jitter, re-subscribe to dynamic topics on reconnect. Rate limit: 429 on >10
+  subscribe messages per 10s per connection.'
+capability_type: websocket_multiplexer
+vm: vm100
+endpoint: 'wss://vm100/ws/mission-control/{account_id}?token=<jwt>'
+auth: 'JWT at CONNECT (close codes 4401=unauthorized, 4403=forbidden, 4429=rate-limited)'
+topics_auto_subscribed:
+- homepage.global
+- mission_control.opportunities
+- mission_control.intelligence_feed
+- agent.telemetry
+topics_dynamic:
+- 'trade.supervision.{trade_id}'
+event_types_relayed:
+- narrative_updated
+- opportunity_tier_changed
+- agent_activity
+- intelligence_item_added
+- state_transition
+- risk.snapshot.updated
+message_envelope: '{topic, event_type, payload, ts}'
+heartbeat_interval: 30s
+heartbeat_timeout: 60s
+reconnect_strategy: 'exponential backoff with jitter; re-subscribe dynamic topics
+  on reconnect'
+rate_limit: '10 subscribe messages per 10s per connection'
+close_codes:
+  4401: unauthorized (invalid or missing JWT)
+  4403: forbidden (valid JWT, insufficient permissions)
+  4429: rate limited (too many subscribe messages)
+consumed_by:
+- vm100.mission_control.frontend
+related_capabilities:
+- vm107.narratives.global
+- vm107.opportunities.ranked
+- vm107.intelligence_feed.macro
+- vm107.intelligence_feed.discoveries
+- vm107.agent_telemetry
+- vm102.risk_metrics.snapshot
+forward_compat:
+  supervisor_mode_ws: 'candidate plan 66-28 — dedicated supervision channel with
+    sub-second tick data during ACTIVE_SUPERVISION'
+  notification_channel: 'candidate plan 66-29 — out-of-band notification push
+    outside active session'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- websocket
+- multiplexer
+- realtime
+- vm100
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

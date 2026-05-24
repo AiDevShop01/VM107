@@ -1,0 +1,64 @@
+id: vm100.behavioral_edges.for_execution
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm100.behavioral_edges.for_execution
+description: 'New method on the existing Phase 54 BehavioralEdgesService — get_for_execution(account_id).
+  Returns behavioral nudges relevant to execution decisions RIGHT NOW, based on the
+  trader''s recent trade history. Scope: last N=10 trades PLUS current open positions
+  (NOT session-bounded — avoids blind spots at session boundaries). Severity levels:
+  INFO / CAUTION / WARNING only — no BLOCK severity here (execution blocking lives
+  in Phase 47 pre-trade gate). Evidence-grounded: every nudge cites the specific
+  trades that triggered it. Data source: Django ORM Trade/Execution tables directly
+  (NOT Neo4j — this is a read-performance path, NOT graph traversal). Distinct from
+  get_failed_due_to_edges() which is the retrospective post-trade analysis method.'
+capability_type: behavioral_pattern_detector
+vm: vm100
+service_method: 'BehavioralEdgesService.get_for_execution(account_id: int) -> list[BehavioralNudgeContract]'
+service_class: VM100.backend.analytics.services.behavioral_edges_service.BehavioralEdgesService
+http_path: /api/v1/analytics/behavioral-edges/for-execution
+http_method: GET
+parameters:
+- name: account_id
+  type: integer
+  required: true
+  description: 'Account ID — scopes behavioral analysis to trades/positions for this
+    account'
+return_type: list
+output_shape: 'list[BehavioralNudgeContract]'
+scope: 'last N=10 trades + current open positions (NOT session-bounded)'
+severity_levels:
+- INFO
+- CAUTION
+- WARNING
+severity_excluded: 'BLOCK — execution blocking is Phase 47 pre-trade gate responsibility'
+evidence_requirement: 'Every nudge must cite specific trades that triggered it'
+data_source: 'Django ORM Trade/Execution tables (NOT Neo4j — read-performance path)'
+distinct_from: 'BehavioralEdgesService.get_failed_due_to_edges() — that is retrospective
+  post-trade analysis, this is forward-facing execution context'
+contracts:
+  response_contract: VM100.backend.contracts.behavioral.BehavioralNudgeContract
+consumed_by:
+- vm107.intelligence_feed.discoveries
+- vm107.opportunities.ranked
+related_capabilities:
+- vm107.intelligence_feed.discoveries
+- vm107.opportunities.ranked
+- vm100.analytics_calendar
+forward_compat:
+  behavioral_block_escalation: 'candidate plan 66-34 — escalate WARNING to BLOCK
+    when same edge fires 3+ consecutive trades (requires Phase 47 gate extension)'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- behavioral
+- vm100
+- phase-54-extension
+- execution-context
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

@@ -1,0 +1,86 @@
+id: vm107.opportunities.ranked
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm107.opportunities.ranked
+description: 'VM107 emits a tier-ranked snapshot of current trade opportunities.
+  Ranks ALL candidate setups across the trader''s watched instruments using a multi-factor
+  scoring engine (strategy fit, regime alignment, session timing, behavioral edge,
+  risk capacity). Tiers: T1 (strong conviction + favorable execution conditions),
+  T2 (valid but degraded conditions), T3 (watch-only, not actionable now).
+  Snapshot-publishing model — each call replaces the previous snapshot atomically.
+  Graceful degradation: empty tiers returned with _demo=true when upstream data
+  unavailable. Phase 47 pre-trade evaluation gating applied at T1 boundary.'
+capability_type: opportunity_ranking_emitter
+vm: vm107
+vm107_endpoint_path: /api/v1/opportunities/ranked
+http_method: GET
+parameters:
+- name: state
+  type: string
+  required: true
+  description: 'Trading state — one of: pre / open / active_supervision / mid / close
+    / review'
+- name: account
+  type: integer
+  required: true
+  description: 'Account ID — used to resolve watched instruments, risk capacity, and
+    behavioral profile'
+- name: session
+  type: string
+  required: false
+  default: london_ny_fx
+  description: 'Session context for session-timing scoring factor. Default: london_ny_fx'
+return_type: dict
+return_shape: OpportunityRankingSnapshotContract
+return_on_error: demo_envelope
+error_modes:
+- code: demo_envelope
+  http_status: 200
+  description: 'Upstream scoring data unavailable — returns empty tiers with _demo=true.
+    Never 4xx/5xx for degraded state.'
+tier_definitions:
+  T1: 'Strong conviction + favorable execution conditions. Phase 47 pre-trade gate
+    passed. Actionable NOW.'
+  T2: 'Valid setup, degraded conditions (time/session/risk/regime). Actionable with
+    manual override.'
+  T3: 'Watch-only — not actionable in current state. Re-evaluates on next state
+    transition.'
+contracts:
+  response_contract: VM107.contracts.opportunities.OpportunityRankingSnapshotContract
+consumed_by:
+- vm100.ws.mission_control
+- vm100.mission_control.aggregator
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  pre_trade_evaluation:
+    type: phase_capability
+    id: phase_47.pre_trade_evaluation
+  strategy_scoring_weights:
+    type: database_table
+    id: strategy_scoring_weights
+related_capabilities:
+- vm107.narratives.global
+- vm102.risk_metrics.snapshot
+- vm100.behavioral_edges.for_execution
+- vm100.analytics_calendar
+forward_compat:
+  opportunity_alert: 'candidate plan 66-22 — real-time opportunity alert on new T1
+    entry'
+  explanation_layer: 'candidate plan 66-23 — per-opportunity explanation narrative'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- opportunities
+- emitter
+- snapshot-publishing
+- tier-ranking
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

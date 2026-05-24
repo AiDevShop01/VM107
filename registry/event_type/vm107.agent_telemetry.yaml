@@ -1,0 +1,78 @@
+id: vm107.agent_telemetry
+type: event_type
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm107.agent_telemetry
+description: 'Hybrid agent telemetry stream — REAL_ACTIVITY and HEARTBEAT_IDLE event
+  types published to Redis channel vm107.agent_telemetry. 14 locked agent IDs.
+  REAL_ACTIVITY fires whenever an agent completes meaningful work (emitter call,
+  tool use, pattern match, inference). HEARTBEAT_IDLE fires only when ALL conditions
+  met: active operational state AND no real activity for >60s AND agent is expected
+  online for the current state. Heartbeats NEVER count toward productivity metrics.
+  The hybrid design prevents both silent failures (no heartbeat = agent stuck) and
+  metric inflation (heartbeats excluded from productivity counters). Agent IDs are
+  locked — new agents require a Phase 47.6 registry YAML before being added here.'
+wire_value: vm107.agent_telemetry
+event_type: vm107.agent_telemetry
+category: agent_telemetry
+version: 1.0
+producer: vm107
+channel: vm107.agent_telemetry
+publisher: vm107.emitters.agent_telemetry_emitter
+event_types:
+- REAL_ACTIVITY
+- HEARTBEAT_IDLE
+event_shape: AgentTelemetryEvent
+heartbeat_condition: 'active operational state AND no real activity >60s AND agent
+  expected online for current state'
+heartbeat_excluded_from_metrics: true
+retention: permanent
+pii: false
+replayable: true
+locked_agent_ids:
+- macro-agent
+- briefing-agent
+- calendar-agent
+- liquidity-agent
+- readiness-agent
+- pattern-engine
+- attention-engine
+- risk-agent
+- session-agent
+- replay-engine
+- embeddings
+- behavior-agent
+- journal-agent
+- discovery-agent
+location:
+  source: VM107/emitters/agent_telemetry_emitter.py
+  emitted_via: Redis PUBLISH vm107.agent_telemetry
+  contracts:
+    payload: VM107.contracts.telemetry.AgentTelemetryEvent
+emitted_by: vm107.emitters.agent_telemetry_emitter
+consumed_by:
+- vm100.ws.mission_control
+- vm100.mission_control.aggregator
+related_capabilities:
+- vm107.narratives.global
+- vm107.opportunities.ranked
+- vm107.intelligence_feed.macro
+- vm107.intelligence_feed.discoveries
+forward_compat:
+  agent_productivity_dashboard: 'candidate plan 66-30 — aggregate REAL_ACTIVITY counts
+    into productivity heatmap (HEARTBEAT_IDLE excluded)'
+  per_agent_health_monitor: 'candidate plan 66-31 — stale-heartbeat alert (agent
+    stopped publishing)'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- agent-telemetry
+- redis-pubsub
+- hybrid-heartbeat
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

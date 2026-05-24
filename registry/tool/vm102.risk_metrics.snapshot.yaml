@@ -1,0 +1,75 @@
+id: vm102.risk_metrics.snapshot
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm102.risk_metrics.snapshot
+description: 'VM102 risk metrics snapshot endpoint. Returns a point-in-time risk
+  metrics snapshot for an account. Two methods: GET for the latest pre-computed
+  snapshot (fast, stale up to snapshot_ttl), POST /compute for a fresh synchronous
+  computation (slower, use sparingly). Snapshot stored in risk_riskmetricssnapshot
+  Postgres table. Dagster risk_metrics_job triggers computation on schedule + on
+  demand via sensor. Scope lock: basic portfolio risk only. Forbidden forever:
+  Monte Carlo, EVT tails, Stressed VaR, Intraday VaR, Covariance shock, Options
+  Greeks, Regime-aware Beta — these require separate research approval. Bounded
+  context: no user preference or behavioral data here; that lives in VM100.'
+capability_type: risk_metrics_emitter
+vm: vm102
+vm102_endpoint_path: /api/v1/risk/snapshot
+http_method: GET
+parameters:
+- name: account_id
+  type: integer
+  required: true
+  description: 'Account ID — scopes the risk snapshot to a single account''s open
+    positions and recent closed trades.'
+return_type: dict
+return_shape: RiskMetricsSnapshotContract
+return_on_error: demo_envelope
+error_modes:
+- code: no_snapshot_found
+  http_status: 200
+  description: 'No snapshot row exists for account — returns empty snapshot with
+    _demo=true. Never 4xx for missing snapshot.'
+compute_endpoint:
+  path: /api/v1/risk/compute
+  http_method: POST
+  description: 'Trigger fresh synchronous risk computation. Use sparingly — prefer
+    the Dagster-scheduled snapshot for normal reads.'
+snapshot_table: risk_riskmetricssnapshot
+dagster_job: risk_metrics_job
+scope_lock: 'basic portfolio risk — open positions + recent closed trades'
+forbidden_forever:
+- Monte Carlo simulation
+- EVT tails
+- Stressed VaR
+- Intraday VaR
+- Covariance shock
+- Options Greeks
+- Regime-aware Beta
+contracts:
+  response_contract: VM102.backend.contracts.risk.RiskMetricsSnapshotContract
+consumed_by:
+- vm107.opportunities.ranked
+- vm100.ws.mission_control
+- vm100.mission_control.aggregator
+related_capabilities:
+- vm102.regime_current
+- vm107.opportunities.ranked
+- vm100.behavioral_edges.for_execution
+forward_compat:
+  intraday_risk_streaming: 'candidate plan 66-32 — streaming risk delta updates via
+    WebSocket (requires separate approval per forbidden_forever list)'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- risk
+- snapshot
+- vm102
+- bounded-context
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

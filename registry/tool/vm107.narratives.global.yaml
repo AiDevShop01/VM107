@@ -1,0 +1,85 @@
+id: vm107.narratives.global
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm107.narratives.global
+description: 'VM107 emits one evolving GlobalNarrative paragraph per trading state.
+  Deterministic template baseline with novelty-gated LLM enrichment.
+  Refreshed per state cadence (PRE 5m, OPEN 60s, ACTIVE_SUPERVISION 60-120s, MID 2m,
+  CLOSE 5m) plus interrupt triggers (MACRO_EVENT, RISK_ESCALATION, REGIME_CHANGE,
+  SESSION_TRANSITION). Persists BOTH deterministic_base_summary AND llm_enriched_summary
+  when enrichment fires. Tier 1/2/3 graceful degradation: only Tier 3 reverts
+  _demo=true. Novelty gate prevents duplicate LLM output — fires only when content
+  diverges meaningfully from last narrative.'
+capability_type: global_narrative_emitter
+vm: vm107
+vm107_endpoint_path: /api/v1/narratives/global
+http_method: GET
+parameters:
+- name: state
+  type: string
+  required: true
+  description: 'Trading state — one of: pre / open / active_supervision / mid / close
+    / review'
+- name: refresh_reason
+  type: string
+  required: false
+  description: 'Optional override for interrupt-driven refresh reason (MACRO_EVENT,
+    RISK_ESCALATION, REGIME_CHANGE, SESSION_TRANSITION)'
+return_type: dict
+return_shape: AINarrativeContract
+return_on_error: demo_envelope
+error_modes:
+- code: demo_envelope
+  http_status: 200
+  description: 'LLM enrichment tier degraded — returns deterministic_base_summary
+    only with _demo=true at Tier 3. Never 4xx/5xx for degraded state.'
+refresh_cadence:
+  pre: 5m
+  open: 60s
+  active_supervision: 60-120s
+  mid: 2m
+  close: 5m
+interrupt_triggers:
+- MACRO_EVENT
+- RISK_ESCALATION
+- REGIME_CHANGE
+- SESSION_TRANSITION
+tier_behavior:
+  tier_1: full LLM enrichment via novelty engine
+  tier_2: LLM enrichment with reduced call budget
+  tier_3: deterministic_base_summary only, _demo=true
+contracts:
+  response_contract: VM107.contracts.narrative.AINarrativeContract
+consumed_by:
+- vm100.ws.mission_control
+- vm100.mission_control.aggregator
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  template_engine:
+    type: shared_service
+    id: vm100.narrative_template_engine
+related_capabilities:
+- vm107.intelligence_feed.macro
+- vm107.intelligence_feed.discoveries
+- vm100.ws.mission_control
+forward_compat:
+  narrative_history: 'candidate plan 66-20 — narrative history endpoint for timeline
+    replay'
+  per_instrument_narrative: 'candidate plan 66-21 — symbol-scoped sub-narrative'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- narrative
+- emitter
+- deterministic-first
+- llm-novelty-gated
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

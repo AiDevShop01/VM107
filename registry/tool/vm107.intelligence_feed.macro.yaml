@@ -1,0 +1,76 @@
+id: vm107.intelligence_feed.macro
+type: tool
+status: real
+shipped: 66
+last_changed: "2026-05-23"
+name: vm107.intelligence_feed.macro
+description: 'VM107 MACRO intelligence feed composer. Aggregates macro-context items
+  for the Mission Control intelligence feed. Sources: economic calendar events (next
+  24h high-impact), active news catalysts, regime summary across watched instruments,
+  session timing context. Each item is an IntelligenceFeedItem with category=macro.
+  Novelty engine gates LLM narrative enrichment per item — duplicate macro items
+  are suppressed. Returns ordered list by relevance_score DESC. Maximum 10 items
+  per call to bound frontend render cost. Separate from DISCOVERIES composer by
+  design — MACRO items are forward-looking (what is coming) vs DISCOVERIES which
+  are backward-looking (what was found in recent trades).'
+capability_type: intelligence_feed_macro_composer
+vm: vm107
+vm107_endpoint_path: /api/v1/intelligence_feed/macro
+http_method: GET
+parameters:
+- name: state
+  type: string
+  required: true
+  description: 'Trading state — one of: pre / open / active_supervision / mid / close
+    / review. State gates which categories are surfaced (e.g. CLOSE state suppresses
+    forward-looking OPEN items).'
+- name: account
+  type: integer
+  required: false
+  description: 'Account ID — if provided, filters to instruments on the account watchlist.
+    If omitted, returns global macro context.'
+return_type: list
+return_shape: 'list[IntelligenceFeedItem] (category=''macro'')'
+return_on_error: empty_list
+error_modes:
+- code: empty_list
+  http_status: 200
+  description: 'No macro items available — returns empty list. Never 4xx/5xx for empty
+    feed state.'
+max_items: 10
+item_ordering: relevance_score DESC
+item_category: macro
+contracts:
+  response_contract: VM107.contracts.intelligence_feed.IntelligenceFeedItem
+consumed_by:
+- vm100.ws.mission_control
+- vm100.mission_control.intelligence_feed_composer
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  analytics_calendar:
+    type: tool
+    id: vm100.analytics_calendar
+related_capabilities:
+- vm107.intelligence_feed.discoveries
+- vm107.narratives.global
+- vm102.regime_current
+- vm100.analytics_calendar
+forward_compat:
+  macro_alert: 'candidate plan 66-24 — push MACRO_EVENT interrupt to narrative emitter
+    when high-impact item crosses 30m threshold'
+  macro_history: 'candidate plan 66-25 — macro feed history for timeline review'
+phase: 66
+tags:
+- phase-66
+- mission-control
+- intelligence-feed
+- macro
+- composer
+- forward-looking
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
