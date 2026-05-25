@@ -1,0 +1,36 @@
+id: vm100.mission_control.readiness_service
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# Phase 67 Plan 09 — capability declaration for the ReadinessService backend
+# shipped in Plan 04. The substrate lives at
+# VM100/backend/mission_control/services/readiness_service.py and exposes
+# POST /api/mission-control/readiness + GET /api/mission-control/readiness/current
+# under JWTAuth. Plan 04 ships the substrate; Plan 09 ships the frontend
+# binding (mission.pre.readiness widget). Plan 67-13 will extend the
+# privacy chokepoint to internal-route consumers.
+# Marked status: planned (not active) — capability is reachable today but
+# the broader Plan 13 wiring (assembler injection) is forward-work.
+
+name: vm100.mission_control.readiness_service
+description: |
+  Event-sourced ReadinessReport substrate (Phase 67 Plan 04). Provides:
+    - POST /api/mission-control/readiness  — submit a new report
+    - GET  /api/mission-control/readiness/current?account_id=X — fetch latest
+  Both endpoints are JWT-authed and stamped via PrivacyTransformEngine
+  (Plan 03) on the way out. Backed by the append-only readiness_report
+  table + current_readiness materialized view.
+
+location:
+  source: VM100/backend/mission_control/services/readiness_service.py
+
+tags: [phase-67, mission_control, readiness, biometric, privacy-chokepoint]
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies:
+  - vm100.placeholder.mission_nav  # WS topic broker shared across PRE state widgets
+related_capabilities: []
+deprecated: false
