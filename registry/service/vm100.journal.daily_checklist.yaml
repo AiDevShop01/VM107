@@ -1,0 +1,29 @@
+id: vm100.journal.daily_checklist
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# Phase 67 Plan 09 — capability declaration for the DAILY_PRE_MARKET
+# checklist endpoint shipped in Plan 05 (GET) + Plan 09 (POST
+# checklist/item/complete). Backed by ChecklistDefinition +
+# DailyChecklistItem at VM100/backend/journal/models.py.
+
+name: vm100.journal.daily_checklist
+description: |
+  Daily pre-market checklist substrate (Phase 67 Plan 05 GET + Plan 09 POST):
+    - GET  /api/journal/checklist/daily?date=YYYY-MM-DD — seeds 6 items on
+                                                          first call, idempotent
+    - POST /api/journal/checklist/item/complete         — flips item.completed
+  Both endpoints JWT-authed via vm100_auth.JWTAuth. Ownership scoped by user_id.
+
+location:
+  source: VM100/backend/journal/routers/checklist_router.py
+
+tags: [phase-67, journal, routine, pre-market, daily-checklist]
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
