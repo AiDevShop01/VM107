@@ -1,0 +1,31 @@
+id: vm100.mission_control.surfaced_lesson_service
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# Phase 67 Plan 10 — capability declaration for the CLOSE state
+# surfaced_lesson endpoint shipped in Plan 08
+# (GET /api/mission-control/surfaced-lesson with Option A fallback).
+# Plan 13 promotes status: planned → status: active when WS push wiring lands.
+
+name: vm100.mission_control.surfaced_lesson_service
+description: |
+  Surfaced lesson substrate (Phase 67 Plan 08 + Plan 10):
+    - GET /api/mission-control/surfaced-lesson?account_id=X&date=YYYY-MM-DD
+    - Joins Phase 54 cross-trade patterns + Phase 60 mentor narrative
+      discipline_flags into a single highest-confidence behavioural card.
+    - Option A fallback (Pitfall 4): walks back 1..5 days when today's
+      session has no patterns yet, ships banner_text + fallback_source_date.
+    - Privacy chokepoint applied at router boundary (Plan 03).
+
+location:
+  source: VM100/backend/mission_control/services/surfaced_lesson_service.py
+
+tags: [phase-67, mission-control, close-state, surfaced-lesson, behavioral-card]
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
