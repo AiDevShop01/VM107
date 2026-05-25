@@ -1,0 +1,161 @@
+{
+  "set_id": "rps-golden-0001",
+  "account_id": 42,
+  "generated_at": "2026-05-25T18:00:00Z",
+  "selected_prompts": [
+    {
+      "prompt_id": "cand-disc-001",
+      "account_id": 42,
+      "category": "DISCIPLINE",
+      "intervention_strength": "HIGH",
+      "intervention_type": "pattern-recognition",
+      "base_prompt": "You repeatedly entered before M5 BOS during RANGE regime. What belief caused premature execution?",
+      "llm_enriched_prompt": "Three premature entries during RANGE compression — each one looked like an A+ setup. What's the felt pattern between conviction and confirmation in those moments?",
+      "selection_reason": "discipline_repeat:premature_entry",
+      "novelty_score": 0.6,
+      "behavioral_confidence_score": 0.78,
+      "confidence_score": 0.68,
+      "emotional_load": 0.6,
+      "originating_patterns": [],
+      "originating_flags": ["premature_entry"],
+      "evidence_chain": [
+        {
+          "kind": "discipline_flag",
+          "ref": "discipline_flag:premature_entry",
+          "weight": 0.8
+        },
+        {
+          "kind": "mentor_narrative",
+          "ref": "mentor_narrative:t-1",
+          "weight": 0.78
+        }
+      ],
+      "prompt_version": "v1.0.0",
+      "generated_at": "2026-05-25T18:00:00Z",
+      "selected": true,
+      "rejection_reason": null,
+      "rejected_by_diversity_guard": null
+    },
+    {
+      "prompt_id": "cand-pat-002",
+      "account_id": 42,
+      "category": "OVERTRADING",
+      "intervention_strength": "HIGH",
+      "intervention_type": "emotional",
+      "base_prompt": "After the early -1.2R drawdown, position count doubled. What did each additional entry feel like it would fix?",
+      "llm_enriched_prompt": null,
+      "selection_reason": "pattern_cluster:overtrading_cluster",
+      "novelty_score": 0.6,
+      "behavioral_confidence_score": 0.78,
+      "confidence_score": 0.64,
+      "emotional_load": 0.8,
+      "originating_patterns": ["overtrading_cluster"],
+      "originating_flags": [],
+      "evidence_chain": [
+        {
+          "kind": "cross_trade_pattern",
+          "ref": "cross_trade_pattern:overtrading_cluster",
+          "weight": 0.75
+        },
+        {
+          "kind": "behavioral_evolution",
+          "ref": "behavioral_evolution:worsening",
+          "weight": 0.6
+        }
+      ],
+      "prompt_version": "v1.0.0",
+      "generated_at": "2026-05-25T18:00:00Z",
+      "selected": true,
+      "rejection_reason": null,
+      "rejected_by_diversity_guard": null
+    },
+    {
+      "prompt_id": "cand-reg-003",
+      "account_id": 42,
+      "category": "REGIME",
+      "intervention_strength": "MODERATE",
+      "intervention_type": "reflective",
+      "base_prompt": "You took 5 trades in RANGE regime — your historical win rate there is 38%. What signal told you THIS session was different?",
+      "llm_enriched_prompt": null,
+      "selection_reason": "pattern_cluster:regime_mismatch_cluster",
+      "novelty_score": 0.6,
+      "behavioral_confidence_score": 0.78,
+      "confidence_score": 0.58,
+      "emotional_load": 0.45,
+      "originating_patterns": ["regime_mismatch_cluster"],
+      "originating_flags": [],
+      "evidence_chain": [
+        {
+          "kind": "cross_trade_pattern",
+          "ref": "cross_trade_pattern:regime_mismatch_cluster",
+          "weight": 0.65
+        }
+      ],
+      "prompt_version": "v1.0.0",
+      "generated_at": "2026-05-25T18:00:00Z",
+      "selected": true,
+      "rejection_reason": null,
+      "rejected_by_diversity_guard": null
+    },
+    {
+      "prompt_id": "cand-long-004",
+      "account_id": 42,
+      "category": "READINESS",
+      "intervention_strength": "MODERATE",
+      "intervention_type": "future-oriented",
+      "base_prompt": "Tomorrow morning: which one readiness metric, if RED, would make you cut size by 50% before market open?",
+      "llm_enriched_prompt": null,
+      "selection_reason": "longitudinal:worsening",
+      "novelty_score": 0.6,
+      "behavioral_confidence_score": 0.78,
+      "confidence_score": 0.54,
+      "emotional_load": 0.4,
+      "originating_patterns": [],
+      "originating_flags": [],
+      "evidence_chain": [
+        {
+          "kind": "behavioral_evolution",
+          "ref": "behavioral_evolution:worsening",
+          "weight": 0.7
+        }
+      ],
+      "prompt_version": "v1.0.0",
+      "generated_at": "2026-05-25T18:00:00Z",
+      "selected": true,
+      "rejection_reason": null,
+      "rejected_by_diversity_guard": null
+    }
+  ],
+  "rejected_candidates": [
+    {
+      "prompt_id": "cand-disc-005",
+      "account_id": 42,
+      "category": "DISCIPLINE",
+      "intervention_strength": "MODERATE",
+      "intervention_type": "reflective",
+      "base_prompt": "Three discipline flags were raised in this session (premature_entry, size_violation, rule_break). Which one repeats across the last 5 sessions?",
+      "llm_enriched_prompt": null,
+      "selection_reason": "discipline_repeat:size_violation",
+      "novelty_score": 0.6,
+      "behavioral_confidence_score": 0.78,
+      "confidence_score": 0.61,
+      "emotional_load": 0.5,
+      "originating_patterns": [],
+      "originating_flags": ["size_violation"],
+      "evidence_chain": [
+        {
+          "kind": "discipline_flag",
+          "ref": "discipline_flag:size_violation",
+          "weight": 0.66
+        }
+      ],
+      "prompt_version": "v1.0.0",
+      "generated_at": "2026-05-25T18:00:00Z",
+      "selected": false,
+      "rejection_reason": "not_selected",
+      "rejected_by_diversity_guard": "max_per_category(2) exceeded for DISCIPLINE"
+    }
+  ],
+  "reflection_set_coherence_score": 0.85,
+  "dominant_session_theme": null
+}

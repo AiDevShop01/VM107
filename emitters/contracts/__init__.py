@@ -10,3 +10,8 @@ from emitters.contracts.overnight_delta import (  # noqa: F401
     BucketDelta,
     OvernightDeltaContract,
 )
+from emitters.contracts.reflection_prompt import (  # noqa: F401
+    EvidenceChainItem,
+    ReflectionPromptContract,
+    ReflectionPromptSetContract,
+)

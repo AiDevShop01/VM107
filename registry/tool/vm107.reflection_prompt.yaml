@@ -1,0 +1,120 @@
+id: vm107.reflection_prompt
+type: tool
+status: real
+shipped: 67
+last_changed: "2026-05-25"
+name: vm107.reflection_prompt
+description: >-
+  CLOSE-state reflection prompt emitter — 5-stage progressive enrichment
+  pipeline assembling 4 reflection prompts per session via deterministic
+  candidate scoring, multi-domain evidence convergence eligibility,
+  score-then-diversify hybrid selection, and coherence pass over the
+  4-prompt SET. LLM enrichment is additive-only (NEVER replaces the
+  deterministic prompt) and gated by the shared NoveltyEngine (Phase 66
+  lock). Both selected AND rejected candidates are persisted; rejected
+  rows feed Phase 62 tuning. evidence_chain[] uses structured
+  {kind, ref, weight} items per RESEARCH recommendation.
+capability_type: reflection_prompt_emitter
+vm: vm107
+vm107_endpoint_path: /api/v1/emitters/reflection_prompts
+http_method: GET
+parameters:
+  - name: account_id
+    type: integer
+    required: true
+    description: Account ID for which to assemble the reflection prompt set.
+  - name: session_date
+    type: string
+    required: true
+    description: Session date (YYYY-MM-DD); pipeline scopes to UTC midnight bounds.
+return_type: dict
+return_shape: ReflectionPromptSetContract
+return_on_error: empty_envelope
+error_modes:
+  - code: empty_envelope
+    http_status: 200
+    description: >-
+      Upstream evidence unavailable (no trades OR no support layers) —
+      returns ReflectionPromptSetContract with empty selected_prompts +
+      empty rejected_candidates + coherence_score=0.0. Never 4xx/5xx for
+      missing-data state.
+tier_behavior:
+  full: All 4 stages report healthy → 4 prompts selected with LLM enrichment when novelty crosses
+  partial: One assembler upstream degraded → reduced prompt count (≤4) + rejected_candidates still recorded
+  degraded: No observations OR no support layers → empty set, eligibility filter blocks output
+contracts:
+  response_contract: VM107.emitters.contracts.reflection_prompt.ReflectionPromptSetContract
+consumed_by:
+  - vm100.mission_control.clients.vm107_reflection_prompt_client
+  - vm100.mission_control.close_journal_prompts
+  - vm100.mcp.mission_control.close.journal_prompts
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  vm100_trade_outcomes:
+    type: tool
+    id: vm100.journal.trade_outcomes
+  vm107_mentor_pipeline:
+    type: tool
+    id: vm107.mentor_pipeline
+  vm100_cross_trade_patterns:
+    type: tool
+    id: vm100.journal.cross_trade_patterns
+  vm100_behavioral_evolution:
+    type: tool
+    id: vm100.behavioral_evolution
+  vm100_adaptive_recommendation:
+    type: tool
+    id: vm100.adaptive_recommendation
+related_capabilities:
+  - vm107.morning_brief
+  - vm107.overnight_delta
+  - vm107.narratives.global
+  - vm100.ws.mission_control
+ws_topics:
+  - mission_control.close.journal_prompts
+forward_compat:
+  reflection_prompt_snapshot: candidate Plan 67-13 — ReflectionPromptSnapshot ORM + replay
+  seven_day_novelty_baseline: Phase 70+ — replace flag-count proxy with real 7-day baseline delta (Pitfall 7 full fix)
+prompt_library:
+  version: "v1.0.0"
+  category_count: 10
+  template_total: 30
+  taxonomy:
+    - DISCIPLINE
+    - EXECUTION
+    - REGIME
+    - EMOTIONAL
+    - LOCATION
+    - PATIENCE
+    - OVERTRADING
+    - RISK
+    - READINESS
+    - EDGE_QUALITY
+intervention_types:
+  - reflective
+  - tactical
+  - pattern-recognition
+  - emotional
+  - future-oriented
+intervention_strengths:
+  - LOW
+  - MODERATE
+  - HIGH
+  - CRITICAL
+phase: 67
+tags:
+  - phase-67
+  - mission-control
+  - close-state
+  - emitter
+  - reflection-prompt
+  - deterministic-first
+  - llm-novelty-gated
+  - phase-62-tuning-substrate
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - agent_zero
+deprecated: false
