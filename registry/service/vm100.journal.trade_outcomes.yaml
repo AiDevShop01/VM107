@@ -1,0 +1,28 @@
+id: vm100.journal.trade_outcomes
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# Phase 67 Plan 10 — capability declaration for the CLOSE state
+# trade_replay namespace. Re-uses LiveClosedTradesTable's underlying
+# closed-trades endpoint (existing in /api/v1/accounts/<id>/trades).
+# Plan 13 promotes status: planned → status: active.
+
+name: vm100.journal.trade_outcomes
+description: |
+  Closed-trade outcomes feed for the CLOSE state trade_replay namespace
+  (Phase 67 Plan 10). Filters to today's session (entry_at >= today
+  midnight UTC) + surfaces Phase 60 discipline_flags as per-row amber
+  callouts. Click row stub for Phase 73 replay wiring.
+
+location:
+  source: VM100/backend/api/views_v2.py
+
+tags: [phase-67, journal, close-state, trade-replay, discipline-flags]
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false

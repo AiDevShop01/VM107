@@ -1,0 +1,33 @@
+id: vm100.mission_control.daily_summary_service
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# Phase 67 Plan 10 — capability declaration for the close-state hero
+# 8-chip composer shipped in Plan 65-06 (DailySummaryService) + re-ordered
+# in Plan 67-10 (LOCKED_CHIP_ORDER_PHASE67 DISCIPLINE-first).
+# Plan 13 promotes status: planned → status: active when the close-state
+# aggregator wiring lands.
+
+name: vm100.mission_control.daily_summary_service
+description: |
+  Daily summary substrate for the CLOSE state day_pnl hero (Phase 67 Plan 10):
+    - close_state_hero_service.compose_hero(account_id, day_date) emits 8 chips
+      in LOCKED_CHIP_ORDER_PHASE67 order (DISCIPLINE → EDGE QUALITY → PLAN
+      ADHERENCE → AVG R → DAY P&L → +% → WIN → TRADES).
+    - Underlying DailySummaryService.summarize() (Phase 65-02) joins
+      closed-trade aggregates from VM100/journal.
+  Anti-pattern guard: load-bearing constraint #6 — chip ordering is the
+  identity-training/outcome-reporting hierarchy lock.
+
+location:
+  source: VM100/backend/mission_control/services/close_state_hero_service.py
+
+tags: [phase-67, mission-control, close-state, day-pnl, hero-composer]
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
