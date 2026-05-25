@@ -1,0 +1,29 @@
+id: vm100.placeholder.mission_nav
+type: service
+status: planned
+shipped: 67
+last_changed: "2026-05-25"
+
+# PLACEHOLDER capability for mission.nav widget. mission.nav is purely
+# client-side (no backend dependencies) but the Phase 67 Widget Registry
+# requires every widget.data_source.capability to resolve to a real
+# capability YAML. This placeholder satisfies Stage 4 cross-ref until
+# Plan 67-13 wires the canonical vm100.mission_control.nav_service.
+# TODO: phase-67-13 replace with the real backend nav capability
+
+name: vm100.placeholder.mission_nav
+description: |
+  Forward-compat placeholder for the future client-side Mission Control
+  nav capability. No runtime behaviour today; widget_registry references
+  it only so Stage 4 cross-ref passes.
+
+location:
+  source: VM100/frontend/components/mission/MissionNav.jsx
+
+tags: [phase-67, mission_control, widget-placeholder]
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
