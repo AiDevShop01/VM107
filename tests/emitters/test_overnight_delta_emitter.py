@@ -203,18 +203,31 @@ def test_emitter_overall_summary_always_populated():
 
 
 def test_emitter_llm_enriched_summary_only_when_novelty_crossed():
-    """LLM enrichment populated only when novelty.threshold_crossed."""
+    """LLM enrichment populated only when novelty.threshold_crossed AND not demo."""
     emitter = OvernightDeltaEmitter()
+
+    def assemble_real(account_id):
+        emitter._health.report("vm100", available=True)
+        emitter._health.report("vm102", available=True)
+        return {
+            "fx_overnight_moves": {"EURUSD": 0.005, "USDJPY": -0.002, "GBPUSD": 0.003},
+            "bonds_overnight_moves": {"US10Y": 0.001, "DE10Y": 0.001, "JP10Y": 0.002},
+            "commodities_overnight_moves": {"GC": 0.004, "CL": -0.005, "HG": 0.001},
+            "crypto_overnight_moves": {"BTC": 0.020, "ETH": 0.015},
+        }
 
     # Novelty NOT crossed
     fake_no_novelty = MagicMock(score=0.1, threshold_crossed=False, reason_codes=[])
-    with patch.object(emitter._novelty, "score", return_value=fake_no_novelty):
+    with patch.object(emitter, "_assemble_context", side_effect=assemble_real), \
+         patch.object(emitter._novelty, "score", return_value=fake_no_novelty):
         result = emitter.get_overnight_delta(account_id=1)
     assert result.llm_enriched_summary is None
+    assert result.demo is False  # sanity: real data → not demo
 
-    # Novelty crossed
+    # Novelty crossed → LLM populated
     fake_novelty = MagicMock(score=0.9, threshold_crossed=True, reason_codes=["VOL"])
-    with patch.object(emitter._novelty, "score", return_value=fake_novelty), \
+    with patch.object(emitter, "_assemble_context", side_effect=assemble_real), \
+         patch.object(emitter._novelty, "score", return_value=fake_novelty), \
          patch.object(emitter, "_call_llm", return_value="ENRICHED OVERVIEW"):
         result2 = emitter.get_overnight_delta(account_id=1)
     assert result2.llm_enriched_summary == "ENRICHED OVERVIEW"

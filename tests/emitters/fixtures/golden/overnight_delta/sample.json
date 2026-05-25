@@ -1,0 +1,64 @@
+{
+  "delta_id": "od-golden-0001",
+  "account_id": 42,
+  "generated_at": "2026-05-25T06:00:00Z",
+  "buckets": [
+    {
+      "bucket": "FX",
+      "headline": "FX: moderate down move across 3 symbol(s)",
+      "notable_symbols": [
+        "USDJPY",
+        "EURUSD",
+        "GBPUSD"
+      ],
+      "direction": "down",
+      "magnitude_label": "moderate",
+      "confidence": 0.85,
+      "_demo": false
+    },
+    {
+      "bucket": "BONDS",
+      "headline": "BONDS: small up move across 3 symbol(s)",
+      "notable_symbols": [
+        "US10Y",
+        "DE10Y",
+        "JP10Y"
+      ],
+      "direction": "up",
+      "magnitude_label": "small",
+      "confidence": 0.85,
+      "_demo": false
+    },
+    {
+      "bucket": "COMMODITIES",
+      "headline": "COMMODITIES: small mixed move across 3 symbol(s)",
+      "notable_symbols": [
+        "CL",
+        "GC",
+        "HG"
+      ],
+      "direction": "mixed",
+      "magnitude_label": "small",
+      "confidence": 0.85,
+      "_demo": false
+    },
+    {
+      "bucket": "CRYPTO",
+      "headline": "CRYPTO: large up move across 2 symbol(s)",
+      "notable_symbols": [
+        "BTC",
+        "ETH"
+      ],
+      "direction": "up",
+      "magnitude_label": "large",
+      "confidence": 0.85,
+      "_demo": false
+    }
+  ],
+  "overall_summary": "Overnight session: FX down, BONDS up, COMMODITIES mixed, CRYPTO up.",
+  "llm_enriched_summary": "Risk-off in FX paired with crypto strength suggests rotation rather than broad de-risking.",
+  "confidence_score": 0.95,
+  "confidence_tier": "FULL",
+  "missing_sources": [],
+  "_demo": false
+}

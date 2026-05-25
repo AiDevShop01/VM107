@@ -1,0 +1,89 @@
+id: vm107.overnight_delta
+type: tool
+status: real
+shipped: 67
+last_changed: "2026-05-25"
+name: vm107.overnight_delta
+description: 'Pre-market overnight-move synthesis across 4 fixed buckets: FX / BONDS
+  / COMMODITIES / CRYPTO. Each bucket is a deterministic BucketDelta carrying a
+  1-line headline, 0-3 notable_symbols, direction (up/down/mixed/flat), magnitude
+  label (small/moderate/large/extreme) and per-bucket _demo. Top-level
+  overall_summary always populated; llm_enriched_summary additive only when the
+  shared NoveltyEngine threshold is crossed. Mirrors Phase 66
+  global_narrative_emitter 5-step pipeline pattern verbatim. Bucket order locked
+  via model_validator so downstream UI can index by position.'
+capability_type: overnight_delta_emitter
+vm: vm107
+vm107_endpoint_path: /api/v1/emitters/overnight_delta
+http_method: GET
+parameters:
+- name: account_id
+  type: integer
+  required: true
+  description: 'Account ID for which to assemble the overnight delta context.'
+return_type: dict
+return_shape: OvernightDeltaContract
+return_on_error: demo_envelope
+error_modes:
+- code: demo_envelope
+  http_status: 200
+  description: 'Upstream sources unavailable — returns 4 buckets all with _demo=true,
+    top-level _demo=true, confidence_tier=DEGRADED. Never 4xx/5xx for degraded state.'
+buckets:
+- FX
+- BONDS
+- COMMODITIES
+- CRYPTO
+bucket_order_locked: true
+magnitude_thresholds:
+  small: "<0.3% mean abs move"
+  moderate: "0.3% - 1.0%"
+  large: "1.0% - 2.5%"
+  extreme: ">2.5%"
+direction_classification:
+  up: all symbols positive (>0.1%)
+  down: all symbols negative (<-0.1%)
+  mixed: split signs
+  flat: all symbols within ±0.1%
+contracts:
+  response_contract: VM107.emitters.contracts.overnight_delta.OvernightDeltaContract
+consumed_by:
+- vm100.mission_control.clients.vm107_overnight_delta_client
+- vm100.ws.mission_control
+- vm100.mission_control.pre_state_overnight
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  health_registry:
+    type: shared_service
+    id: vm107.services.source_health_registry
+  vm100_ribbon_service:
+    type: tool
+    id: vm100.market_data.ribbon
+  vm100_analytics_calendar:
+    type: tool
+    id: vm100.analytics_calendar
+related_capabilities:
+- vm107.morning_brief
+- vm107.narratives.global
+- vm100.ws.mission_control
+ws_topics:
+- mission_control.pre.overnight_delta
+forward_compat:
+  overnight_snapshot: 'candidate plan 67-13 — OvernightDeltaSnapshot ORM + WS replay'
+  bucket_yaml_config: 'candidate phase 70+ — symbol lists moved from code to YAML'
+phase: 67
+tags:
+- phase-67
+- mission-control
+- pre-state
+- emitter
+- overnight
+- deterministic-first
+- llm-novelty-gated
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
