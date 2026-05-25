@@ -1,0 +1,74 @@
+id: vm107.mcp_server
+type: tool
+status: real
+shipped: 67
+last_changed: "2026-05-25"
+name: vm107.mcp_server
+display_name: "VM107 FastMCP Server"
+description: >-
+  FastMCP streamable-HTTP server (Phase 67 Plan 12) exposing CLOSE-state
+  cognitive tools to external MCP clients (Claude Desktop, Cursor). Two
+  always-active tools: mission.close.journal_prompts (REQ-67-4 — wraps
+  vm107.reflection_prompt via VM100 chokepoint) + mission.close.surfaced_lesson
+  (REQ-67-5 — wraps VM100 /api/mission-control/surfaced-lesson). Bearer
+  auth via JWTVerifier (env-driven JWKS_URI / ISSUER / AUDIENCE — no
+  fallback defaults per Phase 47.3 lock). Per-session activation policy
+  is DEFERRED to a follow-up phase; v1 ships always-active 2 tools per
+  load-bearing constraint #12. FastMCP pinned to >=3.2,<4 (Pitfall 10).
+capability_type: mcp_server
+vm: vm107
+inputs: []
+outputs:
+  - mission.close.journal_prompts
+  - mission.close.surfaced_lesson
+required_scopes:
+  - mission_control:read
+transport: streamable-http
+mount_path: /mcp
+auth_provider: fastmcp.server.auth.providers.jwt.JWTVerifier
+env_vars:
+  required:
+    - VM107_MCP_JWKS_URI
+    - VM107_MCP_ISSUER
+    - VM107_MCP_AUDIENCE
+    - VM107_MCP_PORT
+    - VM100_BASE_URL
+    - VM100_INTERNAL_TOKEN
+  fail_fast: true
+dependencies:
+  reflection_prompt:
+    type: tool
+    id: vm107.reflection_prompt
+    notes: "Underlies mission.close.journal_prompts (wrapped via VM100 /api/mission-control/close/reflection-prompts proxy; proxy wired in Plan 13)."
+  surfaced_lesson:
+    type: endpoint
+    id: vm100.mission_control.surfaced_lesson
+    notes: "Underlies mission.close.surfaced_lesson (shipped in Plan 08)."
+health:
+  required_sources: [vm100]
+  staleness_threshold_sec: 60
+consumed_by:
+  - external.claude_desktop
+  - external.cursor
+related_capabilities:
+  - vm107.reflection_prompt
+  - vm100.ws.mission_control
+forward_compat:
+  per_session_activation: "Deferred to a follow-up phase — Phase 67 v1 ships always-active 2 tools per load-bearing constraint #12."
+  ws_streaming_mcp: "Deferred — current transport is streamable-http (one-shot tool call); WS-based MCP push is a future phase."
+  additional_tools: "Future phases may add more PRE/MID/CLOSE-state MCP tools (e.g., mission.pre.morning_brief, mission.mid.readiness_report) — capability YAML schema is forward-compatible."
+manual_uat: VM107/mcpserver/MANUAL_UAT.md
+phase: 67
+tags:
+  - phase-67
+  - mission-control
+  - close-state
+  - mcp-server
+  - fastmcp
+  - openbb-recommendation
+  - external-client-surface
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - external_mcp_client
+deprecated: false

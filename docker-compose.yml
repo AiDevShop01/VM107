@@ -23,12 +23,25 @@ services:
     restart: unless-stopped
     ports:
       - "50081:80"
+      # Phase 67 Plan 12 — FastMCP server streamable-HTTP transport.
+      # Host port and container port both come from VM107_MCP_PORT (fail-fast).
+      - "${VM107_MCP_PORT:?VM107_MCP_PORT is required (Phase 47.3 lock — no fallback defaults)}:${VM107_MCP_PORT:?VM107_MCP_PORT is required (Phase 47.3 lock — no fallback defaults)}"
     env_file:
       - .env.local
     environment:
       # Make fingpt_core importable from VM107 tools/Tier-1 builder.
       # Mounted from sibling Dagster repo at the path below.
       PYTHONPATH: /a0_extras:/a0
+      # Phase 67 Plan 12 — FastMCP server env (fail-fast — Phase 47.3 lock).
+      # The ${VAR:?msg} syntax is docker-compose's fail-fast operator: missing
+      # env at `docker compose up` aborts with the message. No fallback defaults.
+      VM107_MCP_JWKS_URI: "${VM107_MCP_JWKS_URI:?VM107_MCP_JWKS_URI is required (Phase 67 Plan 12 — JWT validation)}"
+      VM107_MCP_ISSUER: "${VM107_MCP_ISSUER:?VM107_MCP_ISSUER is required (Phase 67 Plan 12 — JWT issuer)}"
+      VM107_MCP_AUDIENCE: "${VM107_MCP_AUDIENCE:?VM107_MCP_AUDIENCE is required (Phase 67 Plan 12 — JWT audience)}"
+      VM107_MCP_PORT: "${VM107_MCP_PORT:?VM107_MCP_PORT is required (Phase 67 Plan 12 — FastMCP streamable-http port)}"
+      # VM100 chokepoint config — MCP tools call VM100 backend, not direct data.
+      VM100_BASE_URL: "${VM100_BASE_URL:?VM100_BASE_URL is required (Phase 67 Plan 12 — VM100 chokepoint base URL)}"
+      VM100_INTERNAL_TOKEN: "${VM100_INTERNAL_TOKEN:?VM100_INTERNAL_TOKEN is required (Phase 67 Plan 12 — service-to-service bearer token)}"
     volumes:
       - ./usr:/a0/usr
       # Vendor fingpt_core source (read-only) so the Phase 39/47.2 typed
