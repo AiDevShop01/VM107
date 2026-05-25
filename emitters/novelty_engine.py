@@ -97,6 +97,24 @@ class NoveltyEngine:
         discoveries_t = engine.get_discoveries_threshold()  # stricter gate
     """
 
+    # Phase 67 Plan 06 — shared-instance accessor (CONTEXT.md §2 lock).
+    # ALL VM107 emitters MUST use the SAME NoveltyEngine instance so novelty
+    # state (last-seen dims, cooldown windows added in later phases) is
+    # coherent across MorningBrief / OvernightDelta / GlobalNarrative.
+    _shared_instance: "NoveltyEngine | None" = None
+
+    @classmethod
+    def get_shared_instance(cls) -> "NoveltyEngine":
+        """Process-wide singleton accessor for NoveltyEngine.
+
+        Lazily constructed on first call. Subsequent calls return the same
+        instance. Tests that need an isolated engine can instantiate
+        ``NoveltyEngine()`` directly and pass it via dependency injection.
+        """
+        if cls._shared_instance is None:
+            cls._shared_instance = cls()
+        return cls._shared_instance
+
     def __init__(self, config_path: Path = CONFIG_PATH) -> None:
         with config_path.open(encoding="utf-8") as fh:
             self._cfg = yaml.safe_load(fh)

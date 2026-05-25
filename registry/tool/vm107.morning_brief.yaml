@@ -1,0 +1,78 @@
+id: vm107.morning_brief
+type: tool
+status: real
+shipped: 67
+last_changed: "2026-05-25"
+name: vm107.morning_brief
+description: 'Pre-market AI briefing assembled from market + macro + behavioral context.
+  Deterministic base summary (headline + body + top_catalysts + risk_alerts) ALWAYS
+  produced; LLM enrichment additive only when novelty engine threshold is crossed.
+  Mirrors Phase 66 global_narrative_emitter pattern verbatim (5-step pipeline:
+  health-clear → context assembly → tier classification → deterministic base →
+  novelty score → optional LLM → typed contract). Shared NoveltyEngine + shared
+  SourceHealthRegistry instances enforce cross-emitter coherence. Confidence tier
+  degrades FULL/PARTIAL/DEGRADED as upstream sources go missing; _demo flips True
+  on DEGRADED.'
+capability_type: morning_brief_emitter
+vm: vm107
+vm107_endpoint_path: /api/v1/emitters/morning_brief
+http_method: GET
+parameters:
+- name: account_id
+  type: integer
+  required: true
+  description: 'Account ID for which to assemble the morning brief context.'
+return_type: dict
+return_shape: MorningBriefContract
+return_on_error: demo_envelope
+error_modes:
+- code: demo_envelope
+  http_status: 200
+  description: 'Upstream context sources unavailable — returns deterministic base
+    with _demo=true + confidence_tier=DEGRADED + missing_sources populated. Never
+    4xx/5xx for degraded state.'
+tier_behavior:
+  full: all sources healthy → confidence_score 0.95 + LLM enrichment when novelty crosses
+  partial: 1 source missing → confidence_score 0.65 + reduced LLM budget
+  degraded: 2+ sources missing → deterministic base only, _demo=true
+contracts:
+  response_contract: VM107.emitters.contracts.morning_brief.MorningBriefContract
+consumed_by:
+- vm100.mission_control.clients.vm107_morning_brief_client
+- vm100.ws.mission_control
+- vm100.mission_control.pre_state_briefing
+dependencies:
+  novelty_engine:
+    type: shared_service
+    id: vm107.services.novelty_engine
+  health_registry:
+    type: shared_service
+    id: vm107.services.source_health_registry
+  vm100_market_ribbon:
+    type: tool
+    id: vm100.market_data.ribbon
+  vm102_risk_metrics:
+    type: tool
+    id: vm102.risk_metrics
+related_capabilities:
+- vm107.overnight_delta
+- vm107.narratives.global
+- vm100.ws.mission_control
+ws_topics:
+- mission_control.pre.morning_brief
+forward_compat:
+  morning_brief_snapshot: 'candidate plan 67-13 — MorningBriefSnapshot ORM + replay'
+  per_instrument_brief: 'candidate phase 76+ — symbol-scoped briefing rows'
+phase: 67
+tags:
+- phase-67
+- mission-control
+- pre-state
+- emitter
+- deterministic-first
+- llm-novelty-gated
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false

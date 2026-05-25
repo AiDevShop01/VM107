@@ -305,9 +305,13 @@ class TestVM107MorningBriefClient:
             client = VM107MorningBriefClient()
             result = await client.get_morning_brief(account_id=7)
 
-        assert isinstance(result, MorningBriefContract)
+        # NOTE: client returns the VM100 local-mirror MorningBriefContract
+        # (Phase 66 cross-VM mirror pattern); we assert the wire shape
+        # rather than producer-side class identity.
         assert result.brief_id == "b-1"
         assert result.account_id == 7
+        assert result.headline == "Test headline"
+        assert result.confidence_tier == "FULL"
 
     @pytest.mark.asyncio
     async def test_client_raises_on_5xx(self, monkeypatch):

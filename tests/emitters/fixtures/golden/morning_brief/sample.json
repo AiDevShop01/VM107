@@ -1,0 +1,23 @@
+{
+  "brief_id": "mb-golden-0001",
+  "account_id": 42,
+  "generated_at": "2026-05-25T08:00:00Z",
+  "headline": "Morning brief — full context assembled",
+  "body": "Pre-market context assembled from market, macro, and risk sources. Review the catalyst list and risk alerts below.",
+  "top_catalysts": [
+    "US CPI release 08:30",
+    "FOMC minutes 14:00",
+    "ECB Lagarde speech 11:00"
+  ],
+  "risk_alerts": [
+    "Portfolio VaR95 breached overnight"
+  ],
+  "llm_enriched_headline": "CPI print headlines a triple-catalyst NY session",
+  "llm_enriched_body": "Three high-impact catalysts cluster in the NY session; size positions conservatively into 08:30 and watch for vol expansion through the 14:00 FOMC minutes.",
+  "confidence_score": 0.95,
+  "confidence_tier": "FULL",
+  "missing_sources": [],
+  "_demo": false,
+  "novelty_score": 0.78,
+  "novelty_crossed": true
+}

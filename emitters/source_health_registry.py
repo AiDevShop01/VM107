@@ -23,6 +23,20 @@ class SourceHealthRegistry:
     DegradationPolicyEngine can compute the current tier in O(1).
     """
 
+    # Phase 67 Plan 06 — shared-instance accessor for the multi-emitter setup.
+    _shared_instance: "SourceHealthRegistry | None" = None
+
+    @classmethod
+    def get_shared_instance(cls) -> "SourceHealthRegistry":
+        """Process-wide singleton accessor for SourceHealthRegistry.
+
+        Tests that need an isolated registry should instantiate
+        ``SourceHealthRegistry()`` directly and inject it.
+        """
+        if cls._shared_instance is None:
+            cls._shared_instance = cls()
+        return cls._shared_instance
+
     def __init__(self) -> None:
         self._health: dict[str, SourceHealth] = {}
 
