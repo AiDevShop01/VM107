@@ -1,0 +1,31 @@
+id: vm100.placeholder.mobile_quick_actions
+type: service
+status: planned
+shipped: 68
+last_changed: "2026-05-26"
+
+# PLACEHOLDER capability for mission.mobile.quick_actions widget.
+# QuickActionsWidget ships 3 default actions: close-winning / close-losing /
+# quick-journal-note. No new backend capability today — actions emit telemetry
+# and delegate to existing services (journal API, position close stub).
+# Placeholder satisfies widget_registry Stage 4 cross-reference validation.
+# TODO: phase-69 replace with real backend quick-actions capability
+
+name: vm100.placeholder.mobile_quick_actions
+description: |
+  Forward-compat placeholder for the mobile Quick Actions widget capability.
+  Phase 68 ships 3 default actions: close winning position, close losing
+  position, quick journal note. All actions emit telemetry; position close
+  is a Phase 69+ integration (placeholder confirm dialog in Phase 68).
+  Satisfies widget_registry Stage 4 cross-reference validation.
+
+location:
+  source: VM100/frontend/src/features/mission-control/mobile/widgets/QuickActionsWidget.jsx
+
+tags: [phase-68, mission_control, mobile, widget-placeholder, quick_actions]
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false

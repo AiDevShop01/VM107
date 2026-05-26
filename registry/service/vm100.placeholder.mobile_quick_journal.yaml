@@ -1,0 +1,30 @@
+id: vm100.placeholder.mobile_quick_journal
+type: service
+status: planned
+shipped: 68
+last_changed: "2026-05-26"
+
+# PLACEHOLDER capability for mission.mobile.quick_journal widget.
+# QuickJournalWidget is mobile-first with templated prompt UI.
+# The widget_registry requires every widget.data_source.capability to resolve
+# to a real capability YAML. This placeholder satisfies Stage 4 cross-ref
+# until a canonical mobile journaling backend capability is built.
+# TODO: phase-69 replace with real backend quick-journal capability
+
+name: vm100.placeholder.mobile_quick_journal
+description: |
+  Forward-compat placeholder for the mobile Quick Journal widget capability.
+  Phase 68 ships templated prompt UI posting to the existing journal API.
+  No new backend capability today — uses POST /api/journal/ (existing).
+  Placeholder satisfies widget_registry Stage 4 cross-reference validation.
+
+location:
+  source: VM100/frontend/src/features/mission-control/mobile/widgets/QuickJournalWidget.jsx
+
+tags: [phase-68, mission_control, mobile, widget-placeholder, quick_journal]
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
