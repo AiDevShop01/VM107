@@ -1,0 +1,29 @@
+id: vm100.placeholder.mission_post_day_review
+type: service
+status: planned
+shipped: 69
+last_changed: "2026-05-26"
+
+# PLACEHOLDER capability for mission.post.day_review widget. Phase 69 Plan 02
+# ships POST as the 5th MC state with a stub composer + 2 placeholder
+# widgets. Plan 69-08 replaces this placeholder with the real day-review
+# capability (analytics + reflection panels) backed by an actual VM100
+# service.
+# TODO: phase-69-08 replace with the real day-review service capability
+
+name: vm100.placeholder.mission_post_day_review
+description: |
+  Forward-compat placeholder for the POST state day_review namespace.
+  The widget renders a "coming in Phase 69-08" stub card; this YAML
+  exists only so Stage 4 widget-registry cross-ref passes.
+
+location:
+  source: VM100/frontend/components/mission/states/post/__placeholder_widgets__.jsx
+
+tags: [phase-69, mission_control, post_state, widget-placeholder]
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
