@@ -1,0 +1,56 @@
+id: journal_note_search
+type: api_endpoint
+status: pending          # 69-13 flips to 'real' on Qdrant-backed impl
+parity_status: pending
+shipped: null
+planned_phase: 69
+owner_plan: 69-13
+last_changed: "2026-05-27"
+
+name: "Diary semantic search endpoint"
+description: |
+  GET /api/journal/notes/search?q=<query> — semantic search across locked
+  JournalNote rows backed by the Qdrant `journal_notes` collection.
+
+  - Phase 69 Plan 69-11a: stub endpoint that returns an empty result list
+    (lets the frontend wire UP front of UI without a dependency cycle).
+  - Phase 69 Plan 69-13: real implementation — chunks + embeds locked
+    notes, upserts to Qdrant, returns top-k matches with citation grammar
+    `[ref:journal_note:<note_id>:<chunk_id>]`.
+
+  Reservation rationale: 'api_endpoint' is not in the locked
+  CapabilityType enum, so this entry lives under `_reserved/` per the
+  same convention as the sensor sibling. The loader skips _reserved
+  paths so the registry validator does not flag this scaffold.
+
+owner_vm: VM100
+producer: VM100
+location:
+  source: VM100/backend/journal/routers/note_search_router.py
+  contracts: VM100/backend/journal/contracts/note_search.py
+  tests:
+    - VM100/backend/journal/tests/test_note_search_router.py
+
+related_capabilities:
+  - journal_note_lock_sensor
+  - journal_note_ner
+
+notes: |
+  Phase 69 Plan 69-11a creates the stub returning empty list (frontend
+  unblock). Plan 69-13 implements the real Qdrant-backed search and
+  flips this entry to 'real'.
+
+tags:
+  - phase-69
+  - api_endpoint
+  - journal_note
+  - diary
+  - semantic_search
+  - qdrant
+  - pending
+  - phase-47.6-ld-7
+
+deprecated: false
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []

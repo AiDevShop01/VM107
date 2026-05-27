@@ -1,0 +1,57 @@
+id: journal_note_lock_sensor
+type: sensor
+status: pending          # 69-13 flips to 'real' on implementation
+parity_status: pending   # idem — kept for Phase 47.6 LD-7 forward-compat
+shipped: null
+planned_phase: 69
+owner_plan: 69-13
+last_changed: "2026-05-27"
+
+name: "JournalNote lock-to-ingest sensor"
+description: |
+  Polls `JournalNote.is_locked=True AND pipeline_status.*='pending'` and
+  emits a RunRequest for `journal_note_ingest_job`. Built in Phase 69
+  Plan 13 (sensor body lives in
+  `Dagster/.../fingpt_orchestration/sensors/journal_note_lock_sensor.py`).
+
+  Reservation rationale: Phase 47.6 LD-7 says every new capability must
+  have a registry entry on disk at creation time. The 'sensor' capability
+  type is not yet in the locked CapabilityType enum (16 values, see
+  `fingpt_core/contracts/capability_registry/__init__.py`), so this entry
+  lives under `_reserved/` until either the enum gains a SENSOR member
+  (Phase 47.x follow-up) or the entry is re-classified as a `service` and
+  moved to `registry/service/` by 69-13.
+
+  The capability_registry loader explicitly skips `_reserved/` paths
+  (`core/registry/loader.py::load_all_yamls` line 37), so this YAML is a
+  namespace claim that the validator will NOT reject.
+
+owner_vm: Dagster
+phase: 69
+producer: Dagster
+location:
+  source: Dagster/fingpt_orchestration/sensors/journal_note_lock_sensor.py
+  tests:
+    - Dagster/fingpt_orchestration_tests/sensors/test_journal_note_lock_sensor.py
+
+related_capabilities:
+  - journal_note_search
+  - journal_note_ner
+
+notes: |
+  Phase 69 Plan 69-11b scaffolds this YAML in pending state. Plan 69-13
+  flips status to 'real' and moves the file to its final location once
+  the sensor body, job target, and tests all ship.
+
+tags:
+  - phase-69
+  - sensor
+  - journal_note
+  - diary
+  - pending
+  - phase-47.6-ld-7
+
+deprecated: false
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []

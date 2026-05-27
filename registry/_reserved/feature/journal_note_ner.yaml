@@ -1,0 +1,61 @@
+id: journal_note_ner
+type: feature
+status: pending          # 69-13 flips to 'real' after NER spike resolves
+parity_status: pending
+shipped: null
+planned_phase: 69
+owner_plan: 69-13
+last_changed: "2026-05-27"
+
+name: "NER for diary entity extraction"
+description: |
+  Run NER over locked JournalNote chunks and upsert
+  (`(:JournalNote)-[:MENTIONS]->(Instrument | Concept | Person | Event)`)
+  into Neo4j. Provider TBD via a 30-min spike in Phase 69 Plan 13
+  (decision Q6 in 69-00-DECISIONS.md: REUSE-OR-SPACY — reuse the
+  trade_narratives NER pipeline first; spaCy `en-core-web-sm` is the
+  fallback if the reuse spike runs over 2h).
+
+  Reservation rationale: 'feature' IS a valid CapabilityType, but the
+  capability is not yet implementable (the underlying NER service ships
+  in 69-13). Scaffolded under _reserved/ in pending state per the
+  convention used for the sensor / api_endpoint siblings, so the
+  registry validator does not reject `status: pending` (the locked
+  CapabilityStatus enum has stub|experimental|real|deprecated but not
+  pending). 69-13 will move this file to `registry/feature/` with
+  `status: real` once the NER spike resolves.
+
+owner_vm: Dagster
+producer: Dagster
+location:
+  source: Dagster/fingpt_pipelines/journal_note/ner.py
+  tests:
+    - Dagster/fingpt_pipelines_tests/journal_note/test_ner.py
+
+related_capabilities:
+  - journal_note_lock_sensor
+  - journal_note_search
+
+decision_refs:
+  - .planning/phases/69-port-settings-general-reference-close-phase-68-debt-wave-11-inserted/69-00-DECISIONS.md#Q6
+
+notes: |
+  Phase 69 Plan 69-11b scaffolds this YAML in pending state. Plan 69-13
+  runs the NER provider spike (reuse trade_narratives pipeline first;
+  spaCy en_core_web_sm fallback if reuse > 2h) and flips status to
+  'real' on landing.
+
+tags:
+  - phase-69
+  - feature
+  - journal_note
+  - diary
+  - ner
+  - neo4j
+  - pending
+  - phase-47.6-ld-7
+
+deprecated: false
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
