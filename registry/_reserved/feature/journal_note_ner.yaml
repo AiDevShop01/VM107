@@ -1,36 +1,46 @@
 id: journal_note_ner
 type: feature
-status: pending          # 69-13 flips to 'real' after NER spike resolves
-parity_status: pending
-shipped: null
+status: real             # 69-13 flipped: NER implementation shipped per Q6 lock
+parity_status: validated # 69-13 flipped: extract_entities() invoked by journal_note_entities asset
+shipped: "2026-05-27"
 planned_phase: 69
 owner_plan: 69-13
 last_changed: "2026-05-27"
 
 name: "NER for diary entity extraction"
 description: |
-  Run NER over locked JournalNote chunks and upsert
-  (`(:JournalNote)-[:MENTIONS]->(Instrument | Concept | Person | Event)`)
-  into Neo4j. Provider TBD via a 30-min spike in Phase 69 Plan 13
-  (decision Q6 in 69-00-DECISIONS.md: REUSE-OR-SPACY — reuse the
-  trade_narratives NER pipeline first; spaCy `en-core-web-sm` is the
-  fallback if the reuse spike runs over 2h).
+  Extract entities from locked JournalNote chunks and upsert
+  `(:JournalNote)-[:MENTIONS]->(Instrument | Concept | Person | Event)`
+  into Neo4j via the `journal_note_entities` Dagster asset.
 
-  Reservation rationale: 'feature' IS a valid CapabilityType, but the
-  capability is not yet implementable (the underlying NER service ships
-  in 69-13). Scaffolded under _reserved/ in pending state per the
-  convention used for the sensor / api_endpoint siblings, so the
-  registry validator does not reject `status: pending` (the locked
-  CapabilityStatus enum has stub|experimental|real|deprecated but not
-  pending). 69-13 will move this file to `registry/feature/` with
-  `status: real` once the NER spike resolves.
+  Q6 NER provider decision (69-00-DECISIONS.md LOCKED: REUSE-OR-SPACY):
+
+  Resolution path taken in Plan 69-13:
+    1. REUSE checked: no callable NER existed in Dagster
+       (`trade_narratives.py` not present in `assets/knowledge/`;
+       `VM107/tools/persist_narrative*` are LLM persistence, not NER).
+    2. spaCy fallback path: implemented as two-tier with zero new hard deps:
+       a. PRIMARY (lazy): `import spacy` + `en_core_web_sm`. If both present,
+          use spaCy PERSON / ORG / GPE / EVENT / MONEY / PRODUCT labels.
+       b. FALLBACK: pure-Python regex — FX pairs (EUR/USD pattern),
+          curated trading-ticker allow-list, hand-curated trading-concept
+          vocabulary. Person/Event extraction only when spaCy is available.
+
+  Rationale for not making spaCy a hard runtime dep: project memory
+  `feedback_docker_rebuild_dep_cascade.md` flags adding spaCy +
+  en_core_web_sm download as a high-risk Docker rebuild (4 deps need
+  pinning together; en_core_web_sm adds ~50MB to the image). The Q6
+  spirit ("cheap, no API cost") is satisfied by the pure-Python regex
+  fallback, with a forward-compat path: dropping spaCy + en_core_web_sm
+  into the image at any later point automatically upgrades extraction
+  quality without contract changes.
 
 owner_vm: Dagster
 producer: Dagster
 location:
-  source: Dagster/fingpt_pipelines/journal_note/ner.py
-  tests:
-    - Dagster/fingpt_pipelines_tests/journal_note/test_ner.py
+  source: Dagster/fingpt_orchestration/src/fingpt_orchestration/assets/knowledge/journal_note_entities.py
+  callable: extract_entities
+  ner_runtime_provider_chosen: "regex_fallback (spaCy en_core_web_sm available as upgrade path)"
 
 related_capabilities:
   - journal_note_lock_sensor
@@ -39,11 +49,17 @@ related_capabilities:
 decision_refs:
   - .planning/phases/69-port-settings-general-reference-close-phase-68-debt-wave-11-inserted/69-00-DECISIONS.md#Q6
 
+evidence:
+  - file: Dagster/fingpt_orchestration/src/fingpt_orchestration/assets/knowledge/journal_note_entities.py
+    note: "extract_entities(text) -> (entities, provider_used) — two-tier lazy spaCy + regex"
+  - file: Dagster/fingpt_orchestration/src/fingpt_orchestration/jobs/journal_note_jobs.py
+    note: "journal_note_ingest_job selects journal_note_entities as one of 3 assets"
+
 notes: |
-  Phase 69 Plan 69-11b scaffolds this YAML in pending state. Plan 69-13
-  runs the NER provider spike (reuse trade_narratives pipeline first;
-  spaCy en_core_web_sm fallback if reuse > 2h) and flips status to
-  'real' on landing.
+  Phase 69 Plan 69-11b scaffolded as pending. Plan 69-13 shipped the NER
+  per Q6 lock and flipped to 'real' + 'validated'. Provider used is recorded
+  in MongoDB pipeline_status (`ner_provider` field) per ingest, so a future
+  audit can confirm which path each note went through.
 
 tags:
   - phase-69
@@ -52,7 +68,7 @@ tags:
   - diary
   - ner
   - neo4j
-  - pending
+  - validated
   - phase-47.6-ld-7
 
 deprecated: false
