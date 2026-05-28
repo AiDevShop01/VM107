@@ -64,3 +64,9 @@ tags:
   - endpoint
   - http
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic task record lookup from VM107 task store; authoritative task state DB
+expected_freshness_seconds: 60   # Reasoning: task state updates on step completion; 60s covers event propagation lag
+is_deterministic: true   # Reasoning: same task_id always resolves same persisted task record at a given timestamp
+version: "1.0.0"   # Reasoning: preserve existing; initial release

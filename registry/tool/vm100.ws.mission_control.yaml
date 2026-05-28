@@ -69,3 +69,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.75   # Reasoning: WebSocket multiplexer for Mission Control real-time data; confidence reduced by live-streaming variability
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — WebSocket streams are real-time by definition; no staleness concept
+is_deterministic: false   # Reasoning: WebSocket multiplexer aggregates multiple live feeds; output varies with live market/account state
+version: "1.0.0"   # Reasoning: initial release; WebSocket facade introduced Phase 65/66

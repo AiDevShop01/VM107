@@ -62,3 +62,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic DB read of scenario metadata for a registered scenario_id; static reference data
+expected_freshness_seconds: 86400   # Reasoning: scenario definitions rarely change; 86400s (24h) appropriate for near-static reference
+is_deterministic: true   # Reasoning: same scenario_id always resolves same registered scenario metadata
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

@@ -61,3 +61,9 @@ tags:
   - cognition
   - refinement
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.55   # Reasoning: executes user-supplied code; same rationale as code_execution_tool; outcome is code-dependent
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — execution is immediate; results not cacheable
+is_deterministic: false   # Reasoning: user code is inherently non-deterministic across invocations
+version: "1.0.0"   # Reasoning: preserve existing; initial release

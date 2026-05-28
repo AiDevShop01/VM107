@@ -94,3 +94,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic DB read of BehavioralEvolutionSeries rows for account + cohort; stored computed series
+expected_freshness_seconds: 600   # Reasoning: evolution series computed in batch; 600s covers generation cycle
+is_deterministic: true   # Reasoning: same account + cohort_snapshot_id always returns same persisted evolution rows
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

@@ -36,3 +36,9 @@ allowed_agent_profiles:
 - weekly_review_agent._writer
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.88   # Reasoning: writer-tier persistence operation; succeeds deterministically if VM100 is reachable
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — this is a write operation, not a read; data is always current on success
+is_deterministic: true   # Reasoning: same narrative payload always produces same persistence result; no LLM in write path
+version: "1.0.0"   # Reasoning: preserve existing; initial release

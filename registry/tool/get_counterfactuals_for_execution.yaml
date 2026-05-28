@@ -72,3 +72,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.7   # Reasoning: deterministic DB read of all counterfactuals for a given execution_id; stored results
+expected_freshness_seconds: 300   # Reasoning: counterfactuals batch-generated; 300s covers generation cycle
+is_deterministic: true   # Reasoning: same execution_id + filter always returns same persisted counterfactual set
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

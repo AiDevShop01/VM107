@@ -37,3 +37,9 @@ allowed_agent_profiles:
 - trade_auditor_agent._analyzer
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic DB read of Phase 54 BehavioralEdge rows; edges computed offline and stored
+expected_freshness_seconds: 300   # Reasoning: behavioral edges recomputed periodically; 300s covers batch compute cycle
+is_deterministic: true   # Reasoning: same account + cohort always resolves same persisted behavioral edge rows
+version: "1.0.0"   # Reasoning: preserve existing; initial release

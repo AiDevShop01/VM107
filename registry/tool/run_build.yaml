@@ -57,3 +57,9 @@ tags:
   - deterministic
   - refinement
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.6   # Reasoning: executes a build pipeline; higher base confidence than run_code due to structured build artifact expected
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — build result is immediate
+is_deterministic: false   # Reasoning: build pipeline outcome can vary with dependency versions, network state; non-deterministic
+version: "1.0.0"   # Reasoning: preserve existing; initial release

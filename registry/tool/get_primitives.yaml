@@ -61,3 +61,9 @@ allowed_agent_profiles:
 - agent_zero
 last_changed: 2026-05-07
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.9   # Reasoning: deterministic OHLC + derived primitive read from authoritative parquet store; very high confidence
+expected_freshness_seconds: 60   # Reasoning: primitives sourced from ingest pipeline; 60s covers normal pipeline lag
+is_deterministic: true   # Reasoning: same symbol + timeframe + date always returns same primitives; pure parquet read
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

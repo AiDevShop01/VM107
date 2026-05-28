@@ -47,3 +47,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-19
 impact_on_decision: MEDIUM
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic VM100 GET against authoritative trade table; dual-ID resolution adds minimal indirection
+expected_freshness_seconds: 60   # Reasoning: trade records sync from cTrader poller every ~30s; 60s covers normal sync lag
+is_deterministic: true   # Reasoning: same trade_id always resolves to the same row; no LLM or time-of-day variance
+version: "1.1.0"   # Reasoning: preserve existing; 1.1 introduced Phase 58.1 dual-ID + NotAvailable path

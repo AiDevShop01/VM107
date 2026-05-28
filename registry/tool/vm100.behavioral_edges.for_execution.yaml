@@ -62,3 +62,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.82   # Reasoning: deterministic VM100 GET against Phase 54 BehavioralEdgeService persisted rows; read-only facade
+expected_freshness_seconds: 300   # Reasoning: behavioral edges recomputed periodically; 300s covers batch recompute cycle
+is_deterministic: true   # Reasoning: same (account_id, execution_id) always resolves same persisted behavioral edge rows
+version: "1.0.0"   # Reasoning: initial release; facade over Phase 54 BehavioralEdgesService

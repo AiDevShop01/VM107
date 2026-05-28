@@ -43,3 +43,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.78   # Reasoning: deterministic liquidity analysis from order book + OHLC data; some uncertainty from spread estimate accuracy
+expected_freshness_seconds: 120   # Reasoning: liquidity state derived from market data; 120s balances live feed vs compute cost
+is_deterministic: true   # Reasoning: same symbol + timestamp parameters yield identical liquidity metrics; no LLM
+version: "1.0.0"   # Reasoning: preserve existing; initial release

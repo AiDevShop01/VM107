@@ -39,3 +39,9 @@ allowed_agent_profiles:
 - behavioral_mentor_agent._analyzer
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.75   # Reasoning: deterministic DB read of cross-trade pattern rows; patterns computed offline from multiple executions
+expected_freshness_seconds: 600   # Reasoning: patterns recomputed on cohort refresh; 600s covers batch cycle
+is_deterministic: true   # Reasoning: same account + cohort_snapshot_id yields same persisted pattern rows
+version: "1.0.0"   # Reasoning: preserve existing; initial release

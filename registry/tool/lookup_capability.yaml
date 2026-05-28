@@ -52,3 +52,9 @@ tags:
   - introspection
   - governance
 hard_scoped: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.9   # Reasoning: deterministic registry lookup of a capability by id; registry is versioned and stable
+expected_freshness_seconds: 3600   # Reasoning: capability registry loaded at boot; refreshes require VM107 restart; 3600s is generous
+is_deterministic: true   # Reasoning: same capability_id always resolves same registry entry within a VM107 session
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

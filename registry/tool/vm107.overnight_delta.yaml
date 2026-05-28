@@ -87,3 +87,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.78   # Reasoning: deterministic pre-market overnight move synthesis across 4 fixed buckets; computed from market data
+expected_freshness_seconds: 300   # Reasoning: overnight delta computed pre-market; 300s covers assembly from FX/bonds/equities/crypto feeds
+is_deterministic: true   # Reasoning: same market snapshot always yields same overnight delta summary across 4 buckets
+version: "1.0.0"   # Reasoning: initial release; overnight delta emitter introduced Phase 67

@@ -63,3 +63,9 @@ tags:
   - evaluation
   - canonical-substrate
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.65   # Reasoning: backtests execute deterministic strategy logic against historical data; higher confidence than generic code execution
+expected_freshness_seconds: 300   # Reasoning: backtest results are stable for fixed parameters; 300s covers backtest compute time
+is_deterministic: true   # Reasoning: same strategy + parameters + historical period always yields same backtest metrics
+version: "1.0.0"   # Reasoning: preserve existing; initial release

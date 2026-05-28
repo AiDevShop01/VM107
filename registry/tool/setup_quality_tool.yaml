@@ -49,3 +49,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic setup quality scoring from trade plan + execution records; well-defined rubric
+expected_freshness_seconds: 60   # Reasoning: setup data derived at trade entry; 60s covers VM100 write propagation
+is_deterministic: true   # Reasoning: same execution_id always yields same setup quality score; pure rule-based scoring
+version: "1.0.0"   # Reasoning: preserve existing; initial release

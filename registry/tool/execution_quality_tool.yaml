@@ -45,3 +45,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic execution quality scoring from authoritative Execution + OutcomeRecord rows; slight gap for incomplete MAE/MFE data
+expected_freshness_seconds: 30   # Reasoning: execution records updated at position close; 30s covers VM100 write propagation
+is_deterministic: true   # Reasoning: same execution_id always yields same quality score given same DB state; pure deterministic compute
+version: "1.0.0"   # Reasoning: preserve existing; initial release (version field was bare '1.0' — normalize to semver)

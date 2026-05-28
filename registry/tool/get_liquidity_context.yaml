@@ -58,3 +58,9 @@ allowed_agent_profiles:
 - agent_zero
 last_changed: 2026-05-07
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic VM100 liquidity context read; slight uncertainty from market data freshness
+expected_freshness_seconds: 120   # Reasoning: liquidity data sourced from market feed; 120s balances freshness vs polling cost
+is_deterministic: true   # Reasoning: same execution_id + timestamp resolves deterministically from historical records
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

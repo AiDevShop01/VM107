@@ -34,3 +34,9 @@ tags:
   - core
   - execution
   - sensitive
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.55   # Reasoning: executes user-supplied code; outcome depends entirely on code content; typical 0.55 reflects median success rate for user code
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — execution result is immediate and non-cacheable
+is_deterministic: false   # Reasoning: different code → different output by definition; even same code can produce non-deterministic output (time, randomness)
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

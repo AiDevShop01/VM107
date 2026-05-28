@@ -61,3 +61,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.92   # Reasoning: replay artifact metadata is WORM-immutable; same execution_id always resolves same ReplayArtifactMeta
+expected_freshness_seconds: 86400   # Reasoning: replay artifact metadata never changes post-generation; 86400s is conservative
+is_deterministic: true   # Reasoning: same execution_id always returns same persisted ReplayArtifactMeta; pure DB read
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

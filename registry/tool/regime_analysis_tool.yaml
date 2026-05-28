@@ -44,3 +44,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.82   # Reasoning: deterministic regime classification from OHLC feature set; well-tested classification logic
+expected_freshness_seconds: 120   # Reasoning: regime state transitions occur on new bar data; 120s covers ingest-to-compute pipeline
+is_deterministic: true   # Reasoning: same symbol + timeframe + snapshot timestamp yields same regime classification
+version: "1.0.0"   # Reasoning: preserve existing; initial release

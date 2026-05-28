@@ -83,3 +83,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.7   # Reasoning: global narrative emitter produces LLM-novelty-gated narrative paragraph; non-deterministic when LLM path fires
+expected_freshness_seconds: 120   # Reasoning: narrative refreshed on trading state change + intelligence cycle; 120s covers emitter cadence
+is_deterministic: false   # Reasoning: deterministic base always produced; LLM enrichment when novelty threshold crossed introduces non-determinism
+version: "1.0.0"   # Reasoning: initial release; narrative emitter introduced Phase 66

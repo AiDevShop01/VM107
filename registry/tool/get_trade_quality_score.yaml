@@ -48,3 +48,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic VM100 quality score read; computed from authoritative execution + outcome records
+expected_freshness_seconds: 120   # Reasoning: quality score computed at trade close; 120s covers async compute + cache lag
+is_deterministic: true   # Reasoning: same execution_id always yields same quality metrics; pure deterministic SQL compute
+version: "1.0.0"   # Reasoning: preserve existing; initial release

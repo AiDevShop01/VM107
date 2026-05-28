@@ -62,3 +62,9 @@ impact_on_decision: MEDIUM
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic DB read from ref_economic_events Postgres table via VM100 GET endpoint
+expected_freshness_seconds: 120   # Reasoning: economic event schedule data updated by data vendor feed; 120s covers normal sync lag
+is_deterministic: true   # Reasoning: same query parameters always return same event rows at a given timestamp
+version: "1.0.0"   # Reasoning: initial release; facade introduced Phase 66

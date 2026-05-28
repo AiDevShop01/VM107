@@ -118,3 +118,9 @@ impact_on_decision: HIGH
 allowed_agent_profiles:
   - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.65   # Reasoning: reflection prompt emitter generates a trade reflection prompt; includes LLM-assisted prompt construction
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — reflection prompt is generated fresh per-request; not cacheable
+is_deterministic: false   # Reasoning: LLM-assisted prompt construction introduces non-determinism across invocations
+version: "1.0.0"   # Reasoning: initial release; reflection prompt emitter introduced Phase 67+

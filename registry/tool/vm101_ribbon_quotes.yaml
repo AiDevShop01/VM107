@@ -77,3 +77,9 @@ impact_on_decision: LOW
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic VM101 GET for latest bid/ask quotes; fail-soft for unknown symbols
+expected_freshness_seconds: 30   # Reasoning: quote data refreshed on market tick; 30s covers normal polling interval
+is_deterministic: true   # Reasoning: same symbol at a given VM101 snapshot state always yields same quote row
+version: "1.0.0"   # Reasoning: initial release; facade introduced Phase 65

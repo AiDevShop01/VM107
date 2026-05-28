@@ -48,3 +48,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.6   # Reasoning: vector similarity search over trade pattern embeddings; cosine distance is sensitive to embedding drift
+expected_freshness_seconds: 60   # Reasoning: similarity results change as the embedding store grows; 60s captures recent ingests
+is_deterministic: false   # Reasoning: similarity search is order-sensitive and embedding-store-dependent; non-deterministic across runs as new patterns are added
+version: "1.0.0"   # Reasoning: preserve existing; initial release

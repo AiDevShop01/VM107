@@ -34,3 +34,9 @@ tags:
   - core
   - orchestration
   - sensitive
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.6   # Reasoning: dispatches to a subordinate LLM agent; outcome depends on subordinate model + prompt; typical 0.60 reflects median subordinate accuracy
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — subordinate call is real-time; results not cacheable
+is_deterministic: false   # Reasoning: subordinate LLM produces different outputs each invocation even with identical prompts
+version: "1.0.0"   # Reasoning: initial release; no prior version field present

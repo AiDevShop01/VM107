@@ -75,3 +75,9 @@ impact_on_decision: LOW
 allowed_agent_profiles:
 - agent_zero
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic VM101 GET for last-N OHLC closes; fail-soft for unknown symbols returns empty list
+expected_freshness_seconds: 60   # Reasoning: VM101 bar data refreshed on each new bar close; 60s covers M15 bar arrival lag
+is_deterministic: true   # Reasoning: same (symbol, n, timeframe) + VM101 snapshot state yields same bar list; pure DB read
+version: "1.0.0"   # Reasoning: initial release; facade introduced Phase 65

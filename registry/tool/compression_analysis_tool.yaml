@@ -43,3 +43,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.8   # Reasoning: deterministic volatility compression analysis from OHLC parquet; confidence reflects parquet data completeness
+expected_freshness_seconds: 120   # Reasoning: compression state computed from historical OHLC; 120s covers pipeline refresh cycle
+is_deterministic: true   # Reasoning: same symbol + timeframe + date parameters always yield same compression metrics
+version: "1.0.0"   # Reasoning: preserve existing; initial release

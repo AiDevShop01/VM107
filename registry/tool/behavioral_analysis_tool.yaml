@@ -44,3 +44,9 @@ allowed_agent_profiles:
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.75   # Reasoning: deterministic behavioral metric computation from Phase 56 event timeline; confidence reduced by event data availability (graceful degradation path)
+expected_freshness_seconds: 60   # Reasoning: event timeline refreshed each trade close; 60s covers VM100 propagation lag
+is_deterministic: true   # Reasoning: same execution_id + event snapshot always yields same 6 behavioral metrics; no LLM in compute path
+version: "1.0.0"   # Reasoning: preserve existing; initial release (version field was bare '1.0' — normalize to semver)

@@ -75,3 +75,9 @@ tags:
   - evaluation
   - critic
 deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.7   # Reasoning: critic invokes LLM-based review of a trade journal entry; LLM output is non-deterministic
+expected_freshness_seconds: 0   # Reasoning: freshness is 0 — critic produces a real-time assessment each call; results not cached
+is_deterministic: false   # Reasoning: LLM call produces different critique each invocation even with identical input
+version: "1.0.0"   # Reasoning: preserve existing; initial release

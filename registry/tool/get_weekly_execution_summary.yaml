@@ -77,3 +77,9 @@ status: real
 impact_on_decision: HIGH
 deprecated: false
 tags: []
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic DB aggregation over closed trades for a calendar week; no LLM path
+expected_freshness_seconds: 300   # Reasoning: weekly summary data changes only on new trade closes; 300s is conservative for periodic summary
+is_deterministic: true   # Reasoning: same account + week always yields identical aggregate; pure SQL aggregation
+version: "1.0.0"   # Reasoning: preserve existing; initial release
