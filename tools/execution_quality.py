@@ -50,10 +50,14 @@ import httpx
 
 from fingpt_core.clients import RetryProfile, VM100Client
 from fingpt_core.contracts.analytics.execution_quality import (
+    ExecutionQualityPayload,
     ExecutionQualityRequest,
     ExecutionQualityResult,
 )
 from fingpt_core.contracts.errors import ContractValidationError
+from fingpt_core.contracts.evidence import EvidenceCitation
+from fingpt_core.contracts.failure_modes import FailureMode, FailureModeCode
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 
 logger = logging.getLogger("fingpt.tools.execution_quality")
 
@@ -741,6 +745,31 @@ class ExecutionQualityTool:
             execution_data, outcome_data, timeline_data
         )
 
+        # Phase 70.5 Plan 06: inject RICH provenance (Decision 5, Pitfall 9 pattern).
+        score_dict["provenance"] = ToolProvenance(
+            citations=(
+                EvidenceCitation(
+                    citation_kind="trade",
+                    opaque_id=str(request.execution_id),
+                    human_label=f"Execution {request.execution_id}",
+                ),
+                EvidenceCitation(
+                    citation_kind="event",
+                    opaque_id=f"fill_received:{request.execution_id}",
+                    human_label="Fill received event",
+                ),
+            ),
+            assumptions=(
+                "assumes broker fill timestamps are server-authoritative (no client-clock skew)",
+            ),
+            declared_failure_modes=(
+                FailureMode(
+                    code=FailureModeCode.UPSTREAM_TIMEOUT,
+                    detail="VM100 trades API timed out",
+                ),
+            ),
+        )
+
         if score_dict.get("score") is None:
             result_status = "degraded"
 
@@ -776,6 +805,31 @@ class ExecutionQualityTool:
 
         score_dict = compute_execution_quality_score(
             execution_data, outcome_data, timeline_data
+        )
+
+        # Phase 70.5 Plan 06: inject RICH provenance (Decision 5, Pitfall 9 pattern).
+        score_dict["provenance"] = ToolProvenance(
+            citations=(
+                EvidenceCitation(
+                    citation_kind="trade",
+                    opaque_id=str(request.execution_id),
+                    human_label=f"Execution {request.execution_id}",
+                ),
+                EvidenceCitation(
+                    citation_kind="event",
+                    opaque_id=f"fill_received:{request.execution_id}",
+                    human_label="Fill received event",
+                ),
+            ),
+            assumptions=(
+                "assumes broker fill timestamps are server-authoritative (no client-clock skew)",
+            ),
+            declared_failure_modes=(
+                FailureMode(
+                    code=FailureModeCode.UPSTREAM_TIMEOUT,
+                    detail="VM100 trades API timed out",
+                ),
+            ),
         )
 
         if score_dict.get("score") is None:

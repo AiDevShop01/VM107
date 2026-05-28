@@ -62,10 +62,14 @@ import httpx
 
 from fingpt_core.clients import RetryProfile, VM100Client
 from fingpt_core.contracts.analytics.behavioral import (
+    BehavioralAnalysisPayload,
     BehavioralAnalysisRequest,
-    BehavioralAnalysisResult,
+    BehavioralAnalysisResult,  # backward compat alias
 )
 from fingpt_core.contracts.errors import ContractValidationError
+from fingpt_core.contracts.evidence import EvidenceCitation
+from fingpt_core.contracts.failure_modes import FailureMode, FailureModeCode
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 
 logger = logging.getLogger("fingpt.tools.behavioral_analysis")
 
@@ -1009,6 +1013,26 @@ class BehavioralAnalysisTool:
             execution_data, execution_timeline, recent_account_timeline
         )
 
+        # Phase 70.5 Plan 06: inject RICH provenance (Decision 5, Pitfall 9 pattern).
+        score_dict["provenance"] = ToolProvenance(
+            citations=(
+                EvidenceCitation(
+                    citation_kind="trade",
+                    opaque_id=str(request.execution_id),
+                    human_label=f"Execution {request.execution_id}",
+                ),
+            ),
+            assumptions=(
+                "assumes trades within lookback window represent a stable strategy regime",
+            ),
+            declared_failure_modes=(
+                FailureMode(
+                    code=FailureModeCode.INSUFFICIENT_CONTEXT,
+                    detail="lookback window had < N trades",
+                ),
+            ),
+        )
+
         if score_dict.get("score") is None:
             result_status = "degraded"
 
@@ -1044,6 +1068,26 @@ class BehavioralAnalysisTool:
 
         score_dict = compute_behavioral_metrics(
             execution_data, execution_timeline, recent_account_timeline
+        )
+
+        # Phase 70.5 Plan 06: inject RICH provenance (Decision 5, Pitfall 9 pattern).
+        score_dict["provenance"] = ToolProvenance(
+            citations=(
+                EvidenceCitation(
+                    citation_kind="trade",
+                    opaque_id=str(request.execution_id),
+                    human_label=f"Execution {request.execution_id}",
+                ),
+            ),
+            assumptions=(
+                "assumes trades within lookback window represent a stable strategy regime",
+            ),
+            declared_failure_modes=(
+                FailureMode(
+                    code=FailureModeCode.INSUFFICIENT_CONTEXT,
+                    detail="lookback window had < N trades",
+                ),
+            ),
         )
 
         if score_dict.get("score") is None:
