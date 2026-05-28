@@ -40,6 +40,12 @@ error_modes:
 max_items: 10
 item_ordering: relevance_score DESC
 item_category: macro
+location:
+  source: VM107/tools/proxies/vm107_intelligence_feed_macro.py
+  endpoint: VM107/api/v1/intelligence_feed/macro
+  contracts:
+    request: params(state)
+    response: list[IntelligenceFeedItem] (category=macro)
 contracts:
   response_contract: VM107.contracts.intelligence_feed.IntelligenceFeedItem
 consumed_by:

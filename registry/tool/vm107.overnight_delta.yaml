@@ -45,6 +45,12 @@ direction_classification:
   down: all symbols negative (<-0.1%)
   mixed: split signs
   flat: all symbols within ±0.1%
+location:
+  source: VM107/tools/proxies/vm107_overnight_delta.py
+  endpoint: VM107/api/v1/emitters/overnight_delta
+  contracts:
+    request: params(account_id)
+    response: OvernightDeltaContract (overall_summary, buckets[FX/BONDS/COMMODITIES/CRYPTO])
 contracts:
   response_contract: VM107.emitters.contracts.overnight_delta.OvernightDeltaContract
 consumed_by:

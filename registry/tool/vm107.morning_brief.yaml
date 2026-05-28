@@ -35,6 +35,12 @@ tier_behavior:
   full: all sources healthy → confidence_score 0.95 + LLM enrichment when novelty crosses
   partial: 1 source missing → confidence_score 0.65 + reduced LLM budget
   degraded: 2+ sources missing → deterministic base only, _demo=true
+location:
+  source: VM107/tools/proxies/vm107_morning_brief.py
+  endpoint: VM107/api/v1/emitters/morning_brief
+  contracts:
+    request: params(account_id)
+    response: MorningBriefContract (headline, body, top_catalysts, risk_alerts, confidence_tier)
 contracts:
   response_contract: VM107.emitters.contracts.morning_brief.MorningBriefContract
 consumed_by:

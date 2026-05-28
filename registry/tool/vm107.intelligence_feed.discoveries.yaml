@@ -42,6 +42,12 @@ item_ordering: relevance_score DESC
 item_category: discoveries
 novelty_gate: strict
 trade_scope: 'last N=10 trades + current open positions (NOT session-bounded)'
+location:
+  source: VM107/tools/proxies/vm107_intelligence_feed_discoveries.py
+  endpoint: VM107/api/v1/intelligence_feed/discoveries
+  contracts:
+    request: params(state, account)
+    response: list[IntelligenceFeedItem] (category=discoveries)
 contracts:
   response_contract: VM107.contracts.intelligence_feed.IntelligenceFeedItem
 consumed_by:

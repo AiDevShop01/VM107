@@ -39,6 +39,12 @@ methods:
   return_shape: 'EconomicEventContract | null'
 output_shape: EconomicEventContract
 timezone: UTC ISO-8601
+location:
+  source: VM107/tools/proxies/vm100_analytics_calendar.py
+  endpoint: VM100/api/v1/analytics/calendar
+  contracts:
+    request: params(impact, method)
+    response: list[EconomicEventContract] | EconomicEventContract | null
 contracts:
   response_contract: VM100.backend.contracts.calendar.EconomicEventContract
 consumed_by:

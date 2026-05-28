@@ -44,6 +44,12 @@ error_modes:
     _demo=true).
 analytical_source: 'feature_pipeline.RegimeDetection (internal ORM — features/quality/volatility
   stripped at the boundary; contract decoupling lock)'
+location:
+  source: VM107/tools/proxies/vm102_regime_current.py
+  endpoint: VM102/api/v1/regime/current
+  contracts:
+    request: params(symbol, timeframe)
+    response: RegimeSummaryContract (label, regime_type, structure, confidence, bias, updated_at)
 contracts:
   response_contract: VM102.backend.contracts.structural.RegimeSummaryContract
   internal_source: VM102.backend.feature_pipeline.models.RegimeDetection

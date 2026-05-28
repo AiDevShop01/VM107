@@ -42,6 +42,12 @@ tier_behavior:
   full: All 4 stages report healthy → 4 prompts selected with LLM enrichment when novelty crosses
   partial: One assembler upstream degraded → reduced prompt count (≤4) + rejected_candidates still recorded
   degraded: No observations OR no support layers → empty set, eligibility filter blocks output
+location:
+  source: VM107/tools/proxies/vm107_reflection_prompt.py
+  endpoint: VM107/api/v1/emitters/reflection_prompts
+  contracts:
+    request: params(account_id)
+    response: ReflectionPromptSetContract (selected_prompts[4], rejected_count, evidence_chain)
 contracts:
   response_contract: VM107.emitters.contracts.reflection_prompt.ReflectionPromptSetContract
 consumed_by:

@@ -70,6 +70,12 @@ provides_event_types:
 - fvg_touched
 - fvg_filled
 - fvg_invalidated
+location:
+  source: VM107/tools/proxies/vm102_structural_events.py
+  endpoint: VM102/api/v1/structural-events
+  contracts:
+    request: params(symbols, timeframe, event_types)
+    response: list[StructuralEventContract] | {events[], _demo}
 contracts:
   response_event_contract: VM102.backend.contracts.structural.StructuralEventContract
   client_module: mission_control.services.clients.vm102_structural_client.VM102StructuralClient

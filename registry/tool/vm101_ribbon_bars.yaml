@@ -51,6 +51,12 @@ error_modes:
 - code: no_data
   http_status: 200
   description: 200 OK + available=false + bars=[] when symbol has no OHLC rows
+location:
+  source: VM107/tools/proxies/vm101_ribbon_bars.py
+  endpoint: VM101/api/v1/bars
+  contracts:
+    request: params(symbol, n, timeframe)
+    response: BarsResponse (available, bars)
 contracts:
   response_schema_module: api.v1.quotes.BarsResponse
   client_module: mission_control.services.clients.vm101_quote_client.VM101QuoteClient

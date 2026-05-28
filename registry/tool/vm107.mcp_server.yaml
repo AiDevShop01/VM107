@@ -47,6 +47,12 @@ dependencies:
 health:
   required_sources: [vm100]
   staleness_threshold_sec: 60
+location:
+  source: VM107/tools/proxies/vm107_mcp_server.py
+  endpoint: VM107/mcp/info
+  contracts:
+    request: none (metadata introspection)
+    response: McpServerMetadata (version, active_tools, required_scopes)
 consumed_by:
   - external.claude_desktop
   - external.cursor

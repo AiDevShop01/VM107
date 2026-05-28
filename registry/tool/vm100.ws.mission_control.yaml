@@ -42,6 +42,12 @@ close_codes:
   4401: unauthorized (invalid or missing JWT)
   4403: forbidden (valid JWT, insufficient permissions)
   4429: rate limited (too many subscribe messages)
+location:
+  source: VM107/tools/proxies/vm100_ws_mission_control.py
+  endpoint: VM100/ws/mission-control/{account_id}
+  contracts:
+    request: params(account_id)
+    response: WsMissionControlStatusPayload (metadata only — actual WS is client-direct)
 consumed_by:
 - vm100.mission_control.frontend
 related_capabilities:

@@ -47,6 +47,12 @@ forbidden_forever:
 - Covariance shock
 - Options Greeks
 - Regime-aware Beta
+location:
+  source: VM107/tools/proxies/vm102_risk_metrics_snapshot.py
+  endpoint: VM102/api/v1/risk/snapshot
+  contracts:
+    request: params(account_id) | POST /compute for fresh computation
+    response: RiskMetricsSnapshotContract
 contracts:
   response_contract: VM102.backend.contracts.risk.RiskMetricsSnapshotContract
 consumed_by:

@@ -47,6 +47,12 @@ tier_definitions:
     manual override.'
   T3: 'Watch-only — not actionable in current state. Re-evaluates on next state
     transition.'
+location:
+  source: VM107/tools/proxies/vm107_opportunities_ranked.py
+  endpoint: VM107/api/v1/opportunities/ranked
+  contracts:
+    request: params(state, account)
+    response: OpportunityRankingSnapshotContract (t1, t2, t3 tiers, _demo)
 contracts:
   response_contract: VM107.contracts.opportunities.OpportunityRankingSnapshotContract
 consumed_by:

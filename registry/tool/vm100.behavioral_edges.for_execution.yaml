@@ -37,6 +37,12 @@ evidence_requirement: 'Every nudge must cite specific trades that triggered it'
 data_source: 'Django ORM Trade/Execution tables (NOT Neo4j — read-performance path)'
 distinct_from: 'BehavioralEdgesService.get_failed_due_to_edges() — that is retrospective
   post-trade analysis, this is forward-facing execution context'
+location:
+  source: VM107/tools/proxies/vm100_behavioral_edges_for_execution.py
+  endpoint: VM100/api/v1/analytics/behavioral-edges/for-execution
+  contracts:
+    request: params(account_id)
+    response: list[BehavioralNudgeContract]
 contracts:
   response_contract: VM100.backend.contracts.behavioral.BehavioralNudgeContract
 consumed_by:

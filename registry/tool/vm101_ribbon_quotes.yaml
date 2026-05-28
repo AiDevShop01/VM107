@@ -53,6 +53,12 @@ error_modes:
   http_status: 200
   description: Endpoint OK but specific symbol has no OHLC data — that tile only
     is marked available=false
+location:
+  source: VM107/tools/proxies/vm101_ribbon_quotes.py
+  endpoint: VM101/api/v1/quotes
+  contracts:
+    request: params(symbols)
+    response: list[QuotesResponse] (tiles with available, price, delta)
 contracts:
   response_schema_module: api.v1.quotes.QuotesResponse
   ribbon_tile_contract: fingpt_core.contracts.mission_control.contract.RibbonTile

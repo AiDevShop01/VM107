@@ -50,6 +50,12 @@ tier_behavior:
   tier_1: full LLM enrichment via novelty engine
   tier_2: LLM enrichment with reduced call budget
   tier_3: deterministic_base_summary only, _demo=true
+location:
+  source: VM107/tools/proxies/vm107_narratives_global.py
+  endpoint: VM107/api/v1/narratives/global
+  contracts:
+    request: params(state, refresh_reason)
+    response: AINarrativeContract (deterministic_base_summary, llm_enriched_summary, tier, _demo)
 contracts:
   response_contract: VM107.contracts.narrative.AINarrativeContract
 consumed_by:
