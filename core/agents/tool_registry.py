@@ -178,7 +178,11 @@ def load_tool_entries() -> list[ToolEntry]:
         version = snapshot_entry.version  # type: ignore[attr-defined]
 
         facade = _is_facade(cap_id)
-        source_module = _parse_source_module(source_str) if not facade else None
+        # For facade tools: allow source_module when location.source points to a
+        # VM107/tools/proxies/ proxy module (Plan 07). Facade tools WITHOUT a proxy
+        # implementation (source_str is None or non-local) keep source_module=None
+        # so the resolver raises CapabilityRefusedError("facade_not_yet_implemented").
+        source_module = _parse_source_module(source_str)
 
         entries.append(ToolEntry(
             id=cap_id,
