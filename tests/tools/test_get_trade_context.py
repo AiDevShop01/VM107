@@ -170,8 +170,10 @@ async def test_both_id_kinds_same_payload():
 
     # The trade_id echo will differ (it's the input echo), but every other
     # field is identical because they both resolved to the same trade.
-    r_int_no_id = {k: v for k, v in r_int.items() if k != "trade_id"}
-    r_uuid_no_id = {k: v for k, v in r_uuid.items() if k != "trade_id"}
+    # Phase 70.5: provenance.citations also contain the echoed trade_id, so
+    # exclude both trade_id and provenance from the equality check.
+    r_int_no_id = {k: v for k, v in r_int.items() if k not in ("trade_id", "provenance")}
+    r_uuid_no_id = {k: v for k, v in r_uuid.items() if k not in ("trade_id", "provenance")}
     assert r_int_no_id == r_uuid_no_id, (
         f"Payloads diverge:\nint: {r_int_no_id}\nuuid: {r_uuid_no_id}"
     )
