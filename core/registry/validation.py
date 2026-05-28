@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
@@ -65,10 +65,13 @@ class _BaseEntrySchema(BaseModel):
     contracts_response: str | None = None
 
     # Phase 70.5 envelope-provenance fields (optional; Stage 8 enforces for tools)
+    # NOTE: version accepts str | float | int to handle bare YAML values like `version: 1.0`
+    # (non-tool YAMLs may have unquoted float versions). The value is coerced to str for
+    # CapabilitySnapshotEntry construction so the field_validator can run semver-lite check.
     typical_confidence: float | None = None
     expected_freshness_seconds: int | None = None
     is_deterministic: bool | None = None
-    version: str | None = None
+    version: Union[str, float, int, None] = None
 
 
 # ---------------------------------------------------------------------------
@@ -141,10 +144,11 @@ def validate_schemas(
             tags=tuple(validated.tags),
             hard_scoped=validated.hard_scoped,
             # Phase 70.5 envelope-provenance fields
+            # Coerce version to str (YAML may parse bare '1.0' as float)
             typical_confidence=validated.typical_confidence,
             expected_freshness_seconds=validated.expected_freshness_seconds,
             is_deterministic=validated.is_deterministic,
-            version=validated.version,
+            version=str(validated.version) if validated.version is not None else None,
         )
         result.append(entry)
 
