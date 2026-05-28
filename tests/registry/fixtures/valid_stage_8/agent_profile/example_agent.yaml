@@ -1,0 +1,16 @@
+id: example_agent
+type: agent_profile
+status: real
+short_description: "Example agent profile for stage 8 validation fixture"
+long_description: "Used by stage-8 tests to confirm valid tool graphs pass all 8 stages."
+contracts_request: null
+contracts_response: null
+impact_on_decision: LOW
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false

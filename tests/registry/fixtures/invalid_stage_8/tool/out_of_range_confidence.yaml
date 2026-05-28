@@ -1,0 +1,22 @@
+id: out_of_range_confidence_tool
+type: tool
+status: real
+short_description: "Tool fixture with out-of-range typical_confidence — triggers Stage 8 error"
+long_description: "Used by stage-8 tests to confirm Stage 8 hard-fails when typical_confidence > 1.0."
+contracts_request: null
+contracts_response: null
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+
+# --- Phase 70.5 envelope-provenance fields (typical_confidence out of range) ---
+typical_confidence: 1.5   # INTENTIONALLY OUT OF RANGE — triggers Stage 8 envelope_field_out_of_range
+expected_freshness_seconds: 60   # Reasoning: stable fixture data
+is_deterministic: true   # Reasoning: deterministic test fixture
+version: "1.0.0"   # Reasoning: initial fixture version

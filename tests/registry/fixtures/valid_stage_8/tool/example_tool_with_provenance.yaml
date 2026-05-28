@@ -1,8 +1,8 @@
-id: example_tool
+id: example_tool_with_provenance
 type: tool
 status: real
-short_description: "Example tool for validation fixture"
-long_description: "Used by stage-N tests to confirm valid graphs pass all 8 stages."
+short_description: "Example tool for stage 8 validation fixture"
+long_description: "Used by stage-8 tests to confirm all 4 Phase 70.5 envelope-provenance fields pass."
 contracts_request: null
 contracts_response: null
 impact_on_decision: MEDIUM
@@ -15,11 +15,9 @@ tags:
   - test
   - fixture
 hard_scoped: false
-location:
-  source: VM107/tests/registry/fixtures/valid/_placeholder.txt
 
 # --- Phase 70.5 envelope-provenance fields ---
-typical_confidence: 0.85   # Reasoning: deterministic fixture DB read; high confidence justified
+typical_confidence: 0.85   # Reasoning: deterministic DB read; high confidence justified for fixture
 expected_freshness_seconds: 60   # Reasoning: fixture data is stable; 60s covers any staleness
 is_deterministic: true   # Reasoning: no LLM or time-variance; same inputs always resolve same
 version: "1.0.0"   # Reasoning: initial fixture version; semver-lite compliant

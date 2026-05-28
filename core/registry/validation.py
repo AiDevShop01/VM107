@@ -1,4 +1,4 @@
-"""7-stage validation pipeline for the capability registry.
+"""8-stage validation pipeline for the capability registry.
 
 Each stage is a pure function that either returns its input on success
 or raises RegistryValidationError(stage=N, ...) on the first detected error.
@@ -14,6 +14,8 @@ Stages:
     5. validate_scope_references — allowed_agent_profiles refs exist
     6. validate_contract_resolution — contracts_request/response importable classes
     7. validate_cross_type_linkage — type-specific cross-reference rules
+    8. validate_tool_provenance_fields — Phase 70.5: all tool entries must declare
+       typical_confidence, expected_freshness_seconds, is_deterministic, version
 """
 
 from __future__ import annotations
@@ -42,6 +44,9 @@ class _BaseEntrySchema(BaseModel):
 
     extra='ignore' so type-specific extras (signal_category, cron, payload_schema,
     applies_to_profiles, etc.) are silently accepted — RESEARCH Pitfall 2.
+
+    Phase 70.5 envelope-provenance fields are optional here (None = not yet declared);
+    Stage 8 enforces that tool-type entries have all four populated.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -58,6 +63,12 @@ class _BaseEntrySchema(BaseModel):
     tags: list[str] = []
     contracts_request: str | None = None
     contracts_response: str | None = None
+
+    # Phase 70.5 envelope-provenance fields (optional; Stage 8 enforces for tools)
+    typical_confidence: float | None = None
+    expected_freshness_seconds: int | None = None
+    is_deterministic: bool | None = None
+    version: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +126,7 @@ def validate_schemas(
                 ),
             ) from exc
 
-        # Project to CapabilitySnapshotEntry (13 LD-3 fields — status + 12)
+        # Project to CapabilitySnapshotEntry (13 LD-3 fields + 4 Phase 70.5 extensions)
         entry = CapabilitySnapshotEntry(
             id=validated.id,
             type=validated.type,
@@ -129,6 +140,11 @@ def validate_schemas(
             deprecated=validated.deprecated,
             tags=tuple(validated.tags),
             hard_scoped=validated.hard_scoped,
+            # Phase 70.5 envelope-provenance fields
+            typical_confidence=validated.typical_confidence,
+            expected_freshness_seconds=validated.expected_freshness_seconds,
+            is_deterministic=validated.is_deterministic,
+            version=validated.version,
         )
         result.append(entry)
 
@@ -404,6 +420,132 @@ def validate_cross_type_linkage(
 
 
 # ---------------------------------------------------------------------------
+# Stage 8 — Tool provenance fields (Phase 70.5)
+# ---------------------------------------------------------------------------
+
+
+def validate_tool_provenance_fields(
+    entries: list[CapabilitySnapshotEntry],
+    raw_map: dict[str, dict] | None = None,
+) -> list[CapabilitySnapshotEntry]:
+    """Stage 8 (Phase 70.5): every tool-type entry MUST declare all 4 envelope-provenance fields.
+
+    Hard-fail consistent with Phase 47.6 lock — VM107 does not boot when a tool YAML
+    is missing any of: typical_confidence, expected_freshness_seconds, is_deterministic, version.
+
+    Error types:
+        "missing_envelope_field"    — field is None / not declared
+        "envelope_field_out_of_range" — field value outside valid range
+
+    Only CapabilityType.tool entries are checked; signals, patterns, features, etc. are skipped.
+
+    Iterates sorted(entries, key=(type, id)) for LD-2 deterministic ordering.
+    """
+    import re as _re
+
+    _SEMVER_LITE = _re.compile(r"^\d+\.\d+(\.\d+)?$")
+
+    for entry in sorted(entries, key=lambda e: (e.type.value, e.id)):
+        if entry.type != CapabilityType.TOOL:
+            continue
+
+        # --- typical_confidence ---
+        if entry.typical_confidence is None:
+            raise RegistryValidationError(
+                stage=8,
+                type="missing_envelope_field",
+                capability_id=entry.id,
+                missing_ref="typical_confidence",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' is missing "
+                    f"'typical_confidence'. Every tool YAML must declare all 4 Phase 70.5 "
+                    f"envelope-provenance fields (typical_confidence, expected_freshness_seconds, "
+                    f"is_deterministic, version)."
+                ),
+            )
+        if not (0.0 <= entry.typical_confidence <= 1.0):
+            raise RegistryValidationError(
+                stage=8,
+                type="envelope_field_out_of_range",
+                capability_id=entry.id,
+                missing_ref="typical_confidence",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' has "
+                    f"typical_confidence={entry.typical_confidence!r} which is outside "
+                    f"the valid range [0.0, 1.0]."
+                ),
+            )
+
+        # --- expected_freshness_seconds ---
+        if entry.expected_freshness_seconds is None:
+            raise RegistryValidationError(
+                stage=8,
+                type="missing_envelope_field",
+                capability_id=entry.id,
+                missing_ref="expected_freshness_seconds",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' is missing "
+                    f"'expected_freshness_seconds'. Every tool YAML must declare all 4 Phase 70.5 "
+                    f"envelope-provenance fields."
+                ),
+            )
+        if entry.expected_freshness_seconds < 0:
+            raise RegistryValidationError(
+                stage=8,
+                type="envelope_field_out_of_range",
+                capability_id=entry.id,
+                missing_ref="expected_freshness_seconds",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' has "
+                    f"expected_freshness_seconds={entry.expected_freshness_seconds!r} which must "
+                    f"be >= 0."
+                ),
+            )
+
+        # --- is_deterministic ---
+        if entry.is_deterministic is None:
+            raise RegistryValidationError(
+                stage=8,
+                type="missing_envelope_field",
+                capability_id=entry.id,
+                missing_ref="is_deterministic",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' is missing "
+                    f"'is_deterministic'. Every tool YAML must declare all 4 Phase 70.5 "
+                    f"envelope-provenance fields."
+                ),
+            )
+
+        # --- version ---
+        if entry.version is None:
+            raise RegistryValidationError(
+                stage=8,
+                type="missing_envelope_field",
+                capability_id=entry.id,
+                missing_ref="version",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' is missing "
+                    f"'version'. Every tool YAML must declare all 4 Phase 70.5 "
+                    f"envelope-provenance fields."
+                ),
+            )
+        if not _SEMVER_LITE.match(entry.version):
+            raise RegistryValidationError(
+                stage=8,
+                type="envelope_field_out_of_range",
+                capability_id=entry.id,
+                missing_ref="version",
+                message=(
+                    f"Stage 8 provenance field error: tool '{entry.id}' has "
+                    f"version={entry.version!r} which does not match semver-lite format "
+                    f"('\\d+\\.\\d+' or '\\d+\\.\\d+\\.\\d+')."
+                ),
+            )
+
+    return entries
+
+
+# ---------------------------------------------------------------------------
 # Full pipeline runner (convenience for tests)
 # ---------------------------------------------------------------------------
 
@@ -411,7 +553,7 @@ def validate_cross_type_linkage(
 def run_full_pipeline(
     registry_root: Path,
 ) -> list[CapabilitySnapshotEntry]:
-    """Run all 7 stages against a registry_root. Raises on first error.
+    """Run all 8 stages against a registry_root. Raises on first error.
 
     This is a convenience wrapper used by tests. The CapabilityRegistry singleton
     calls each stage individually so it can pass additional context (repo_root,
@@ -437,5 +579,7 @@ def run_full_pipeline(
     # Stage 7: need raw_map for applies_to_profiles / derived_from / consumes_tools
     raw_map = {raw.get("id", path.stem): raw for path, raw in raw_entries}
     validate_cross_type_linkage(entries, raw_map)
+    # Stage 8: Phase 70.5 envelope-provenance fields for all tool entries
+    validate_tool_provenance_fields(entries, raw_map)
 
     return entries

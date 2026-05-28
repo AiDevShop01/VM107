@@ -1,0 +1,22 @@
+id: missing_version_tool
+type: tool
+status: real
+short_description: "Tool fixture missing version — triggers Stage 8 error"
+long_description: "Used by stage-8 tests to confirm Stage 8 hard-fails when version is absent."
+contracts_request: null
+contracts_response: null
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+dependencies: []
+related_capabilities: []
+deprecated: false
+tags:
+  - test
+  - fixture
+hard_scoped: false
+
+# --- Phase 70.5 envelope-provenance fields (version intentionally omitted) ---
+typical_confidence: 0.85   # Reasoning: stable fixture data; high confidence
+expected_freshness_seconds: 60   # Reasoning: stable fixture data
+is_deterministic: true   # Reasoning: deterministic test fixture
+# version: INTENTIONALLY OMITTED — this triggers Stage 8 missing_envelope_field
