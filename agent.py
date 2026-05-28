@@ -33,6 +33,15 @@ from helpers.localization import Localization
 from helpers import extension
 from helpers.errors import RepairableException, InterventionException, HandledException
 
+# Phase 70.5 Plan 04 — dispatcher routing (Decision 16 + 19)
+import json as _json
+from uuid import uuid4 as _uuid4
+from core.registry.capability_registry import CapabilityRegistry
+from core.agents.tool_dispatcher import dispatch_tool
+from fingpt_core.contracts.invocation_context import InvocationContext
+from fingpt_core.contracts.tool_envelope import ToolResultEnvelope
+
+
 class AgentContextType(Enum):
     USER = "user"
     TASK = "task"
@@ -867,6 +876,53 @@ class Agent:
         while self.context.paused:
             await asyncio.sleep(0.1)
 
+    def _envelope_to_response(self, envelope: "ToolResultEnvelope") -> "Response":
+        """Convert a ToolResultEnvelope to a helpers.tool.Response for the agent loop.
+
+        Phase 70.5 Plan 04 — Decision 16 + 19.
+
+        Success/partial/degraded paths:   message includes payload, citations, assumptions.
+        Refused/failure paths:             message includes refusal_reason / failure_modes.
+
+        break_loop is always False — refusals and failures are recoverable. The LLM
+        may pick a different tool or surface the error to the user via the response tool.
+        The existing break_loop logic (response tool sets break_loop=True) continues to
+        operate through the MCP/execute fallback path — it is NOT affected here.
+        """
+        from helpers.tool import Response
+
+        payload_dump: Any = None
+        if hasattr(envelope.payload, "model_dump"):
+            payload_dump = envelope.payload.model_dump(mode="json")
+        else:
+            payload_dump = envelope.payload
+
+        summary: dict = {
+            "outcome": envelope.outcome_class,
+            "envelope_id": str(envelope.envelope_id),
+            "tool": envelope.tool_name,
+            "version": envelope.tool_version,
+            "confidence": envelope.confidence,
+            "freshness_seconds": envelope.freshness_seconds,
+        }
+
+        if envelope.outcome_class in ("success", "partial", "degraded"):
+            summary["payload"] = payload_dump
+            summary["citations"] = [c.model_dump() for c in envelope.citations]
+            summary["assumptions"] = list(envelope.assumptions)
+        else:
+            # refused or failure
+            summary["refusal_reason"] = envelope.refusal_reason
+            summary["failure_modes"] = [
+                fm.model_dump() if hasattr(fm, "model_dump") else str(fm)
+                for fm in envelope.failure_modes
+            ]
+
+        return Response(
+            message=_json.dumps(summary, default=str),
+            break_loop=False,
+        )
+
     @extension.extensible
     async def process_tools(self, msg: str):
         # search for tool usage requests in agent message
@@ -935,22 +991,68 @@ class Agent:
                         tool_name=tool_name,
                     )
 
-                    response = await tool.execute(**tool_args)
-                    await self.handle_intervention()
+                    # Phase 70.5 Plan 04 — Decision 16: route registered tools through
+                    # dispatch_tool(); non-registered tools keep the existing execute() path.
+                    _reg_summary = None
+                    try:
+                        _reg_summary = CapabilityRegistry.get().lookup(tool_name)
+                    except Exception:
+                        # Registry not yet initialised or lookup error — fall back to execute()
+                        _reg_summary = None
 
-                    # Allow extensions to postprocess tool response
-                    await extension.call_extensions_async(
-                        "tool_execute_after",
-                        self,
-                        response=response,
-                        tool_name=tool_name,
-                    )
+                    if _reg_summary is not None:
+                        # --- Registered tool path: dispatch through envelope substrate ---
+                        # Decision 19: construct top-level InvocationContext (depth=0).
+                        # Trace_id is stable across same-turn calls: lazily set on loop_data
+                        # at first dispatch in a turn, reused on subsequent calls.
+                        if not getattr(self.loop_data, "_current_trace_id", None):
+                            self.loop_data._current_trace_id = _uuid4()
 
-                    await tool.after_execution(response)
-                    await self.handle_intervention()
+                        ctx = InvocationContext(
+                            envelope_id=_uuid4(),
+                            parent_envelope_id=None,
+                            trace_id=self.loop_data._current_trace_id,
+                            agent_id=getattr(self, "agent_name", "agent_zero"),
+                            conversation_id=getattr(self.context, "id", None),
+                            execution_depth=0,
+                        )
 
-                    if response.break_loop:
-                        return response.message
+                        envelope = await dispatch_tool(tool_name, tool_args or {}, ctx)
+                        response = self._envelope_to_response(envelope)
+                        await self.handle_intervention()
+
+                        # Allow extensions to postprocess envelope-converted response
+                        await extension.call_extensions_async(
+                            "tool_execute_after",
+                            self,
+                            response=response,
+                            tool_name=tool_name,
+                        )
+
+                        # Preserve tool lifecycle hook parity (history, logging side effects)
+                        await tool.after_execution(response)
+                        await self.handle_intervention()
+
+                        if response.break_loop:
+                            return response.message
+                    else:
+                        # --- MCP / unregistered tool path: existing execute() path (unchanged) ---
+                        response = await tool.execute(**tool_args)
+                        await self.handle_intervention()
+
+                        # Allow extensions to postprocess tool response
+                        await extension.call_extensions_async(
+                            "tool_execute_after",
+                            self,
+                            response=response,
+                            tool_name=tool_name,
+                        )
+
+                        await tool.after_execution(response)
+                        await self.handle_intervention()
+
+                        if response.break_loop:
+                            return response.message
                 finally:
                     self.loop_data.current_tool = None
             else:
