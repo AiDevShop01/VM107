@@ -580,7 +580,7 @@ def compute_behavioral_metrics(
 
     # ── Complete degrade if execution row unavailable ────────────────────────
     if not execution_available:
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -744,7 +744,7 @@ def compute_behavioral_metrics(
     narrative_fragments.extend(revenge_fragments)
     narrative_fragments.extend(fomo_fragments)
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,

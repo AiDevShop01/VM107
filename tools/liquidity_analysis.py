@@ -98,7 +98,7 @@ def compute_liquidity_score(execution_data: dict, liquidity_data: dict) -> dict:
     # ── Degrade gracefully if liquidity data not available ────────────────────
     if _is_not_available(liquidity_data):
         reason = (liquidity_data.get("meta") or {}).get("planned_phase", "VM102 not_available")
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -307,7 +307,7 @@ def compute_liquidity_score(execution_data: dict, liquidity_data: dict) -> dict:
         "imbalance_entry": imbalance_entry,
     }
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,

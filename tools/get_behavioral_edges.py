@@ -28,13 +28,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from fingpt_core.contracts.narrative.scope import ScopeContext
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 
 logger = logging.getLogger("fingpt.tools.get_behavioral_edges")
 
@@ -64,12 +65,24 @@ class BehavioralEdgeItem(BaseModel):
     timestamp: str
 
 
-class GetBehavioralEdgesResponse(BaseModel):
-    """Response contract for get_behavioral_edges tool."""
+class GetBehavioralEdgesPayload(BaseModel):
+    """Payload for get_behavioral_edges tool (Phase 70.5: renamed from GetBehavioralEdgesResponse).
+
+    Phase 70.5 Plan 08: PAYLOAD_SCHEMA_VERSION + provenance: ToolProvenance added (SKELETAL).
+    Dispatcher reads payload.provenance to extract citations/assumptions/failure_modes.
+    Backward compat alias: GetBehavioralEdgesResponse = GetBehavioralEdgesPayload.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    PAYLOAD_SCHEMA_VERSION: ClassVar[str] = "1.0.0"
+
     edges: list[BehavioralEdgeItem]
+    provenance: ToolProvenance = Field(default_factory=ToolProvenance)
+
+
+# Backward-compat alias — existing imports of GetBehavioralEdgesResponse continue to work.
+GetBehavioralEdgesResponse = GetBehavioralEdgesPayload
 
 
 class GetBehavioralEdgesTool:

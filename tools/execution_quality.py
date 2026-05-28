@@ -149,7 +149,7 @@ def compute_execution_quality_score(
 
     # ── Degrade if execution completely unavailable ──────────────────────────
     if not execution_available:
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -494,7 +494,7 @@ def compute_execution_quality_score(
             f"Execution errors detected: {', '.join(execution_errors)}"
         )
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,

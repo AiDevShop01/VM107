@@ -23,9 +23,9 @@ caller's (tool_dispatcher) responsibility — this tool does NOT refuse.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, ClassVar, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.registry.capability_registry import CapabilityRegistry
 from fingpt_core.contracts.capability_registry import (
@@ -35,6 +35,7 @@ from fingpt_core.contracts.capability_registry import (
     CapabilityType,
     ImpactLevel,
 )
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 
 
 # ---------------------------------------------------------------------------
@@ -43,25 +44,36 @@ from fingpt_core.contracts.capability_registry import (
 
 
 class LookupResult(BaseModel):
-    """Typed result envelope for a single-id lookup.
+    """Typed result payload for a single-id lookup.
 
     status="ok"           → capability field is populated
     status="not_available" → capability is None; meta carries the id attempted
                             and closest_matches list (Pitfall 4: no exception)
+
+    Phase 70.5 Plan 08: PAYLOAD_SCHEMA_VERSION + provenance: ToolProvenance added (SKELETAL).
     """
+
+    PAYLOAD_SCHEMA_VERSION: ClassVar[str] = "1.0.0"
 
     status: Literal["ok", "not_available"]
     capability: Optional[CapabilitySummary] = None
     meta: dict = {}
+    provenance: ToolProvenance = Field(default_factory=ToolProvenance)
 
 
 class ListResult(BaseModel):
-    """Typed result envelope for a filtered list query."""
+    """Typed result payload for a filtered list query.
+
+    Phase 70.5 Plan 08: PAYLOAD_SCHEMA_VERSION + provenance: ToolProvenance added (SKELETAL).
+    """
+
+    PAYLOAD_SCHEMA_VERSION: ClassVar[str] = "1.0.0"
 
     status: Literal["ok"]
     capabilities: list[CapabilitySummary]
     registry_snapshot_hash: str
     returned_count: int
+    provenance: ToolProvenance = Field(default_factory=ToolProvenance)
 
 
 # ---------------------------------------------------------------------------

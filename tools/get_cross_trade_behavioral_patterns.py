@@ -29,12 +29,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from fingpt_core.contracts.narrative.scope import ScopeContext
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 
 logger = logging.getLogger("fingpt.tools.get_cross_trade_behavioral_patterns")
 
@@ -65,12 +66,24 @@ class CrossTradePatternItem(BaseModel):
     recent_executions: list[str]
 
 
-class GetCrossTradeBehavioralPatternsResponse(BaseModel):
-    """Response contract for get_cross_trade_behavioral_patterns tool."""
+class GetCrossTradeBehavioralPatternsPayload(BaseModel):
+    """Payload for get_cross_trade_behavioral_patterns (Phase 70.5: renamed from Response).
+
+    Phase 70.5 Plan 08: PAYLOAD_SCHEMA_VERSION + provenance: ToolProvenance added (SKELETAL).
+    Dispatcher reads payload.provenance to extract citations/assumptions/failure_modes.
+    Backward compat alias: GetCrossTradeBehavioralPatternsResponse = ...Payload.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    PAYLOAD_SCHEMA_VERSION: ClassVar[str] = "1.0.0"
+
     patterns: list[CrossTradePatternItem]
+    provenance: ToolProvenance = Field(default_factory=ToolProvenance)
+
+
+# Backward-compat alias — existing imports of GetCrossTradeBehavioralPatternsResponse continue.
+GetCrossTradeBehavioralPatternsResponse = GetCrossTradeBehavioralPatternsPayload
 
 
 class GetCrossTradeBehavioralPatternsTool:

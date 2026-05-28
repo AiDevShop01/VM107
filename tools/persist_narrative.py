@@ -23,7 +23,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 import httpx
@@ -32,6 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from fingpt_core.contracts.narrative.envelope import NarrativeEnvelope
 from fingpt_core.contracts.narrative.scope import ScopeContext
 from fingpt_core.contracts.errors import ContractValidationError
+from fingpt_core.contracts.tool_envelope import ToolProvenance
 from core.agents.envelope_writer import stamp_at_write_time
 
 logger = logging.getLogger("fingpt.tools.persist_narrative")
@@ -72,14 +73,26 @@ class PersistNarrativeRequest(BaseModel):
     registry_schema_version: str = Field(default="1.0")
 
 
-class PersistNarrativeResponse(BaseModel):
-    """Response contract for persist_narrative tool."""
+class PersistNarrativePayload(BaseModel):
+    """Payload for persist_narrative tool (Phase 70.5: renamed from PersistNarrativeResponse).
+
+    Phase 70.5 Plan 08: PAYLOAD_SCHEMA_VERSION + provenance: ToolProvenance added (SKELETAL).
+    Dispatcher reads payload.provenance to extract citations/assumptions/failure_modes.
+    Backward compat alias: PersistNarrativeResponse = PersistNarrativePayload.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
+
+    PAYLOAD_SCHEMA_VERSION: ClassVar[str] = "1.0.0"
 
     narrative_id: UUID
     narrative_version: int
     unsourced_claim_count: int
+    provenance: ToolProvenance = Field(default_factory=ToolProvenance)
+
+
+# Backward-compat alias — existing imports of PersistNarrativeResponse continue to work.
+PersistNarrativeResponse = PersistNarrativePayload
 
 
 class PersistNarrativeTool:

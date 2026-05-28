@@ -98,6 +98,8 @@ def _is_not_available(data: dict) -> bool:
 
 
 def compute_regime_score(execution_data: dict, primitives_data: dict) -> dict:
+    # PROVENANCE-EXEMPT — internal scoring helper; result dict consumed by _validate_response()
+    # which creates the typed RegimeAnalysisPayload. Not a dispatch-path return.
     """Pure-Python deterministic regime scoring.
 
     Args:
@@ -120,7 +122,7 @@ def compute_regime_score(execution_data: dict, primitives_data: dict) -> dict:
             except (ValueError, AttributeError):
                 pass
 
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -291,7 +293,7 @@ def compute_regime_score(execution_data: dict, primitives_data: dict) -> dict:
         "session_confluence": session_confluence,
     }
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,

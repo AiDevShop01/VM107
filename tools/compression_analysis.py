@@ -106,7 +106,7 @@ def compute_compression_score(execution_data: dict, primitives_data: dict) -> di
         reason = (primitives_data.get("meta") or {}).get(
             "planned_phase", "VM102 not_available"
         )
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -287,7 +287,7 @@ def compute_compression_score(execution_data: dict, primitives_data: dict) -> di
         "pre_entry_consolidation_intact": pre_entry_consolidation_intact,
     }
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,

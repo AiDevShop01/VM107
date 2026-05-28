@@ -396,7 +396,7 @@ def compute_setup_quality_score(
 
     # ── Full degrade if execution completely unavailable ─────────────────────
     if not execution_available:
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -416,7 +416,7 @@ def compute_setup_quality_score(
 
     # ── Full degrade if BOTH strategy and checklist unavailable ─────────────
     if not strategy_available and not checklist_available:
-        return {
+        return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
             "score": None,
             "confidence": Decimal("0"),
             "signals": {
@@ -540,7 +540,7 @@ def compute_setup_quality_score(
     narrative_fragments.extend(alignment_narratives)
     narrative_fragments.extend(coherence_narratives)
 
-    return {
+    return {  # PROVENANCE-EXEMPT — internal scoring helper; consumed by _validate_response()
         "score": score,
         "confidence": confidence,
         "signals": signals,
