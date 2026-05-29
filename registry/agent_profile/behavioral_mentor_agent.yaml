@@ -2,7 +2,7 @@ id: behavioral_mentor_agent
 type: agent_profile
 status: real
 shipped: 60
-last_changed: 2026-05-29
+last_changed: 2026-05-29  # Phase 72-09: added COGNITIVE_LIFECYCLE to adaptive_signal_categories
 name: behavioral_mentor_agent
 description: 'Cross-trade behavioral pattern critique agent. Account-scoped orchestration
   entry point for the behavioral_mentor pipeline. Reads cross-trade deterministic
@@ -41,6 +41,7 @@ memory_scope:
   narrative_visibility: NONE
   adaptive_signal_categories:
   - BEHAVIORAL
+  - COGNITIVE_LIFECYCLE
 max_iterations: 5
 max_cost_usd: 0.6
 input_contract: fingpt_core.contracts.narrative.reader_io.ReaderInput
@@ -58,12 +59,18 @@ template_version_changelog:
   date: '2026-05-29'
   change: 'Phase 71-03: add reflection-chat to optional_skills so this profile can
     host the reflection_chat conversation mode (CONTEXT Decision 4).'
+- version: 1.3.0
+  date: '2026-05-29'
+  change: 'Phase 72-09: add COGNITIVE_LIFECYCLE to adaptive_signal_categories — enables
+    this profile to propose ai_mode_suggestion events and consume engine state stream
+    once Phase 72-10 lands the channel (CONTEXT.md Claude''s Discretion item).'
 tags:
 - agent-profile
 - mentor
 - cross-trade
 - account-scoped
 - phase-60
+- phase-72
 - wave-3
 impact_on_decision: HIGH
 allowed_agent_profiles: []
