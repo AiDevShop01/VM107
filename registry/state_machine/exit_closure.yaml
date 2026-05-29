@@ -1,0 +1,47 @@
+id: exit_closure
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Position closed; immediate post-trade acknowledgment and emotional reset.'
+long_description: >
+  EXIT_CLOSURE is entered immediately when a position is fully closed (position_closed).
+  The engine shifts to NEUTRAL_REFLECTIVE mode: the trade result is acknowledged, immediate
+  emotion (win/loss) is processed, and the trader prepares for either re-entry to the session
+  (OBSERVATION) or end-of-session review (POST_MARKET_REVIEW). This is a brief but important
+  transition state — the decompression and acknowledgment phase that prevents reactive
+  re-entry. Exits to POST_MARKET_REVIEW when post-market routine starts or session closes.
+  Maps to the CLOSE surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - position_closed
+  - manual_override_requested
+exit_triggers:
+  - post_market_routine_started
+  - market_session_closed
+  - manual_override_requested
+active_workflows:
+  - TradeClosureWorkflow
+  - EmotionalResetWorkflow
+  - ImmediateReviewWorkflow
+default_ai_behavioral_mode: ai_behavioral_neutral_reflective
+allowed_ai_modes:
+  - ai_behavioral_neutral_reflective
+  - ai_behavioral_reflective
+  - ai_behavioral_analytical
+widget_priority_profile: exit_closure_default
+subscription_profile: close_default
+surface_state_mapping: close
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

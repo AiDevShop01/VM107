@@ -1,0 +1,46 @@
+id: active_supervision
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Fill confirmed; trader actively supervising open position at peak focus.'
+long_description: >
+  ACTIVE_SUPERVISION is entered when a fill is confirmed (fill_received). This is the
+  peak-intensity state: the position is live and the trader's attention is tightly focused
+  on price action, real-time P&L, and stop/target management. The engine maintains
+  SUPERVISORY mode. Exits to TRADE_MANAGEMENT when the position is modified
+  (position_modified — SL adjustment, partial close, etc.) or to EXIT_CLOSURE when the
+  position is fully closed (position_closed). Maps to the MID surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - fill_received
+  - manual_override_requested
+exit_triggers:
+  - position_modified
+  - position_closed
+  - manual_override_requested
+active_workflows:
+  - PositionSupervisionWorkflow
+  - LivePnLMonitoringWorkflow
+  - StopTargetWatchWorkflow
+default_ai_behavioral_mode: ai_behavioral_supervisory
+allowed_ai_modes:
+  - ai_behavioral_supervisory
+  - ai_behavioral_adaptive
+  - ai_behavioral_tactical
+widget_priority_profile: active_supervision_default
+subscription_profile: mid_default
+surface_state_mapping: mid
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

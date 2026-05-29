@@ -1,0 +1,33 @@
+id: ai_behavioral_supervisory
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: ai_behavioral
+scope: account
+short_description: 'AI Behavioral mode: Supervisory — real-time oversight of open positions.'
+long_description: >
+  SUPERVISORY mode activates when the trader has an active position and needs the AI to
+  monitor for exit signals, invalidation events, and risk triggers. The AI watches price
+  action against the original thesis, flags deviation, and surfaces time-sensitive alerts.
+  This is the "guardian mode" — maximum alertness for position-threatening events.
+  Compatible with lifecycle states where a position is live (EXECUTION, ACTIVE_SUPERVISION,
+  TRADE_MANAGEMENT) and also available during EVALUATION for high-conviction pre-entry
+  oversight.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.AIBehavioralState
+compatible_lifecycle_states:
+  - evaluation
+  - execution
+  - active_supervision
+  - trade_management
+tags:
+  - phase-72
+  - ai_behavioral
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

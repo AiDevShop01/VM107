@@ -1,0 +1,30 @@
+id: session_asia
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: session
+scope: global
+short_description: 'Market session: Asia (Tokyo) — low-volatility overnight session.'
+long_description: >
+  The Asia session covers the Tokyo trading hours (approximately 00:00–09:00 UTC).
+  Typically characterized by lower volatility and tighter ranges, especially for
+  major FX pairs. Session state is computed per-request from the aggregator's
+  /api/system/sessions endpoint — this YAML entry is registry catalog only.
+  The session layer is per-market (global scope), not per-account.
+location:
+  source: VM100/backend/mission_control/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.SessionState
+entry_triggers:
+  - asia_session_opened
+exit_triggers:
+  - asia_session_closed
+tags:
+  - phase-72
+  - session
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

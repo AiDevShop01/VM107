@@ -1,0 +1,47 @@
+id: evaluation
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Formal trade evaluation: R:R, entry, SL, TP, conviction check.'
+long_description: >
+  EVALUATION is the formal decision gate. Entered when the trader launches a structured
+  evaluation (evaluation_launched) of a discovery-stage opportunity. The engine shifts to
+  ANALYTICAL mode: structured review of risk-to-reward, entry parameters, stop-loss,
+  target, and conviction. The evaluator examines the setup against the session plan
+  and risk state. Exits to EXECUTION on trade entry (trade_opened / order_submitted),
+  or back to DISCOVERY if evaluation reveals insufficient conviction (evaluation_dismissed).
+  Maps to the MID surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - evaluation_launched
+  - manual_override_requested
+exit_triggers:
+  - trade_opened
+  - evaluation_dismissed
+  - manual_override_requested
+active_workflows:
+  - TradeEvaluationWorkflow
+  - RiskRewardWorkflow
+  - ConvictionCheckWorkflow
+default_ai_behavioral_mode: ai_behavioral_analytical
+allowed_ai_modes:
+  - ai_behavioral_analytical
+  - ai_behavioral_tactical
+  - ai_behavioral_supervisory
+widget_priority_profile: evaluation_default
+subscription_profile: mid_default
+surface_state_mapping: mid
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

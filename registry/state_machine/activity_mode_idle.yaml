@@ -1,0 +1,36 @@
+id: activity_mode_idle
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: activity_mode
+scope: account
+short_description: 'Activity mode: Idle — no active trading or research session in progress.'
+long_description: >
+  IDLE is the default Activity Mode state. No trade is open (or being evaluated), and no
+  active research session is running. The trader may be passively monitoring or away from
+  the terminal. Transitions to TRADING when a trade is opened (trade_opened); transitions
+  to RESEARCH when a research session starts (research_session_started). Note: Activity Mode
+  is orthogonal to the Primary Lifecycle layer — a trader can be IDLE in Activity Mode while
+  in the OBSERVATION primary lifecycle state (watching market without an active trade or
+  research session).
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.ActivityModeState
+entry_triggers:
+  - last_position_closed
+  - research_session_ended
+  - engine_initialized
+  - manual_override_requested
+exit_triggers:
+  - trade_opened
+  - research_session_started
+tags:
+  - phase-72
+  - activity_mode
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

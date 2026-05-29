@@ -1,0 +1,44 @@
+id: arrival_context
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Trader has arrived; engine loads prior context, yesterday close, overnight news.'
+long_description: >
+  ARRIVAL_CONTEXT is the first active state of the trading day. Triggered when the
+  trader arrives at the terminal (market_arrival_detected). The engine shifts into
+  STRATEGIC mode: load yesterday's context, review overnight developments, prime the
+  session lens. No active scanning yet — this is orientation and framing. Exits to
+  PRE_MARKET when the trader initiates their pre-market routine or a manual override
+  commits them forward. Maps to PRE surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - market_arrival_detected
+  - manual_override_requested
+exit_triggers:
+  - pre_market_routine_started
+  - manual_override_requested
+active_workflows:
+  - ArrivalContextLoadWorkflow
+  - OvernightSummaryWorkflow
+default_ai_behavioral_mode: ai_behavioral_strategic
+allowed_ai_modes:
+  - ai_behavioral_strategic
+  - ai_behavioral_research
+  - ai_behavioral_analytical
+widget_priority_profile: arrival_context_default
+subscription_profile: pre_default
+surface_state_mapping: pre
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

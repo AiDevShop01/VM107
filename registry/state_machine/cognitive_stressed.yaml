@@ -1,0 +1,34 @@
+id: cognitive_stressed
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive
+scope: user
+short_description: 'Cognitive state: Stressed — elevated emotional pressure, fight-or-flight response active.'
+long_description: >
+  STRESSED reflects acute emotional pressure — typically triggered by a loss sequence,
+  drawdown, or high-stakes position. The trader is in a stress response: narrowed attention,
+  heightened impulsivity, reduced capacity for deliberate analysis. Revenge-trading risk is
+  highest in this state. Inferred by behavioral_mentor_agent from: rapid sequential entries
+  after losses, increasing trade frequency, decreasing setup quality scores, override of
+  stop-loss placements. The engine surfaces strong advisory nudges toward session pause.
+  Subject to hysteresis guard.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.CognitiveState
+entry_triggers:
+  - cognitive_stressed_inferred
+exit_triggers:
+  - cognitive_focused_inferred
+  - cognitive_fatigued_inferred
+  - cognitive_disciplined_inferred
+tags:
+  - phase-72
+  - cognitive
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: CRITICAL
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,31 @@
+id: ai_behavioral_reflective
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: ai_behavioral
+scope: account
+short_description: 'AI Behavioral mode: Reflective — end-of-session review, lessons, pattern analysis.'
+long_description: >
+  REFLECTIVE mode is used during post-session and idle states. The AI shifts into a
+  review and learning orientation: surfacing patterns from the session, comparing results
+  to the plan, identifying behavioral tendencies and improvement areas. No urgency or
+  decision pressure — this is the consolidation and learning phase. Appropriate when the
+  trader is journaling, reviewing their performance, or preparing for the next session.
+  Compatible with SYSTEM_IDLE and POST_MARKET_REVIEW lifecycle states.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.AIBehavioralState
+compatible_lifecycle_states:
+  - system_idle
+  - post_market_review
+  - exit_closure
+tags:
+  - phase-72
+  - ai_behavioral
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

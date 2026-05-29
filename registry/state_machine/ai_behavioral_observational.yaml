@@ -1,0 +1,29 @@
+id: ai_behavioral_observational
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: ai_behavioral
+scope: account
+short_description: 'AI Behavioral mode: Observational — passive market watch, pattern detection, ambient scan.'
+long_description: >
+  OBSERVATIONAL mode is the lowest-intensity active mode. The AI is in ambient scan mode:
+  monitoring for emerging patterns, session flow changes, liquidity events, and opportunity
+  seeds without active evaluation. No decision pressure — this is passive, parallel
+  information gathering. The default mode for OBSERVATION lifecycle state. Available in
+  DISCOVERY for initial loose screening before moving to TACTICAL depth.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.AIBehavioralState
+compatible_lifecycle_states:
+  - observation
+  - discovery
+tags:
+  - phase-72
+  - ai_behavioral
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,47 @@
+id: discovery
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Opportunity identified; trader is assessing context and initial fit.'
+long_description: >
+  DISCOVERY is entered when an opportunity crosses the score threshold
+  (opportunity_score_threshold_exceeded). The trader shifts from passive monitoring to
+  active engagement with a specific setup. Initial context assessment, instrument check,
+  and pre-evaluation screening run. The engine shifts to TACTICAL mode: focused, fast,
+  decision-ready. Exits to EVALUATION if the setup passes initial screening
+  (evaluation_launched), or returns to OBSERVATION if dismissed (opportunity_dismissed).
+  Maps to the OPEN surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - opportunity_score_threshold_exceeded
+  - manual_override_requested
+exit_triggers:
+  - evaluation_launched
+  - opportunity_dismissed
+  - manual_override_requested
+active_workflows:
+  - OpportunityAssessmentWorkflow
+  - ContextScreeningWorkflow
+  - SetupQualificationWorkflow
+default_ai_behavioral_mode: ai_behavioral_tactical
+allowed_ai_modes:
+  - ai_behavioral_tactical
+  - ai_behavioral_analytical
+  - ai_behavioral_observational
+widget_priority_profile: discovery_default
+subscription_profile: open_default
+surface_state_mapping: open
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

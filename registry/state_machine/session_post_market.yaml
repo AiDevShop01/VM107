@@ -1,0 +1,29 @@
+id: session_post_market
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: session
+scope: global
+short_description: 'Market session: Post-Market — after NY close, reduced liquidity.'
+long_description: >
+  The Post-Market session covers hours after the New York close (approximately 17:00–00:00 UTC).
+  Liquidity drops significantly; major institutional flows have subsided. This session
+  window typically coincides with the SYSTEM_IDLE or POST_MARKET_REVIEW cognitive lifecycle
+  states. Session state computed per-request from /api/system/sessions.
+location:
+  source: VM100/backend/mission_control/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.SessionState
+entry_triggers:
+  - post_market_session_opened
+exit_triggers:
+  - post_market_session_closed
+tags:
+  - phase-72
+  - session
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false

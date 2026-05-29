@@ -1,0 +1,34 @@
+id: cognitive_reactive
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive
+scope: user
+short_description: 'Cognitive state: Reactive — impulse-driven responses, plan deviation, reduced deliberation.'
+long_description: >
+  REACTIVE reflects a cognitive state where the trader is responding to market events
+  rather than executing a pre-defined plan. Decisions are driven by immediate price action
+  and emotional impulse rather than deliberate analysis. The trader is in "chasing" mode:
+  entering late, cutting winners early, holding losers too long in hope. REACTIVE is
+  distinct from STRESSED — it can occur without acute loss pressure, arising from boredom,
+  FOMO, or external distraction. Inferred by behavioral_mentor_agent from: late entries
+  relative to setup formation, frequent plan deviation, entry timing outside planned levels.
+  Subject to hysteresis guard.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.CognitiveState
+entry_triggers:
+  - cognitive_reactive_inferred
+exit_triggers:
+  - cognitive_focused_inferred
+  - cognitive_disciplined_inferred
+tags:
+  - phase-72
+  - cognitive
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

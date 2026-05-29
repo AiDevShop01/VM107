@@ -1,0 +1,31 @@
+id: session_london_open
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: session
+scope: global
+short_description: 'Market session: London Open — primary high-volatility European session.'
+long_description: >
+  The London Open session covers European market hours (approximately 07:00–12:00 UTC).
+  The London Open is typically the highest-volatility FX session, with major institutional
+  flows, news-driven moves, and the primary opportunity window for trend-following and
+  breakout strategies. Session state is computed per-request from /api/system/sessions.
+  The OBSERVATION → DISCOVERY transition guard `market_open` is satisfied by
+  session_london_open or session_ny_overlap being active.
+location:
+  source: VM100/backend/mission_control/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.SessionState
+entry_triggers:
+  - london_session_opened
+exit_triggers:
+  - london_session_closed
+tags:
+  - phase-72
+  - session
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

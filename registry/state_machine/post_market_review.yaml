@@ -1,0 +1,51 @@
+id: post_market_review
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'End-of-session review: journaling, performance analysis, lessons recorded.'
+long_description: >
+  POST_MARKET_REVIEW is the structured end-of-session reflection and recording phase.
+  Entered when the trader starts their post-market routine (post_market_routine_started)
+  or when review is actively being recorded (review_recorded). The engine enters
+  REFLECTIVE mode: the trader reviews session performance, journals trades, records
+  lessons, and updates statistical context. This is the closure ritual that enables
+  clean SYSTEM_IDLE transition. Exits to SYSTEM_IDLE when review is completed
+  (review_completed) or if the next session arrives before review finishes
+  (market_arrival_detected). Maps to the CLOSE surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - post_market_routine_started
+  - review_recorded
+  - manual_override_requested
+exit_triggers:
+  - review_completed
+  - manual_override_requested
+  - market_arrival_detected
+active_workflows:
+  - PostMarketReviewWorkflow
+  - JournalingWorkflow
+  - PerformanceAnalysisWorkflow
+  - LessonsRecordingWorkflow
+default_ai_behavioral_mode: ai_behavioral_reflective
+allowed_ai_modes:
+  - ai_behavioral_reflective
+  - ai_behavioral_neutral_reflective
+  - ai_behavioral_analytical
+  - ai_behavioral_research
+widget_priority_profile: post_market_review_default
+subscription_profile: close_default
+surface_state_mapping: close
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

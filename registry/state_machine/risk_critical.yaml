@@ -1,0 +1,35 @@
+id: risk_critical
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: risk
+scope: account
+short_description: 'Risk state: Critical — daily drawdown limit hit; no new entries advised.'
+long_description: >
+  RISK_CRITICAL is the terminal risk tier for the session. The daily drawdown limit has
+  been hit or exceeded (e.g., 100% of daily drawdown limit consumed). The `risk_not_critical`
+  guard fires with severity=warning on all forward-chain transitions (OBSERVATION→DISCOVERY,
+  DISCOVERY→EVALUATION, EVALUATION→EXECUTION). In Phase 72 all guards are advisory — the
+  engine records violations but does not block. Phase 73 will flip `risk_not_critical` to
+  blocking in RISK_CRITICAL state, preventing new trade entries. The appropriate response
+  is session closure and transition to EXIT_CLOSURE → POST_MARKET_REVIEW → SYSTEM_IDLE.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.RiskState
+entry_triggers:
+  - drawdown_above_critical_threshold
+  - daily_loss_limit_hit
+exit_triggers:
+  - account_reset
+  - drawdown_below_warning_threshold
+  - manual_override_requested
+tags:
+  - phase-72
+  - risk
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: CRITICAL
+allowed_agent_profiles: []
+deprecated: false

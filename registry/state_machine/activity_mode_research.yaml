@@ -1,0 +1,36 @@
+id: activity_mode_research
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: activity_mode
+scope: account
+short_description: 'Activity mode: Research — trader is in an active research or study workflow session.'
+long_description: >
+  RESEARCH in Activity Mode means the trader has explicitly entered a research workflow
+  session (research_session_started). They are engaged in structured study: strategy
+  development, backtesting review, economic analysis, or opportunity landscape mapping.
+  This is distinct from AI Behavioral RESEARCH mode — Activity Mode RESEARCH means "the
+  trader is in a research workflow", while AI Behavioral RESEARCH means "the AI is in
+  exploration/study mode". A trader in Activity Mode RESEARCH may simultaneously have
+  the AI in any compatible behavioral mode (RESEARCH, ANALYTICAL, STRATEGIC). Transitions
+  back to IDLE when the research session ends.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.ActivityModeState
+entry_triggers:
+  - research_session_started
+  - manual_override_requested
+exit_triggers:
+  - research_session_ended
+  - trade_opened
+  - manual_override_requested
+tags:
+  - phase-72
+  - activity_mode
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,31 @@
+id: ai_behavioral_neutral_reflective
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: ai_behavioral
+scope: account
+short_description: 'AI Behavioral mode: Neutral Reflective — immediate post-trade decompression, unbiased review.'
+long_description: >
+  NEUTRAL_REFLECTIVE mode is the immediate post-trade state. After a position closes —
+  win or loss — the AI shifts into an emotionally neutral, factual review mode. No
+  judgment, no performance pressure; just clear-eyed acknowledgment of what happened
+  versus what was planned. This mode prevents the AI from amplifying post-trade emotion
+  (overconfidence after a win, revenge-trading impulse after a loss). The decompression
+  layer before REFLECTIVE mode's deeper analysis kicks in. Default mode for EXIT_CLOSURE;
+  available in POST_MARKET_REVIEW for initial trade-by-trade review.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.AIBehavioralState
+compatible_lifecycle_states:
+  - exit_closure
+  - post_market_review
+tags:
+  - phase-72
+  - ai_behavioral
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

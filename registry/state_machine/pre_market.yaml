@@ -1,0 +1,46 @@
+id: pre_market
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive_lifecycle
+short_description: 'Pre-market routine: bias setting, key level review, session plan construction.'
+long_description: >
+  PRE_MARKET is the structured preparation phase before the first tradeable session
+  opens. Entered when the trader initiates their pre-market routine (pre_market_routine_started).
+  The engine remains in STRATEGIC mode: the trader is setting directional bias, reviewing
+  key levels, building session plans. Exits when the market session opens (market_session_opened)
+  transitioning to OBSERVATION. Early session opens (e.g., pre-London) also trigger the exit
+  condition. Maps to PRE surface.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.PrimaryLifecycleState
+entry_triggers:
+  - pre_market_routine_started
+  - market_session_opened
+  - manual_override_requested
+exit_triggers:
+  - market_session_opened
+  - manual_override_requested
+active_workflows:
+  - PreMarketPlanWorkflow
+  - BiasSettingWorkflow
+  - KeyLevelReviewWorkflow
+default_ai_behavioral_mode: ai_behavioral_strategic
+allowed_ai_modes:
+  - ai_behavioral_strategic
+  - ai_behavioral_research
+  - ai_behavioral_analytical
+widget_priority_profile: pre_market_default
+subscription_profile: pre_default
+surface_state_mapping: pre
+tags:
+  - phase-72
+  - cognitive_lifecycle
+  - primary_operational
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

@@ -1,0 +1,34 @@
+id: ai_behavioral_research
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: ai_behavioral
+scope: account
+short_description: 'AI Behavioral mode: Research — deep study, strategy development, hypothesis testing.'
+long_description: >
+  RESEARCH mode is used when the trader is engaged in study rather than active trading.
+  The AI supports hypothesis exploration, strategy backtesting discussions, economic
+  research synthesis, and opportunity landscape scanning at a research depth. This mode
+  is orthogonal to the Activity Mode layer — a trader can be in OBSERVATION (Primary),
+  TRADING (Activity Mode), and RESEARCH (AI Behavioral) simultaneously if they are
+  casually studying while watching the market. RESEARCH in AI Behavioral means "AI is
+  in exploration mode", distinct from RESEARCH in Activity Mode which means "trader is
+  in a research workflow session".
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.AIBehavioralState
+compatible_lifecycle_states:
+  - system_idle
+  - arrival_context
+  - pre_market
+  - observation
+tags:
+  - phase-72
+  - ai_behavioral
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false

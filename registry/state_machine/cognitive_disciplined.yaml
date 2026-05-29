@@ -1,0 +1,34 @@
+id: cognitive_disciplined
+type: state_machine
+status: real
+shipped: 72
+planned_phase: null
+namespace: cognitive
+scope: user
+short_description: 'Cognitive state: Disciplined — consistent rule adherence, emotion-controlled execution.'
+long_description: >
+  DISCIPLINED reflects the trader's highest behavioral state: systematic rule adherence,
+  emotion-controlled execution, and consistent application of their trading framework.
+  Similar to FOCUSED but with an emphasis on the process-over-outcome orientation —
+  the disciplined trader executes the plan regardless of recent P&L. Inferred by
+  behavioral_mentor_agent from: high plan adherence score, consistent position sizing,
+  pre-defined exit execution, low impulsive override count. Dwell hysteresis ensures
+  DISCIPLINED is only assigned after sustained evidence. Subject to hysteresis guard.
+location:
+  source: VM100/backend/mission_control/state_engine/
+  contracts:
+    state_enum: fingpt_core.contracts.state_engine.CognitiveState
+entry_triggers:
+  - cognitive_disciplined_inferred
+exit_triggers:
+  - cognitive_focused_inferred
+  - cognitive_fatigued_inferred
+  - cognitive_stressed_inferred
+tags:
+  - phase-72
+  - cognitive
+hard_scoped: true
+last_changed: 2026-05-29
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
