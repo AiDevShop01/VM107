@@ -2,7 +2,7 @@ id: weekly_review_agent
 type: agent_profile
 status: real
 shipped: 60
-last_changed: 2026-05-12
+last_changed: 2026-05-29
 name: weekly_review_agent
 description: 'Week-rollup synthesis agent. Account-scoped within a canonical week
   window (week_start, week_end, timezone). Analyzer plays auditor + risk + portfolio
@@ -33,6 +33,7 @@ optional_skills:
 - critique-discipline
 - narrative-structure
 - pattern-recognition
+- strategy-chat
 memory_scope:
   account_scope: required
   execution_scope: NONE
@@ -59,6 +60,10 @@ template_version_changelog:
   date: '2026-05-16'
   change: 'Phase 62-03: add adaptive_signal_categories=[BEHAVIORAL,STRATEGIC,REGIME,PATTERN,ADAPTIVE_RECOMMENDATION,COUNTERFACTUAL_AGGREGATE]
     to memory_scope; add adaptive-discipline to constitutional_skills (CTX-DEC-14)'
+- version: 1.2.0
+  date: '2026-05-29'
+  change: 'Phase 71-03: add strategy-chat to optional_skills so this profile can
+    host the strategy_chat conversation mode (CONTEXT Decision 4).'
 tags:
 - agent-profile
 - weekly-review

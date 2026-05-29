@@ -1,0 +1,28 @@
+id: macro_chat
+type: conversation_mode
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: macro_chat
+description: >
+  Anchored to current regime classification + the economic event window +
+  macro intelligence feed. Read-only conversational surface; no execution or
+  subordinate delegation. Drives the AI Attention Feed macro-tag binding.
+phase: 71
+host_agent_profile: macro_agent
+system_prompt_path: VM107/agents/macro_agent/prompts/system.md
+skill_addendum: null
+allowed_tools:
+  - vm102.regime_current
+  - vm100.analytics_calendar
+  - vm107.intelligence_feed.macro
+tags:
+  - conversation-mode
+  - macro
+  - regime
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

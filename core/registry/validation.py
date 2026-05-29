@@ -351,6 +351,8 @@ def validate_cross_type_linkage(
     1. skill/*.yaml applies_to_profiles -> must all resolve to agent_profile/ ids
     2. signal/*.yaml derived_from (if present) -> must resolve to feature/ or event_type/ ids
     3. agent_profile/*.yaml consumes_tools (if present) -> must resolve to tool/ ids
+    4. (Phase 71) conversation_mode/*.yaml host_agent_profile -> must resolve to agent_profile/ id
+    5. (Phase 71) ask_ai_binding/*.yaml conversation_type -> must resolve to conversation_mode/ id
 
     Iterates sorted(entries, key=(type, id)) for determinism.
     raw_map: optional dict(id -> raw YAML dict) for accessing extra fields not in CapabilitySnapshotEntry.
@@ -362,6 +364,10 @@ def validate_cross_type_linkage(
     feature_ids = {e.id for e in entries if e.type == CapabilityType.FEATURE}
     event_type_ids = {e.id for e in entries if e.type == CapabilityType.EVENT_TYPE}
     tool_ids = {e.id for e in entries if e.type == CapabilityType.TOOL}
+    # Phase 71 — Wave 2: new cross-reference targets.
+    conversation_mode_ids = {
+        e.id for e in entries if e.type == CapabilityType.CONVERSATION_MODE
+    }
 
     for entry in sorted(entries, key=lambda e: (e.type.value, e.id)):
         raw = raw_map.get(entry.id, {})
@@ -419,6 +425,40 @@ def validate_cross_type_linkage(
                             f"but '{ref}' is not a registered tool."
                         ),
                     )
+
+        # Rule 4 (Phase 71): conversation_mode host_agent_profile -> agent_profile
+        if entry.type == CapabilityType.CONVERSATION_MODE:
+            host = raw.get("host_agent_profile")
+            if host is not None:
+                base_id = str(host).split(".")[0]
+                if base_id not in agent_profile_ids:
+                    raise RegistryValidationError(
+                        stage=7,
+                        type="cross_type_conversation_mode_host_unresolved",
+                        capability_id=entry.id,
+                        missing_ref=str(host),
+                        message=(
+                            f"Stage 7 cross-type linkage error: conversation_mode '{entry.id}' "
+                            f"host_agent_profile='{host}' but base profile '{base_id}' "
+                            f"is not a registered agent_profile."
+                        ),
+                    )
+
+        # Rule 5 (Phase 71): ask_ai_binding conversation_type -> conversation_mode
+        if entry.type == CapabilityType.ASK_AI_BINDING:
+            conv_type = raw.get("conversation_type")
+            if conv_type is not None and conv_type not in conversation_mode_ids:
+                raise RegistryValidationError(
+                    stage=7,
+                    type="cross_type_ask_ai_binding_conversation_type_unresolved",
+                    capability_id=entry.id,
+                    missing_ref=str(conv_type),
+                    message=(
+                        f"Stage 7 cross-type linkage error: ask_ai_binding '{entry.id}' "
+                        f"conversation_type='{conv_type}' but no conversation_mode with "
+                        f"that id is registered."
+                    ),
+                )
 
     return entries
 

@@ -1,0 +1,30 @@
+id: research_chat
+type: conversation_mode
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: research_chat
+description: >
+  Anchored to pattern / hypothesis / strategy backtest data. Drives the AI
+  Attention Feed research-tag binding and the Research Lab strategy card.
+  run_backtest is only invoked when its registry status is real (Plan 02
+  research_chat_agent system prompt enforces the status gate).
+phase: 71
+host_agent_profile: research_chat_agent
+system_prompt_path: VM107/agents/research_chat_agent/prompts/system.md
+skill_addendum: null
+allowed_tools:
+  - similarity_analysis_tool
+  - get_cross_trade_behavioral_patterns
+  - run_backtest
+tags:
+  - conversation-mode
+  - research
+  - patterns
+  - backtest
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

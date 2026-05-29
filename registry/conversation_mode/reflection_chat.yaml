@@ -1,0 +1,29 @@
+id: reflection_chat
+type: conversation_mode
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: reflection_chat
+description: >
+  Anchored to closed trade(s) and the day's narrative. Drives Reflective AI
+  on Trade Replay. Re-uses the Phase 60 behavioral_mentor_agent profile
+  gated by the +reflection-chat skill addendum so the agent steps from
+  cross-trade critique into a one-on-one mentor conversation.
+phase: 71
+host_agent_profile: behavioral_mentor_agent
+system_prompt_path: VM107/agents/behavioral_mentor_agent/prompts/agent.system.main.role.md
+skill_addendum: reflection-chat
+allowed_tools:
+  - behavioral_analysis_tool
+  - get_trade_context
+  - persist_narrative
+tags:
+  - conversation-mode
+  - reflection
+  - closed-trade
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

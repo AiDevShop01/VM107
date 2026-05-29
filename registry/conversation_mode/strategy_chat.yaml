@@ -1,0 +1,27 @@
+id: strategy_chat
+type: conversation_mode
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: strategy_chat
+description: >
+  Anchored to a backtested strategy + performance history. Drives the
+  Research Lab strategy card binding. Re-uses the Phase 60 weekly_review_agent
+  profile gated by the +strategy-chat skill addendum so the weekly synthesis
+  agent steps into a strategy-Q&A stance.
+phase: 71
+host_agent_profile: weekly_review_agent
+system_prompt_path: VM107/agents/weekly_review_agent/prompts/agent.system.main.role.md
+skill_addendum: strategy-chat
+allowed_tools:
+  - run_backtest
+tags:
+  - conversation-mode
+  - strategy
+  - backtest
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

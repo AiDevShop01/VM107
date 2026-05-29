@@ -2,7 +2,7 @@ id: behavioral_mentor_agent
 type: agent_profile
 status: real
 shipped: 60
-last_changed: 2026-05-12
+last_changed: 2026-05-29
 name: behavioral_mentor_agent
 description: 'Cross-trade behavioral pattern critique agent. Account-scoped orchestration
   entry point for the behavioral_mentor pipeline. Reads cross-trade deterministic
@@ -33,6 +33,7 @@ optional_skills:
 - critique-discipline
 - narrative-structure
 - pattern-recognition
+- reflection-chat
 memory_scope:
   account_scope: required
   execution_scope: NONE
@@ -53,6 +54,10 @@ template_version_changelog:
   date: '2026-05-16'
   change: 'Phase 62-03: add adaptive_signal_categories=[BEHAVIORAL] to memory_scope;
     add adaptive-discipline to constitutional_skills (CTX-DEC-14)'
+- version: 1.2.0
+  date: '2026-05-29'
+  change: 'Phase 71-03: add reflection-chat to optional_skills so this profile can
+    host the reflection_chat conversation mode (CONTEXT Decision 4).'
 tags:
 - agent-profile
 - mentor

@@ -1,0 +1,35 @@
+id: reflection-chat
+type: skill
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: reflection-chat
+description: >
+  Conversational addendum for closed-trade reflection chat on top of
+  behavioral_mentor_agent. Loaded by the chat handler when conversation_type=
+  reflection_chat is dispatched. Per Plan 02 routing, the underlying Phase
+  60 cross-trade pattern critique stays intact; this addendum adds the
+  conversational stance + mentor framing for one-on-one closed-trade Q&A.
+version: 1.0.0
+phase: 71
+scope: optional
+applies_to_profiles:
+  - behavioral_mentor_agent
+skill_md_path: VM107/skills/reflection-chat/SKILL.md
+host_agent_profile: behavioral_mentor_agent
+triggers_on_conversation_type: reflection_chat
+tags:
+  - conversation-mode-addendum
+  - reflection
+  - phase-71
+  - wave-2
+trigger_patterns:
+  - reflect on this trade
+  - mentor conversation
+  - what could I have done differently
+allowed_tools:
+  - skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

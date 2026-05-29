@@ -1,0 +1,29 @@
+id: execution_chat
+type: conversation_mode
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: execution_chat
+description: >
+  Anchored to active trade(s) and their realtime execution context. Drives
+  Supervisory AI surfacing on Mission Control position cards. Re-uses the
+  Phase 60 trade_auditor_agent profile gated by the +execution-chat skill
+  addendum so the agent steps out of its review/audit role into a
+  conversational stance.
+phase: 71
+host_agent_profile: trade_auditor_agent
+system_prompt_path: VM107/agents/trade_auditor_agent/prompts/agent.system.main.role.md
+skill_addendum: execution-chat
+allowed_tools:
+  - get_trade_context
+  - execution_quality_tool
+tags:
+  - conversation-mode
+  - execution
+  - active-trade
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

@@ -1,0 +1,52 @@
+id: research_chat_agent
+type: agent_profile
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: research_chat_agent
+description: >
+  Phase 71 dedicated conversational profile for the research_chat
+  conversation mode. Anchored to behavioral pattern clusters, cross-trade
+  patterns, similarity analysis, and backtest results. Account-scoped;
+  read-only context surface; no subordinate delegation, no code execution,
+  no trade execution. run_backtest is only invoked when its registry status
+  is real (system prompt enforces the gate). The chat handler
+  (api/v1/trades/ai/chat.py) routes research_chat -> this profile.
+version: 1.0.0
+phase: 71
+parent_profile: null
+hard_scoped: true
+sub_profiles: []
+allowed_tools:
+  - get_cross_trade_behavioral_patterns
+  - similarity_analysis_tool
+  - run_backtest
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - narrative-structure
+memory_scope:
+  account_scope: required
+  execution_scope: NONE
+  cross_trade_visibility: ACCOUNT_SCOPED
+  narrative_visibility: NONE
+max_iterations: 4
+max_cost_usd: 0.40
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: '2026-05-29'
+    change: 'Phase 71 Wave 2 — initial release as dedicated research_chat host profile'
+tags:
+  - agent-profile
+  - research
+  - conversation-mode-host
+  - phase-71
+  - wave-2
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

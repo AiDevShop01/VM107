@@ -1,0 +1,35 @@
+id: execution-chat
+type: skill
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: execution-chat
+description: >
+  Conversational addendum for execution-context chat on top of
+  trade_auditor_agent. Loaded by the chat handler when conversation_type=
+  execution_chat is dispatched. Per Plan 02 routing, the underlying Phase
+  60 per-trade critique discipline stays intact; this addendum adds the
+  conversational stance + supervisory framing for live-execution Q&A.
+version: 1.0.0
+phase: 71
+scope: optional
+applies_to_profiles:
+  - trade_auditor_agent
+skill_md_path: VM107/skills/execution-chat/SKILL.md
+host_agent_profile: trade_auditor_agent
+triggers_on_conversation_type: execution_chat
+tags:
+  - conversation-mode-addendum
+  - execution
+  - phase-71
+  - wave-2
+trigger_patterns:
+  - talk about the active trade
+  - supervisory ai
+  - what should I do now
+allowed_tools:
+  - skills_tool
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

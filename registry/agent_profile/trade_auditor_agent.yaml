@@ -2,7 +2,7 @@ id: trade_auditor_agent
 type: agent_profile
 status: real
 shipped: 60
-last_changed: 2026-05-12
+last_changed: 2026-05-29
 name: trade_auditor_agent
 description: 'Per-trade critique agent. Orchestration entry point for the trade_auditor
   pipeline. Produces a NarrativeEnvelope with structured sentence array for a single
@@ -29,6 +29,7 @@ optional_skills:
 - critique-discipline
 - narrative-structure
 - pattern-recognition
+- execution-chat
 memory_scope:
   account_scope: required
   execution_scope: required
@@ -49,6 +50,10 @@ template_version_changelog:
   change: 'Phase 62-03: add adaptive_signal_categories=[] to memory_scope (CTX-DEC-14).
     Per-trade scope must not include adaptive signals — no adaptive-discipline skill
     added.'
+- version: 1.2.0
+  date: '2026-05-29'
+  change: 'Phase 71-03: add execution-chat to optional_skills so this profile can
+    host the execution_chat conversation mode (CONTEXT Decision 4).'
 tags:
 - agent-profile
 - mentor

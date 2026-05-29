@@ -1,0 +1,27 @@
+id: pre_trade
+type: conversation_mode
+status: real
+shipped: 47
+last_changed: 2026-05-29
+name: pre_trade
+description: >
+  Phase 47's pre-trade evaluation chat. Anchored to a journal entry's setup
+  context. Backward-compatible default when conversation_type is omitted from
+  the chat request (Plan 02 _conversation_routing.py). Hosted by the base
+  agent_zero orchestration profile.
+phase: 47
+host_agent_profile: agent_zero
+system_prompt_path: VM107/agents/agent0/prompts/agent.system.main.pre_trade_evaluation.md
+skill_addendum: null
+allowed_tools:
+  - get_trade_context
+  - lookup_capability
+tags:
+  - conversation-mode
+  - pre-trade
+  - phase-47
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
