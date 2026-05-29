@@ -1,0 +1,32 @@
+id: mission-narrative-open
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-narrative-open
+description: >
+  Mission Control global narrative panel during OPEN state -> execution_chat.
+  Market just opened — narrative surfaces active execution context.
+
+# AskAISurfaceBinding contract
+route: "/mission-control/narrative/open"
+conversation_type: execution_chat
+context_provider: get_trade_context
+allowed_tools:
+  - get_trade_context
+  - execution_quality_tool
+  - get_active_positions
+required_capability: null
+
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - narrative
+  - open
+  - execution
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

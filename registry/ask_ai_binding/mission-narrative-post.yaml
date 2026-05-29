@@ -1,0 +1,32 @@
+id: mission-narrative-post
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-narrative-post
+description: >
+  Mission Control global narrative panel during POST state -> reflection_chat.
+  Late post-market / analytical-review narrative surfaces behavioral lessons.
+
+# AskAISurfaceBinding contract
+route: "/mission-control/narrative/post"
+conversation_type: reflection_chat
+context_provider: get_trade_context
+allowed_tools:
+  - behavioral_analysis_tool
+  - get_trade_context
+  - persist_narrative
+required_capability: null
+
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - narrative
+  - post
+  - reflection
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
