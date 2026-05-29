@@ -190,6 +190,13 @@ async def _call_instance(instance: Any, discovery_path: str, kwargs: dict) -> An
     """Invoke the discovered callable with the given kwargs.
 
     Applies the correct async/sync/execute invocation pattern based on discovery_path.
+
+    Phase 70.5 follow-up: for class_execute (Tool / ContractTool subclasses),
+    bind self.args and self.agent at call time from the current dispatch
+    context. _discover_callable() creates instances via object.__new__() to
+    skip Tool.__init__, so these would otherwise be unset — ContractTool
+    subclasses read self.args (not **kwargs) and Tool subclasses like
+    CodeExecution use self.agent.* throughout execute().
     """
     if discovery_path == "class_run_async":
         return await instance.run_async(**kwargs)
@@ -197,6 +204,20 @@ async def _call_instance(instance: Any, discovery_path: str, kwargs: dict) -> An
         # Use asyncio.to_thread to avoid RuntimeError when the tool calls asyncio.run()
         return await asyncio.to_thread(instance.run, **kwargs)
     elif discovery_path == "class_execute":
+        instance.args = kwargs
+        try:
+            from core.agents.envelope_context import current_agent
+            agent_ref = current_agent.get(None)
+        except Exception:
+            agent_ref = None
+        if agent_ref is not None:
+            instance.agent = agent_ref
+            # Tool base class also reads these — surface them if available so
+            # tools that call self.context.* / self.loop_data.* don't AttributeError.
+            instance.loop_data = getattr(agent_ref, "loop_data", None)
+            instance.context = getattr(agent_ref, "context", None)
+            instance.message = ""
+            instance.method = None
         return await instance.execute(**kwargs)
     elif discovery_path == "fn_run_async":
         return await instance(**kwargs)

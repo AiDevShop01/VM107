@@ -41,6 +41,18 @@ current_envelope: ContextVar[Optional[Any]] = ContextVar(
     "current_envelope", default=None
 )
 
+# The currently-dispatching Agent (set by agent.py process_tools() before
+# dispatch_tool()). Phase 70.5 Plan 02 fix-up: the resolver instantiates
+# Tool subclasses via object.__new__() to skip Tool.__init__, leaving
+# self.agent unset and self.args = {}. Tools like CodeExecution crash on
+# self.agent.handle_intervention(); ContractTool subclasses read self.args
+# (not **kwargs) and forward empty args to the upstream VM. The resolver
+# reads this contextvar to bind self.agent and self.args at call time so
+# both code paths work without rewriting every tool to take kwargs.
+current_agent: ContextVar[Optional[Any]] = ContextVar(
+    "current_agent", default=None
+)
+
 
 @contextmanager
 def envelope_context(envelope: Any) -> Iterator[None]:

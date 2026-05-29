@@ -61,13 +61,11 @@ contracts:
 consumed_by:
 - vm100.ws.mission_control
 - vm100.mission_control.aggregator
-dependencies:
-  novelty_engine:
-    type: shared_service
-    id: vm107.services.novelty_engine
-  template_engine:
-    type: shared_service
-    id: vm100.narrative_template_engine
+# Soft dependencies (referenced design intent — not yet in registry).
+# Re-add to dependencies list once each capability ships a YAML entry:
+#   - vm107.services.novelty_engine
+#   - vm100.narrative_template_engine
+dependencies: []
 related_capabilities:
 - vm107.intelligence_feed.macro
 - vm107.intelligence_feed.discoveries

@@ -35,15 +35,11 @@ env_vars:
     - VM100_BASE_URL
     - VM100_INTERNAL_TOKEN
   fail_fast: true
+# Soft dependencies (referenced design intent — not yet in registry).
+# Re-add to dependencies list once each capability ships a YAML entry:
+#   - vm100.mission_control.surfaced_lesson
 dependencies:
-  reflection_prompt:
-    type: tool
-    id: vm107.reflection_prompt
-    notes: "Underlies mission.close.journal_prompts (wrapped via VM100 /api/mission-control/close/reflection-prompts proxy; proxy wired in Plan 13)."
-  surfaced_lesson:
-    type: endpoint
-    id: vm100.mission_control.surfaced_lesson
-    notes: "Underlies mission.close.surfaced_lesson (shipped in Plan 08)."
+  - vm107.reflection_prompt
 health:
   required_sources: [vm100]
   staleness_threshold_sec: 60
@@ -75,8 +71,9 @@ tags:
   - external-client-surface
 hard_scoped: true
 impact_on_decision: HIGH
-allowed_agent_profiles:
-  - external_mcp_client
+# Soft profile reference (Phase 67-12 follow-up — `external_mcp_client`
+# agent_profile not yet registered). Re-add once profile YAML ships.
+allowed_agent_profiles: []
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---

@@ -54,25 +54,15 @@ consumed_by:
   - vm100.mission_control.clients.vm107_reflection_prompt_client
   - vm100.mission_control.close_journal_prompts
   - vm100.mcp.mission_control.close.journal_prompts
+# Soft dependencies (referenced design intent — not yet in registry).
+# Re-add to dependencies list once each capability ships a YAML entry:
+#   - vm107.services.novelty_engine
+#   - vm107.mentor_pipeline
+#   - vm100.journal.cross_trade_patterns
+#   - vm100.behavioral_evolution
+#   - vm100.adaptive_recommendation
 dependencies:
-  novelty_engine:
-    type: shared_service
-    id: vm107.services.novelty_engine
-  vm100_trade_outcomes:
-    type: tool
-    id: vm100.journal.trade_outcomes
-  vm107_mentor_pipeline:
-    type: tool
-    id: vm107.mentor_pipeline
-  vm100_cross_trade_patterns:
-    type: tool
-    id: vm100.journal.cross_trade_patterns
-  vm100_behavioral_evolution:
-    type: tool
-    id: vm100.behavioral_evolution
-  vm100_adaptive_recommendation:
-    type: tool
-    id: vm100.adaptive_recommendation
+  - vm100.journal.trade_outcomes
 related_capabilities:
   - vm107.morning_brief
   - vm107.overnight_delta

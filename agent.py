@@ -1017,7 +1017,15 @@ class Agent:
                             execution_depth=0,
                         )
 
-                        envelope = await dispatch_tool(tool_name, tool_args or {}, ctx)
+                        # Bind self into the agent contextvar so the resolver can
+                        # set self.agent / self.args on Tool subclasses it
+                        # instantiates via object.__new__() (Plan 02 fix-up).
+                        from core.agents.envelope_context import current_agent
+                        _agent_token = current_agent.set(self)
+                        try:
+                            envelope = await dispatch_tool(tool_name, tool_args or {}, ctx)
+                        finally:
+                            current_agent.reset(_agent_token)
                         response = self._envelope_to_response(envelope)
                         await self.handle_intervention()
 

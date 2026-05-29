@@ -25,7 +25,7 @@ langchain-unstructured==0.1.6
 openai-whisper==20250625
 lxml_html_clean>=0.4.0  # CVE-2024-52595 fix: XSS CWE-79 CVSS 8.4
 markdown==3.7
-mcp==1.22.0
+mcp>=1.24.0,<2  # Bumped 2026-05-28 from ==1.22.0 — fastmcp 3.2+ requires mcp>=1.24.0; mcp_handler.py uses stable client APIs (ClientSession, stdio_client, sse_client, streamablehttp_client, SessionMessage, CallToolResult, ListToolsResult) that are compatible across 1.22→1.24.
 newspaper3k==0.2.8
 paramiko==3.5.0
 playwright==1.52.0

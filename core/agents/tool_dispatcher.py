@@ -97,6 +97,26 @@ class RefusalPayload(BaseModel):
     PAYLOAD_SCHEMA_VERSION: str = "1.0"
 
 
+class LegacyResponsePayload(BaseModel):
+    """Wraps the Agent Zero helpers.tool.Response dataclass so legacy tools that
+    have not yet been migrated to typed Pydantic payloads (Plan 08 skeletal sweep)
+    still pass through the envelope dispatcher cleanly.
+
+    Plan 08's "no bare dict" CI gate only caught tools returning bare dicts;
+    Response-returning tools (call_subordinate, notify_user, persist_narrative,
+    etc.) were missed. This payload is coerced inside dispatch_tool() right
+    after _invoke_resolver() returns, so _build_success_envelope() always
+    sees a BaseModel as required by the ToolResultEnvelope schema.
+    """
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=False)
+
+    message: str
+    break_loop: bool = False
+    additional: dict | None = None
+    PAYLOAD_SCHEMA_VERSION: str = "1.0"
+
+
 # ---------------------------------------------------------------------------
 # Patchable internal accessors (tests override these to inject mock objects)
 # ---------------------------------------------------------------------------
@@ -558,6 +578,18 @@ async def dispatch_tool(
             exc=exc,
             ctx=ctx,
             entry=entry,
+        )
+
+    # Coerce legacy helpers.tool.Response returns to a typed Pydantic payload
+    # so _build_success_envelope (which requires payload: BaseModel) succeeds for
+    # tools not yet migrated under Plan 08 (call_subordinate, notify_user,
+    # persist_narrative, response, etc.). Duck-typed to avoid importing helpers
+    # at module init time (circular through agent.py).
+    if payload is not None and payload.__class__.__name__ == "Response" and hasattr(payload, "message"):
+        payload = LegacyResponsePayload(
+            message=str(getattr(payload, "message", "") or ""),
+            break_loop=bool(getattr(payload, "break_loop", False)),
+            additional=getattr(payload, "additional", None),
         )
 
     # --- Step 5–6: wrap in envelope (confidence, provenance, telemetry) ---

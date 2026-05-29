@@ -1,6 +1,6 @@
 id: vm100.mission_control.surfaced_lesson_service
 type: service
-status: planned
+status: stub
 shipped: 67
 last_changed: "2026-05-25"
 

@@ -34,6 +34,34 @@ _logger = logging.getLogger(ENVELOPE_LOGGER_NAME)
 _fallback_logger = logging.getLogger(ENVELOPE_FALLBACK_LOGGER_NAME)
 
 
+def _ensure_handler() -> None:
+    """Attach a stderr StreamHandler if no handler is configured.
+
+    Agent Zero's root logger defaults to WARNING with no handlers, so
+    `_logger.info(...)` silently drops envelope JSON unless a handler is
+    attached. This bootstrap runs once at module import — if the host
+    application has its own logging config it can still override (handlers
+    are additive; the host's handler wins ordering, but ours guarantees the
+    line reaches stderr / docker logs at minimum).
+    """
+    if _logger.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(name)s %(message)s"))
+    _logger.addHandler(handler)
+    _logger.setLevel(logging.INFO)
+    _logger.propagate = False
+    if not _fallback_logger.handlers:
+        fb_handler = logging.StreamHandler()
+        fb_handler.setFormatter(logging.Formatter("%(name)s %(levelname)s %(message)s"))
+        _fallback_logger.addHandler(fb_handler)
+        _fallback_logger.setLevel(logging.WARNING)
+        _fallback_logger.propagate = False
+
+
+_ensure_handler()
+
+
 def emit_envelope_log(
     envelope: "ToolResultEnvelope",
     ctx: "InvocationContext",
