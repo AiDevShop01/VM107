@@ -1,0 +1,19 @@
+id: state_entered
+type: event_type
+status: real
+shipped: 72
+planned_phase: null
+category: cognitive_lifecycle
+version: '1.0'
+producer: vm100
+payload_schema: fingpt_core.contracts.state_engine.events.StateEnteredPayload
+retention: permanent
+pii: false
+replayable: true
+emitted_by: state_engine_service
+tags:
+  - phase-72
+  - cognitive_lifecycle
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

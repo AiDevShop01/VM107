@@ -1,0 +1,26 @@
+transition_id: observation_to_discovery
+type: state_transition
+status: real
+shipped: 72
+from_state: OBSERVATION
+to_state: DISCOVERY
+scope: lifecycle
+guards:
+  - guard_id: account_enabled
+    severity: warning
+  - guard_id: risk_not_critical
+    severity: warning
+  - guard_id: market_open
+    severity: info
+  - guard_id: opportunity_score_present
+    severity: info
+enforcement: advisory
+triggers:
+  - event_type: opportunity_score_threshold_exceeded
+  - event_type: manual_override_requested
+tags:
+  - phase-72
+  - lifecycle
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

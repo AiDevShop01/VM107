@@ -1,0 +1,20 @@
+transition_id: post_market_review_to_system_idle
+type: state_transition
+status: real
+shipped: 72
+from_state: POST_MARKET_REVIEW
+to_state: SYSTEM_IDLE
+scope: lifecycle
+guards:
+  - guard_id: account_enabled
+    severity: warning
+enforcement: advisory
+triggers:
+  - event_type: review_completed
+  - event_type: manual_override_requested
+tags:
+  - phase-72
+  - lifecycle
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

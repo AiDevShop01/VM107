@@ -1,0 +1,20 @@
+transition_id: arrival_context_to_pre_market
+type: state_transition
+status: real
+shipped: 72
+from_state: ARRIVAL_CONTEXT
+to_state: PRE_MARKET
+scope: lifecycle
+guards:
+  - guard_id: account_enabled
+    severity: warning
+enforcement: advisory
+triggers:
+  - event_type: pre_market_routine_started
+  - event_type: manual_override_requested
+tags:
+  - phase-72
+  - lifecycle
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

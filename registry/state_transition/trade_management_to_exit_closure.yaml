@@ -1,0 +1,22 @@
+transition_id: trade_management_to_exit_closure
+type: state_transition
+status: real
+shipped: 72
+from_state: TRADE_MANAGEMENT
+to_state: EXIT_CLOSURE
+scope: lifecycle
+guards:
+  - guard_id: account_enabled
+    severity: warning
+  - guard_id: position_closed
+    severity: info
+enforcement: advisory
+triggers:
+  - event_type: position_closed
+  - event_type: manual_override_requested
+tags:
+  - phase-72
+  - lifecycle
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false
