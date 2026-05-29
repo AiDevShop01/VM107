@@ -35,6 +35,25 @@ from helpers.mongo import get_mongo_db
 from core.agents.envelope_writer import build_envelope, write_envelope
 from core.agents.tier1_context import build_tier1_context
 
+# Phase 71: dispatch helper. Use absolute import via importlib so the module
+# loads cleanly both under namespace-package routing AND when the test harness
+# loads chat.py by file path (parent package not set in that case).
+try:  # pragma: no cover - simple import branch
+    from api.v1.trades.ai._conversation_routing import (
+        UnknownConversationType,
+        conversation_type_to_profile,
+    )
+except ImportError:  # pragma: no cover - test-harness fallback path
+    import importlib.util as _importlib_util
+    _routing_path = Path(__file__).parent / "_conversation_routing.py"
+    _spec = _importlib_util.spec_from_file_location(
+        "_phase71_conversation_routing", _routing_path
+    )
+    _routing_mod = _importlib_util.module_from_spec(_spec)
+    _spec.loader.exec_module(_routing_mod)
+    UnknownConversationType = _routing_mod.UnknownConversationType
+    conversation_type_to_profile = _routing_mod.conversation_type_to_profile
+
 log = logging.getLogger(__name__)
 
 # Path to the chat-evaluator system prompt addendum (Phase 47-03).
@@ -135,16 +154,18 @@ async def _call_coordinator_monologue(
     chat_evaluator_addendum: str,
     user_prompt: str,
     history_envelopes: list[dict],
+    profile_name: str = "agent0",
+    conversation_type: str | None = None,
 ) -> tuple[str, dict]:
-    """Run the Coordinator (agent_zero profile) monologue() for one chat turn.
+    """Run the Coordinator monologue() for one chat turn.
 
-    Bootstraps a minimal AgentContext with the agent_zero profile (mirror of
-    Phase 44 _call_subordinate_sync). Pre-loads prior conversation history
-    into the spawned agent. Adds the current user prompt. Runs monologue()
-    so the Coordinator can:
+    Bootstraps a minimal AgentContext with the resolved host-agent profile
+    (mirror of Phase 44 _call_subordinate_sync). Pre-loads prior conversation
+    history into the spawned agent. Adds the current user prompt. Runs
+    monologue() so the host agent can:
       - call search_knowledge / document_query (Phase 42.1 KB)
       - call call_subordinate("idea_agent" | "strategy_agent") per Phase 44
-      - apply the full Coordinator prompt include chain
+      - apply the full host-agent prompt include chain
 
     Args:
       chat_evaluator_addendum: chat_evaluator.md content. Prepended to the
@@ -152,9 +173,18 @@ async def _call_coordinator_monologue(
       user_prompt: current turn's user content (instrument/strategy/message).
       history_envelopes: prior chat envelopes for this journal, ordered ASC
         by timestamp. Loaded into agent.history before monologue().
+      profile_name: filesystem profile name to bootstrap. Defaults to
+        ``"agent0"`` (Phase 47 pre_trade flow). Phase 71 Plan 02 routes the
+        5 new conversation modes to per-mode host profiles
+        (trade_auditor_agent / behavioral_mentor_agent / weekly_review_agent
+        / macro_agent / research_chat_agent).
+      conversation_type: Phase 71 mode label threaded into agent.data so
+        downstream InvocationContext construction picks it up for envelope
+        telemetry lineage. ``None`` preserves Phase 47 behavior.
 
     Returns:
-      (response_text, telemetry) — telemetry follows Phase 44 carrier pattern.
+      (response_text, telemetry) — telemetry follows Phase 44 carrier pattern
+      plus a ``host_agent_id`` field carrying the resolved profile.
 
     Raises:
       Exception — propagated to caller on LLM/monologue failure (502 path).
@@ -169,14 +199,19 @@ async def _call_coordinator_monologue(
             "In tests, mock _call_coordinator_monologue directly."
         ) from exc
 
-    # Bootstrap Coordinator (agent_zero profile).
+    # Bootstrap host agent at the resolved filesystem profile.
     config = initialize_agent()
-    config.profile = "agent0"  # Coordinator filesystem profile name (Phase 44)
+    config.profile = profile_name  # Phase 71: dispatched per conversation_type
 
     ctx = AgentContext(config=config, name=f"chat_{uuid.uuid4().hex[:8]}")
     agent = ctx.agent0
     # Inject routing identity for affinity-map lookup (Phase 44 § Agent Identity).
     agent.data["agent_id"] = "agent_zero"
+    # Phase 71: thread conversation_type into agent.data so agent.py's
+    # InvocationContext construction (Phase 70.5) picks it up for envelope
+    # telemetry. None preserves Phase 47 behavior.
+    if conversation_type is not None:
+        agent.data["conversation_type"] = conversation_type
 
     # Pre-load prior conversation history. Agent Zero's monologue iterates
     # through agent.history; we add the prior turns as user messages so the
@@ -211,6 +246,11 @@ async def _call_coordinator_monologue(
         "reason_chain": agent.data.get("_router_reason_chain", []),
         "cost": agent.data.get("_router_cost_record", {}),
         "fallback_used": agent.data.get("_router_fallback_used", False),
+        # Phase 71: surface the resolved host agent profile + mode for
+        # envelope telemetry so the frontend / replay tooling can verify
+        # the routing decision.
+        "host_agent_id": profile_name,
+        "conversation_type": conversation_type,
     }
     return response_text, telemetry
 
@@ -265,6 +305,33 @@ class TradeAiChat(ApiHandler):
                 mimetype="application/json",
             )
 
+        # Phase 71 Plan 02: extract optional conversation_type and resolve it
+        # to a host-agent profile via the single source-of-truth dispatch
+        # helper. Unknown values return 400 (client error), preserving the
+        # 422 path for malformed bodies and the 502 path for server failures.
+        raw_conversation_type = input.get("conversation_type")
+        conversation_type: str | None = (
+            raw_conversation_type.strip() if isinstance(raw_conversation_type, str) and raw_conversation_type.strip() else None
+        )
+        try:
+            profile_name, _skill_addendum = conversation_type_to_profile(conversation_type)
+        except UnknownConversationType as exc:
+            return Response(
+                json.dumps({
+                    "error": "invalid_conversation_type",
+                    "detail": str(exc),
+                }),
+                400,
+                mimetype="application/json",
+            )
+        # Effective conversation_type for telemetry: when omitted the backward-
+        # compatible default is pre_trade (Phase 47 flow).
+        effective_conversation_type: str = conversation_type or "pre_trade"
+        # host_agent_id used on envelopes — chat envelopes for pre_trade keep
+        # the legacy "agent_zero" identity so Phase 47 history queries still
+        # find them; non-pre_trade modes record the resolved profile name.
+        host_agent_id: str = "agent_zero" if conversation_type is None else profile_name
+
         # Phase 47.2 (LOCKED): the chat handler builds Tier-1 context server-side
         # from journal_id. The inline `context` payload (Wave 1 frontend pattern)
         # is accepted for backward-compat but IGNORED for prompt build — Tier-1
@@ -282,18 +349,22 @@ class TradeAiChat(ApiHandler):
         db = get_mongo_db()
         start = time.perf_counter()
 
-        # source_envelope_id: chain to the most recent envelope for this journal thread.
+        # source_envelope_id: chain to the most recent envelope for this
+        # journal thread. Phase 47 scopes history by agent_id="agent_zero"
+        # (pre_trade); Phase 71 scopes per host_agent_id so each conversation
+        # mode owns its own thread within the journal.
         prev_doc = db["agent_envelopes"].find_one(
-            {"journal_id": journal_id, "agent_id": "agent_zero"},
+            {"journal_id": journal_id, "agent_id": host_agent_id},
             sort=[("timestamp", -1)],
         )
         source_env_id: str | None = (prev_doc or {}).get("envelope_id")
 
-        # Pull full conversation history for this journal (ordered ASC by timestamp).
-        # Pre-loaded into the Coordinator's history before monologue() runs so the
-        # LLM has context-aware continuity across turns (HTTP layer remains stateless).
+        # Pull conversation history for this journal + host_agent thread
+        # (ordered ASC by timestamp). Pre-loaded into the host agent's history
+        # before monologue() runs so the LLM has context-aware continuity
+        # across turns (HTTP layer remains stateless).
         history_cursor = db["agent_envelopes"].find(
-            {"journal_id": journal_id, "agent_id": "agent_zero"},
+            {"journal_id": journal_id, "agent_id": host_agent_id},
             sort=[("timestamp", 1)],
         )
         history_envelopes: list[dict] = list(history_cursor)
@@ -308,14 +379,17 @@ class TradeAiChat(ApiHandler):
         user_prompt = _build_user_prompt(message, context, journal_id)
 
         # Coordinator monologue() — full Agent Zero runtime: tool dispatch
-        # (search_knowledge, document_query, call_subordinate), Coordinator
-        # prompt include chain, KB routing rules. Bootstraps agent_zero
+        # (search_knowledge, document_query, call_subordinate), host-agent
+        # prompt include chain, KB routing rules. Bootstraps the resolved
         # profile via the same pattern as Phase 44 _call_subordinate_sync.
+        # Phase 71: profile_name + conversation_type threaded through.
         try:
             response_text, telemetry = await _call_coordinator_monologue(
                 chat_evaluator_addendum=chat_evaluator_addendum,
                 user_prompt=user_prompt,
                 history_envelopes=history_envelopes,
+                profile_name=profile_name,
+                conversation_type=conversation_type,
             )
         except Exception as exc:
             log.warning(
@@ -325,10 +399,17 @@ class TradeAiChat(ApiHandler):
             env = build_envelope(
                 task_id=task_id,
                 parent_task_id=None,
-                agent_id="agent_zero",
-                input_payload={"message": message, "context": context},
+                agent_id=host_agent_id,
+                input_payload={
+                    "message": message,
+                    "context": context,
+                    "conversation_type": effective_conversation_type,
+                },
                 output_payload={"error": str(exc)},
-                telemetry={},
+                telemetry={
+                    "host_agent_id": profile_name,
+                    "conversation_type": conversation_type,
+                },
                 status="failure",
                 source_envelope_id=source_env_id,
                 journal_id=journal_id,
@@ -339,6 +420,8 @@ class TradeAiChat(ApiHandler):
                     "error": "LLM failure — AI service unavailable",
                     "envelope_id": env_id,
                     "status": "failure",
+                    "host_agent_id": profile_name,
+                    "conversation_type": effective_conversation_type,
                 }),
                 502,
                 mimetype="application/json",
@@ -353,8 +436,12 @@ class TradeAiChat(ApiHandler):
         env = build_envelope(
             task_id=task_id,
             parent_task_id=None,
-            agent_id="agent_zero",
-            input_payload={"message": message, "context": context},
+            agent_id=host_agent_id,
+            input_payload={
+                "message": message,
+                "context": context,
+                "conversation_type": effective_conversation_type,
+            },
             output_payload={"response": response_text},
             telemetry=telemetry if isinstance(telemetry, dict) else {},
             status=status,
@@ -365,8 +452,9 @@ class TradeAiChat(ApiHandler):
 
         log.info(
             "Chat envelope persisted journal_id=%s envelope_id=%s status=%s "
-            "duration_ms=%d",
+            "host_agent=%s conversation_type=%s duration_ms=%d",
             journal_id, env_id, status,
+            profile_name, effective_conversation_type,
             int((time.perf_counter() - start) * 1000),
         )
 
@@ -376,6 +464,10 @@ class TradeAiChat(ApiHandler):
                 "envelope_id": env_id,
                 "status": status,
                 "degraded": fallback_used,
+                # Phase 71: surface the routing decision so the frontend +
+                # replay tooling can verify and chain follow-up turns.
+                "host_agent_id": profile_name,
+                "conversation_type": effective_conversation_type,
             }),
             200,
             mimetype="application/json",
