@@ -57,6 +57,7 @@ from fingpt_core.contracts.invocation_context import (
 )
 from fingpt_core.contracts.tool_envelope import (
     ENVELOPE_SCHEMA_VERSION,
+    LegacyResponsePayload,
     ToolResultEnvelope,
 )
 
@@ -97,24 +98,10 @@ class RefusalPayload(BaseModel):
     PAYLOAD_SCHEMA_VERSION: str = "1.0"
 
 
-class LegacyResponsePayload(BaseModel):
-    """Wraps the Agent Zero helpers.tool.Response dataclass so legacy tools that
-    have not yet been migrated to typed Pydantic payloads (Plan 08 skeletal sweep)
-    still pass through the envelope dispatcher cleanly.
-
-    Plan 08's "no bare dict" CI gate only caught tools returning bare dicts;
-    Response-returning tools (call_subordinate, notify_user, persist_narrative,
-    etc.) were missed. This payload is coerced inside dispatch_tool() right
-    after _invoke_resolver() returns, so _build_success_envelope() always
-    sees a BaseModel as required by the ToolResultEnvelope schema.
-    """
-
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=False)
-
-    message: str
-    break_loop: bool = False
-    additional: dict | None = None
-    PAYLOAD_SCHEMA_VERSION: str = "1.0"
+# LegacyResponsePayload is imported from fingpt_core.contracts.tool_envelope (above).
+# Phase 71 Plan 07 formalized it in fingpt_core per RESEARCH Open Question 2
+# option (a) / GAP-70.5-B. The dispatcher constructs it in the Response-dataclass
+# coercion path below (see dispatch_tool() Step 4 epilogue).
 
 
 # ---------------------------------------------------------------------------
