@@ -1,0 +1,46 @@
+schema_version: 2
+title: macro_agent
+description: >
+  Phase 71 dedicated conversational profile for the macro_chat conversation
+  mode. Anchored to current regime (vm102.regime_current), upcoming economic
+  event window (vm100.analytics_calendar), and the macro intelligence feed
+  (vm107.intelligence_feed.macro). Account-scoped; no execution focus; no
+  prior narrative reads. Mode discipline enforced — if a user asks pre-trade
+  or live-execution questions, the agent surfaces the AskAI binding to switch
+  modes rather than stretching out of scope.
+parent_profile: null
+
+# Conversation-mode profile: read-only context surface. No subordinate
+# delegation, no code execution, no trade execution. The chat handler
+# (api/v1/trades/ai/chat.py) routes macro_chat -> this profile.
+allowed_tools:
+  - get_current_regime
+  - get_econ_calendar
+  - get_macro_intelligence_feed
+  - search_knowledge
+  - document_query
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - narrative-structure
+allowed_skills:
+  - citation-discipline
+  - narrative-structure
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 4
+max_cost_usd: 0.40
+
+# Phase 71 — conversation-mode profile.
+conversation_type: macro_chat
+system_prompt_path: prompts/system.md

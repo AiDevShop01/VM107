@@ -1,0 +1,49 @@
+schema_version: 2
+title: research_chat_agent
+description: >
+  Phase 71 dedicated conversational profile for the research_chat conversation
+  mode. Anchored to discovery / hypothesis surfaces — cross-trade behavioral
+  patterns, pattern cluster statistics, similarity analysis across historical
+  setups, and (when status=real) backtest run data. Account-scoped; no live
+  execution context. Mode discipline enforced — if a user asks live trading
+  or pre-trade questions, the agent surfaces the AskAI binding to switch
+  modes rather than stretching out of scope.
+parent_profile: null
+
+# Conversation-mode profile: read-only research surface. No subordinate
+# delegation, no code execution, no trade execution. The chat handler
+# (api/v1/trades/ai/chat.py) routes research_chat -> this profile.
+allowed_tools:
+  - get_cross_trade_behavioral_patterns
+  - get_pattern_cluster_stats
+  - similarity_analysis_tool
+  - run_backtest
+  - search_knowledge
+  - document_query
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+constitutional_skills:
+  - citation-discipline
+optional_skills:
+  - narrative-structure
+  - pattern-recognition
+allowed_skills:
+  - citation-discipline
+  - narrative-structure
+  - pattern-recognition
+
+memory_scope:
+  account_scope: "required"
+  execution_scope: "NONE"
+  cross_trade_visibility: "ACCOUNT_SCOPED"
+  narrative_visibility: "NONE"
+
+max_iterations: 4
+max_cost_usd: 0.50
+
+# Phase 71 — conversation-mode profile.
+conversation_type: research_chat
+system_prompt_path: prompts/system.md
