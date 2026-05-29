@@ -1,0 +1,33 @@
+id: mission-attention-macro
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-attention-macro
+description: >
+  AI Attention Feed item carrying a macro / regime / econ_event tag ->
+  macro_chat. Sibling of mission-attention-research — same route,
+  applies_when discriminator selects between them via attention.tag.
+
+# AskAISurfaceBinding contract
+route: "/mission-control/attention/:id"
+conversation_type: macro_chat
+context_provider: vm107.intelligence_feed.macro
+allowed_tools:
+  - vm102.regime_current
+  - vm100.analytics_calendar
+  - vm107.intelligence_feed.macro
+required_capability: null
+
+applies_when: "attention.tag in {macro, regime, econ_event}"
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - attention
+  - macro
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

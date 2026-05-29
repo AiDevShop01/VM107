@@ -1,0 +1,32 @@
+id: mission-opportunities-execution
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-opportunities-execution
+description: >
+  Mission Control opportunity row whose status is `active` -> execution_chat
+  on the active trade. Sibling of mission-opportunities-pre-trade — same
+  route, applies_when discriminator selects between them.
+
+# AskAISurfaceBinding contract
+route: "/mission-control/opportunities/:id"
+conversation_type: execution_chat
+context_provider: get_trade_context
+allowed_tools:
+  - get_trade_context
+  - execution_quality_tool
+required_capability: null
+
+applies_when: "opportunity.status == active"
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - opportunities
+  - execution
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

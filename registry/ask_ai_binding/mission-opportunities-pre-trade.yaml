@@ -1,0 +1,36 @@
+id: mission-opportunities-pre-trade
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-opportunities-pre-trade
+description: >
+  Mission Control opportunity row whose status is in the pre-execution
+  lifecycle (discovered / watching / ready / triggered) -> pre_trade
+  evaluation chat (Phase 47).
+
+# AskAISurfaceBinding contract (fingpt_core.contracts.ask_ai_binding)
+route: "/mission-control/opportunities/:id"
+conversation_type: pre_trade
+context_provider: get_trade_context
+allowed_tools:
+  - get_trade_context
+  - lookup_capability
+required_capability: null
+
+# Applies-when discriminator: opportunities/:id may resolve to either
+# pre_trade or execution_chat depending on opportunity.status. This binding
+# wins for pre-execution states; the sibling mission-opportunities-execution
+# binding wins when status=active.
+applies_when: "opportunity.status in {discovered, watching, ready, triggered}"
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - opportunities
+  - pre-trade
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false

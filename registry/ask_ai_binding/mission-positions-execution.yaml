@@ -1,0 +1,30 @@
+id: mission-positions-execution
+type: ask_ai_binding
+status: real
+shipped: 71
+last_changed: 2026-05-29
+name: mission-positions-execution
+description: >
+  Mission Control position card -> execution_chat on the active position.
+  Drives the Supervisory AI surface on live positions.
+
+# AskAISurfaceBinding contract
+route: "/mission-control/positions/:id"
+conversation_type: execution_chat
+context_provider: get_trade_context
+allowed_tools:
+  - get_trade_context
+  - execution_quality_tool
+required_capability: null
+
+phase: 71
+tags:
+  - ask-ai-binding
+  - mission-control
+  - positions
+  - execution
+  - phase-71
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
