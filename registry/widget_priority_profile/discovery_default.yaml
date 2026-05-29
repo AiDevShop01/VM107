@@ -1,0 +1,22 @@
+id: discovery_default
+type: widget_priority_profile
+status: real
+shipped: 72
+version: '1.0'
+priorities:
+  mission.overview_card: P1
+  mission.opportunities_panel: P1
+  mission.intelligence_feed: P2
+  mission.market_summary_card: P2
+  mission.live_open_positions: P3
+  mission.agent_ticker: P3
+  mission.exit_intelligence: P4
+  mission.regimes_panel: P4
+  mission.journal_panel: P4
+  mission.performance_panel: P4
+default_priority: P3
+tags:
+  - phase-72
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

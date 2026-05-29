@@ -1,0 +1,14 @@
+id: open_default
+type: subscription_profile
+status: real
+shipped: 72
+version: '1.0'
+subscribed_event_types:
+  - opportunity_score_threshold_exceeded
+  - evaluation_launched
+  - macro_regime_changed
+tags:
+  - phase-72
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

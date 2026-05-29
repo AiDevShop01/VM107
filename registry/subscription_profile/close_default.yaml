@@ -1,0 +1,15 @@
+id: close_default
+type: subscription_profile
+status: real
+shipped: 72
+version: '1.0'
+subscribed_event_types:
+  - position_closed
+  - post_market_routine_started
+  - review_recorded
+  - market_session_closed
+tags:
+  - phase-72
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false

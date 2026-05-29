@@ -1,0 +1,23 @@
+id: post_market_review_default
+type: widget_priority_profile
+status: real
+shipped: 72
+version: '1.0'
+priorities:
+  mission.journal_panel: P1
+  mission.performance_panel: P1
+  mission.regimes_panel: P2
+  mission.overview_card: P2
+  mission.exit_intelligence: P3
+  mission.market_summary_card: P3
+  mission.live_open_positions: P4
+  mission.opportunities_panel: P4
+  mission.intelligence_feed: P4
+  mission.agent_ticker: P4
+  mission.evidence_drawer: P4
+default_priority: P3
+tags:
+  - phase-72
+hard_scoped: true
+last_changed: 2026-05-29
+deprecated: false
