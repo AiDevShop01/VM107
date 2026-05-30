@@ -1,0 +1,18 @@
+id: archive_opportunity
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: ARCHIVE_OPPORTUNITY
+selection_types_supported: [opportunity]
+required_guards: []
+dispatch_target: opportunity_invalidated
+description: |
+  Soft-archive variant of Invalidate. Marks the opportunity terminated
+  without the harder semantic weight of INVALIDATE (which signals an
+  idea/setup failure for learning purposes).
+
+tags: [phase-73, mission_control, workflow, archive]
+deprecated: false

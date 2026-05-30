@@ -1,0 +1,41 @@
+id: opportunity_closed_lifecycle
+type: event_type
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+name: opportunity_closed_lifecycle
+description: |
+  Underlying Trade closed; opportunity lifecycle transition to CLOSED.
+  Distinct from existing position_closed (which is the broker-level event)
+  — this is the lifecycle-state transition.
+wire_value: OPPORTUNITY_CLOSED_LIFECYCLE
+event_type: opportunity_closed_lifecycle
+category: opportunity_lifecycle
+version: 1.0
+producer: vm100
+payload_schema: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+retention: permanent
+pii: false
+replayable: true
+phase: 73
+location:
+  source: VM100/backend/mission_control/services/opportunity_lifecycle_service.py
+  emitted_via: VM100/backend/mission_control/workflow_service/dispatcher.py
+  contracts:
+    payload: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+emitted_by: opportunity_lifecycle_service
+gap: null
+correlation:
+  pairs_with: [opportunity_promoted, opportunity_reviewed]
+  shared_correlation_id: true
+  correlation_field: opportunity_id
+produced_by: [vm100.mission_control.opportunity_lifecycle_service]
+consumed_by: [vm100.mission_control.intelligence_feed_composer]
+severity_default: info
+related_capabilities: [mission.opportunity_lifecycle_pill]
+tags: [phase-73, mission_control, lifecycle, close]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: [agent_zero]
+deprecated: false

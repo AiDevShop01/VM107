@@ -1,0 +1,18 @@
+id: evaluate_opportunity
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: EVALUATE_OPPORTUNITY
+selection_types_supported: [opportunity]
+required_guards: []
+dispatch_target: opportunity_evaluation_started
+description: |
+  Begin formal evaluation of a discovered opportunity. Transitions
+  lifecycle DISCOVERED -> BUILDING (or DISCOVERED -> WATCHING when the
+  Phase 73 workflow_service flags the opportunity as low-priority).
+
+tags: [phase-73, mission_control, workflow, evaluate]
+deprecated: false

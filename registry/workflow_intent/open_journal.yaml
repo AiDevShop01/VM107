@@ -1,0 +1,18 @@
+id: open_journal
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: OPEN_JOURNAL
+selection_types_supported: [opportunity, position, trade, idea]
+required_guards: []
+dispatch_target: none
+description: |
+  Open the journal entry tied to the current selection (Trade Analysis
+  Dialog for closed trades, pre-trade entry for opportunities/ideas).
+  No domain event emitted.
+
+tags: [phase-73, mission_control, workflow, navigation, journal]
+deprecated: false

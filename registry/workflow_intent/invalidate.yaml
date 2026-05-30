@@ -1,0 +1,20 @@
+id: invalidate
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: INVALIDATE
+selection_types_supported: [opportunity, idea, trade]
+required_guards: []
+dispatch_target: opportunity_invalidated
+description: |
+  Hard-invalidate the selected idea/opportunity/trade. The workflow_service
+  dispatches the polymorphism-appropriate domain event
+  (opportunity_invalidated / idea_invalidated). Carries learning signal —
+  the artifact is preserved for retrospective review (Phase 73 Wave 4
+  surfaces the INVALIDATED lifecycle state in the Pill).
+
+tags: [phase-73, mission_control, workflow, invalidate]
+deprecated: false

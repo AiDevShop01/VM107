@@ -1,0 +1,80 @@
+id: mission.active_trade_supervision
+type: widget
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+name: Active Trade Supervision Card
+category: Trade Management
+description: |
+  Mid-state-only card surfacing the 6 supervision slots for the currently
+  active trade: thesis (from Idea.thesis via Execution -> Campaign -> Idea),
+  thesis_validity (deterministic projection — Decision 7), invalidations
+  (wrap of PreTradeEvaluation.invalidations), ai_supervision_status
+  (default 'passive' until Phase 74 ships supervision events),
+  emotional_risk (optional snapshot from behavioral_mentor_agent), and
+  event_risk (optional snapshot from AnalyticsCalendarService).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [mid]
+supported_devices: [desktop]
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - mission_control.contracts.active_supervision.ActiveTradeSupervisionContract
+
+dependencies:
+  - kind: service
+    ref: analytics_calendar_service
+  - kind: agent
+    ref: behavioral_mentor_agent
+
+events_consumed:
+  - opportunity_lifecycle_changed
+  - trade_opened
+  - trade_closed
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 15
+  invalidate_on: [trade_management_event]
+
+error_states:
+  - no_active_trade
+  - thesis_chain_broken
+  - calendar_service_unavailable
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/ActiveTradeSupervision.jsx
+  contracts:
+    - mission_control.contracts.active_supervision.ActiveTradeSupervisionContract
+
+emitted_by: null
+
+related_capabilities:
+  - mission.workflow_action_bar
+  - analytics_calendar_service
+  - behavioral_mentor_agent
+
+tags: [phase-73, mission_control, mid, trade-management, supervision]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───
+evidence_drawer:
+  supported: true
+conversation_modes: [execution, reflection]
+notification_channels_consumed: [behavioral, risk]
+freshness_class: [NEAR_REAL_TIME]

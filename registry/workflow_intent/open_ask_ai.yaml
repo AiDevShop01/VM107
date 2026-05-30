@@ -1,0 +1,18 @@
+id: open_ask_ai
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: OPEN_ASK_AI
+selection_types_supported: [opportunity, position, trade, idea]
+required_guards: []
+dispatch_target: none
+description: |
+  Open the Phase 71 Ask AI conversation pane scoped to the current
+  selection. AskAISurfaceBinding resolves the conversation_type from
+  the selection kind. No domain event emitted.
+
+tags: [phase-73, mission_control, workflow, navigation, ask-ai, phase-71]
+deprecated: false

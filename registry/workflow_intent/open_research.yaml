@@ -1,0 +1,17 @@
+id: open_research
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: OPEN_RESEARCH
+selection_types_supported: [opportunity, position, trade, idea]
+required_guards: []
+dispatch_target: none
+description: |
+  Open the research panel pre-scoped to the current selection's symbol /
+  strategy / instrument. No domain event emitted.
+
+tags: [phase-73, mission_control, workflow, navigation, research]
+deprecated: false

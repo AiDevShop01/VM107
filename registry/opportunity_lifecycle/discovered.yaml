@@ -1,0 +1,22 @@
+id: discovered
+type: opportunity_lifecycle
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+state_name: DISCOVERED
+display_name: Discovered
+color: info
+progress: 10
+entered_via_events: [opportunity_discovered]
+exited_via_events:
+  - opportunity_watching
+  - opportunity_evaluation_started
+  - opportunity_invalidated
+description: |
+  Newly observed signal; not yet evaluated. Initial state for every
+  opportunity emitted by the discovery layer.
+
+tags: [phase-73, mission_control, lifecycle]
+deprecated: false

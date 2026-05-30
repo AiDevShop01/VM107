@@ -1,0 +1,41 @@
+id: workflow_intent_rejected
+type: event_type
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+name: workflow_intent_rejected
+description: |
+  workflow_service rejected the intent (guard failed, selection mismatch,
+  permission denied, risk veto). STAYS in the workflow_intent stream —
+  NEVER joins journal.Event (Decision 4 stream isolation).
+wire_value: WORKFLOW_INTENT_REJECTED
+event_type: workflow_intent_rejected
+category: workflow
+version: 1.0
+producer: vm100
+payload_schema: fingpt_core.contracts.workflow.WorkflowIntentResult
+retention: permanent
+pii: false
+replayable: true
+phase: 73
+location:
+  source: VM100/backend/mission_control/workflow_service/service.py
+  emitted_via: VM100/backend/mission_control/workflow_service/service.py
+  contracts:
+    payload: fingpt_core.contracts.workflow.WorkflowIntentResult
+emitted_by: workflow_service
+gap: null
+correlation:
+  pairs_with: [workflow_intent_submitted]
+  shared_correlation_id: true
+  correlation_field: intent_id
+produced_by: [vm100.mission_control.workflow_service]
+consumed_by: [vm100.mission_control.intelligence_feed_composer]
+severity_default: warning
+related_capabilities: [mission.workflow_action_bar]
+tags: [phase-73, mission_control, workflow]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: [agent_zero]
+deprecated: false

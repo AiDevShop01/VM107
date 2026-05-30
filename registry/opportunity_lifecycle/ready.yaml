@@ -1,0 +1,21 @@
+id: ready
+type: opportunity_lifecycle
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+state_name: READY
+display_name: Ready
+color: warning
+progress: 45
+entered_via_events: [opportunity_ready]
+exited_via_events:
+  - opportunity_promoted
+  - opportunity_invalidated
+description: |
+  Opportunity meets the strategy's promotion threshold and is awaiting
+  trader (or auto-) promotion to a Trade.
+
+tags: [phase-73, mission_control, lifecycle]
+deprecated: false

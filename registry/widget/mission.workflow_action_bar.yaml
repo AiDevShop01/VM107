@@ -1,0 +1,77 @@
+id: mission.workflow_action_bar
+type: widget
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+name: Mission Workflow Action Bar
+category: Workflow
+description: |
+  Persistent 8-button action bar surfaced across all four Mission Control
+  states (PRE/OPEN/MID/CLOSE). Buttons: Evaluate, Invalidate, Chart, Ask AI,
+  Journal, Watchlist, Replay, Research. Click resolves a MissionSelection +
+  WorkflowIntentType into a WorkflowIntent submitted to the backend
+  workflow_service. Disabled / blocked states surface guard reasoning
+  via tooltip; no client-side dispatch — all writes go through the
+  workflow_service.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.workflow.WorkflowIntent
+  - mission_control.contracts.selection.MissionSelection
+
+dependencies:
+  - kind: service
+    ref: workflow_service
+
+events_consumed: [selection_changed]
+events_emitted: [workflow_intent_submitted]
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: none
+  ttl_seconds: 0
+  invalidate_on: []
+
+error_states:
+  - workflow_service_unavailable
+  - selection_missing
+  - intent_rejected_by_guards
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/WorkflowActionBar.jsx
+  contracts:
+    - fingpt_core.contracts.workflow.WorkflowIntent
+    - mission_control.contracts.selection.MissionSelection
+
+emitted_by: null
+
+related_capabilities:
+  - mission.active_trade_supervision
+  - mission.opportunity_lifecycle_pill
+  - workflow_service
+
+tags: [phase-73, mission_control, chrome, persistent, workflow]
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields (Phases 71 / 74 / 76 / 47.6) ───
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class: [REAL_TIME]

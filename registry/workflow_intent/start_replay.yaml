@@ -1,0 +1,19 @@
+id: start_replay
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: START_REPLAY
+selection_types_supported: [trade, opportunity]
+required_guards: [selection_is_closed_trade_or_opportunity]
+dispatch_target: none
+description: |
+  Open the Replay scrubber over the snapshots taken for the selection's
+  lifetime (OpportunityScoreSnapshot history for opportunities, Phase 59
+  replay frames for closed trades). No domain event emitted — UI surface
+  reads WORM snapshots.
+
+tags: [phase-73, mission_control, workflow, replay]
+deprecated: false

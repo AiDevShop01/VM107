@@ -1,0 +1,18 @@
+id: add_to_watchlist
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: ADD_TO_WATCHLIST
+selection_types_supported: [opportunity, idea]
+required_guards: []
+dispatch_target: watchlist_added
+description: |
+  Add the selected opportunity/idea's symbol to the user's watchlist.
+  Emits ``watchlist_added`` for downstream subscribers (Phase 67 watchlist
+  service).
+
+tags: [phase-73, mission_control, workflow, watchlist]
+deprecated: false

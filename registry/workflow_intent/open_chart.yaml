@@ -1,0 +1,17 @@
+id: open_chart
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: OPEN_CHART
+selection_types_supported: [opportunity, position, trade, idea]
+required_guards: []
+dispatch_target: none
+description: |
+  Open the chart panel scoped to the current selection's symbol +
+  timeframe. No domain event emitted — pure UI navigation intent.
+
+tags: [phase-73, mission_control, workflow, navigation, chart]
+deprecated: false

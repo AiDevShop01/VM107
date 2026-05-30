@@ -1,0 +1,18 @@
+id: promote_to_trade
+type: workflow_intent
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+intent_type: PROMOTE_TO_TRADE
+selection_types_supported: [opportunity]
+required_guards: [opportunity_status_ready_or_building]
+dispatch_target: opportunity_promoted
+description: |
+  Promote a READY (or BUILDING with override) opportunity into a Trade
+  + Execution. Triggers Phase 55 campaign creation downstream via the
+  opportunity_promoted domain event.
+
+tags: [phase-73, mission_control, workflow, promote]
+deprecated: false

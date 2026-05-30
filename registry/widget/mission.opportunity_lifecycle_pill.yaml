@@ -1,0 +1,73 @@
+id: mission.opportunity_lifecycle_pill
+type: widget
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+name: Opportunity Lifecycle Pill
+category: Workflow
+description: |
+  10-state lifecycle pill rendering DISCOVERED -> WATCHING -> BUILDING ->
+  READY -> TRIGGERED -> ACTIVE -> MANAGED -> CLOSED -> REVIEWED, with
+  INVALIDATED as the terminal-fail branch. Current state highlighted,
+  preceding states faded, following states outlined. Display name + color +
+  progress percentage are sourced from the backend
+  OpportunityLifecycleRenderPayload — frontend NEVER recomputes them
+  (Pattern 3 — backend payload drives the pill).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states: [pre, open, mid, close]
+supported_devices: [desktop]
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+
+dependencies:
+  - kind: service
+    ref: opportunity_lifecycle_service
+
+events_consumed: [opportunity_lifecycle_changed]
+events_emitted: []
+
+ai_capabilities: []
+permissions: [jwt_required, account_scoped]
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 15
+  invalidate_on: [opportunity_lifecycle_changed]
+
+error_states:
+  - lifecycle_service_unavailable
+  - unknown_lifecycle_state
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/OpportunityLifecyclePill.jsx
+  contracts:
+    - mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+
+emitted_by: null
+
+related_capabilities:
+  - mission.workflow_action_bar
+  - opportunity_lifecycle_service
+
+tags: [phase-73, mission_control, opportunity, lifecycle]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class: [NEAR_REAL_TIME]

@@ -1,0 +1,40 @@
+id: opportunity_watching
+type: event_type
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+name: opportunity_watching
+description: |
+  Opportunity moved into WATCHING — user (or auto) flagged it for monitoring
+  without committing to formal evaluation.
+wire_value: OPPORTUNITY_WATCHING
+event_type: opportunity_watching
+category: opportunity_lifecycle
+version: 1.0
+producer: vm100
+payload_schema: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+retention: permanent
+pii: false
+replayable: true
+phase: 73
+location:
+  source: VM100/backend/mission_control/services/opportunity_lifecycle_service.py
+  emitted_via: VM100/backend/mission_control/workflow_service/dispatcher.py
+  contracts:
+    payload: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+emitted_by: opportunity_lifecycle_service
+gap: null
+correlation:
+  pairs_with: [opportunity_discovered, opportunity_evaluation_started]
+  shared_correlation_id: true
+  correlation_field: opportunity_id
+produced_by: [vm100.mission_control.opportunity_lifecycle_service]
+consumed_by: [vm100.mission_control.intelligence_feed_composer]
+severity_default: info
+related_capabilities: [mission.opportunity_lifecycle_pill]
+tags: [phase-73, mission_control, lifecycle]
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: [agent_zero]
+deprecated: false

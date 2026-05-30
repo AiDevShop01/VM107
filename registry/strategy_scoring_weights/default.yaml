@@ -1,0 +1,27 @@
+id: default
+type: strategy_scoring_weights
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+
+strategy_id: default
+weights_version: 73
+weights:
+  session_fit: 10
+  macro_fit: 15
+  structure_quality: 15
+  liquidity_context: 10
+  volatility_regime: 10
+  strategy_adherence: 15
+  risk_reward: 10
+  historical_analogue_strength: 10
+  behavioral_edge: 5
+description: |
+  Phase 73 baseline weights — supersedes Phase 66 weights
+  (20/15/15/10/10/10/10/5/5). Bumps weights_version to 73 so every
+  OpportunityScoreSnapshot emitted under the new model is distinguishable
+  from older snapshots without re-reading the WORM rows.
+
+tags: [phase-73, scoring, baseline, default-strategy]
+deprecated: false

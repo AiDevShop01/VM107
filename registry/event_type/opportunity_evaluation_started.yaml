@@ -1,0 +1,40 @@
+id: opportunity_evaluation_started
+type: event_type
+status: real
+shipped: 73
+planned_phase: null
+last_changed: "2026-05-29"
+name: opportunity_evaluation_started
+description: |
+  Formal evaluation began (EVALUATE_OPPORTUNITY intent accepted). Triggers
+  DISCOVERED/WATCHING -> BUILDING transition.
+wire_value: OPPORTUNITY_EVALUATION_STARTED
+event_type: opportunity_evaluation_started
+category: opportunity_lifecycle
+version: 1.0
+producer: vm100
+payload_schema: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+retention: permanent
+pii: false
+replayable: true
+phase: 73
+location:
+  source: VM100/backend/mission_control/workflow_service/dispatcher.py
+  emitted_via: VM100/backend/mission_control/workflow_service/dispatcher.py
+  contracts:
+    payload: mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
+emitted_by: workflow_service
+gap: null
+correlation:
+  pairs_with: [opportunity_ready, opportunity_invalidated]
+  shared_correlation_id: true
+  correlation_field: opportunity_id
+produced_by: [vm100.mission_control.workflow_service]
+consumed_by: [vm100.mission_control.intelligence_feed_composer]
+severity_default: info
+related_capabilities: [mission.workflow_action_bar, mission.opportunity_lifecycle_pill]
+tags: [phase-73, mission_control, lifecycle, workflow]
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: [agent_zero]
+deprecated: false
