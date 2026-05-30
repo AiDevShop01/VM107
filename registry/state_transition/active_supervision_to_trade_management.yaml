@@ -10,6 +10,12 @@ guards:
     severity: warning
   - guard_id: position_open
     severity: warning
+  # Phase 73 Plan 06 — Decision 13 selective enforcement flip.
+  # Per-guard enforcement: blocking carries severity: critical.
+  # Transition-level enforcement remains advisory (Phase 72 guard rail).
+  - guard_id: requires_active_position
+    severity: critical
+    enforcement: blocking
 enforcement: advisory
 triggers:
   - event_type: position_modified
@@ -18,5 +24,5 @@ tags:
   - phase-72
   - lifecycle
 hard_scoped: true
-last_changed: 2026-05-29
+last_changed: 2026-05-30
 deprecated: false
