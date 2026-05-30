@@ -201,14 +201,21 @@ class OpportunityRanker:
         Uses thresholds loaded from DB at __init__ (per BLOCKER 6).
         If called with patched get_tier_config (test mode), respects that.
 
-        Returns: 'A+' | 'DEV' | 'WATCH' | 'INV' | 'INVALIDATED'
-        """
-        # Hard gate: active invalidation overrides score
-        if active_invalidation:
-            return "INVALIDATED"
+        Phase 73 Decision 9 lock: returns only one of {'A+', 'DEV', 'WATCH'}.
+        Invalidation (formerly 'INV' / 'INVALIDATED') is a LIFECYCLE state
+        (Plan 73-09 OpportunityLifecyclePill), NOT a scoring tier. Active
+        invalidation + structural-invalid + score-below-WATCH all collapse
+        to the lowest valid tier ('WATCH'); the lifecycle pill carries the
+        "this opportunity is invalidated" surface.
 
-        if not structural_valid:
-            return "INV"
+        Returns: 'A+' | 'DEV' | 'WATCH'
+        """
+        # Phase 73 Decision 9 — collapse all formerly-INV/INVALIDATED paths to
+        # the lowest valid tier. Lifecycle pill (Plan 73-09) tells the user
+        # the opportunity is invalidated; the SCORING tier no longer carries
+        # this signal.
+        if active_invalidation or not structural_valid:
+            return "WATCH"
 
         # Use DB-loaded thresholds
         thresholds = self._get_effective_thresholds()
@@ -216,9 +223,9 @@ class OpportunityRanker:
             return "A+"
         if score >= thresholds.get("DEV", 60):
             return "DEV"
-        if score >= thresholds.get("WATCH", 40):
-            return "WATCH"
-        return "INV"
+        # All scores below DEV — even below the historical WATCH threshold —
+        # collapse to WATCH per Decision 9 (no INV tier).
+        return "WATCH"
 
     def _get_effective_thresholds(self) -> dict[str, int]:
         """Return thresholds from DB load. Falls back to get_tier_config if patched."""
@@ -372,13 +379,19 @@ class OpportunityRanker:
 
             gate = self._gate.evaluate(symbol=symbol, context=context)
 
-            # Tier assignment using DB-loaded thresholds + gate override
-            if gate.tier == "INVALIDATED" or (gate.tier_cap == "INVALIDATED"):
-                tier = "INVALIDATED"
+            # Phase 73 Decision 9 — tier enum is {A+, DEV, WATCH} only.
+            # Any gate result that previously surfaced INV/INVALIDATED now
+            # collapses to WATCH; the lifecycle pill (Plan 73-09) carries the
+            # "invalidated" surface separately.
+            if gate.tier == "INVALIDATED" or gate.tier_cap == "INVALIDATED":
+                tier = "WATCH"
             elif gate.tier_cap == "WATCH":
                 tier = "WATCH"
             else:
-                tier = self.classify_tier(score=score, structural_valid=gate.structural_valid)
+                tier = self.classify_tier(
+                    score=score,
+                    structural_valid=gate.structural_valid,
+                )
 
             opportunities.append({
                 "symbol": symbol,

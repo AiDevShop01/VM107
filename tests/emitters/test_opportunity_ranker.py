@@ -54,8 +54,15 @@ def test_a_plus_tier_requires_score_ge_80_and_structural_valid():
 
 
 def test_hard_invalidation_overrides_score():
-    """REQ-66-2: Active invalidation hard-blocks A+ regardless of score.
-    Even score=92 + active_invalidation -> tier=INVALIDATED."""
+    """REQ-66-2 + Phase 73 Decision 9: Active invalidation hard-blocks A+
+    regardless of score.
+
+    Phase 66 semantics had this return "INVALIDATED". Phase 73 Decision 9
+    moved INV/INVALIDATED to the lifecycle pill (Plan 73-09 OpportunityLifecyclePill);
+    the SCORING tier is now {A+, DEV, WATCH} only. Active invalidation
+    collapses to the lowest valid tier (WATCH) and the lifecycle pill
+    carries the "invalidated" surface.
+    """
     try:
         from emitters.opportunity_ranker import OpportunityRanker
     except ImportError as exc:
@@ -69,9 +76,15 @@ def test_hard_invalidation_overrides_score():
         structural_valid=True,
         active_invalidation=True,
     )
-    assert result == "INVALIDATED", (
-        f"active_invalidation=True must force tier=INVALIDATED regardless of score; got {result!r}"
+    # Phase 73 Decision 9 — collapses to lowest valid tier (WATCH), NOT A+ /
+    # DEV. The lifecycle pill (Plan 73-09) carries the invalidation surface.
+    assert result == "WATCH", (
+        f"Phase 73 Decision 9: active_invalidation=True must collapse to "
+        f"WATCH (lowest valid tier); got {result!r}. Lifecycle pill "
+        f"(Plan 73-09) carries the 'invalidated' surface."
     )
+    # Critically — NOT A+ regardless of score.
+    assert result != "A+"
 
 
 def test_nine_categories_scored_per_instrument():
