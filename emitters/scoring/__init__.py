@@ -17,12 +17,18 @@ from emitters.scoring_primitives import (  # noqa: F401
     SESSION_UNIVERSES,
 )
 from emitters.scoring.tier_threshold_loader import TierThresholdLoader  # noqa: F401
+from emitters.scoring.strategy_weights_loader import (  # noqa: F401
+    StrategyWeightsLoader,
+    StrategyWeightsNotFound,
+)
 
 __all__ = [
     "CategoryScoringEngine",
     "StructuralGateEngine",
     "UniverseResolver",
     "TierThresholdLoader",
+    "StrategyWeightsLoader",
+    "StrategyWeightsNotFound",
     "ScoreBreakdown",
     "GateResult",
     "UniverseInstrument",

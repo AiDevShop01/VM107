@@ -1,5 +1,5 @@
 """
-opportunity_ranker.py — Phase 66 Plan 66-06 (REQ-66-2)
+opportunity_ranker.py — Phase 66 Plan 66-06 (REQ-66-2) + Phase 73 Plan 08 wiring.
 
 Tier-Ranked Opportunity emitter.
 
@@ -13,17 +13,36 @@ Per checker BLOCKER 6 (2026-05-23): Tier thresholds are LOADED from the
 tier_thresholds DB table at __init__ via TierThresholdLoader. NO hardcoded
 literals. Phase 73 tunes thresholds per strategy without code changes.
 
+Phase 73 Plan 08 extension:
+    - Accepts ``weights_loader`` (StrategyWeightsLoader sibling) at __init__
+      and loads Phase 73 baseline (10/15/15/10/10/15/10/10/5) at construction.
+    - Exposes ``.weights`` instance attribute for downstream introspection.
+    - Adds ``rank(opportunity_id)`` API that scores the opportunity, persists
+      one ``OpportunityScoreSnapshot`` per call (Decision 10 WORM), and
+      returns the payload.
+    - Snapshot persistence goes via VM100 typed API (POST), NEVER direct
+      VM100 DB write (Phase 39 cross-VM lock).
+
+Phase 73 tier enum tightening: ``classify_tier`` no longer returns "INV" or
+"INVALIDATED" — invalidations move to the lifecycle pill (Decision 9). The
+function now returns one of {"A+", "DEV", "WATCH"} only; the
+``active_invalidation`` path falls back to "WATCH" (the lowest valid tier)
+and the caller is expected to read the lifecycle status separately for the
+"this opportunity is invalidated" surface.
+
 Open positions ALWAYS included (bypass filtering).
 Snapshot persisted to OpportunityRankingSnapshot BEFORE return (snapshot-publishing pattern).
 Bounded universe: max 50 scored instruments per snapshot.
-Hard invalidation OVERRIDES score (even score=92 + active_invalidation -> INVALIDATED).
 """
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
+
+import httpx
 
 from emitters.scoring_primitives import (
     CategoryScoringEngine,
@@ -32,8 +51,37 @@ from emitters.scoring_primitives import (
     CATEGORIES,
 )
 from emitters.scoring.tier_threshold_loader import TierThresholdLoader
+from emitters.scoring.strategy_weights_loader import (
+    StrategyWeightsLoader,
+    StrategyWeightsNotFound,
+)
 
 log = logging.getLogger(__name__)
+
+# Phase 73 baseline category set (matches StrategyScoringWeight Phase 73 reseed,
+# migration 0050). Note ``historical_analogue`` → ``historical_analogue_strength``
+# rename per Plan 73-02 — Phase 66 ``historical_analogue`` row preserved as
+# historical (valid_to stamped); current scoring uses the new name.
+PHASE73_CATEGORIES = [
+    "session_fit",
+    "macro_fit",
+    "structure_quality",
+    "liquidity_context",
+    "volatility_regime",
+    "strategy_adherence",
+    "risk_reward",
+    "historical_analogue_strength",
+    "behavioral_edge",
+]
+
+# Phase 73 tier-name mapping: legacy Phase 66 CategoryScoringEngine still uses
+# the ``historical_analogue`` category name. Phase 73 weights are keyed by
+# ``historical_analogue_strength``. The mapping lives here so the ranker's
+# .rank() path can reconcile a Phase 66 breakdown against Phase 73 weights
+# without re-naming the upstream engine.
+_PHASE66_TO_PHASE73_CATEGORY = {
+    "historical_analogue": "historical_analogue_strength",
+}
 
 
 class OpportunityRanker:
@@ -60,6 +108,10 @@ class OpportunityRanker:
         universe_resolver: UniverseResolver | None = None,
         tier_threshold_loader: TierThresholdLoader | None = None,
         strategy_id: str = "default",
+        # Phase 73 Plan 08 additions:
+        weights_loader: StrategyWeightsLoader | None = None,
+        snapshot_persist_fn: Callable[[dict], Any] | None = None,
+        snapshot_persist_url: str | None = None,
     ):
         self._scorer = scoring_engine or CategoryScoringEngine(strategy_id=strategy_id)
         self._gate = gate_engine or StructuralGateEngine()
@@ -81,6 +133,32 @@ class OpportunityRanker:
             self._tier_thresholds = None  # signals: thresholds not loaded from DB
 
         self._strategy_id = strategy_id
+
+        # Phase 73 Plan 08 — strategy weights wiring (Decision 10 + REQ-73-4).
+        # The loader is OPTIONAL in legacy Phase 66 paths (rank_opportunities)
+        # but REQUIRED for the new rank(opportunity_id) API. When not supplied
+        # we lazily construct one from env (StrategyWeightsLoader pulls
+        # ``VM100_STRATEGY_WEIGHTS_URL`` from env — KeyError fail-fast).
+        self._weights_loader = weights_loader
+        self.weights: dict[str, int] | None = None
+        if weights_loader is not None:
+            try:
+                self.weights = weights_loader.load(strategy_id=strategy_id)
+            except StrategyWeightsNotFound:
+                # Loader explicitly told us no weights — surface to caller of rank()
+                # (not __init__) by leaving .weights as None.
+                log.warning(
+                    "OpportunityRanker: StrategyWeightsLoader returned no weights "
+                    "for strategy_id=%r at construction time; rank() will fail-fast.",
+                    strategy_id,
+                )
+
+        # Persistence wiring. Tests inject ``snapshot_persist_fn`` to capture
+        # the payload without HTTP. Live mode reads
+        # ``VM100_OPPORTUNITY_SCORE_SNAPSHOT_URL`` from env at rank() time
+        # (deferred so legacy Phase 66 paths don't trip the env requirement).
+        self._snapshot_persist_fn = snapshot_persist_fn
+        self._snapshot_persist_url = snapshot_persist_url
 
     # ─────────────────────────────────────────────────────────────────────
     # Public API for tests
@@ -319,7 +397,7 @@ class OpportunityRanker:
             "state": state,
             "universe_id": session,
             "opportunities": opportunities,
-            "generated_at": datetime.now(timezone.utc),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
             "freshness_seconds": 0,
             "degraded_mode": False,
             "metadata": {
@@ -341,3 +419,120 @@ class OpportunityRanker:
     ) -> dict:
         """Alias for rank_opportunities (used by ApiHandler)."""
         return self.rank_opportunities(state=state, account_id=account_id, session=session)
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Phase 73 Plan 08 — per-opportunity rank + WORM snapshot persistence
+    # ─────────────────────────────────────────────────────────────────────
+
+    def rank(self, opportunity_id: str, *, instrument: Any | None = None) -> dict:
+        """Score a single opportunity using Phase 73 weights, persist a snapshot,
+        and return the payload.
+
+        Persistence semantics (Decision 10 + Plan 73-02 WORM):
+            - One snapshot row per call (append-only).
+            - Snapshot persisted via VM100 typed API (POST) — NEVER direct
+              DB write (Phase 39 cross-VM lock).
+            - Tests inject ``snapshot_persist_fn`` to capture payload.
+
+        Args:
+            opportunity_id: UUID/string identifying the Opportunity to score.
+            instrument: optional UniverseInstrument-shaped object; when
+                None we build a stub from the opportunity_id (Phase 73 v1).
+
+        Returns:
+            dict with keys: opportunity_id, strategy_id, category_scores,
+            total_score, snapshot_evidence.
+        """
+        if self.weights is None:
+            raise StrategyWeightsNotFound(
+                f"OpportunityRanker.rank({opportunity_id!r}) requires a "
+                f"weights_loader supplying weights for strategy_id="
+                f"{self._strategy_id!r}; none configured at __init__."
+            )
+
+        # Build a stub instrument when one is not provided; the deterministic
+        # scoring engine produces a synthetic context per opportunity_id so
+        # tests have a fixed-deterministic baseline.
+        if instrument is None:
+            instrument = type("_Inst", (), {"symbol": str(opportunity_id)})()
+
+        # Score across all 9 Phase 66 categories via the existing engine; we
+        # then map category names to Phase 73 names and apply Phase 73 weights.
+        breakdowns = self._scorer.score_instrument(instrument)
+
+        category_scores: dict[str, dict] = {}
+        evidence_aggregate: list[str] = []
+        for bd in breakdowns:
+            # Reconcile Phase 66 category name -> Phase 73 name where renamed.
+            cat = _PHASE66_TO_PHASE73_CATEGORY.get(bd.category, bd.category)
+            phase73_weight = self.weights.get(cat, 0)
+            category_scores[cat] = {
+                "score": int(round(bd.score)),
+                "weight": phase73_weight,
+                "evidence": list(bd.evidence),
+                "degraded": bool(bd.degraded_mode),
+            }
+            evidence_aggregate.extend(bd.evidence)
+
+        # Fill any missing Phase 73 categories with score=0 + zero evidence
+        # (degraded scoring path — caller flags ``degraded=True`` for the
+        # opportunity contract if needed).
+        for cat in self.weights.keys():
+            if cat not in category_scores:
+                category_scores[cat] = {
+                    "score": 0,
+                    "weight": self.weights[cat],
+                    "evidence": [],
+                    "degraded": True,
+                }
+
+        # Weighted total = sum(score * weight / 100).
+        total_score = sum(
+            category_scores[cat]["score"] * self.weights[cat] / 100.0
+            for cat in self.weights
+        )
+
+        payload = {
+            "opportunity_id": opportunity_id,
+            "strategy_id": self._strategy_id,
+            "category_scores": category_scores,
+            "total_score": round(total_score, 2),
+            "snapshot_evidence": evidence_aggregate,
+        }
+
+        # Persist (Decision 10 — snapshot-as-truth, one row per rank).
+        self._persist_score_snapshot(payload)
+
+        return payload
+
+    def _persist_score_snapshot(self, payload: dict) -> Any:
+        """Persist the score snapshot via injected fn or VM100 typed API.
+
+        Test injection short-circuits HTTP. Live mode resolves the URL +
+        internal token from env (env-driven config lock) and POSTs JSON.
+        """
+        if self._snapshot_persist_fn is not None:
+            return self._snapshot_persist_fn(payload)
+
+        url = self._snapshot_persist_url or os.environ[
+            "VM100_OPPORTUNITY_SCORE_SNAPSHOT_URL"
+        ]
+        token = os.environ["VM100_INTERNAL_TOKEN"]
+
+        try:
+            resp = httpx.post(
+                url,
+                json=payload,
+                headers={"X-Internal-Token": token},
+                timeout=10.0,
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            # Phase 47.6 + 39 lock: cross-VM failures fail-fast, do not swallow.
+            raise RuntimeError(
+                f"OpportunityRanker.rank({payload.get('opportunity_id')!r}): "
+                f"snapshot persist failed against {url}: {exc}"
+            ) from exc
+
+        # Some httpx response stubs (and live empty responses) lack .content.
+        return resp.json() if getattr(resp, "content", None) else None
