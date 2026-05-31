@@ -58,6 +58,33 @@ from emitters.scoring.strategy_weights_loader import (
 
 log = logging.getLogger(__name__)
 
+# Phase 73 follow-up — emit-shape ID stability namespaces.
+# DEFERRED-73-K seeder requires stable opportunity_id / instrument_id so re-emitting
+# the same (account, symbol, strategy) tuple maps to the same VM100 Opportunity row
+# (lifecycle continuity across emits; tier-flip WATCH↔DEV↔A+ must NOT mint a new row).
+# uuid5 with a fixed namespace gives us a deterministic SHA-1-derived UUID per tuple.
+_OPPORTUNITY_NS = uuid.UUID("c0ffeeed-0000-4000-8000-000000000073")  # Phase 73 namespace
+_INSTRUMENT_NS = uuid.UUID("c0ffeeed-0000-4000-8000-000000000066")   # Phase 66 namespace
+
+
+def _stable_opportunity_id(account_id: Any, symbol: str, strategy: str) -> str:
+    """Deterministic opportunity_id keyed on (account_id, symbol, strategy).
+
+    Same tuple → same UUID, always. Critical for Decision 8 lifecycle continuity:
+    DEFERRED-73-K seeder uses get_or_create(id=...) so the same opportunity across
+    emits must hash to the same row.
+    """
+    return str(uuid.uuid5(_OPPORTUNITY_NS, f"{account_id}:{symbol}:{strategy}"))
+
+
+def _stable_instrument_id(symbol: str) -> str:
+    """Deterministic instrument_id keyed on symbol alone.
+
+    An instrument is identified by symbol globally (not per account or strategy).
+    """
+    return str(uuid.uuid5(_INSTRUMENT_NS, symbol))
+
+
 # Phase 73 baseline category set (matches StrategyScoringWeight Phase 73 reseed,
 # migration 0050). Note ``historical_analogue`` → ``historical_analogue_strength``
 # rename per Plan 73-02 — Phase 66 ``historical_analogue`` row preserved as
@@ -318,6 +345,25 @@ class OpportunityRanker:
             invalidation_reason = snapshot.get("refresh_reason", "SCHEDULED")
             publisher = SnapshotInvalidationPublisher()
 
+            # Phase 73 follow-up emit-shape fix: rank_opportunities now emits
+            # the canonical key `rankings` (was `opportunities`, which violated
+            # the OpportunityRankingSnapshotContract). Read `rankings` first;
+            # fall back to legacy `opportunities` with a warning so any caller
+            # still on the v1 shape surfaces loudly rather than silently
+            # losing data.
+            rankings_payload = snapshot.get("rankings")
+            if rankings_payload is None:
+                legacy_payload = snapshot.get("opportunities")
+                if legacy_payload is not None:
+                    log.warning(
+                        "OpportunityRanker._persist_snapshot: legacy 'opportunities' "
+                        "key seen — update caller to emit canonical 'rankings' "
+                        "(OpportunityRankingSnapshotContract)."
+                    )
+                    rankings_payload = legacy_payload
+                else:
+                    rankings_payload = []
+
             with transaction.atomic():
                 OpportunityRankingSnapshot.objects.create(
                     snapshot_id=snapshot_id,
@@ -325,7 +371,7 @@ class OpportunityRanker:
                     state=snapshot.get("state", "open"),
                     generated_at=snapshot.get("generated_at", datetime.now(timezone.utc)),
                     universe_id=snapshot.get("universe_id", "london_ny_fx"),
-                    rankings=snapshot.get("opportunities", []),
+                    rankings=rankings_payload,
                     freshness_seconds=snapshot.get("freshness_seconds", 0),
                     degraded_mode=snapshot.get("degraded_mode", False),
                     snapshot_metadata=snapshot.get("metadata", {}),
@@ -364,13 +410,34 @@ class OpportunityRanker:
           5. Return snapshot dict
 
         Returns:
-            dict with keys: snapshot_id, state, opportunities, generated_at, degraded_mode
+            dict matching ``OpportunityRankingSnapshotContract`` keys:
+              snapshot_id, generated_at, universe_id, state, rankings,
+              freshness_seconds, degraded_mode. Each ranking entry matches
+              ``OpportunityTierContract``: opportunity_id, instrument_id,
+              symbol, direction, strategy, numeric_score, assigned_tier,
+              structural_valid, invalidation_state, gate_failures,
+              confidence_vector, generated_at, evidence, why,
+              score_breakdown.
+
+        Phase 73 follow-up emit-shape fix: prior to 2026-05-31 the emit
+        shape used non-canonical keys (``opportunities`` instead of
+        ``rankings``, ``tier`` instead of ``assigned_tier``) and omitted
+        ``opportunity_id`` / ``instrument_id`` / ``direction`` entirely.
+        That broke the DEFERRED-73-K aggregator-side seeder (it skipped
+        every entry for missing IDs). The shape is now aligned with the
+        canonical Pydantic contract at
+        ``mission_control.contracts.opportunity.OpportunityTierContract``.
         """
         # 1. Resolve universe
         universe = self._fetch_universe(state=state, session=session, account_id=account_id)
 
+        # Single timestamp shared by the snapshot and every entry — entry-level
+        # ``generated_at`` matches the snapshot timestamp until per-entry timing
+        # data is available (Phase 66 Wave 2 follow-up).
+        generated_at_iso = datetime.now(timezone.utc).isoformat()
+
         # 2. Score and gate each instrument
-        opportunities = []
+        rankings: list[dict] = []
         for instrument in universe:
             symbol = instrument.symbol
             context = self._fetch_instrument_data(instrument)
@@ -384,38 +451,82 @@ class OpportunityRanker:
             # collapses to WATCH; the lifecycle pill (Plan 73-09) carries the
             # "invalidated" surface separately.
             if gate.tier == "INVALIDATED" or gate.tier_cap == "INVALIDATED":
-                tier = "WATCH"
+                assigned_tier = "WATCH"
             elif gate.tier_cap == "WATCH":
-                tier = "WATCH"
+                assigned_tier = "WATCH"
             else:
-                tier = self.classify_tier(
+                assigned_tier = self.classify_tier(
                     score=score,
                     structural_valid=gate.structural_valid,
                 )
 
-            opportunities.append({
+            # Phase 73 follow-up — stable IDs from (account, symbol, strategy)
+            # so re-emit of the same opportunity maps to the same VM100 row.
+            opportunity_id = _stable_opportunity_id(account_id, symbol, self._strategy_id)
+            instrument_id = _stable_instrument_id(symbol)
+
+            # Phase 66 Wave 1 v1 doesn't compute long/short signal yet.
+            # Defensible default ("long") to satisfy the canonical contract's
+            # Literal["long","short"] type; replace with real direction in
+            # Phase 66 Wave 2 enrichment.
+            direction = "long"
+
+            rankings.append({
+                # Canonical mission_control.OpportunityTierContract fields:
+                "opportunity_id": opportunity_id,
+                "instrument_id": instrument_id,
                 "symbol": symbol,
-                "tier": tier,
-                "numeric_score": score,
-                "structural_valid": gate.structural_valid,
-                "gate_failures": gate.gate_failures,
+                "direction": direction,
                 "strategy": self._strategy_id,
+                "numeric_score": score,
+                "assigned_tier": assigned_tier,
+                "structural_valid": gate.structural_valid,
+                # invalidation_state is Optional[str] — null until lifecycle
+                # service publishes invalidation context separately (Plan 73-09).
+                "invalidation_state": None,
+                "gate_failures": gate.gate_failures,
+                # Per-entry timestamp mirrors snapshot timestamp for now.
+                "generated_at": generated_at_iso,
+                # Evidence / why / score_breakdown are populated server-side
+                # by the OpportunityTierContract producer in Wave 2 enrichment;
+                # emit empty/placeholder defaults so the wire shape stays
+                # forward-compatible without forcing schema changes.
+                "evidence": [],
+                "why": "",
+                "score_breakdown": [],
+
+                # ── Phase 65 stub-shape aliases (forward-compat) ────────────
+                # MissionControlContract.opportunity_tiers is typed as the
+                # Phase 65 stub OpportunityTierContract (fingpt_core), which
+                # uses short field names. The VM100 aggregator passes
+                # ``rankings`` directly into that slot, so the wire shape
+                # must satisfy BOTH the canonical mission_control contract
+                # (read by the seeder + OpportunityCard) AND the Phase 65
+                # stub (read by the contract validator). Extras are
+                # silently ignored by the stub; required stub fields are
+                # mirrored from the canonical fields above.
+                "sym": symbol,
+                "dir": direction,
+                "strat": self._strategy_id,
+                "conf": score / 100.0,
+                "risk": "",
+                "align": [],
             })
 
-        # 3. Build snapshot
+        # 3. Build snapshot — canonical OpportunityRankingSnapshotContract shape.
         snapshot_id = str(uuid.uuid4())
         snapshot = {
             "snapshot_id": snapshot_id,
             "account_id": account_id,
             "state": state,
             "universe_id": session,
-            "opportunities": opportunities,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "rankings": rankings,
+            "generated_at": generated_at_iso,
             "freshness_seconds": 0,
             "degraded_mode": False,
             "metadata": {
                 "universe_composition": [i.symbol for i in universe],
-                "scan_timestamp": datetime.now(timezone.utc).isoformat(),
+                "scan_timestamp": generated_at_iso,
             },
         }
 

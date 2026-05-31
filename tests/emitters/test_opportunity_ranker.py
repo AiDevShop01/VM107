@@ -128,10 +128,15 @@ def test_zero_a_plus_is_valid_healthy_state():
          patch.object(ranker, "_compute_score", return_value=30):
         snapshot = ranker.rank_opportunities(state="pre")
 
-    a_plus_count = sum(1 for opp in snapshot.get("opportunities", []) if opp.get("tier") == "A+")
+    # Phase 73 follow-up emit-shape fix (2026-05-31): canonical
+    # OpportunityRankingSnapshotContract uses ``rankings`` (not the legacy
+    # ``opportunities``) and ``assigned_tier`` (not the legacy ``tier``).
+    a_plus_count = sum(
+        1 for opp in snapshot.get("rankings", []) if opp.get("assigned_tier") == "A+"
+    )
     # Zero A+ is valid — assert the snapshot itself is still structurally valid
-    assert "opportunities" in snapshot, "Snapshot must include 'opportunities' key"
-    assert isinstance(snapshot["opportunities"], list), "opportunities must be a list"
+    assert "rankings" in snapshot, "Snapshot must include canonical 'rankings' key"
+    assert isinstance(snapshot["rankings"], list), "rankings must be a list"
     # a_plus_count == 0 is explicitly OK
     assert a_plus_count == 0 or True, "Zero A+ opportunities is a valid healthy state"
 
