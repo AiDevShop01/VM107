@@ -15,5 +15,11 @@ tags:
   - phase-72
   - cognitive_lifecycle
 hard_scoped: true
-last_changed: 2026-05-29
+# Phase 73-followup deploy-fix: Stage 2 CapabilityRegistry validator requires
+# `impact_on_decision` on event_type entries. Phase 72-02 shipped this YAML
+# without the field; old container images had a looser validator. New rebuild
+# fails Stage 2 here. MEDIUM is the conservative impact level — AI mode is an
+# advisory signal, the deterministic state machine still makes the final call.
+impact_on_decision: MEDIUM
+last_changed: 2026-05-31
 deprecated: false

@@ -17,4 +17,5 @@ description: |
   "actively supervised" trades for retrospective analytics.
 
 tags: [phase-73, mission_control, lifecycle, mid]
+impact_on_decision: MEDIUM
 deprecated: false

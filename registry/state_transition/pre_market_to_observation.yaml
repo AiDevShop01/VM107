@@ -1,3 +1,4 @@
+id: pre_market_to_observation
 transition_id: pre_market_to_observation
 type: state_transition
 status: real
@@ -19,4 +20,5 @@ tags:
   - lifecycle
 hard_scoped: true
 last_changed: 2026-05-29
+impact_on_decision: MEDIUM
 deprecated: false

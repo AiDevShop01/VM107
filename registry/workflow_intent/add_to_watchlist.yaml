@@ -15,4 +15,5 @@ description: |
   service).
 
 tags: [phase-73, mission_control, workflow, watchlist]
+impact_on_decision: MEDIUM
 deprecated: false

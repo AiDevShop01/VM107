@@ -1,3 +1,4 @@
+id: observation_to_discovery
 transition_id: observation_to_discovery
 type: state_transition
 status: real
@@ -23,4 +24,5 @@ tags:
   - lifecycle
 hard_scoped: true
 last_changed: 2026-05-29
+impact_on_decision: MEDIUM
 deprecated: false

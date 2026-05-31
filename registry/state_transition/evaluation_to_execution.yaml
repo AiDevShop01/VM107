@@ -1,3 +1,4 @@
+id: evaluation_to_execution
 transition_id: evaluation_to_execution
 type: state_transition
 status: real
@@ -26,4 +27,5 @@ tags:
   - lifecycle
 hard_scoped: true
 last_changed: 2026-05-30
+impact_on_decision: MEDIUM
 deprecated: false

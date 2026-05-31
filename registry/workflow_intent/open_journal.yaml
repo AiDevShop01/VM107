@@ -15,4 +15,5 @@ description: |
   No domain event emitted.
 
 tags: [phase-73, mission_control, workflow, navigation, journal]
+impact_on_decision: MEDIUM
 deprecated: false

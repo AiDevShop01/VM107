@@ -29,6 +29,6 @@ tags:
   - cognitive
 hard_scoped: true
 last_changed: 2026-05-29
-impact_on_decision: CRITICAL
+impact_on_decision: HIGH
 allowed_agent_profiles: []
 deprecated: false

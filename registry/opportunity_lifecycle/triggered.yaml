@@ -18,4 +18,5 @@ description: |
   / first managed event.
 
 tags: [phase-73, mission_control, lifecycle]
+impact_on_decision: MEDIUM
 deprecated: false

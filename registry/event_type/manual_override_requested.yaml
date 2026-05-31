@@ -16,4 +16,5 @@ tags:
   - cognitive_lifecycle
 hard_scoped: true
 last_changed: 2026-05-29
+impact_on_decision: MEDIUM
 deprecated: false

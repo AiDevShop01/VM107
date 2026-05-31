@@ -1,3 +1,4 @@
+id: arrival_context_to_pre_market
 transition_id: arrival_context_to_pre_market
 type: state_transition
 status: real
@@ -17,4 +18,5 @@ tags:
   - lifecycle
 hard_scoped: true
 last_changed: 2026-05-29
+impact_on_decision: MEDIUM
 deprecated: false

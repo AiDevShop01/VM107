@@ -24,4 +24,5 @@ description: |
   from older snapshots without re-reading the WORM rows.
 
 tags: [phase-73, scoring, baseline, default-strategy]
+impact_on_decision: MEDIUM
 deprecated: false

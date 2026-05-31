@@ -15,4 +15,5 @@ description: |
   Phase 73 workflow_service flags the opportunity as low-priority).
 
 tags: [phase-73, mission_control, workflow, evaluate]
+impact_on_decision: MEDIUM
 deprecated: false

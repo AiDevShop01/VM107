@@ -15,4 +15,5 @@ description: |
   idea/setup failure for learning purposes).
 
 tags: [phase-73, mission_control, workflow, archive]
+impact_on_decision: MEDIUM
 deprecated: false

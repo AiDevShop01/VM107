@@ -16,4 +16,5 @@ description: |
   reads WORM snapshots.
 
 tags: [phase-73, mission_control, workflow, replay]
+impact_on_decision: MEDIUM
 deprecated: false

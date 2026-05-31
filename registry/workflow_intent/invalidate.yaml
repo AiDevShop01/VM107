@@ -17,4 +17,5 @@ description: |
   surfaces the INVALIDATED lifecycle state in the Pill).
 
 tags: [phase-73, mission_control, workflow, invalidate]
+impact_on_decision: MEDIUM
 deprecated: false

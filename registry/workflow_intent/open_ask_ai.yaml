@@ -15,4 +15,5 @@ description: |
   the selection kind. No domain event emitted.
 
 tags: [phase-73, mission_control, workflow, navigation, ask-ai, phase-71]
+impact_on_decision: MEDIUM
 deprecated: false

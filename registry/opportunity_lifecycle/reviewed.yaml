@@ -17,4 +17,5 @@ description: |
   resolved through the cognitive loop.
 
 tags: [phase-73, mission_control, lifecycle, terminal]
+impact_on_decision: MEDIUM
 deprecated: false

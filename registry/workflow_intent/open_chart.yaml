@@ -14,4 +14,5 @@ description: |
   timeframe. No domain event emitted — pure UI navigation intent.
 
 tags: [phase-73, mission_control, workflow, navigation, chart]
+impact_on_decision: MEDIUM
 deprecated: false

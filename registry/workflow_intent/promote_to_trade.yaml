@@ -15,4 +15,5 @@ description: |
   opportunity_promoted domain event.
 
 tags: [phase-73, mission_control, workflow, promote]
+impact_on_decision: MEDIUM
 deprecated: false

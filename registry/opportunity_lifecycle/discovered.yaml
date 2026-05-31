@@ -19,4 +19,5 @@ description: |
   opportunity emitted by the discovery layer.
 
 tags: [phase-73, mission_control, lifecycle]
+impact_on_decision: MEDIUM
 deprecated: false
