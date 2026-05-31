@@ -42,6 +42,10 @@ services:
       # VM100 chokepoint config — MCP tools call VM100 backend, not direct data.
       VM100_BASE_URL: "${VM100_BASE_URL:?VM100_BASE_URL is required (Phase 67 Plan 12 — VM100 chokepoint base URL)}"
       VM100_INTERNAL_TOKEN: "${VM100_INTERNAL_TOKEN:?VM100_INTERNAL_TOKEN is required (Phase 67 Plan 12 — service-to-service bearer token)}"
+      # Phase 73-followup — VM100→VM107 service-to-service X-API-KEY token.
+      # Validated by helpers/api.py @requires_api_key on mission_control endpoints
+      # (opportunities/ranked, intelligence_feed/*, narratives/global).
+      VM107_INTERNAL_TOKEN: "${VM107_INTERNAL_TOKEN:?VM107_INTERNAL_TOKEN is required (Phase 73-followup — VM100↔VM107 service auth)}"
     volumes:
       - ./usr:/a0/usr
       # Vendor fingpt_core source (read-only) so the Phase 39/47.2 typed

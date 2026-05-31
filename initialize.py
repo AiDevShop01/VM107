@@ -47,10 +47,23 @@ def initialize_capability_registry() -> None:
             f"hash={snapshot.snapshot_hash[:16]}…"
         )
     except RegistryValidationError as exc:
-        raise SystemExit(
-            f"CapabilityRegistry validation FAILED — VM107 cannot start (LD-2 hard-fail). "
-            f"Fix registry YAMLs and restart. Error: {exc}"
-        ) from exc
+        # Phase 73-followup escape hatch: opt-in soft-fail for live UAT/dev
+        # when Phase 72/73 yaml-schema drift is being remediated separately.
+        # PRODUCTION default is hard-fail (LD-2). Setting CAPABILITY_REGISTRY_PERMISSIVE=1
+        # downgrades the failure to a loud warning so VM107 can boot while the
+        # registry data is being repaired phase-by-phase. NEVER ship this flag
+        # set in prod env.
+        if os.environ.get("CAPABILITY_REGISTRY_PERMISSIVE") == "1":
+            PrintStyle().print(
+                f"WARN: CapabilityRegistry validation FAILED but PERMISSIVE mode is on — "
+                f"VM107 will boot anyway. Fix registry YAMLs before disabling permissive. "
+                f"Error: {exc}"
+            )
+        else:
+            raise SystemExit(
+                f"CapabilityRegistry validation FAILED — VM107 cannot start (LD-2 hard-fail). "
+                f"Fix registry YAMLs and restart. Error: {exc}"
+            ) from exc
     except RuntimeError:
         # Already initialized (e.g., re-import in test context). Not an error.
         pass

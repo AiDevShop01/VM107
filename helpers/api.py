@@ -1,5 +1,8 @@
 from abc import abstractmethod
+import base64
 import json
+import logging
+import os
 import threading
 from functools import wraps
 from pathlib import Path
@@ -20,6 +23,17 @@ from agent import AgentContext
 from helpers.print_style import PrintStyle
 from helpers.errors import format_error
 from helpers import files, cache
+
+_jwt_audit_log = logging.getLogger("vm107.api.jwt_audit")
+# Force INFO level on the JWT audit logger so VM107's container log shows
+# it. Otherwise the default root logger config may swallow INFO emits and
+# the audit trail goes silent. Phase 73-followup audit requirement.
+if not _jwt_audit_log.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s"))
+    _jwt_audit_log.addHandler(_h)
+    _jwt_audit_log.setLevel(logging.INFO)
+    _jwt_audit_log.propagate = False
 
 ThreadLockType = Union[threading.Lock, threading.RLock]
 
@@ -103,22 +117,98 @@ class ApiHandler:
 from helpers.network import is_loopback_address
 
 
+def _resolve_valid_api_key() -> str:
+    """Resolve the valid VM107 service API key.
+
+    Phase 73-followup VM100↔VM107 service-auth lock:
+      1. `VM107_INTERNAL_TOKEN` env var takes precedence (env-driven config
+         per project lock — service-to-service tokens live in env, not
+         settings.json, so they can rotate without UI/disk changes).
+      2. Fall back to the legacy `mcp_server_token` settings.json value
+         when the env var is unset (back-compat for the existing MCP
+         server token path).
+
+    Returns the resolved token string (may be empty if neither source
+    populated it — that case is treated as "no API key configured" and
+    requests with `X-API-KEY` will be rejected as invalid).
+    """
+    env_token = os.environ.get("VM107_INTERNAL_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    try:
+        from helpers.settings import get_settings
+        return get_settings().get("mcp_server_token", "") or ""
+    except Exception:  # pragma: no cover — defensive; settings init may fail early
+        return ""
+
+
+def _audit_log_jwt_if_present() -> None:
+    """Audit-only JWT decode: log user_id/account_id claims if Bearer present.
+
+    Phase 73-followup VM100↔VM107 combined-auth-approach (A+B):
+      - X-API-KEY (handled by @requires_api_key) is the trust gate.
+      - The Authorization: Bearer <jwt> header is OPTIONAL and is decoded
+        WITHOUT signature verification purely so VM107 has a user-identity
+        audit trail. NEVER use these claims for authz — the JWT is not
+        trusted (VM107 does not share the JWT signing key with VM100).
+
+    Defensive: malformed JWT, missing header, decode errors — all swallowed.
+    Never raise from the audit path; an audit-logger bug must not break the
+    request.
+    """
+    try:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return
+        token = auth_header[len("Bearer "):].strip()
+        if not token:
+            return
+        parts = token.split(".")
+        if len(parts) < 2:
+            return
+        # JWT payload is the 2nd segment, base64url-encoded JSON.
+        payload_b64 = parts[1]
+        # base64 requires padding length be a multiple of 4.
+        padding = "=" * (-len(payload_b64) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64 + padding)
+        claims = json.loads(payload_bytes.decode("utf-8"))
+        # Pluck the two claims VM100's JWT carries (Phase 72 deploy-fix
+        # surfaced these as `user_id` + `account_id` in mission_control views).
+        user_id = claims.get("user_id")
+        account_id = claims.get("account_id")
+        _jwt_audit_log.info(
+            "vm107.api.jwt_audit path=%s user_id=%s account_id=%s",
+            request.path,
+            user_id,
+            account_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — audit MUST NOT break requests
+        # Log + swallow; never raise.
+        _jwt_audit_log.warning(
+            "vm107.api.jwt_audit_decode_failed: %s(%s)",
+            type(exc).__name__,
+            exc,
+        )
+
+
 def requires_api_key(f):
     @wraps(f)
     async def decorated(*args, **kwargs):
-        from helpers.settings import get_settings
-
-        valid_api_key = get_settings()["mcp_server_token"]
+        valid_api_key = _resolve_valid_api_key()
 
         if api_key := request.headers.get("X-API-KEY"):
-            if api_key != valid_api_key:
+            if not valid_api_key or api_key != valid_api_key:
                 return Response("Invalid API key", 401)
         elif request.json and request.json.get("api_key"):
             api_key = request.json.get("api_key")
-            if api_key != valid_api_key:
+            if not valid_api_key or api_key != valid_api_key:
                 return Response("Invalid API key", 401)
         else:
             return Response("API key required", 401)
+
+        # Phase 73-followup — audit-only JWT decode (NOT a trust gate).
+        _audit_log_jwt_if_present()
+
         return await f(*args, **kwargs)
 
     return decorated

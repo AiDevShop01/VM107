@@ -14,7 +14,9 @@ Returns:
     200 — OpportunityRankingSnapshotContract-shaped JSON dict
     400 — {"error": "state and account required"} when either is absent
 
-Auth: requires_auth=True (standard VM107 session cookie / API key).
+Auth: X-API-KEY service token (Phase 73-followup VM100↔VM107 service auth).
+      Session-cookie auth disabled — service-to-service callers do not have
+      a Flask session. Optional Bearer JWT is audit-logged but not trusted.
 """
 from __future__ import annotations
 
@@ -35,6 +37,11 @@ class OpportunitiesRankedHandler(ApiHandler):
 
     @classmethod
     def requires_auth(cls) -> bool:
+        # Phase 73-followup: service-to-service token replaces session-cookie auth.
+        return False
+
+    @classmethod
+    def requires_api_key(cls) -> bool:
         return True
 
     @classmethod
