@@ -41,7 +41,14 @@ class WidgetCapability(BaseModel):
     ]
 
     primary_data_contracts: list[str] = Field(default_factory=list)
-    dependencies: list[dict] = Field(default_factory=list)
+    # Hard dependencies are registry IDs (list[str]) — matches the active
+    # validator `_BaseEntrySchema` in `core/registry/validation.py` so this
+    # documentation schema doesn't silently disagree with the boot-time
+    # validation. Structured design intent (kind / ref dicts) is preserved
+    # in the optional sibling `dependency_details` key — extras are ignored
+    # by `_BaseEntrySchema` (extra='ignore').
+    dependencies: list[str] = Field(default_factory=list)
+    dependency_details: list[dict] = Field(default_factory=list)
 
     events_consumed: list[str] = Field(default_factory=list)
     events_emitted: list[str] = Field(default_factory=list)

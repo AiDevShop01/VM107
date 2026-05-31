@@ -1,4 +1,10 @@
-id: default
+# Registry `id` is globally unique across all capability types (Stage 3
+# validator). `strategy_id` below is the load key used by
+# StrategyWeightsLoader; the two are intentionally distinct so a future
+# strategy named "default" in another type-namespace (agent_profile.default
+# already exists) does NOT collide. Phase 73 follow-up: was `id: default`,
+# which conflicted with agent_profile/default.yaml.
+id: strategy_scoring_weights.default
 type: strategy_scoring_weights
 status: real
 shipped: 73

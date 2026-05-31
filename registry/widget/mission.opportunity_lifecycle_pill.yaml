@@ -27,9 +27,15 @@ data_freshness_type: near_real_time
 primary_data_contracts:
   - mission_control.contracts.opportunity_lifecycle.OpportunityLifecycleRenderPayload
 
-dependencies:
+# Hard dependencies are registry IDs (list[str] per _BaseEntrySchema +
+# Stage 4 validator). `opportunity_lifecycle_service` is a VM100 backend
+# service without a capability YAML yet, so it lives under
+# `related_capabilities` (soft).
+dependencies: []
+# Structured documentation preserved for design intent.
+dependency_details:
   - kind: service
-    ref: opportunity_lifecycle_service
+    ref: opportunity_lifecycle_service  # not yet registered — soft via related_capabilities
 
 events_consumed: [opportunity_lifecycle_changed]
 events_emitted: []

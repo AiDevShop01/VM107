@@ -27,9 +27,20 @@ data_freshness_type: near_real_time
 primary_data_contracts:
   - mission_control.contracts.active_supervision.ActiveTradeSupervisionContract
 
+# Hard dependencies are registry IDs (list[str] per _BaseEntrySchema +
+# Stage 4 validator). Only refs that resolve to a registered capability
+# go here — analytics_calendar_service / workflow_service /
+# opportunity_lifecycle_service are VM100 backend services without
+# capability YAMLs yet, so they live under `related_capabilities` (soft).
 dependencies:
+  - vm100.analytics_calendar
+  - behavioral_mentor_agent
+# Structured documentation preserved for design intent — captures the
+# kind (service|agent) of each hard dependency. Schema treats extras as
+# pass-through (extra='ignore'); this key has NO validator behaviour.
+dependency_details:
   - kind: service
-    ref: analytics_calendar_service
+    ref: vm100.analytics_calendar
   - kind: agent
     ref: behavioral_mentor_agent
 

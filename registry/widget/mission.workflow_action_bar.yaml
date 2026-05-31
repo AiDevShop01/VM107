@@ -28,9 +28,16 @@ primary_data_contracts:
   - fingpt_core.contracts.workflow.WorkflowIntent
   - mission_control.contracts.selection.MissionSelection
 
-dependencies:
+# Hard dependencies are registry IDs (list[str] per _BaseEntrySchema +
+# Stage 4 validator). `workflow_service` is a VM100 backend service
+# without a capability YAML yet, so it lives under `related_capabilities`
+# (soft). Once Phase 74+ ships a workflow_service registry entry, add
+# it here and update `dependency_details`.
+dependencies: []
+# Structured documentation preserved for design intent.
+dependency_details:
   - kind: service
-    ref: workflow_service
+    ref: workflow_service  # not yet registered — soft via related_capabilities
 
 events_consumed: [selection_changed]
 events_emitted: [workflow_intent_submitted]
