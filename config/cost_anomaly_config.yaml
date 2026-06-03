@@ -1,0 +1,19 @@
+# Cost anomaly detection thresholds (Phase 74 REQ-74-7 + CONTEXT §11)
+#
+# Multiplier thresholds vs rolling_7d_avg_same_hour per conversation type.
+# WARNING and CRITICAL thresholds are resolved from env vars at startup:
+#   COST_ANOMALY_MULTIPLIER_WARN     (default guideline: 3.0)
+#   COST_ANOMALY_MULTIPLIER_CRITICAL (default guideline: 5.0)
+# No fallback defaults — fail-fast at startup (env-driven-no-fallbacks lock).
+#
+# INFO is hardcoded at 1.5 (panel-only signal; never a channel notification).
+multipliers:
+  info: 1.5
+  # warning  → resolved from env COST_ANOMALY_MULTIPLIER_WARN
+  # critical → resolved from env COST_ANOMALY_MULTIPLIER_CRITICAL
+
+# Cold-start guard: if fewer than this many days of same-hour history exist,
+# the rolling avg is 0.0 and only INFO "Baseline not yet established" fires.
+# Changing this value here has no effect — it is enforced in CostCalculator
+# via the _cost_ledger row-count sentinel (RESEARCH Pitfall 5).
+cold_start_min_days: 7
