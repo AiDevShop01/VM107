@@ -1,0 +1,29 @@
+# Deterministic threshold seed values — tune empirically (CONTEXT §19)
+# Phase 74 REQ-74-5: SupervisoryEmitter deterministic level evaluation
+
+# Opportunity score degradation thresholds (drop_pct)
+opportunity_score_drop_pct:
+  advisory: 5
+  warning: 15
+  critical: 30
+
+# Price proximity to invalidation level (proximity_pct — smaller = closer = more urgent)
+price_proximity_to_invalidation_pct:
+  advisory: 1.0
+  warning: 0.5
+  critical: 0.1
+
+# Structural break severity ladder
+structural_break_severity:
+  advisory: minor
+  warning: material
+  critical: regime_change
+
+# Cooldown seconds per level.
+# Values are resolved from env vars at emitter startup (no fallback defaults).
+# Env vars: SUPERVISORY_COOLDOWN_ADVISORY_SEC, SUPERVISORY_COOLDOWN_WARNING_SEC,
+#           SUPERVISORY_COOLDOWN_CRITICAL_SEC
+# Passive: 0 (status only — NEVER emits — CONTEXT §20)
+cooldown_seconds:
+  # Mapping source: env vars (env-driven-no-fallbacks lock)
+  mapping_source: "env"

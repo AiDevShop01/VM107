@@ -50,6 +50,7 @@ services:
       # Phase 74 — Supervisory AI + Cost Anomaly emitter config.
       # Read by supervisory_emitter.py + cost_anomaly_detector.py at import time.
       # No fallback defaults (env-driven-no-fallbacks lock).
+      VM107_SUPERVISORY_REDIS_URL: ${VM107_SUPERVISORY_REDIS_URL}
       COST_ANOMALY_MULTIPLIER_WARN: ${COST_ANOMALY_MULTIPLIER_WARN}
       COST_ANOMALY_MULTIPLIER_CRITICAL: ${COST_ANOMALY_MULTIPLIER_CRITICAL}
       BEHAVIORAL_COOLDOWN_MIN: ${BEHAVIORAL_COOLDOWN_MIN}
