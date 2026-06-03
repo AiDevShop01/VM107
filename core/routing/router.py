@@ -533,6 +533,69 @@ class ModelRouter:
             path=ctx.path,  # Phase 43.1: path mirrors ctx.path on every RoutingDecision
         )
 
+    def tier_down_for_overage(self, conv_types: frozenset) -> None:
+        """Tier-down non-trade-path conv-types to cheaper fallback model.
+
+        Called by ``BudgetThresholdMonitor`` when daily AI spend crosses 120%
+        of ``DAILY_AI_BUDGET_USD``.  Mutates ``_conv_type_overrides`` so that
+        subsequent routing decisions for the affected conv-types use a cheaper
+        fallback model.
+
+        Trade-path conv-types are **PROTECTED**.  Passing ``pre-trade``,
+        ``execution``, or ``macro`` in ``conv_types`` raises immediately.
+        Budget overage MUST NOT degrade execution quality (CONTEXT §22 lock +
+        REQ-74-7).
+
+        Parameters
+        ----------
+        conv_types:
+            The set of conversation type identifiers to tier-down.  Must not
+            include any trade-path types (``pre-trade``, ``execution``,
+            ``macro``).
+
+        Raises
+        ------
+        ValueError
+            If ``conv_types`` intersects with the protected trade-path set.
+        """
+        _TRADE_PATH_CONV_TYPES_LOCKED: frozenset = frozenset(
+            {"pre-trade", "execution", "macro"}
+        )
+        forbidden = frozenset(conv_types) & _TRADE_PATH_CONV_TYPES_LOCKED
+        if forbidden:
+            raise ValueError(
+                f"Trade-path conv-types are protected from tier-down: "
+                f"{sorted(forbidden)} (CONTEXT §22 lock). "
+                f"Budget overage MUST NOT degrade execution quality."
+            )
+
+        # Initialize override map if it doesn't exist yet
+        if not hasattr(self, "_conv_type_overrides"):
+            self._conv_type_overrides = {}
+
+        for ct in conv_types:
+            fallback = self._fallback_model_for(ct)
+            self._conv_type_overrides[ct] = fallback
+            self.log.info(
+                json.dumps({
+                    "event": "tier_down_for_overage",
+                    "conv_type": ct,
+                    "fallback_model": fallback,
+                    "reason": "daily_budget_120pct_overage",
+                })
+            )
+
+    def _fallback_model_for(self, conv_type: str) -> str:
+        """Return the configured fallback model for a given conversation type.
+
+        Falls back to ``ollama/llama3.2`` if no per-type configuration exists.
+        Override point for tests and future YAML-driven configuration.
+        """
+        # Future: look up per-conv-type fallback from affinity YAML.
+        # v1: uniform local fallback (cheapest available).
+        fallback_map = getattr(self.affinity, "cost_overage_fallback_map", {})
+        return fallback_map.get(conv_type, "ollama/llama3.2")
+
     def _log_decision(self, decision: RoutingDecision) -> None:
         """
         Step 8 (mandatory): emit structured JSON log to stdout + persist to MongoDB.
