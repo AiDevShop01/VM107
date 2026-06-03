@@ -46,6 +46,17 @@ services:
       # Validated by helpers/api.py @requires_api_key on mission_control endpoints
       # (opportunities/ranked, intelligence_feed/*, narratives/global).
       VM107_INTERNAL_TOKEN: "${VM107_INTERNAL_TOKEN:?VM107_INTERNAL_TOKEN is required (Phase 73-followup — VM100↔VM107 service auth)}"
+
+      # Phase 74 — Supervisory AI + Cost Anomaly emitter config.
+      # Read by supervisory_emitter.py + cost_anomaly_detector.py at import time.
+      # No fallback defaults (env-driven-no-fallbacks lock).
+      COST_ANOMALY_MULTIPLIER_WARN: ${COST_ANOMALY_MULTIPLIER_WARN}
+      COST_ANOMALY_MULTIPLIER_CRITICAL: ${COST_ANOMALY_MULTIPLIER_CRITICAL}
+      BEHAVIORAL_COOLDOWN_MIN: ${BEHAVIORAL_COOLDOWN_MIN}
+      SUPERVISORY_COOLDOWN_ADVISORY_SEC: ${SUPERVISORY_COOLDOWN_ADVISORY_SEC}
+      SUPERVISORY_COOLDOWN_WARNING_SEC: ${SUPERVISORY_COOLDOWN_WARNING_SEC}
+      SUPERVISORY_COOLDOWN_CRITICAL_SEC: ${SUPERVISORY_COOLDOWN_CRITICAL_SEC}
+      DAILY_AI_BUDGET_USD: ${DAILY_AI_BUDGET_USD}
     volumes:
       - ./usr:/a0/usr
       # Vendor fingpt_core source (read-only) so the Phase 39/47.2 typed
