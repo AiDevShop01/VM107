@@ -1,0 +1,40 @@
+id: observation
+type: contract
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+name: Observation
+description: |
+  Platform-wide Observation primitive (Phase 74). Every telemetry alert,
+  cost anomaly, behavioural signal, supervisory observation, and pipeline
+  degradation is expressed as an Observation.
+  Architecture: Observation → Routing → Channel → Presentation.
+  Append-only (WORM) — escalation = new Observation with same correlation_id.
+owner_vm: fingpt_core
+
+contract_version: "1.0"
+source_module: fingpt_core.contracts.observation.Observation
+
+fields:
+  - observation_id
+  - category
+  - severity
+  - body
+  - generated_at
+  - source_vm
+  - trigger_event_id
+  - correlation_id
+  - trading_impact
+  - conversation_type
+  - _demo
+
+worm: true
+
+tags:
+  - phase-74
+  - observation
+  - cross-vm
+  - worm
+deprecated: false

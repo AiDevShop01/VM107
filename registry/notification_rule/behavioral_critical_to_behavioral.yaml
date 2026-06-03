@@ -1,0 +1,29 @@
+id: behavioral_critical_to_behavioral
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Critical-class behavioral observations (Risk Blowout Pattern /
+  Repeated Rule Violations / Emergency Escalation) route to Behavioral P1.
+  Requires acknowledgement — persists in bell + history until tapped.
+  Rare case that bypasses ACTIVE_SUPERVISION suppression (P1 guard=deliver).
+
+trigger_event_type: behavioral_observation
+channel: behavioral
+priority: P1
+condition_expr: "category == 'behavioral' and behavioral_class == 'critical'"
+dismissibility_profile: acknowledge_required
+precedence: 51
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - behavioral-routing
+  - behavioral-channel
+  - critical-level
+  - acknowledge-required
+deprecated: false

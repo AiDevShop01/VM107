@@ -1,0 +1,85 @@
+id: mission.telemetry.agent_activity
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: Agent Activity Panel
+category: observability
+description: |
+  Telemetry panel showing all 14 VM107 agents. Inline-expandable rows.
+  Collapsed: agent_id, status dot, current_activity, last_emit_at, degraded flag.
+  Expanded: recent_activities[5], avg_latency_ms, failures_last_hour, mode,
+  last_result_at, degraded_reason.
+  NO chain-of-thought, no token streams (Phase 66 lock).
+  Source: vm107.agent_telemetry Redis pub/sub.
+  Evolves Phase 65 AgentTicker in-place (same data shape).
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states:
+  - pre
+  - open
+  - mid
+  - close
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.observation.Observation
+
+dependencies: []
+
+events_consumed:
+  - telemetry.agents
+  - telemetry.snapshot
+events_emitted: []
+
+ai_capabilities: []
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 15
+  invalidate_on:
+    - telemetry.agents
+
+error_states:
+  - redis_unavailable
+  - agent_offline
+  - stale_snapshot
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/telemetry/AgentActivityPanel.jsx
+
+emitted_by: null
+
+related_capabilities:
+  - mission.telemetry_strip
+
+tags:
+  - phase-74
+  - telemetry
+  - agents
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class:
+  - NEAR_REAL_TIME

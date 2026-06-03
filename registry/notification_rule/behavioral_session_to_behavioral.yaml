@@ -1,0 +1,29 @@
+id: behavioral_session_to_behavioral
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Session-level behavioral observations (Fatigue / Discipline Drift /
+  Overtrading / Overconfidence) route to Behavioral P2.
+  Surfaces at CLOSE / POST_MARKET_REVIEW / RESEARCH lifecycle states.
+  Suppressed during ACTIVE_SUPERVISION / EXECUTION / TRADE_MANAGEMENT (P2).
+  30-min cooldown window per category (CONTEXT §17).
+
+trigger_event_type: behavioral_observation
+channel: behavioral
+priority: P2
+condition_expr: "category == 'behavioral' and behavioral_class == 'session'"
+dismissibility_profile: dismissible
+precedence: 50
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - behavioral-routing
+  - behavioral-channel
+  - session-level
+deprecated: false

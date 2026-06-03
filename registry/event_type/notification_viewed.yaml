@@ -1,0 +1,26 @@
+id: notification_viewed
+type: event_type
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+category: notification_user_action
+version: "1.0"
+producer: vm100
+payload_schema: vm100.notifications.events.NotificationViewedPayload
+retention: "30d_hot_1y_archive"
+pii: false
+replayable: true
+emitted_by: notification_bell
+worm: true
+actor: user
+
+tags:
+  - phase-74
+  - notification
+  - user-action
+  - worm
+impact_on_decision: LOW
+hard_scoped: true
+deprecated: false

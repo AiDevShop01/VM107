@@ -1,0 +1,31 @@
+id: default_to_system
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  CATCH-ALL — MUST be last in the NotificationRule chain (lowest precedence).
+  Any notification that doesn't match any earlier rule lands here on the
+  System channel rather than being silently dropped.
+  This is the explicit fallback route (CONTEXT §17.5).
+  trigger_event_type: "*" matches any event type.
+  terminal: true stops rule evaluation after this rule fires.
+  precedence: 9999 guarantees it is always evaluated last.
+
+trigger_event_type: "*"
+channel: system
+priority: P2
+condition_expr: "True"
+dismissibility_profile: fully_dismissible
+precedence: 9999
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - catch-all
+  - system-channel
+  - lowest-precedence
+deprecated: false

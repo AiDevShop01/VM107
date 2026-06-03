@@ -1,0 +1,26 @@
+id: supervisory_observation
+type: event_type
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+category: trade_supervision
+version: "1.0"
+producer: vm107
+payload_schema: fingpt_core.contracts.mission_control.contract.SupervisoryObservation
+retention: permanent
+pii: false
+replayable: true
+emitted_by: supervisory_emitter
+worm: true
+actor: system
+
+tags:
+  - phase-74
+  - supervisory
+  - worm
+  - trade-management
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false

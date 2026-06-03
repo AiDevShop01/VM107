@@ -104,6 +104,7 @@ class WidgetCapability(BaseModel):
             "macro",
             "risk",
             "behavioral",
+            "system",  # Phase 74 — 6th channel added 2026-06-03
         ]
     ] = Field(default_factory=list)
     freshness_class: list[

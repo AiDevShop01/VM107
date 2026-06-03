@@ -1,0 +1,29 @@
+id: pipeline_no_trading_impact_to_system
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Pipeline degradation WITHOUT trading_impact routes to System channel.
+  Priority by severity: INFO → P3, WARNING → P2, CRITICAL → P1.
+  Infrastructure-only outages (Prometheus blip, Neo4j restart) no longer
+  silently stay in panel-only — they route to System channel so nothing
+  is dropped. Added per 2026-06-03 6-channel revision.
+
+trigger_event_type: pipeline_health_observation
+channel: system
+priority: P2
+condition_expr: "category == 'pipeline_health' and trading_impact == False"
+dismissibility_profile: fully_dismissible
+precedence: 31
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - pipeline-routing
+  - system-channel
+  - no-trade-impact
+deprecated: false

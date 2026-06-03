@@ -1,0 +1,26 @@
+id: cost_anomaly_observation
+type: event_type
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+category: cost_monitoring
+version: "1.0"
+producer: vm107
+payload_schema: fingpt_core.contracts.observation.Observation
+retention: "30d_hot_1y_archive"
+pii: false
+replayable: true
+emitted_by: cost_anomaly_detector
+worm: true
+actor: system
+
+tags:
+  - phase-74
+  - cost-monitoring
+  - worm
+  - system
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false

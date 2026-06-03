@@ -1,0 +1,26 @@
+id: cost_anomaly_warning_to_system
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Cost anomaly WARNING (>= 3x rolling-7d-avg) routes to System P2.
+  Cost is infra cost, not trading risk — System channel per CONTEXT §17.5.
+  Routing reassignment from Risk to System (2026-06-03 revision).
+
+trigger_event_type: cost_anomaly_observation
+channel: system
+priority: P2
+condition_expr: "category == 'cost_anomaly' and severity == 'WARNING'"
+dismissibility_profile: fully_dismissible
+precedence: 11
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - cost-routing
+  - system-channel
+deprecated: false

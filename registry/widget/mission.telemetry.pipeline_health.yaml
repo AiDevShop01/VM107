@@ -1,0 +1,86 @@
+id: mission.telemetry.pipeline_health
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: Pipeline Health Panel
+category: observability
+description: |
+  Telemetry panel showing pipeline health across all VMs.
+  Severity model: INFO (panel only) / WARNING (amber) / CRITICAL (conditional notification).
+  trading_impact: bool field controls Risk vs System channel routing.
+  CRITICAL with trading_impact=true → Risk channel notification.
+  Any degradation without trading_impact → System channel notification.
+  Source: /api/health/system + VM106 Prometheus.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states:
+  - pre
+  - open
+  - mid
+  - close
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.observation.Observation
+
+dependencies: []
+
+events_consumed:
+  - telemetry.pipeline
+  - telemetry.snapshot
+events_emitted: []
+
+ai_capabilities: []
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 30
+  invalidate_on:
+    - telemetry.pipeline
+
+error_states:
+  - prometheus_unavailable
+  - health_endpoint_unreachable
+  - stale_snapshot
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/telemetry/PipelineHealthPanel.jsx
+
+emitted_by: null
+
+related_capabilities:
+  - mission.telemetry_strip
+
+tags:
+  - phase-74
+  - telemetry
+  - pipeline-health
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed:
+  - risk
+  - system
+freshness_class:
+  - NEAR_REAL_TIME

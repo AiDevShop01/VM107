@@ -1,0 +1,27 @@
+id: pipeline_critical_trading_impact_to_risk
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Pipeline CRITICAL with trading_impact=True routes to Risk P1.
+  Trade-stopping conditions (VM101 ingestion down etc.) must reach the
+  Risk channel immediately — unchanged by 2026-06-03 6-channel revision.
+
+trigger_event_type: pipeline_health_observation
+channel: risk
+priority: P1
+condition_expr: "category == 'pipeline_health' and severity == 'CRITICAL' and trading_impact == True"
+dismissibility_profile: acknowledge_required
+precedence: 30
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - pipeline-routing
+  - risk-channel
+  - trade-impact
+deprecated: false

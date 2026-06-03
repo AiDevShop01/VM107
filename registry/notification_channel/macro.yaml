@@ -1,0 +1,52 @@
+id: macro
+type: notification_channel
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+display_name: Macro
+badge_color: purple-500
+description: |
+  Macroeconomic and event-driven signals — scheduled data releases,
+  central bank decisions, macro regime changes, event-risk windows.
+  Fully dismissible; 60s batch windows for P2-P4 to prevent event
+  flood during high-news periods.
+
+# Anti-noise batching matrix (CONTEXT.md §16)
+batchable_by_priority:
+  P1: false
+  P2: true
+  P3: true
+  P4: true
+
+batch_window_seconds_by_priority:
+  P1: null
+  P2: 60
+  P3: 60
+  P4: 60
+
+dismissibility_default: fully_dismissible
+
+dismissibility_by_priority:
+  P1: fully_dismissible
+  P2: fully_dismissible
+  P3: fully_dismissible
+  P4: fully_dismissible
+
+lifecycle_state_guard: []
+guard_action_by_priority: {}
+
+quiet_preset_bypass_priorities: []
+
+default_delivery:
+  - in_app
+  - history
+
+auto_escalate_to_p1_triggers: []
+default_priority: null
+
+tags:
+  - phase-74
+  - notification-channel
+deprecated: false

@@ -1,0 +1,38 @@
+id: notification
+type: contract
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+name: NotificationContract
+description: |
+  Typed notification contract (Phase 74). Notifications are domain-event
+  projections, never primary records. Phase 56 event store is canonical truth.
+  NotificationRule maps DomainEvent → Channels and IS the anti-noise routing
+  engine. 6-channel enum (system added 2026-06-03 as explicit catch-all).
+  Append-only (WORM) — user actions (view/acknowledge/dismiss) are separate rows.
+owner_vm: fingpt_core
+
+contract_version: "1.0"
+source_module: fingpt_core.contracts.mission_control.contract.NotificationContract
+
+fields:
+  - notification_id
+  - channel
+  - priority
+  - body
+  - evidence
+  - trigger_event_id
+  - generated_at
+  - dismissibility_profile
+  - aggregated_observation_ids
+
+worm: true
+
+tags:
+  - phase-74
+  - notification
+  - cross-vm
+  - worm
+deprecated: false

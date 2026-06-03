@@ -1,0 +1,60 @@
+id: risk
+type: notification_channel
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+display_name: Risk
+badge_color: red-600
+description: |
+  Trade-path risk signals — supervisory observations (warning/critical),
+  pipeline degradation with trading_impact=true, position risk breaches,
+  stop movements, plan deviations that affect the current trade.
+  NEVER batches at any priority. Risk CRITICAL requires acknowledgement.
+  P1 always bypasses Quiet preset.
+
+# Risk channel NEVER batches at any priority (CONTEXT.md §16 lock)
+batchable_by_priority:
+  P1: false
+  P2: false
+  P3: false
+  P4: false
+
+batch_window_seconds_by_priority:
+  P1: null
+  P2: null
+  P3: null
+  P4: null
+
+dismissibility_default: dismissible
+
+# Risk CRITICAL requires explicit acknowledgement (CONTEXT.md §15)
+dismissibility_by_priority:
+  P1: acknowledge_required
+  P2: dismissible
+  P3: fully_dismissible
+  P4: fully_dismissible
+
+# Risk is never suppressed — trade safety takes precedence
+lifecycle_state_guard: []
+guard_action_by_priority: {}
+
+# Risk P1 (and Risk at all priorities — never batches) bypasses Quiet
+quiet_preset_bypass_priorities:
+  - P1
+  - P2
+
+default_delivery:
+  - in_app
+  - push
+  - history
+
+auto_escalate_to_p1_triggers: []
+default_priority: null
+
+tags:
+  - phase-74
+  - notification-channel
+  - no-batching
+deprecated: false

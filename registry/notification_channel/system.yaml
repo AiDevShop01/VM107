@@ -1,0 +1,71 @@
+id: system
+type: notification_channel
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+display_name: System
+badge_color: slate-500
+description: |
+  Catch-all for infrastructure, platform, and uncategorised notifications.
+  Acts as the explicit fallback route so nothing gets silently dropped.
+  Cost anomaly and budget breach signals route here (infra cost, not trading
+  risk). Pipeline degradation without trading_impact routes here.
+  Any notification that fails to match any other rule lands here via the
+  default_to_system catch-all rule.
+  P1 always delivers even on Quiet preset — credential expiry / sync-stop /
+  total VM outage must always reach the user.
+  NEVER suppressed during ACTIVE_SUPERVISION (affects trade infra itself).
+
+# Anti-noise batching (CONTEXT.md §17.5)
+# P1 and P2: immediate. P3/P4: 15 min batch (900s).
+batchable_by_priority:
+  P1: false
+  P2: false
+  P3: true
+  P4: true
+
+batch_window_seconds_by_priority:
+  P1: null
+  P2: null
+  P3: 900
+  P4: 900
+
+dismissibility_default: fully_dismissible
+
+# P1 system events for credential/sync/VM outage require acknowledgement
+dismissibility_by_priority:
+  P1: acknowledge_required
+  P2: fully_dismissible
+  P3: fully_dismissible
+  P4: fully_dismissible
+
+# System MUST never be suppressed — affects trade infrastructure itself
+lifecycle_state_guard: []
+guard_action_by_priority: {}
+
+# P1 system bypasses Quiet preset (the only non-Risk priority that does so)
+quiet_preset_bypass_priorities:
+  - P1
+
+# Default delivery: in_app + history only. NO Web Push by default.
+# User may opt in per priority in Settings → Advanced.
+default_delivery:
+  - in_app
+  - history
+
+# P1 auto-escalation triggers (CONTEXT.md §17.5)
+auto_escalate_to_p1_triggers:
+  - credential_expiry
+  - sync_stop
+  - total_vm_outage
+
+default_priority: P2
+
+tags:
+  - phase-74
+  - notification-channel
+  - catch-all
+  - unsuppressible
+deprecated: false

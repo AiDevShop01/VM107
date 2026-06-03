@@ -1,0 +1,28 @@
+id: supervisory_critical_to_risk
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Supervisory AI Critical level observation routes to Risk P1 + acknowledge_required.
+  Risk channel for supervisory is unchanged by 2026-06-03 revision.
+  Cooldown 60s (CONTEXT §19). Persists in bell + history until explicitly tapped.
+  Dismissal of CRITICAL is itself a behavioral signal (WORM-recorded).
+
+trigger_event_type: supervisory_observation
+channel: risk
+priority: P1
+condition_expr: "category == 'supervisory' and level == 'critical'"
+dismissibility_profile: acknowledge_required
+precedence: 41
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - supervisory-routing
+  - risk-channel
+  - acknowledge-required
+deprecated: false

@@ -1,0 +1,94 @@
+id: mission.telemetry_strip
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: Mission Telemetry Strip
+category: observability
+description: |
+  Composite bottom telemetry band above the Phase 73 Action Bar.
+  4 panels: Agent Activity, Pipeline Health, AI Routing, Cost Monitor.
+  Collapsed by default (~24px summary line). Expands per-user preference
+  persisted in MissionControlPreferences. Never auto-expands on critical
+  conditions — critical conditions generate notifications instead.
+  WebSocket invalidation via telemetry.snapshot catch-all topic.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+supported_states:
+  - pre
+  - open
+  - mid
+  - close
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.observation.Observation
+
+dependencies:
+  - mission.telemetry.agent_activity
+  - mission.telemetry.pipeline_health
+  - mission.telemetry.ai_routing
+  - mission.telemetry.cost_monitor
+
+events_consumed:
+  - telemetry.agents
+  - telemetry.pipeline
+  - telemetry.routing
+  - telemetry.cost
+  - telemetry.snapshot
+events_emitted: []
+
+ai_capabilities: []
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 30
+  invalidate_on:
+    - telemetry.snapshot
+
+error_states:
+  - websocket_disconnected
+  - aggregator_unreachable
+  - stale_snapshot
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/MissionTelemetryStrip.jsx
+
+emitted_by: null
+
+related_capabilities:
+  - mission.workflow_action_bar
+
+tags:
+  - phase-74
+  - telemetry
+  - observability
+  - composite
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed:
+  - risk
+  - system
+freshness_class:
+  - NEAR_REAL_TIME

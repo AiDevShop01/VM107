@@ -1,0 +1,86 @@
+id: mission.telemetry.cost_monitor
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: Cost Monitor Panel
+category: observability
+description: |
+  Telemetry panel showing AI cost telemetry. 3 big stat numbers:
+  Current Session, Today, MTD (each with % of budget).
+  Middle row: 24h cost sparkline (velocity indicator).
+  Bottom row: per-conv-type horizontal stacked bar (6 types, absolute $+%).
+  Cost anomaly detection routes via System channel (infra cost, not trading risk).
+  Budget breach 80%→P2 system, 100%→P1 system, 120%→VM107 tier-down.
+  Source: VM107 cost_calculator.py + config/model_pricing.yaml.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states:
+  - pre
+  - open
+  - mid
+  - close
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.observation.Observation
+
+dependencies: []
+
+events_consumed:
+  - telemetry.cost
+  - telemetry.snapshot
+events_emitted: []
+
+ai_capabilities: []
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 60
+  invalidate_on:
+    - telemetry.cost
+
+error_states:
+  - cost_calculator_unavailable
+  - pricing_config_missing
+  - stale_snapshot
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/telemetry/CostMonitorPanel.jsx
+
+emitted_by: null
+
+related_capabilities:
+  - mission.telemetry_strip
+
+tags:
+  - phase-74
+  - telemetry
+  - cost-monitoring
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed:
+  - system
+freshness_class:
+  - NEAR_REAL_TIME

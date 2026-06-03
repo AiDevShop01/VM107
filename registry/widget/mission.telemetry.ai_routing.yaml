@@ -1,0 +1,84 @@
+id: mission.telemetry.ai_routing
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: AI Routing Panel
+category: observability
+description: |
+  Telemetry panel showing AI model routing fleet summary + 6 per-conv-type rows.
+  Header: Primary Model, Fleet Health, Fallback Rate, Avg Latency, Today's Cost,
+  Fallback Trend indicator.
+  Per-row (pre-trade/macro/execution/reflection/research/strategy):
+  Current Model, Req/min, p50, p95, Fallback%, Spend.
+  Row expansion: Primary Model, Fallback Chain, Last Fallback Reason/Time, Cost Today.
+  Source: VM107 core/routing/router.py + scoring.py + cost_calculator.py.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P2
+
+supported_states:
+  - pre
+  - open
+  - mid
+  - close
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.observation.Observation
+
+dependencies: []
+
+events_consumed:
+  - telemetry.routing
+  - telemetry.snapshot
+events_emitted: []
+
+ai_capabilities: []
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 30
+  invalidate_on:
+    - telemetry.routing
+
+error_states:
+  - vm107_routing_unavailable
+  - stale_snapshot
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/telemetry/AIRoutingPanel.jsx
+
+emitted_by: null
+
+related_capabilities:
+  - mission.telemetry_strip
+
+tags:
+  - phase-74
+  - telemetry
+  - ai-routing
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: false
+conversation_modes: []
+notification_channels_consumed: []
+freshness_class:
+  - NEAR_REAL_TIME

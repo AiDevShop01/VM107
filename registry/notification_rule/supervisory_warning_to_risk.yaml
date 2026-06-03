@@ -1,0 +1,26 @@
+id: supervisory_warning_to_risk
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Supervisory AI Warning level observation routes to Risk P2.
+  Risk channel for supervisory is unchanged by 2026-06-03 revision.
+  Cooldown 120s (CONTEXT §19 — prevents flooding during ACTIVE_SUPERVISION).
+
+trigger_event_type: supervisory_observation
+channel: risk
+priority: P2
+condition_expr: "category == 'supervisory' and level == 'warning'"
+dismissibility_profile: dismissible
+precedence: 40
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - supervisory-routing
+  - risk-channel
+deprecated: false

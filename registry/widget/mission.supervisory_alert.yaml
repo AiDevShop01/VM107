@@ -1,0 +1,97 @@
+id: mission.supervisory_alert
+type: widget
+status: planned
+shipped: 74
+planned_phase: 74
+last_changed: "2026-06-03"
+
+name: Supervisory Alert
+category: trade-supervision
+description: |
+  Supervisory AI 4-level intervention widget (passive/advisory/warning/critical).
+  Passive: status dot only. Advisory: inline note + soft chime.
+  Warning: amber border + ribbon pulse. Critical: card promoted to center pane
+  + ribbon red dot + Action Bar relevant action glow.
+  NEVER auto-acts. NEVER renders blocking modal. Surface escalates outward only.
+  Deterministic triggers only — no LLM in emit path.
+  Phase 74 produces the events; Phase 73 ActiveTradeSupervision card renders them.
+  Risk CRITICAL requires acknowledgement.
+
+owner_vm: VM100
+primary_workflow: mission_control
+priority_level: P1
+
+# Supervisory alert only active during mid-state (ACTIVE_SUPERVISION lives in mid)
+supported_states:
+  - mid
+
+supported_devices:
+  - desktop
+
+data_freshness_type: near_real_time
+
+primary_data_contracts:
+  - fingpt_core.contracts.mission_control.contract.SupervisoryObservation
+
+dependencies:
+  - mission.active_trade_supervision
+
+events_consumed:
+  - state_entered.ACTIVE_SUPERVISION
+  - opportunity_score_changed
+  - structural_break
+  - macro_event_in_window
+  - price_within_pct_of_invalidation
+  - manual_position_modification
+events_emitted:
+  - supervisory_observation
+
+ai_capabilities:
+  - behavioral_mentor_agent
+
+permissions:
+  - jwt_required
+  - account_scoped
+
+caching_strategy:
+  layer: aggregator
+  ttl_seconds: 15
+  invalidate_on:
+    - supervisory_observation
+
+error_states:
+  - no_active_trade
+  - vm107_supervisory_unavailable
+
+phase_demo_flag: false
+
+location:
+  source: VM100/frontend/components/mission/SupervisoryAlert.jsx
+
+emitted_by: VM107
+
+related_capabilities:
+  - mission.active_trade_supervision
+  - mission.workflow_action_bar
+  - behavioral_mentor_agent
+
+tags:
+  - phase-74
+  - supervisory
+  - trade-management
+  - mid
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+
+# ─── Forward-compat fields ───────────────────────────────────────────────────
+evidence_drawer:
+  supported: true
+conversation_modes:
+  - execution
+notification_channels_consumed:
+  - risk
+  - behavioral
+freshness_class:
+  - NEAR_REAL_TIME

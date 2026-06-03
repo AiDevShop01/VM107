@@ -1,0 +1,26 @@
+id: behavioral_observation
+type: event_type
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+category: behavioral_analysis
+version: "1.0"
+producer: vm107
+payload_schema: fingpt_core.contracts.observation.Observation
+retention: permanent
+pii: false
+replayable: true
+emitted_by: behavioral_mentor_agent
+worm: true
+actor: system
+
+tags:
+  - phase-74
+  - behavioral
+  - worm
+  - mentor
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false

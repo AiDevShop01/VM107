@@ -1,0 +1,27 @@
+id: budget_critical_to_system
+type: notification_rule
+status: real
+shipped: 74
+planned_phase: null
+last_changed: "2026-06-03"
+
+description: |
+  Daily AI budget >= 100% threshold crossed → System P1.
+  Budget breach is infra cost, not trading risk — System channel per CONTEXT §17.5.
+  Router tier-down at 120% stays VM107-side (not triggered here).
+  Routing reassignment from Risk to System (2026-06-03 revision).
+
+trigger_event_type: budget_threshold_crossed
+channel: system
+priority: P1
+condition_expr: "trigger_event_type == 'budget_threshold_crossed' and pct >= 100"
+dismissibility_profile: acknowledge_required
+precedence: 21
+terminal: true
+active: true
+
+tags:
+  - phase-74
+  - budget-routing
+  - system-channel
+deprecated: false
