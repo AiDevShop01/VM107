@@ -6,6 +6,7 @@ Override source: YAML pricing file for custom rates or models not in LiteLLM.
 Ollama models always $0.00 (local inference).
 """
 import logging
+from datetime import datetime
 from typing import Optional
 
 logger = logging.getLogger("boundary.cost")
@@ -108,6 +109,61 @@ class CostCalculator:
         # 5. Unknown model
         logger.warning(f"Unknown model '{model_name}', using default pricing ($0.00)")
         return (0.0, 0.0)
+
+    def rolling_7d_avg_same_hour(self, conv_type: str, target_dt: datetime) -> float:
+        """Return the mean hourly cost for ``conv_type`` over the 7 calendar days
+        preceding ``target_dt`` at the same UTC hour.
+
+        Parameters
+        ----------
+        conv_type:
+            Conversation type identifier (e.g. ``"research"``, ``"execution"``).
+        target_dt:
+            The reference UTC datetime.  The window is the 7 calendar days
+            **strictly before** ``target_dt.date()`` (i.e.
+            ``[target_dt.date() - 7 days, target_dt.date() - 1 day]`` inclusive),
+            filtered to the same ``target_dt.hour``.
+
+        Returns
+        -------
+        float
+            Mean cost in USD, or **0.0** (cold-start sentinel) if fewer than 7
+            distinct calendar-day records exist for the ``(conv_type, hour)`` pair.
+            The 0.0 sentinel prevents false-positive anomaly triggers during early
+            history build-up (RESEARCH Pitfall 5 — never return a partial average).
+
+        Notes
+        -----
+        In production, ``_cost_ledger`` is populated by the cost tracking
+        infrastructure (each entry records per-hour spend per conversation type).
+        Tests inject a synthetic ``_cost_ledger`` list via
+        ``calc._cost_ledger = [...]`` for deterministic scenario coverage.
+        """
+        from datetime import timedelta
+
+        target_hour = target_dt.hour
+        target_date = target_dt.date()
+        window_start = target_date - timedelta(days=7)
+        window_end = target_date  # exclusive (< target_date)
+
+        ledger = getattr(self, "_cost_ledger", [])
+        matching = [
+            entry["cost_usd"]
+            for entry in ledger
+            if (
+                entry.get("conv_type") == conv_type
+                and entry.get("hour") == target_hour
+                and window_start <= entry.get("date") < window_end
+            )
+        ]
+
+        # Cold-start guard: need at least 7 data-points (one per day) to be reliable.
+        # Returning a partial average with < 7 samples causes false anomaly alerts
+        # during the first week of a new conversation type (RESEARCH Pitfall 5).
+        if len(matching) < 7:
+            return 0.0
+
+        return sum(matching) / len(matching)
 
     @staticmethod
     def _rates_from_litellm(model_key: str) -> tuple[float, float]:
