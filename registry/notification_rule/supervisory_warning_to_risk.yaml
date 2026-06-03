@@ -13,7 +13,7 @@ description: |
 trigger_event_type: supervisory_observation
 channel: risk
 priority: P2
-condition_expr: "category == 'supervisory' and level == 'warning'"
+condition_expr: "category == 'supervisory' and severity == 'WARNING'"
 dismissibility_profile: dismissible
 precedence: 40
 terminal: true
