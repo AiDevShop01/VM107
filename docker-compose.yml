@@ -78,6 +78,71 @@ services:
     networks:
       - vm107_network
 
+  # ---------------------------------------------------------------------------
+  # Phase 83 Plan 10 — vm107-macro-emitter sibling service (Decision G1 / Pitfall 2)
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): any
+  # long-running process MUST ship as a docker-compose sibling service, never
+  # as a management command or manual `docker exec` invocation.  Phase 74-03
+  # shipped run_observation_listener without a service and it silently died on
+  # every backend restart.  This service is the cautionary-tale fix applied
+  # proactively.
+  #
+  # Healthcheck probes /healthz (Task 3): 200 = all deps ok, 503 = degraded.
+  # ---------------------------------------------------------------------------
+  vm107-macro-emitter:
+    container_name: vm107-macro-emitter
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: python -m emitters.intelligence_feed_macro_emitter
+    ports:
+      - "${MACRO_EMITTER_HEALTHZ_HOST_PORT:-8090}:${MACRO_EMITTER_HEALTHZ_PORT:-8090}"
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Phase 83 Plan 10 — MACRO emitter required env vars ────────────────
+      # Fail-fast syntax: ${VAR:?msg} aborts `docker compose up` if unset.
+      # See env-driven-no-fallbacks lock in CLAUDE.md.
+      MACRO_EMITTER_SNAPSHOT_URL: "${MACRO_EMITTER_SNAPSHOT_URL:?MACRO_EMITTER_SNAPSHOT_URL is required (Phase 83 Plan 10 — Postgres truth-write endpoint)}"
+      VM107_SERVICE_JWT: "${VM107_SERVICE_JWT:?VM107_SERVICE_JWT is required (Phase 83 Plan 10 — Phase 65 JWTAuth service token)}"
+      MACRO_EMITTER_REDIS_URL: "${MACRO_EMITTER_REDIS_URL:?MACRO_EMITTER_REDIS_URL is required (Phase 83 Plan 10 — Redis interrupt + cache)}"
+      MACRO_EMITTER_CALENDAR_URL: "${MACRO_EMITTER_CALENDAR_URL:?MACRO_EMITTER_CALENDAR_URL is required (Phase 83 Plan 10 — macro calendar source)}"
+      # ── Optional env vars (have sensible defaults in code) ────────────────
+      MACRO_EMITTER_ENABLED: "${MACRO_EMITTER_ENABLED:-true}"
+      MACRO_EMITTER_HEALTHZ_PORT: "${MACRO_EMITTER_HEALTHZ_PORT:-8090}"
+      MACRO_EMITTER_MAX_EMISSION_AGE_SEC: "${MACRO_EMITTER_MAX_EMISSION_AGE_SEC:-1200}"
+      MACRO_EMITTER_CACHE_TTL_SEC: "${MACRO_EMITTER_CACHE_TTL_SEC:-60}"
+      MACRO_EMITTER_INTERRUPT_POLL_SEC: "${MACRO_EMITTER_INTERRUPT_POLL_SEC:-1.0}"
+      # Per-state cadence overrides (default values documented in conf/macro_emitter_env.example)
+      MACRO_EMITTER_CADENCE_PRE_SEC: "${MACRO_EMITTER_CADENCE_PRE_SEC:-300}"
+      MACRO_EMITTER_CADENCE_OPEN_SEC: "${MACRO_EMITTER_CADENCE_OPEN_SEC:-60}"
+      MACRO_EMITTER_CADENCE_ACTIVE_SEC: "${MACRO_EMITTER_CADENCE_ACTIVE_SEC:-90}"
+      MACRO_EMITTER_CADENCE_MID_SEC: "${MACRO_EMITTER_CADENCE_MID_SEC:-120}"
+      MACRO_EMITTER_CADENCE_CLOSE_SEC: "${MACRO_EMITTER_CADENCE_CLOSE_SEC:-300}"
+      MACRO_EMITTER_CADENCE_REVIEW_SEC: "${MACRO_EMITTER_CADENCE_REVIEW_SEC:-600}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:${MACRO_EMITTER_HEALTHZ_PORT:-8090}/healthz')"
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - vm107_network
+
 volumes:
   redis_data:
 

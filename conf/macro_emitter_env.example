@@ -1,0 +1,96 @@
+# Phase 83 Plan 10 — vm107-macro-emitter sibling service environment variables.
+#
+# Copy this file to .env.local (or add to your existing .env.local) and fill in
+# the required values before starting the vm107-macro-emitter service.
+#
+# CLAUDE.md lock: no fallback defaults for required variables — fail-fast at startup
+# beats silent misconfiguration (feedback_env_driven_no_fallbacks.md).
+# Required vars use ${VAR:?msg} in docker-compose.yml; this file documents them.
+#
+# Usage:
+#   cp conf/macro_emitter_env.example .env.local   # then edit required values
+#   docker compose up -d vm107-macro-emitter
+
+# ===========================================================================
+# REQUIRED — service will refuse to start without these
+# ===========================================================================
+
+# Base URL of VM100 backend — used by SnapshotHTTPWriter to POST to
+# /api/v1/mission-control/snapshots/macro (Phase 83 Plan 10 Postgres truth-write).
+# Example (dev):  http://vm100-backend:8000
+# Example (prod): http://192.168.1.100:8000
+MACRO_EMITTER_SNAPSHOT_URL=
+
+# HS256 bearer token issued by Phase 65 JWTAuth service-account process.
+# Used in Authorization: Bearer {token} header when calling VM100 endpoints.
+# Generate with: python -c "import jwt, os; print(jwt.encode({'sub':'vm107'}, os.environ['JWT_SECRET'], algorithm='HS256'))"
+VM107_SERVICE_JWT=
+
+# Redis URL for:
+#   - Interrupt channel subscription (macro.calendar.event_published, Pitfall 8)
+#   - SnapshotRedisCache hot path (macro_emitter:latest:{state}, Decision G2)
+# Example (dev):  redis://vm107-redis:6379/0
+# Example (prod): redis://192.168.1.X:6379/0
+MACRO_EMITTER_REDIS_URL=
+
+# Base URL of the macro calendar API (VM100 backend, same host as SNAPSHOT_URL).
+# Used by HealthzHandler to probe calendar reachability (GET /api/v1/health).
+# Example: http://vm100-backend:8000
+MACRO_EMITTER_CALENDAR_URL=
+
+# ===========================================================================
+# OPTIONAL — safe defaults shown; override only when needed
+# ===========================================================================
+
+# Kill-switch (Decision H2): when false, emitter writes demo placeholder
+# (source='vm107.macro_emitter.demo_fallback') instead of calling composer.
+# Flip without restarting: docker compose exec vm107-macro-emitter env MACRO_EMITTER_ENABLED=false
+# Default: true
+MACRO_EMITTER_ENABLED=true
+
+# Port the /healthz HTTP server listens on inside the container.
+# Must match the container-side port in the docker-compose ports mapping.
+# Default: 8090
+MACRO_EMITTER_HEALTHZ_PORT=8090
+
+# Host-side port mapping for /healthz (used in docker-compose ports only).
+# Default: 8090 (same as container port)
+MACRO_EMITTER_HEALTHZ_HOST_PORT=8090
+
+# Maximum age of the last emission before /healthz reports emission_fresh=false.
+# Should be >= 2 * the longest cadence (REVIEW = 600s → default 1200s = 20 min).
+# Default: 1200
+MACRO_EMITTER_MAX_EMISSION_AGE_SEC=1200
+
+# TTL for Redis cache keys macro_emitter:latest:{state} (Decision G2 hot path).
+# Default: 60
+MACRO_EMITTER_CACHE_TTL_SEC=60
+
+# Poll interval for Redis pubsub interrupt check inside _sleep_with_interrupts.
+# Lower = faster interrupt response; higher = less CPU. Keep at 1.0 for production.
+# Default: 1.0
+MACRO_EMITTER_INTERRUPT_POLL_SEC=1.0
+
+# ---------------------------------------------------------------------------
+# Per-state emission cadences (Decision G1).
+# These are ENV-overridable but the code defaults match CONTEXT.md specs.
+# Only set these if you need non-standard cadence for a specific state.
+# ---------------------------------------------------------------------------
+
+# PRE session: low urgency pre-open (default 300s = 5 min)
+MACRO_EMITTER_CADENCE_PRE_SEC=300
+
+# OPEN session: high urgency (default 60s = 1 min)
+MACRO_EMITTER_CADENCE_OPEN_SEC=60
+
+# ACTIVE_SUPERVISION: novelty-gated polling midpoint of 60-120s (default 90s)
+MACRO_EMITTER_CADENCE_ACTIVE_SEC=90
+
+# MID_OBSERVATION: medium urgency mid-session (default 120s = 2 min)
+MACRO_EMITTER_CADENCE_MID_SEC=120
+
+# CLOSE session: session winding down (default 300s = 5 min)
+MACRO_EMITTER_CADENCE_CLOSE_SEC=300
+
+# REVIEW: event-driven, long sleep with Redis interrupt (default 600s = 10 min)
+MACRO_EMITTER_CADENCE_REVIEW_SEC=600
