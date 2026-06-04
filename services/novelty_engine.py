@@ -1,21 +1,52 @@
+"""DEPRECATED — Phase 83 Plan 08 moved NoveltyEngine to VM107/lib/novelty_engine/.
+
+This module re-exports all public symbols for back-compat. New code should import
+from the new canonical path directly.
+
+Previously this module re-exported from emitters.novelty_engine (which was the live
+implementation). Both paths now point to the same canonical lib.novelty_engine location.
+
+Migration path:
+    Replace: from services.novelty_engine import NoveltyEngine, NoveltyDimensions, NoveltyScore
+    With:    from lib.novelty_engine import NoveltyEngine, NoveltyDimensions, NoveltyScore
 """
-Re-export shim for VM107/services/novelty_engine.py.
+import warnings
 
-The canonical implementation lives at ``emitters.novelty_engine``.
-This module re-exports all public symbols so that either import path works:
-
-    from emitters.novelty_engine import NoveltyEngine, NoveltyDimensions
-    from services.novelty_engine import NoveltyEngine, NoveltyDimensions  # also works
-
-Per CONTEXT.md §2 key_links, Wave 2 emitters will import from the emitters
-package directly.  This shim satisfies plan 66-02's files_modified spec
-(VM107/services/novelty_engine.py) without duplicating implementation.
-"""
-from emitters.novelty_engine import (  # noqa: F401
-    NoveltyDimensions,
-    NoveltyEngine,
-    NoveltyScore,
-    CONFIG_PATH,
+warnings.warn(
+    "VM107.services.novelty_engine is deprecated as of Phase 83 Plan 08. "
+    "Import from VM107.lib.novelty_engine instead.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
-__all__ = ["NoveltyEngine", "NoveltyDimensions", "NoveltyScore", "CONFIG_PATH"]
+from lib.novelty_engine import (  # noqa: F401
+    NoveltyEngine,
+    NoveltyScore,
+    NoveltyDimensions,
+    score_macro,
+    score_regime,
+    score_structural,
+    score_volatility,
+    score_behavioral,
+    MacroNovelty,
+    RegimeNovelty,
+    StructuralNovelty,
+    VolatilityNovelty,
+    BehavioralNovelty,
+)
+
+__all__ = [
+    "NoveltyEngine",
+    "NoveltyScore",
+    "NoveltyDimensions",
+    "score_macro",
+    "score_regime",
+    "score_structural",
+    "score_volatility",
+    "score_behavioral",
+    "MacroNovelty",
+    "RegimeNovelty",
+    "StructuralNovelty",
+    "VolatilityNovelty",
+    "BehavioralNovelty",
+]
