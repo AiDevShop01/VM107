@@ -349,7 +349,9 @@ def main() -> None:
     # Import and start healthz server before the main loop
     try:
         from emitters.macro_emitter_healthz import serve_healthz_background
-        serve_healthz_background()
+        # Pass a callable so healthz reads the running module's global,
+        # not a duplicate module copy (the emitter runs as __main__).
+        serve_healthz_background(get_last_emission_at=lambda: _LAST_EMISSION_AT)
     except Exception as exc:
         log.warning("Failed to start healthz server: %r — continuing without it", exc)
 

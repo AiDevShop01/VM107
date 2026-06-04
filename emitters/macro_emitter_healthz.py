@@ -25,6 +25,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import Callable, Optional
 
 import httpx
 import redis
@@ -36,12 +37,24 @@ _MAX_EMISSION_AGE_SEC: int = int(
     os.environ.get("MACRO_EMITTER_MAX_EMISSION_AGE_SEC", "1200")
 )
 
+# Module-level getter set by serve_healthz_background(). Captures the
+# running emitter's _LAST_EMISSION_AT so the handler can read it without
+# re-importing the emitter module.
+#
+# WHY: the emitter is started with `python -m emitters.intelligence_feed_macro_emitter`,
+# which loads it as `__main__`. A subsequent `import emitters.intelligence_feed_macro_emitter`
+# returns a SEPARATE module instance with its own _LAST_EMISSION_AT=None.
+# Reading from that import never reflects the running loop's state.
+# Passing a callable from main() closes the loop over the live global.
+_GET_LAST_EMISSION_AT: Optional[Callable[[], Optional[datetime]]] = None
+
 
 class HealthzHandler(BaseHTTPRequestHandler):
     """HTTP handler for /healthz.
 
-    Reads _LAST_EMISSION_AT from emitters.intelligence_feed_macro_emitter module
-    so the healthz endpoint reflects the running loop's state.
+    Reads last emission timestamp via the _GET_LAST_EMISSION_AT closure
+    (set by serve_healthz_background) so the handler reflects the
+    running emitter loop's state regardless of how the emitter was launched.
     """
 
     def do_GET(self) -> None:
@@ -65,10 +78,13 @@ class HealthzHandler(BaseHTTPRequestHandler):
             all_ok = False
 
         # ── Calendar check ─────────────────────────────────────────────────
+        # VM100 exposes /api/health (not /api/v1/health) — the Plan 10
+        # hardcoded path was wrong, causing healthz to always report
+        # calendar:false even when VM100 was perfectly healthy.
         calendar_url = os.environ.get("MACRO_EMITTER_CALENDAR_URL", "")
         try:
             resp = httpx.get(
-                f"{calendar_url.rstrip('/')}/api/v1/health",
+                f"{calendar_url.rstrip('/')}/api/health",
                 timeout=3.0,
             )
             deps["calendar"] = resp.status_code == 200
@@ -80,11 +96,16 @@ class HealthzHandler(BaseHTTPRequestHandler):
             all_ok = False
 
         # ── Last emission freshness check ──────────────────────────────────
-        try:
-            import emitters.intelligence_feed_macro_emitter as _emitter_mod
-
-            last = _emitter_mod._LAST_EMISSION_AT
-        except Exception:
+        # Read via the closure registered by serve_healthz_background.
+        # Falling back to re-import would hit the __main__ vs imported-module
+        # gotcha and always return None — see _GET_LAST_EMISSION_AT docstring.
+        if _GET_LAST_EMISSION_AT is not None:
+            try:
+                last = _GET_LAST_EMISSION_AT()
+            except Exception as exc:
+                log.warning("healthz: getter raised: %r", exc)
+                last = None
+        else:
             last = None
 
         if last is None:
@@ -116,12 +137,24 @@ class HealthzHandler(BaseHTTPRequestHandler):
         log.debug("healthz: " + fmt, *args)
 
 
-def serve_healthz_background(port: int | None = None) -> None:
+def serve_healthz_background(
+    port: int | None = None,
+    get_last_emission_at: Optional[Callable[[], Optional[datetime]]] = None,
+) -> None:
     """Start the /healthz HTTP server on a daemon thread.
 
     Called once from intelligence_feed_macro_emitter.main() before the loop.
     The daemon thread dies automatically when the main process exits.
+
+    Args:
+        port: HTTP port (default MACRO_EMITTER_HEALTHZ_PORT or 8090).
+        get_last_emission_at: zero-arg callable returning the running
+            emitter's _LAST_EMISSION_AT. Required for emission_fresh check
+            to work — see _GET_LAST_EMISSION_AT module docstring.
     """
+    global _GET_LAST_EMISSION_AT
+    _GET_LAST_EMISSION_AT = get_last_emission_at
+
     effective_port = port or _HEALTHZ_PORT
     server = HTTPServer(("0.0.0.0", effective_port), HealthzHandler)
     thread = threading.Thread(
