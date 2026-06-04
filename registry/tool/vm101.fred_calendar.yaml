@@ -1,0 +1,88 @@
+id: vm101.fred_calendar
+type: tool
+status: real
+shipped: "83"
+last_changed: "2026-06-04"
+name: vm101.fred_calendar
+description: >-
+  VM101 FRED release calendar sync service. Fetches the FRED economic indicator
+  release calendar from the St. Louis Fed API and writes upcoming release events
+  to the EconomicEvent table (VM100 Postgres). Called on a daily Dagster schedule
+  (fred_calendar_schedule). Operates entirely on VM101 — no Celery involvement.
+
+  Fail-fast on missing release_id (422 B2 gate): series without a mapped FRED
+  release_id are logged as skipped, not as errors, so high-quality releases
+  always land even if the registry is incomplete. FRED API errors 502 immediately
+  (no silent fallback — fail-fast per env-driven config lock).
+
+  Phase 83 Decision A3: calendar sync owns the upcoming-event creation path.
+  Phase 83 Decision B1: series_id → release_id map via FredSeriesRegistry.fred_release_id.
+  Phase 83 Decision B2: missing release_id rows skipped with structured log (not 422).
+  Phase 83 Decision B3: duplicate events are UPSERT-safe via unique constraint.
+capability_type: ingestion_service
+vm: vm101
+vm107_endpoint_path: /api/v1/fred/calendar/sync
+http_method: POST
+parameters:
+- name: lookback_days
+  type: integer
+  required: false
+  default: 14
+  description: >-
+    Number of past days to backfill (used on first run or after outage).
+    Passed as query parameter.
+- name: forward_days
+  type: integer
+  required: false
+  default: 90
+  description: >-
+    Number of future days to fetch (covers next 3 months of releases).
+    Passed as query parameter.
+return_type: CalendarSyncResult
+return_shape: >-
+  CalendarSyncResult{events_created, events_updated, series_processed,
+  series_skipped_missing_release_id, errors[], duration_ms}
+return_on_error: error_response_with_detail
+error_modes:
+- code: missing_release_id
+  http_status: null
+  description: >-
+    Series with no mapped FRED release_id — logged as skipped, not an error.
+    Partial success: remaining series continue to sync.
+- code: fred_api_error
+  http_status: 502
+  description: >-
+    FRED upstream API returned an error or was unreachable.
+    No silent fallback — fail-fast per env-driven config lock.
+location:
+  source: VM101/backend/ingestion/services/fred/calendar_service.py
+  endpoint: VM101/api/v1/fred/calendar/sync
+  contracts:
+    request: params(lookback_days, forward_days)
+    response: CalendarSyncResult
+consumed_by:
+- dagster.fred_calendar_schedule
+related_capabilities:
+- vm100.analytics_calendar
+- vm107.intelligence_feed.macro
+tags:
+- phase-83
+- ingestion
+- fred
+- calendar
+- decision-A3
+- decision-B1
+- decision-B2
+- decision-B3
+- vm101
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: deterministic FRED API ingestion; B2 fail-fast on missing release_id ensures only valid events land
+expected_freshness_seconds: 86400   # Reasoning: daily Dagster schedule; release calendar updated 1x/day by FRED
+is_deterministic: true   # Reasoning: same API call + same FredSeriesRegistry state → same event rows; pure ingestion
+version: "1.0.0"   # Reasoning: initial release; Phase 83 is first ship

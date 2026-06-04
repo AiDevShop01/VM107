@@ -1,18 +1,34 @@
 id: vm107.intelligence_feed.macro
 type: tool
 status: real
-shipped: 66
-last_changed: "2026-05-23"
+shipped: "83"
+last_changed: "2026-06-04"
 name: vm107.intelligence_feed.macro
-description: 'VM107 MACRO intelligence feed composer. Aggregates macro-context items
-  for the Mission Control intelligence feed. Sources: economic calendar events (next
-  24h high-impact), active news catalysts, regime summary across watched instruments,
-  session timing context. Each item is an IntelligenceFeedItem with category=macro.
-  Novelty engine gates LLM narrative enrichment per item — duplicate macro items
-  are suppressed. Returns ordered list by relevance_score DESC. Maximum 10 items
-  per call to bound frontend render cost. Separate from DISCOVERIES composer by
-  design — MACRO items are forward-looking (what is coming) vs DISCOVERIES which
-  are backward-looking (what was found in recent trades).'
+description: >-
+  VM107 MACRO intelligence feed composer + emitter. Aggregates macro-context items
+  for the Mission Control intelligence feed. Phase 83 ships the fully real
+  composer + emitter wired to the LLM model-router (Phase 43 Agent Hands),
+  NoveltyEngine V1 (Plan 08), and snapshot-persistent storage (MacroEmitterSnapshot
+  Postgres model + Redis hot-path). Phase 65 shipped the [DEMO] placeholder;
+  Phase 83 rewrites it — version bumped to 2.0.0 (major: pull model to push model).
+
+  Architecture (Phase 83):
+  - intelligence_feed_macro_composer.py: HTTP-client-based (closes RISK-06),
+    LLM-router-wired enrichment, NoveltyEngine V1 gating (Decision E1 deterministic scorer).
+  - macro_emitter.py: Push model on OPEN cadence (60s), writes MacroEmitterSnapshot
+    to Postgres + Redis cache (macro_emitter:latest:{state}).
+  - vm107-macro-emitter sibling Docker service (Plan 10 compose entry).
+  - Snapshot-persistent: survives emitter restart via Postgres fallback (Plan 11 aggregator).
+
+  Sources: economic calendar events (EconomicEvent → vm100 calendar endpoint),
+  active news catalysts, regime summary across watched instruments, session timing.
+  Each item is an IntelligenceFeedItem with category=macro. NoveltyEngine gates
+  LLM narrative enrichment per item — duplicate macro items are suppressed.
+  Returns ordered list by relevance_score DESC. Maximum 10 items per call.
+  Separate from DISCOVERIES composer (MACRO = forward-looking; DISCOVERIES = backward).
+
+  Phase 83 Decisions: D1 (HTTP client), F1 (ModelRouter), G1 (push/emitter),
+  G2 (snapshot persistence), H1 (last-known-good degradation), H2 (kill-switch demo).
 capability_type: intelligence_feed_macro_composer
 vm: vm107
 vm107_endpoint_path: /api/v1/intelligence_feed/macro
@@ -21,27 +37,41 @@ parameters:
 - name: state
   type: string
   required: true
-  description: 'Trading state — one of: pre / open / active_supervision / mid / close
-    / review. State gates which categories are surfaced (e.g. CLOSE state suppresses
-    forward-looking OPEN items).'
+  description: >-
+    Trading state — one of: pre / open / active_supervision / mid / close / review.
+    State gates which categories are surfaced (e.g. CLOSE state suppresses
+    forward-looking OPEN items).
 - name: account
   type: integer
   required: false
-  description: 'Account ID — if provided, filters to instruments on the account watchlist.
-    If omitted, returns global macro context.'
+  description: >-
+    Account ID — if provided, filters to instruments on the account watchlist.
+    If omitted, returns global macro context.
 return_type: list
-return_shape: 'list[IntelligenceFeedItem] (category=''macro'')'
+return_shape: "list[IntelligenceFeedItem] (category='macro')"
 return_on_error: empty_list
 error_modes:
 - code: empty_list
   http_status: 200
-  description: 'No macro items available — returns empty list. Never 4xx/5xx for empty
-    feed state.'
+  description: >-
+    No macro items available — returns empty list. Never 4xx/5xx for empty
+    feed state.
+- code: last_known_good
+  http_status: 200
+  description: >-
+    Composer failure (H1 degradation path) — returns last-known-good snapshot
+    from Redis or Postgres. _demo=False, degraded=True in the envelope.
+- code: demo_fallback
+  http_status: 200
+  description: >-
+    H2 kill-switch only: _demo=True when payload.source == 'vm107.macro_emitter.demo_fallback'.
+    Indicates admin manually activated the kill-switch. All other degradation paths
+    return _demo=False (Pitfall 12 compliance).
 max_items: 10
 item_ordering: relevance_score DESC
 item_category: macro
 location:
-  source: VM107/tools/proxies/vm107_intelligence_feed_macro.py
+  source: VM107/emitters/intelligence_feed_macro_composer.py + VM107/emitters/macro_emitter.py
   endpoint: VM107/api/v1/intelligence_feed/macro
   contracts:
     request: params(state)
@@ -51,9 +81,7 @@ contracts:
 consumed_by:
 - vm100.ws.mission_control
 - vm100.mission_control.intelligence_feed_composer
-# Soft dependencies (referenced design intent — not yet in registry).
-# Re-add to dependencies list once each capability ships a YAML entry:
-#   - vm107.services.novelty_engine
+- vm100.aggregator.macro_panel
 dependencies:
   - vm100.analytics_calendar
 related_capabilities:
@@ -61,18 +89,28 @@ related_capabilities:
 - vm107.narratives.global
 - vm102.regime_current
 - vm100.analytics_calendar
+- vm101.fred_calendar
+- vm107.novelty_engine
 forward_compat:
-  macro_alert: 'candidate plan 66-24 — push MACRO_EVENT interrupt to narrative emitter
-    when high-impact item crosses 30m threshold'
-  macro_history: 'candidate plan 66-25 — macro feed history for timeline review'
-phase: 66
+  macro_alert: >-
+    candidate plan 66-24 — push MACRO_EVENT interrupt to narrative emitter
+    when high-impact item crosses 30m threshold
+  macro_history: >-
+    candidate plan 66-25 — macro feed history for timeline review
 tags:
 - phase-66
+- phase-83
 - mission-control
 - intelligence-feed
 - macro
 - composer
 - forward-looking
+- decision-D1
+- decision-F1
+- decision-G1
+- decision-G2
+- decision-H1
+- decision-H2
 hard_scoped: true
 impact_on_decision: HIGH
 allowed_agent_profiles:
@@ -80,7 +118,7 @@ allowed_agent_profiles:
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---
-typical_confidence: 0.72   # Reasoning: macro intelligence feed aggregates economic calendar + regime data; LLM novelty-gated enrichment
-expected_freshness_seconds: 120   # Reasoning: macro context refreshed on intelligence cycle; 120s covers emitter polling interval
-is_deterministic: false   # Reasoning: deterministic base always produced; LLM enrichment when novelty threshold crossed introduces non-determinism
-version: "1.0.0"   # Reasoning: initial release; emitter introduced Phase 66
+typical_confidence: 0.75   # Reasoning: LLM enrichment (non-deterministic) adds uncertainty vs pure ingestion; deterministic base always produced
+expected_freshness_seconds: 60   # Reasoning: OPEN cadence emitter; 60s covers one emit cycle
+is_deterministic: false   # Reasoning: LLM enrichment when novelty threshold crossed introduces non-determinism; deterministic fallback available
+version: "2.0.0"   # Reasoning: major bump — pull model (Phase 65 demo) to push model (Phase 83 emitter); Phase 83 ships fully real composer+emitter

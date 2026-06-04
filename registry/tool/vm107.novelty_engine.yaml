@@ -1,0 +1,98 @@
+id: vm107.novelty_engine
+type: tool
+status: real
+shipped: "83"
+last_changed: "2026-06-04"
+name: vm107.novelty_engine
+description: >-
+  VM107 NoveltyEngine V1 — shared in-process Python scorer for all VM107 emitters.
+  Computes per-payload novelty scores to gate LLM enrichment. Phase 66 Lock E1:
+  NoveltyScore is ALWAYS deterministic, NEVER LLM-supplied. Phase 66 Lock E2:
+  NoveltyEngine colocated in VM107/lib/ as shared infra — no per-emitter drift.
+
+  5 dimensions (per Phase 83 Plan 08):
+  - macro (LIVE): Scores macro economic events by time-to-release, release type
+    weight, and indicator tier. Fully implemented.
+  - regime (STUB): Scores regime-change novelty. NotImplementedError — pending
+    Phase 83.x integration with vm102.regime_current.
+  - structural (STUB): Scores structural market events (BOS/CHoCH etc.).
+    NotImplementedError — pending Phase 84 structural event integration.
+  - volatility (STUB): Scores volatility regime shifts. NotImplementedError —
+    pending Phase 84 volatility integration.
+  - behavioral (STUB): Scores behavioral pattern novelty. NotImplementedError —
+    pending Phase 62 integration.
+
+  status=real: Engine infrastructure + dimension dispatch is LIVE. 1/5 dimensions
+  (macro) is fully implemented. The 4 stub dimensions raise NotImplementedError
+  but this does NOT make the engine itself stub-status. Callers guard via try/except.
+
+  In-process Python API only (vm107_endpoint_path=null, http_method=null).
+  NoveltyEngine is consumed by intelligence_feed_macro_composer.py at call time.
+capability_type: scorer
+vm: vm107
+vm107_endpoint_path: null
+http_method: null
+parameters:
+- name: dimension
+  type: string
+  required: true
+  description: >-
+    Scoring dimension — one of: macro, regime, structural, volatility, behavioral.
+    Only 'macro' is LIVE; others raise NotImplementedError.
+- name: payload
+  type: object
+  required: true
+  description: >-
+    Payload object to score. Shape depends on dimension (e.g., EconomicEvent
+    for macro dimension).
+- name: threshold
+  type: float
+  required: false
+  default: 0.5
+  description: >-
+    Novelty threshold for threshold_crossed flag. Score >= threshold → True.
+    Callers use threshold_crossed to gate LLM enrichment.
+return_type: NoveltyScore
+return_shape: >-
+  NoveltyScore{score, contributing_factors[], threshold_crossed, reason_codes[]}
+return_on_error: raises_not_implemented
+error_modes:
+- code: not_implemented
+  http_status: null
+  description: >-
+    Four stub dimensions (regime, structural, volatility, behavioral) raise
+    NotImplementedError. Callers wrap in try/except and fall back gracefully.
+location:
+  source: VM107/lib/novelty_engine/
+  endpoint: null
+  contracts:
+    request: NoveltyEngine.score(dimension, payload, threshold)
+    response: NoveltyScore
+consumed_by:
+- vm107.intelligence_feed.macro
+related_capabilities:
+- vm107.intelligence_feed.macro
+tags:
+- phase-83
+- scorer
+- novelty
+- deterministic
+- decision-E1
+- decision-E2
+- in-process
+- dim:macro
+- dim:regime
+- dim:structural
+- dim:volatility
+- dim:behavioral
+hard_scoped: true
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+- agent_zero
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 1.0   # Reasoning: Phase 66 Lock E1 — NoveltyScore is ALWAYS deterministic, NEVER LLM-supplied; pure deterministic scorer
+expected_freshness_seconds: 0   # Reasoning: in-process Python API; no network or I/O; score computed synchronously at call time
+is_deterministic: true   # Reasoning: same payload + same dimension params → same NoveltyScore; Phase 66 Lock E1
+version: "1.0.0"   # Reasoning: initial release; Phase 83 Plan 08 ships V1

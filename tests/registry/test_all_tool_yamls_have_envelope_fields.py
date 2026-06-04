@@ -25,7 +25,7 @@ from pathlib import Path
 import yaml
 
 TOOL_YAML_DIR = Path(__file__).resolve().parents[2] / "registry" / "tool"
-EXPECTED_TOOL_COUNT = 53
+EXPECTED_TOOL_COUNT = 55  # Updated by Phase 83 Plan 12: +2 new YAMLs (vm101.fred_calendar, vm107.novelty_engine)
 SEMVER_LITE_PATTERN = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 
