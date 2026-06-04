@@ -97,7 +97,7 @@ services:
       dockerfile: DockerfileLocal
     image: vm107-agent-zero:local
     restart: unless-stopped
-    command: python -m emitters.intelligence_feed_macro_emitter
+    command: /opt/venv-a0/bin/python -m emitters.intelligence_feed_macro_emitter
     ports:
       - "${MACRO_EMITTER_HEALTHZ_HOST_PORT:-8090}:${MACRO_EMITTER_HEALTHZ_PORT:-8090}"
     env_file:
@@ -127,6 +127,10 @@ services:
     volumes:
       - ./usr:/a0/usr
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./emitters:/a0/emitters:ro
+      - ./services:/a0/services:ro
+      - ./lib:/a0/lib:ro
+      - ./core:/a0/core:ro
     depends_on:
       vm107-redis:
         condition: service_healthy

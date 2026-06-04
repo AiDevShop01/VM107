@@ -73,9 +73,10 @@ class SnapshotHTTPWriter:
         """
         now = datetime.now(timezone.utc).isoformat()
 
-        # Support both Pydantic v1 (.dict()) and v2 (.model_dump())
+        # Support both Pydantic v1 (.dict()) and v2 (.model_dump()).
+        # mode='json' coerces UUID/datetime/etc. into JSON-safe primitives.
         payload_dict = (
-            envelope.model_dump()
+            envelope.model_dump(mode="json")
             if hasattr(envelope, "model_dump")
             else envelope.dict()
         )
@@ -132,9 +133,9 @@ class SnapshotRedisCache:
         Logs a warning on Redis error (never raises — hot path is best-effort).
         """
         key = f"macro_emitter:latest:{state}"
-        # Support both Pydantic v1 and v2
+        # Support both Pydantic v1 and v2 (mode='json' makes UUIDs/datetimes JSON-safe)
         value = (
-            json.dumps(envelope.model_dump())
+            json.dumps(envelope.model_dump(mode="json"))
             if hasattr(envelope, "model_dump")
             else envelope.json()
         )
