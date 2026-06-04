@@ -84,4 +84,3 @@ def test_vm107_intelligence_feed_macro_yaml_updated_for_phase83():
         f"vm107.intelligence_feed.macro.yaml has shipped={shipped!r}, expected >= 83. "
         "Wave 6 Plan 12 must update the shipped field to reflect Phase 83 changes."
     )
-    pytest.fail("RED skeleton — Wave 6 Plan 12 will GREEN this")
