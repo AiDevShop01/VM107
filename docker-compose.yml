@@ -117,6 +117,10 @@ services:
       MACRO_EMITTER_MAX_EMISSION_AGE_SEC: "${MACRO_EMITTER_MAX_EMISSION_AGE_SEC:-1200}"
       MACRO_EMITTER_CACHE_TTL_SEC: "${MACRO_EMITTER_CACHE_TTL_SEC:-60}"
       MACRO_EMITTER_INTERRUPT_POLL_SEC: "${MACRO_EMITTER_INTERRUPT_POLL_SEC:-1.0}"
+      # Phase 83.1 — calendar lookahead window. 24h is fine for active FRED
+      # release days; widen to 168h (7d) for quiet stretches so MACRO tab
+      # never goes empty just because no event is in the next 24h.
+      MACRO_EMITTER_LOOKAHEAD_HOURS: "${MACRO_EMITTER_LOOKAHEAD_HOURS:-168}"
       # Per-state cadence overrides (default values documented in conf/macro_emitter_env.example)
       MACRO_EMITTER_CADENCE_PRE_SEC: "${MACRO_EMITTER_CADENCE_PRE_SEC:-300}"
       MACRO_EMITTER_CADENCE_OPEN_SEC: "${MACRO_EMITTER_CADENCE_OPEN_SEC:-60}"

@@ -29,6 +29,7 @@ Architecture locks:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -135,8 +136,12 @@ class IntelligenceFeedMacroComposer:
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
-        # Fetch calendar items via HTTP client (Surgery 1)
-        raw_items = self._calendar_client.fetch_upcoming(hours=24)
+        # Fetch calendar items via HTTP client (Surgery 1).
+        # Window configurable via env var so operators can widen during quiet
+        # FRED-release stretches (weekends, holidays); default 24h preserves
+        # original behavior for normal trading days.
+        lookahead = int(os.environ.get("MACRO_EMITTER_LOOKAHEAD_HOURS", "24"))
+        raw_items = self._calendar_client.fetch_upcoming(hours=lookahead)
 
         macro_items: list[MacroItem] = []
         decision_model_id: Optional[str] = None
