@@ -138,9 +138,10 @@ class IntelligenceFeedMacroComposer:
 
         # Fetch calendar items via HTTP client (Surgery 1).
         # Window configurable via env var so operators can widen during quiet
-        # FRED-release stretches (weekends, holidays); default 24h preserves
-        # original behavior for normal trading days.
-        lookahead = int(os.environ.get("MACRO_EMITTER_LOOKAHEAD_HOURS", "24"))
+        # FRED-release stretches (weekends, holidays). Default 168h (7d) matches
+        # the docker-compose env default so unit tests and production agree;
+        # tighten via MACRO_EMITTER_LOOKAHEAD_HOURS for active-release days.
+        lookahead = int(os.environ.get("MACRO_EMITTER_LOOKAHEAD_HOURS", "168"))
         raw_items = self._calendar_client.fetch_upcoming(hours=lookahead)
 
         macro_items: list[MacroItem] = []
