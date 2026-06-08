@@ -4,6 +4,12 @@ services:
     container_name: vm107-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # Bucket-A3 (2026-06-08): expose to host so vm100-backend's Phase 74
+    # agent_activity_client can connect via VM107_TELEMETRY_REDIS_URL.
+    # Without this the client raises RuntimeError on init and the entire
+    # agent telemetry channel is disabled.
+    ports:
+      - "${VM107_REDIS_HOST_PORT:-6380}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
