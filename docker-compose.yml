@@ -38,6 +38,12 @@ services:
       # Make fingpt_core importable from VM107 tools/Tier-1 builder.
       # Mounted from sibling Dagster repo at the path below.
       PYTHONPATH: /a0_extras:/a0
+      # 2026-06-11 — point the registry validator at the user overlay only.
+      # The image bakes both an outer vendor tree (`/a0/registry/<type>/`)
+      # AND the FinGPT overlay (`/a0/registry/registry/<type>/`), and Stage 3
+      # validation rejected the duplicate ids the outer tree contributes.
+      # The overlay is the canonical source; the vendor copy is stale.
+      CAPABILITY_REGISTRY_ROOT: /a0/registry/registry
       # Phase 67 Plan 12 — FastMCP server env (fail-fast — Phase 47.3 lock).
       # The ${VAR:?msg} syntax is docker-compose's fail-fast operator: missing
       # env at `docker compose up` aborts with the message. No fallback defaults.
@@ -156,6 +162,106 @@ services:
       retries: 3
     networks:
       - vm107_network
+
+  # ---------------------------------------------------------------------------
+  # Phase 74 — vm107-agent-telemetry-publisher sibling service (2026-06-11)
+  #
+  # Subscribes to the `vm107.agent_telemetry` PubSub channel and aggregates
+  # the per-agent state into the `vm107:agent_telemetry:snapshot` Redis key
+  # that VM100's agent_activity_client reads (Phase 74 Agents panel).
+  #
+  # CLAUDE.md lock: long-running processes ship as a sibling compose service
+  # (mgmt_commands_need_compose_service) — never as a one-off `docker exec`.
+  # ---------------------------------------------------------------------------
+  vm107-agent-telemetry-publisher:
+    container_name: vm107-agent-telemetry-publisher
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m emitters.agent_telemetry_snapshot_publisher
+    ports:
+      - "${AGENT_TELEMETRY_HEALTHZ_HOST_PORT:-8091}:${AGENT_TELEMETRY_HEALTHZ_PORT:-8091}"
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # Inside the docker network, vm107-redis is the broker hostname.
+      # The standalone snapshot reader on VM100 (vm100-backend) reads via
+      # host.docker.internal:6380; that mapping is set in VM100/.env.
+      AGENT_TELEMETRY_REDIS_URL: "${AGENT_TELEMETRY_REDIS_URL:-redis://vm107-redis:6379/0}"
+      AGENT_TELEMETRY_PUBLISH_INTERVAL_SEC: "${AGENT_TELEMETRY_PUBLISH_INTERVAL_SEC:-5}"
+      AGENT_TELEMETRY_HEALTHZ_PORT: "${AGENT_TELEMETRY_HEALTHZ_PORT:-8091}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./emitters:/a0/emitters:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:${AGENT_TELEMETRY_HEALTHZ_PORT:-8091}/healthz')"
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    networks:
+      - vm107_network
+
+  # ---------------------------------------------------------------------------
+  # Phase 85 Plan 10 — vm107-macro-release-event-listener sibling service
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): long-running
+  # processes MUST ship as a docker-compose sibling service.  Phase 74-03 shipped
+  # run_observation_listener without a service and the worker died silently on
+  # every backend restart.  This service applies the fix proactively.
+  #
+  # Subscribes to Redis ``macro.release_events`` channel (Phase 83 producer).
+  # On each release event: Brain creates macro_release_analysis goal + 3 tasks.
+  #
+  # Restart after env changes (NEVER use `docker restart` — it ignores env_file edits):
+  #   docker compose up -d --force-recreate --no-deps vm107-macro-release-event-listener
+  # ---------------------------------------------------------------------------
+  vm107-macro-release-event-listener:
+    container_name: vm107-macro-release-event-listener
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m listeners.macro_release_event_listener
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # REDIS_URL — required, fail-fast (env-driven-no-fallbacks lock).
+      # Points at the vm107-redis service inside the docker network.
+      REDIS_URL: "${REDIS_URL:?REDIS_URL is required (Phase 85 Plan 10 — macro release event subscriber)}"
+      # PHASE85_RELEASE_TOPIC — the Redis topic name published by Phase 83.
+      # Canonical default: macro.release_events. Override only if Phase 83
+      # changes the channel name.
+      PHASE85_RELEASE_TOPIC: "${PHASE85_RELEASE_TOPIC:-macro.release_events}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+    depends_on:
+      vm107:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-macro-release-event-listener"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=85"
 
 volumes:
   redis_data:
