@@ -1,0 +1,64 @@
+# vm107.macro_release_analyst — Phase 85 Plan 08b
+#
+# Leaf agent: produces What Happened + Why It Matters + regime_impact_label
+# for a single FRED release event. Invoked by Wave-3 fan-out after a
+# macro.release_events Redis message fires.
+#
+# Key wiring:
+# - Slot 30 fail-fast: vm107.macro_* prefix triggers assert_router_reachable()
+#   at agent_init via _30_phase85_router_fail_fast.py (Plan 85-01).
+# - Slot 20 B1: vm107.macro_* prefix triggers PersistReasoningArtifact at
+#   reasoning_stream_end (Plan 85-02). artifact_id stored via set_data("last_b1_artifact_id").
+# - Phase 70.5 ToolResultEnvelope wraps output (envelope_type field below).
+# - Persistence: output written to economic_event_analysis table via
+#   persistence/economic_event_analysis.upsert() (Plan 85-08a).
+#
+# D2 lock (REQ-85-7): NO tier-1 deterministic fallback. LLM failure raises loudly.
+# Do NOT add tier-1 fallback without a phase decision.
+#
+# Common fields (from _phase85_common.yaml — inlined; yaml.safe_load does not
+# support YAML merge keys without custom constructors):
+
+id: vm107.macro_release_analyst
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-12"
+name: vm107.macro_release_analyst
+description: >-
+  Phase 85 event-driven release analyst — produces What Happened + Why It Matters
+  + regime_impact_label for a single FRED release. REQ-85-2 (60s budget), REQ-85-4 (B1),
+  REQ-85-5 (citations), REQ-85-7 (router fail-fast).
+
+prompt: VM107/prompts/macro_release_analyst.md
+
+allowed_tools:
+  - vm102.indicator_history
+  - vm102.indicator_releases
+  - vm102.indicator_distribution
+  - vm102.indicator_regime
+  - lookup_reasoning_artifact
+  - lookup_capability
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+max_iterations: 5
+max_cost_usd: 0.25
+impact_on_decision: HIGH
+
+model_routing:
+  prefer_tier: 2
+  fallback_tier: 3
+
+# Phase 70.5 envelope wiring (slot-30 router affinity — Plan 85-01)
+router_affinity: vm107.macro
+envelope_type: ToolResultEnvelope
+
+output_schema:
+  what_happened: str
+  why_it_matters: str
+  regime_impact_label: "enum[INFLATIONARY, DEFLATIONARY, NEUTRAL, DOVISH, HAWKISH, EXPANSIONARY, CONTRACTIONARY]"
+  citations: "list[CitationRef]"

@@ -97,6 +97,9 @@ class PersistReasoningArtifact(Extension):
             with conn, conn.cursor() as cur:
                 cur.execute(INSERT_SQL, params)
             conn.close()
+            # Propagate artifact_id to agent.data so Phase 71 envelope consumers
+            # (and Plan 85-08b test_agent_envelope_b1_persisted) can reference B1 row.
+            agent.set_data("last_b1_artifact_id", params["artifact_id"])
         except Exception as exc:
             # B1 is observability — must NOT crash the agent loop.
             # Log loudly (ERROR) so Wave 6 stability watch detects B1 outages.

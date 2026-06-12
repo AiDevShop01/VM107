@@ -1,0 +1,37 @@
+# _phase85_common.yaml — Phase 85 shared agent profile fields
+#
+# Contains the shared sub-fields reused across all vm107.macro_* agents in Phase 85.
+# Profile loader (VM107) uses Python yaml.safe_load; YAML merge keys (<<) are NOT
+# supported by yaml.safe_load when loaded as raw dicts.
+#
+# Usage: Copy/reference these fields into each Phase 85 macro_* profile YAML.
+# When extending, inline these fields in the target profile — do NOT use YAML anchors
+# (yaml.safe_load does not support merge keys without yaml.add_constructor).
+#
+# Plan 85-15 (macro_indicator_describer) inlined these fields before this file
+# shipped. Those profiles should be left as-is; the canonical values below are
+# the reference for any new Wave-3+ profiles.
+#
+# Fields defined here:
+#   impact_on_decision: HIGH
+#   denied_tools: [call_subordinate, code_execution_tool, trade_execution_tool]
+#   model_routing.prefer_tier: 2
+#   model_routing.fallback_tier: 3
+#   max_iterations: 5
+#   max_cost_usd: 0.25
+#   router_affinity: vm107.macro
+#   envelope_type: ToolResultEnvelope
+
+_phase85_common:
+  impact_on_decision: HIGH
+  denied_tools:
+    - call_subordinate
+    - code_execution_tool
+    - trade_execution_tool
+  model_routing:
+    prefer_tier: 2
+    fallback_tier: 3
+  max_iterations: 5
+  max_cost_usd: 0.25
+  router_affinity: vm107.macro
+  envelope_type: ToolResultEnvelope
