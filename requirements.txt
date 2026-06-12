@@ -72,3 +72,6 @@ cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
 werkzeug>=3.0.3  # security floor: RCE CWE-94
 # Phase 43.2 — structured output Stage 2 repair
 json-repair>=0.59,<1.0
+# Phase 85 Plan 01 — psycopg2 direct connection to tradetracker_analytics / tradetracker
+# get_analytics_conn() and get_default_conn() in services/postgres_analytics_client.py
+psycopg2-binary>=2.9.0
