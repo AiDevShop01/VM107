@@ -1,0 +1,73 @@
+# vm107.macro_executive_summary_writer — Phase 85 Plan 09
+#
+# Composer agent: stitches macro_release_analyst + macro_asset_exposure_analyst
+# outputs into a single ~50-word Hero Card AI executive summary.
+# Third and final Phase 85 agent — fires LAST per Brain task DAG.
+# WS publish (Plan 85-11) fires AFTER this agent completes.
+#
+# Key wiring:
+# - Slot 30 fail-fast: vm107.macro_* prefix triggers assert_router_reachable()
+#   at agent_init via _30_phase85_router_fail_fast.py (Plan 85-01).
+# - Slot 20 B1: vm107.macro_* prefix triggers PersistReasoningArtifact at
+#   reasoning_stream_end (Plan 85-02). artifact_id stored via set_data("last_b1_artifact_id").
+# - Phase 70.5 ToolResultEnvelope wraps output (envelope_type field below).
+# - Persistence: output written to economic_event.ai_executive_summary via
+#   persistence/economic_event_summary.write_summary() (this plan).
+#
+# Composer-only design — pure stitching. NO vm102 tool calls.
+# vm102.indicator_history + vm102.indicator_asset_exposure are in denied_tools
+# because the upstream agents already fetched this data; re-fetching wastes the
+# 60s REQ-85-2 budget.
+#
+# D2 lock (REQ-85-7): NO tier-1 deterministic fallback. Graceful degradation
+# on missing upstream: returns low-confidence "Awaiting" envelope instead of
+# blocking. Does NOT raise if upstream missing.
+#
+# Tighter cost cap than upstream agents (max_cost_usd=0.10 vs 0.25) because
+# composing structured inputs is significantly cheaper than multi-turn analysis.
+#
+# Common fields (from _phase85_common.yaml — inlined; yaml.safe_load does not
+# support YAML merge keys without custom constructors):
+
+id: vm107.macro_executive_summary_writer
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-12"
+name: vm107.macro_executive_summary_writer
+description: >-
+  Phase 85 — composes Hero Card 50-word executive summary from release_analyst +
+  asset_exposure_analyst outputs. REQ-85-2 (60s budget), REQ-85-4 (B1),
+  REQ-85-5 (citations), REQ-85-7 (router fail-fast). Composer-only; no VM102 re-fetch.
+
+prompt: VM107/prompts/executive_summary_writer.md
+
+allowed_tools:
+  - lookup_reasoning_artifact   # B1 chain resolution — read upstream B1 artifacts
+  - lookup_capability            # registry lookups only
+
+denied_tools:
+  - call_subordinate             # composer does NOT spawn sub-agents
+  - code_execution_tool
+  - trade_execution_tool
+  - vm102.indicator_history      # composer does NOT re-fetch; works from upstream outputs only
+  - vm102.indicator_asset_exposure  # same — no new VM102 tool calls in this agent
+  - vm102.indicator_releases
+  - vm102.indicator_distribution
+  - vm102.indicator_regime
+
+max_iterations: 3                # composer is constrained — input is already structured
+max_cost_usd: 0.10               # tighter cap than upstream agents (0.25)
+impact_on_decision: HIGH
+
+model_routing:
+  prefer_tier: 2
+  fallback_tier: 3
+
+# Phase 70.5 envelope wiring (slot-30 router affinity — Plan 85-01)
+router_affinity: vm107.macro
+envelope_type: ToolResultEnvelope
+
+output_schema:
+  executive_summary: str         # ~50 words single paragraph (target 50, range 35-65)
+  citations: "list[CitationRef]" # stitched from upstream; deduplicated by citation_id
