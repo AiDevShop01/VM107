@@ -78,6 +78,13 @@ class BrainOrchestrator:
     DecompositionEngine, GovernanceMatrix, and DAGValidator — a deep dependency
     graph that cannot be satisfied without a running MongoDB + Redis. BrainOrchestrator
     collapses this complexity behind the 4-method interface above.
+
+    Phase 85 Plan 11 — Completion hooks (Approach B):
+    ``register_completion_hook(goal_id, fn)`` stores a zero-arg callable.
+    ``notify_goal_completed(goal_id)`` fires the hook if one is registered.
+    Called externally by the scheduler / worker after GoalService.complete_goal()
+    transitions the goal to COMPLETED. The caller (macro_release_event_listener)
+    registers the WS publish hook immediately after create_macro_release_goal returns.
     """
 
     def __init__(self, goal_service, task_service=None, event_goal_index: dict | None = None):
@@ -93,6 +100,8 @@ class BrainOrchestrator:
         self._goal_service = goal_service
         self._task_service = task_service
         self._event_goal_index: dict[str, str] = event_goal_index if event_goal_index is not None else {}
+        # Phase 85 Plan 11 — per-goal completion hooks (Approach B)
+        self._completion_hooks: dict[str, list[Any]] = {}
 
     def find_goal_by_event_id(self, event_id: str) -> str | None:
         return self._event_goal_index.get(event_id)
@@ -175,6 +184,44 @@ class BrainOrchestrator:
                 "error": str(exc),
             })
 
+    # ------------------------------------------------------------------
+    # Phase 85 Plan 11 — Completion hooks (Approach B)
+    # ------------------------------------------------------------------
+
+    def register_completion_hook(self, goal_id: str, fn: Any) -> None:
+        """Register a zero-arg callable to invoke when goal_id completes.
+
+        Called immediately after create_macro_release_goal() so the WS
+        publisher is wired before any task can complete.
+
+        Args:
+            goal_id: Goal identifier (returned by create_goal).
+            fn: Zero-argument callable; invoked by notify_goal_completed().
+        """
+        hooks = self._completion_hooks.setdefault(goal_id, [])
+        hooks.append(fn)
+        logger.debug({"event": "macro_release_goal_hook_registered", "goal_id": goal_id})
+
+    def notify_goal_completed(self, goal_id: str) -> None:
+        """Fire any completion hooks registered for goal_id.
+
+        Should be called by the scheduler/worker after GoalService transitions
+        goal to COMPLETED. Safe no-op if no hook is registered.
+
+        Args:
+            goal_id: Goal identifier.
+        """
+        hooks = self._completion_hooks.pop(goal_id, [])
+        for fn in hooks:
+            try:
+                fn()
+            except Exception as exc:  # noqa: BLE001
+                logger.error({
+                    "event": "macro_release_goal_hook_error",
+                    "goal_id": goal_id,
+                    "error": str(exc),
+                })
+
 
 # ---------------------------------------------------------------------------
 # Module-level singleton orchestrator (lazy-initialized for production)
@@ -221,6 +268,7 @@ def create_macro_release_goal(
     indicator_id: str,
     *,
     orchestrator: BrainOrchestratorProtocol | None = None,
+    on_complete: Any | None = None,
 ) -> str:
     """Create a macro_release_analysis goal with 3 child tasks.
 
@@ -232,12 +280,22 @@ def create_macro_release_goal(
     Idempotent: if a goal for (event_id) already exists, returns the existing
     goal_id without creating duplicate tasks or dispatching again.
 
+    Phase 85 Plan 11 — Approach B completion hook:
+        If ``on_complete`` is provided AND the orchestrator supports
+        ``register_completion_hook``, the callable is registered so the WS
+        publisher fires when the scheduler calls
+        ``orchestrator.notify_goal_completed(goal_id)``.
+
     Args:
         event_id:     Unique identifier for this release event.
                       Callers derived from payload as ``f"{indicator_id}:{release_timestamp}"``.
         indicator_id: FRED series code (e.g. "CPIAUCSL").
         orchestrator: BrainOrchestrator instance. If None, uses the module-level
                       default (configure_default_orchestrator must have been called).
+        on_complete:  Optional zero-arg callable invoked after all 3 tasks complete.
+                      Wired to ``orchestrator.register_completion_hook(goal_id, fn)``
+                      if the orchestrator exposes that method. Used by Plan 85-11
+                      to publish the WS invalidation event.
 
     Returns:
         str: goal_id of the created (or existing) goal.
@@ -284,6 +342,14 @@ def create_macro_release_goal(
         profile_id="vm107.macro_executive_summary_writer",
         depends_on=[task1_id, task2_id],
     )
+
+    # --- Register completion hook (Approach B, Plan 85-11) ---
+    if on_complete is not None and hasattr(orc, "register_completion_hook"):
+        orc.register_completion_hook(goal_id, on_complete)
+        logger.info({
+            "event": "macro_release_goal_completion_hook_registered",
+            "goal_id": goal_id,
+        })
 
     # --- Dispatch: scheduler picks up ready tasks ---
     orc.dispatch(goal_id)
