@@ -172,7 +172,7 @@ class TestCreateMacroReleaseGoalDispatch:
         orc.find_goal_by_event_id.return_value = None
         orc.create_goal.return_value = "goal_abc123"
 
-        def _add_task_side_effect(**kwargs):
+        def _add_task_side_effect(goal_id, **kwargs):
             call_order.append(f"add_task:{kwargs['profile_id']}")
             return f"task_{len(call_order):03d}"
 
