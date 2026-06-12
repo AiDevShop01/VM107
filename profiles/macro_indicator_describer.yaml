@@ -1,0 +1,36 @@
+# vm107.macro_indicator_describer — Phase 85 Plan 15
+#
+# Leaf agent: generates "What Is It / Why Important / Why Traders Care" narrative
+# for each EconomicIndicator entry. Invoked once per indicator at backfill time
+# (backfill/backfill_indicator_descriptions.py). Output persisted to
+# EconomicIndicator.ai_description JSONB column. Not invoked at page render time.
+#
+# Design rationale (D8 lock, CONTEXT.md 19:59):
+# - Descriptions are editorial/stable — NOT regime-aware, NOT live-data-dependent
+# - Cost amortizes to zero post-launch; manual override locks re-backfill
+# - Profile qualifies for slot-30 fail-fast (vm107.macro_* prefix — Plan 85-01)
+# - B1 reasoning artifact written per invocation (vm107.macro_* prefix — Plan 85-02)
+# - Phase 70.5 ToolResultEnvelope wraps output
+#
+# Note: _phase85_common.yaml (Plan 85-08b Wave 3) not yet shipped.
+# Common fields are inlined here — extends-chain can be added in Wave 3 consolidation.
+
+id: vm107.macro_indicator_describer
+type: agent_profile
+prompt: prompts/macro_indicator_describer.md
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+
+max_iterations: 3
+max_cost_usd: 0.10
+impact_on_decision: LOW
+
+# Phase 70.5 envelope wiring (router affinity — Plan 85-01 slot 30 pattern)
+router_affinity: vm107.macro
+envelope_type: ToolResultEnvelope

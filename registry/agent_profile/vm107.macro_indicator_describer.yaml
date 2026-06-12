@@ -1,0 +1,52 @@
+id: vm107.macro_indicator_describer
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-12"
+name: vm107.macro_indicator_describer
+description: >
+  Phase 85 Plan 15. Generates "What Is It / Why Important / Why Traders Care"
+  narrative for each EconomicIndicator. Backfill harness invokes once per indicator
+  (64 invocations baseline); manual override locks future re-runs.
+  Output persisted to EconomicIndicator.ai_description JSONB column.
+  Leaf agent — no subordinate delegation, no code execution, no live data access.
+  Profile qualifies for slot-30 router fail-fast (vm107.macro_* prefix, Plan 85-01)
+  and B1 reasoning artifact write (Plan 85-02).
+capability_type: agent
+vm: vm107
+allowed_tools:
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+max_iterations: 3
+max_cost_usd: 0.10
+impact_on_decision: LOW
+typical_confidence: 0.80
+expected_freshness_seconds: 86400
+is_deterministic: false
+version: "1.0.0"
+phase: 85
+parent_profile: null
+hard_scoped: false
+sub_profiles: []
+constitutional_skills:
+  - citation-discipline
+memory_scope:
+  account_scope: none
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-12"
+    change: "Phase 85 Plan 15 — initial release as macro indicator describer"
+tags:
+  - agent-profile
+  - macro
+  - phase-85
+  - backfill
+  - editorial
+deprecated: false
