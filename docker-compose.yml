@@ -251,6 +251,7 @@ services:
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
       - ./listeners:/a0/listeners:ro
       - ./core:/a0/core:ro
+      - ./config/templates:/a0/config/templates:ro
     depends_on:
       vm107:
         condition: service_healthy

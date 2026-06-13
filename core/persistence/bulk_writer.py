@@ -62,13 +62,17 @@ class TieredBulkWriter:
         """
         Write critical update immediately to MongoDB.
 
+        Uses upsert so first-create paths (GoalService.create_goal,
+        BrainOrchestrator.add_task) actually persist new documents.
+
         Args:
             doc_id: Document ID
             updates: Fields to update
         """
         self.collection.update_one(
             {"_id": doc_id},
-            {"$set": updates}
+            {"$set": updates},
+            upsert=True,
         )
 
     def write_important(self, doc_id: str, updates: Dict[str, Any]) -> None:

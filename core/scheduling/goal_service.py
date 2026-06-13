@@ -538,6 +538,8 @@ class GoalService:
         if not goal_dict:
             raise GoalServiceError(f"Goal {goal_id} not found")
 
+        # Strip Mongo-managed `_id` so Pydantic GoalModel (extra=forbid) parses cleanly.
+        goal_dict.pop("_id", None)
         return GoalModel(**goal_dict)
 
     def _count_active_goals(self, goal_type: GoalType) -> int:

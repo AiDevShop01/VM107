@@ -44,8 +44,13 @@ import json
 import logging
 import os
 import signal
+import time
 
-from core.scheduling.macro_release_goal import create_macro_release_goal
+from core.scheduling.macro_release_goal import (
+    configure_default_orchestrator,
+    create_macro_release_goal,
+)
+from core.scheduling.orchestrator_factory import build_default_orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +125,21 @@ def main() -> None:
     # targets credentials and service URLs — not topic routing constants.
     topic = os.environ.get("PHASE85_RELEASE_TOPIC", "macro.release_events")
 
+    # Phase 85 Plan 10/11 — wire the production BrainOrchestrator before the
+    # first message arrives. Plan 85-10's handoff note required this; we land
+    # it here so the module-level default is set before pubsub.listen() fires.
+    configure_default_orchestrator(build_default_orchestrator())
+
     import redis as redis_lib
 
-    r = redis_lib.from_url(redis_url)
+    # socket_keepalive keeps the long-lived pubsub connection alive across
+    # NAT/firewall idle drops in Docker bridge networks. Explicit timeout=None
+    # ensures listen() blocks indefinitely instead of raising TimeoutError.
+    r = redis_lib.from_url(
+        redis_url,
+        socket_keepalive=True,
+        socket_timeout=None,
+    )
     pubsub = r.pubsub()
     pubsub.subscribe(topic)
     logger.info({"event": "phase85_listener_started", "topic": topic})
@@ -136,43 +153,66 @@ def main() -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
-    for msg in pubsub.listen():
-        if shutting_down["flag"]:
-            break
-
-        # Ignore Redis control messages (subscribe/psubscribe/unsubscribe)
-        if msg.get("type") != "message":
-            continue
-
+    # Outer reconnect loop: a socket-level failure inside pubsub.listen() must
+    # not kill the worker. Recreate the connection and resume listening.
+    while not shutting_down["flag"]:
         try:
-            raw = msg["data"]
-            # Redis may deliver bytes or str depending on decode_responses setting
-            if isinstance(raw, bytes):
-                raw = raw.decode("utf-8")
-            data = json.loads(raw)
-            _validate_payload(data)
-            event_id = _extract_event_id(data)
-            indicator_id: str = data["indicator_id"]
+            for msg in pubsub.listen():
+                if shutting_down["flag"]:
+                    break
 
-            create_macro_release_goal(
-                event_id=event_id,
-                indicator_id=indicator_id,
-            )
-            logger.info({
-                "event": "phase85_goal_created",
-                "event_id": event_id,
-                "indicator_id": indicator_id,
-            })
+                # Ignore Redis control messages (subscribe/psubscribe/unsubscribe)
+                if msg.get("type") != "message":
+                    continue
+
+                try:
+                    raw = msg["data"]
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8")
+                    data = json.loads(raw)
+                    _validate_payload(data)
+                    event_id = _extract_event_id(data)
+                    indicator_id: str = data["indicator_id"]
+
+                    create_macro_release_goal(
+                        event_id=event_id,
+                        indicator_id=indicator_id,
+                    )
+                    logger.info({
+                        "event": "phase85_goal_created",
+                        "event_id": event_id,
+                        "indicator_id": indicator_id,
+                    })
+
+                except Exception as exc:
+                    raw_preview = str(msg.get("data", ""))[:200]
+                    logger.error({
+                        "event": "phase85_listener_error",
+                        "error": str(exc),
+                        "raw": raw_preview,
+                    })
+                    continue
 
         except Exception as exc:
-            # Any error (JSON decode, validation, Brain goal creation) is
-            # logged and skipped. The subscriber loop MUST NOT crash on bad data.
-            raw_preview = str(msg.get("data", ""))[:200]
-            logger.error({
-                "event": "phase85_listener_error",
+            if shutting_down["flag"]:
+                break
+            logger.warning({
+                "event": "phase85_listener_reconnecting",
                 "error": str(exc),
-                "raw": raw_preview,
             })
+            time.sleep(2)
+            try:
+                pubsub.close()
+                r.close()
+            except Exception:
+                pass
+            r = redis_lib.from_url(
+                redis_url,
+                socket_keepalive=True,
+                socket_timeout=None,
+            )
+            pubsub = r.pubsub()
+            pubsub.subscribe(topic)
             continue
 
     pubsub.close()

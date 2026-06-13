@@ -109,8 +109,11 @@ class BrainOrchestrator:
     def create_goal(self, *, name: str, payload: dict[str, Any]) -> str:
         """Create a GoalService goal and return its goal_id.
 
-        Uses GoalType.EXECUTION with Priority.P2 (macro analysis is high-value
-        but not P1 operational-critical).
+        Uses GoalType.MAINTENANCE with Priority.P2 — macro analysis is
+        system-driven housekeeping (auto-fires from Phase 83 release event),
+        not a trader-initiated action. GovernanceMatrix permits auto_create +
+        auto_approve for MAINTENANCE goals. EXECUTION is reserved for goals
+        that materially act on the broker account.
         """
         from core.scheduling.models import GoalCreateRequest
         from core.scheduling.enums import GoalType, Priority
@@ -121,7 +124,7 @@ class BrainOrchestrator:
                 f"Macro release analysis for event_id={payload.get('event_id', 'unknown')}, "
                 f"indicator={payload.get('indicator_id', 'unknown')}"
             ),
-            goal_type=GoalType.EXECUTION,
+            goal_type=GoalType.MAINTENANCE,
             priority=Priority.P2,
             created_by="vm107.macro_release_event_listener",
             objective_label="macro_intelligence",

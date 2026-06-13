@@ -1,9 +1,13 @@
-id: observation
+id: observation_contract
 type: contract
 status: real
 shipped: 74
 planned_phase: null
-last_changed: "2026-06-03"
+last_changed: "2026-06-11"
+# Stage 2 schema requires `impact_on_decision`. Observations are platform-
+# wide telemetry primitives feeding the user's dashboards; classification
+# MEDIUM (they inform decisions but rarely trigger one directly).
+impact_on_decision: MEDIUM
 
 name: Observation
 description: |
