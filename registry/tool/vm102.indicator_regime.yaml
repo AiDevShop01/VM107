@@ -1,0 +1,57 @@
+id: vm102.indicator_regime
+type: tool
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm102.indicator_regime
+description: >
+  Phase 85 — Current regime bucket and regime history for a FRED indicator.
+  Maps the most recent release value against pre-defined threshold bands
+  (e.g. CPI: DEFLATIONARY / TARGET / ELEVATED / HIGH / EXTREME). Returns
+  the current bucket label + threshold boundaries + rolling regime history
+  (last N readings). Used by vm107.macro_release_analyst for regime_impact_label
+  generation and by the RegimeBucket component on /macro/indicator/[id].
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_regime
+    http_path: /api/v2/indicator/{id}/regime
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: history_limit, type: int, required: false, default: 24, description: "Number of past regime readings to include" }
+    return_shape: "RegimeResponse"
+location:
+  source: VM107/tools/proxies/vm102_indicator_regime.py
+  endpoint: VM102/api/v2/indicator/{id}/regime
+  contracts:
+    request: "params(id, history_limit)"
+    response: "RegimeResponse"
+contracts:
+  response_contract: VM102.backend.contracts.indicator.RegimeResponse
+consumed_by:
+  - vm107.macro_release_analyst
+related_capabilities:
+  - vm102.indicator_history
+  - vm102.indicator_releases
+  - vm102.regime_current
+hard_scoped: false
+impact_on_decision: HIGH
+# allowed_agent_profiles: [] — unrestricted; vm107.macro_release_analyst uses this tool.
+# See vm102.indicator_history for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-85
+  - macro
+  - indicator
+  - regime
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.92   # Reasoning: regime bucket assignment is rule-based and deterministic against threshold config; high accuracy
+expected_freshness_seconds: 300   # Reasoning: regime updates on new release ingest; 5-min window is tight enough for post-release analysis
+is_deterministic: true   # Reasoning: same (id, history_limit) at a given DB state returns same regime classification
+version: "1.0.0"   # Reasoning: Phase 85 initial release

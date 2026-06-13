@@ -1,0 +1,34 @@
+id: vm107.macro_asset_exposure_analyst
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm107.macro_asset_exposure_analyst
+description: >-
+  Phase 85 — per-asset BULL/BEAR/NEUTRAL + strength + confidence from rolling
+  correlation matrix. Invoked in parallel with macro_release_analyst after a
+  macro.release_events Redis message fires. Produces per-asset exposure rows
+  written to economic_event_asset_exposure table. REQ-85-2 (60s budget),
+  REQ-85-4 (B1 reasoning artifact), REQ-85-5 (citations), REQ-85-7 (router
+  fail-fast). Primary tool: vm102.indicator_asset_exposure.
+profile_path: VM107/profiles/macro_asset_exposure_analyst.yaml
+allowed_tools:
+  - vm102.indicator_asset_exposure
+  - vm102.indicator_history
+  - lookup_reasoning_artifact
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+max_iterations: 5
+max_cost_usd: 0.25
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+tags:
+  - agent-profile
+  - macro
+  - phase-85
+  - event-driven
+  - asset-exposure

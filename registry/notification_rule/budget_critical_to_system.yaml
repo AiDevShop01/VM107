@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Critical budget breaches require immediate action — HIGH impact.
+impact_on_decision: HIGH
 
 description: |
   Daily AI budget >= 100% threshold crossed → System P1.

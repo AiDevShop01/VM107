@@ -7,7 +7,7 @@ last_changed: "2026-05-25"
 # Phase 67 Plan 10 — capability declaration for the close-state hero
 # 8-chip composer shipped in Plan 65-06 (DailySummaryService) + re-ordered
 # in Plan 67-10 (LOCKED_CHIP_ORDER_PHASE67 DISCIPLINE-first).
-# Plan 13 promotes status: planned → status: active when the close-state
+# Plan 13 promotes status: stub → status: active when the close-state
 # aggregator wiring lands.
 
 name: vm100.mission_control.daily_summary_service

@@ -7,7 +7,7 @@ last_changed: "2026-05-25"
 # Phase 67 Plan 10 — capability declaration for the CLOSE state
 # surfaced_lesson endpoint shipped in Plan 08
 # (GET /api/mission-control/surfaced-lesson with Option A fallback).
-# Plan 13 promotes status: planned → status: active when WS push wiring lands.
+# Plan 13 promotes status: stub → status: active when WS push wiring lands.
 
 name: vm100.mission_control.surfaced_lesson_service
 description: |

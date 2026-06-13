@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Pipeline issues with no trading impact; informational only — LOW.
+impact_on_decision: LOW
 
 description: |
   Pipeline degradation WITHOUT trading_impact routes to System channel.

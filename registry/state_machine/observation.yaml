@@ -1,4 +1,4 @@
-id: observation
+id: state.observation
 type: state_machine
 status: real
 shipped: 72

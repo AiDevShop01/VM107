@@ -1,0 +1,60 @@
+id: vm102.indicator_history
+type: tool
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm102.indicator_history
+description: >
+  Phase 85 — Historical FRED indicator series with recession/rate-hike/QE regime
+  overlays. Returns a time-series of actual release values + optional overlay bands
+  (recession shading, Fed hike/cut periods, QE window). Used by the HistoricalChart
+  component on /macro/indicator/[id] and by vm107.macro_release_analyst to compute
+  surprise context relative to recent history.
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_history
+    http_path: /api/v2/indicator/{id}/history
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: range, type: string, required: false, default: "5Y", description: "Time range: 1Y, 2Y, 5Y, 10Y, MAX" }
+      - { name: overlays, type: string, required: false, default: "recession,rate_hike,qe", description: "Comma-separated overlay types" }
+    return_shape: "HistoryResponse"
+location:
+  source: VM107/tools/proxies/vm102_indicator_history.py
+  endpoint: VM102/api/v2/indicator/{id}/history
+  contracts:
+    request: "params(id, range, overlays)"
+    response: "HistoryResponse"
+contracts:
+  response_contract: VM102.backend.contracts.indicator.HistoryResponse
+consumed_by:
+  - vm107.macro_release_analyst
+related_capabilities:
+  - vm102.indicator_releases
+  - vm102.indicator_regime
+  - vm102.indicator_distribution
+hard_scoped: false
+impact_on_decision: HIGH
+# allowed_agent_profiles: [] — unrestricted; all vm107.macro_* agents can use this tool.
+# Not scoping to specific Phase 85 profiles because the Stage 5 validator requires
+# allowed_agent_profiles entries to resolve via base-id against registered agent_profile ids.
+# vm107.macro_* agent profiles are registered as dotted ids (e.g. vm107.macro_release_analyst)
+# whose base id 'vm107' is not a standalone agent_profile entry.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-85
+  - macro
+  - indicator
+  - history
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.95   # Reasoning: deterministic DB read of historical FRED data; high fidelity to source
+expected_freshness_seconds: 3600   # Reasoning: FRED indicator history updated at most every release cycle (hours to days); 1h cache is safe
+is_deterministic: true   # Reasoning: same (id, range) at a given DB snapshot always returns same series
+version: "1.0.0"   # Reasoning: Phase 85 initial release

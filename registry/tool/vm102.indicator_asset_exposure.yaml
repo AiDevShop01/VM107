@@ -1,0 +1,57 @@
+id: vm102.indicator_asset_exposure
+type: tool
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm102.indicator_asset_exposure
+description: >
+  Phase 85 — Live rolling correlation matrix for a FRED indicator versus its
+  paired assets (5-7 instruments: USD, Gold, 10Y UST, S&P 500, Oil, etc.).
+  Returns per-asset correlation coefficient + direction sign + strength score
+  computed over a configurable rolling window. Used by vm107.macro_asset_exposure_analyst
+  to produce BULL/BEAR/NEUTRAL + strength + confidence per asset. Also powers the
+  AssetImpactMatrix component on /macro/indicator/[id].
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_asset_exposure
+    http_path: /api/v2/indicator/{id}/asset-exposure
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: window_days, type: int, required: false, default: 90, description: "Rolling correlation window in calendar days (30–365)" }
+    return_shape: "AssetExposureResponse"
+location:
+  source: VM107/tools/proxies/vm102_indicator_asset_exposure.py
+  endpoint: VM102/api/v2/indicator/{id}/asset-exposure
+  contracts:
+    request: "params(id, window_days)"
+    response: "AssetExposureResponse"
+contracts:
+  response_contract: VM102.backend.contracts.indicator.AssetExposureResponse
+consumed_by:
+  - vm107.macro_asset_exposure_analyst
+related_capabilities:
+  - vm102.indicator_history
+  - vm102.indicator_regime
+hard_scoped: false
+impact_on_decision: HIGH
+# allowed_agent_profiles: [] — unrestricted; vm107.macro_asset_exposure_analyst uses this tool.
+# See vm102.indicator_history for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-85
+  - macro
+  - indicator
+  - asset-exposure
+  - correlation
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: rolling Pearson/Spearman correlation is statistically valid but subject to regime shifts; appropriate uncertainty
+expected_freshness_seconds: 3600   # Reasoning: correlation matrix recomputed on OHLC bar ingest; hourly refresh cadence
+is_deterministic: true   # Reasoning: same (id, window_days) at a given OHLC dataset snapshot returns same correlation values
+version: "1.0.0"   # Reasoning: Phase 85 initial release

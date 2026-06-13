@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Default/fallback routing rule; generic system channel — LOW impact.
+impact_on_decision: LOW
 
 description: |
   CATCH-ALL — MUST be last in the NotificationRule chain (lowest precedence).

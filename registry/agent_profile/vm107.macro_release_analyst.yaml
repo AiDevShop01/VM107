@@ -1,0 +1,35 @@
+id: vm107.macro_release_analyst
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm107.macro_release_analyst
+description: >-
+  Phase 85 event-driven release analyst — produces What Happened + Why It Matters
+  + regime_impact_label for a single FRED release. Invoked by Wave-3 Brain fan-out
+  after a macro.release_events Redis message fires. REQ-85-2 (60s budget), REQ-85-4
+  (B1 reasoning artifact), REQ-85-5 (citations), REQ-85-7 (router fail-fast).
+  Slot 30 fail-fast + Slot 20 B1 artifact write wired via vm107.macro_* prefix.
+profile_path: VM107/profiles/macro_release_analyst.yaml
+allowed_tools:
+  - vm102.indicator_history
+  - vm102.indicator_releases
+  - vm102.indicator_distribution
+  - vm102.indicator_regime
+  - lookup_reasoning_artifact
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+max_iterations: 5
+max_cost_usd: 0.25
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+tags:
+  - agent-profile
+  - macro
+  - phase-85
+  - event-driven
+  - release-analyst

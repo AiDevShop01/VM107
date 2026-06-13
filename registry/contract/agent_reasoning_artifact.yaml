@@ -1,0 +1,44 @@
+id: agent_reasoning_artifact
+type: contract
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: ReasoningArtifactContract
+description: |
+  Brain B1 WORM reasoning artifact — one row per agent invocation iteration.
+  Append-only (WORM) — no UPDATE or DELETE ever permitted. Rows capture the
+  full reasoning chain: model input, tool calls, reasoning tokens, response
+  tokens, and optional self-reported confidence. confidence_self_report is
+  nullable in Phase 85; to be populated by future B5 self-evaluation agent.
+  Stored in tradetracker_analytics.agent_reasoning_artifact (analytics DB).
+  Created by Phase 85 Plan 85-02 PersistReasoningArtifact Brain slot.
+owner_vm: vm107
+contract_version: "1.0"
+source_module: vm107.contracts.reasoning_artifact.ReasoningArtifactContract
+worm: true
+fields:
+  - artifact_id
+  - agent_profile_id
+  - sub_profile_id
+  - iteration
+  - parent_envelope_id
+  - reasoning_text
+  - reasoning_tokens
+  - response_text
+  - response_tokens
+  - tool_called
+  - tool_args
+  - timestamp
+  - model_version
+  - prompt_version
+  - confidence_self_report
+  - citations
+impact_on_decision: HIGH
+deprecated: false
+tags:
+  - phase-85
+  - b1
+  - worm
+  - reasoning-artifact
+  - brain
+  - analytics-db

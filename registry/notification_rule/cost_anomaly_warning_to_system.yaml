@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Cost anomaly warnings are informational; resolution is not always immediate.
+impact_on_decision: MEDIUM
 
 description: |
   Cost anomaly WARNING (>= 3x rolling-7d-avg) routes to System P2.

@@ -3,7 +3,10 @@ type: notification_channel
 status: real
 shipped: 74
 planned_phase: null
-last_changed: "2026-06-03"
+last_changed: "2026-06-13"
+# Stage 2 schema requires `impact_on_decision`. Macro economic events and
+# regime-change signals can directly alter trading bias — HIGH impact.
+impact_on_decision: HIGH
 
 display_name: Macro
 badge_color: purple-500

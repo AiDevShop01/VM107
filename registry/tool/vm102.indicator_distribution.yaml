@@ -1,0 +1,56 @@
+id: vm102.indicator_distribution
+type: tool
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm102.indicator_distribution
+description: >
+  Phase 85 — Surprise distribution for a FRED indicator: histogram of
+  (actual - forecast) values across all historical releases. Returns bucketed
+  counts + percentile markers so the macro_release_analyst can contextualise
+  the current surprise magnitude relative to historical norms. Also powers the
+  distribution panel on /macro/indicator/[id].
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_distribution
+    http_path: /api/v2/indicator/{id}/distribution
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: buckets, type: int, required: false, default: 20, description: "Histogram bucket count (5–50)" }
+    return_shape: "DistributionResponse"
+location:
+  source: VM107/tools/proxies/vm102_indicator_distribution.py
+  endpoint: VM102/api/v2/indicator/{id}/distribution
+  contracts:
+    request: "params(id, buckets)"
+    response: "DistributionResponse"
+contracts:
+  response_contract: VM102.backend.contracts.indicator.DistributionResponse
+consumed_by:
+  - vm107.macro_release_analyst
+related_capabilities:
+  - vm102.indicator_releases
+  - vm102.indicator_history
+hard_scoped: false
+impact_on_decision: MEDIUM
+# allowed_agent_profiles: [] — unrestricted; vm107.macro_release_analyst uses this tool.
+# See vm102.indicator_history for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-85
+  - macro
+  - indicator
+  - distribution
+  - surprise
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.90   # Reasoning: computed aggregation from historical releases; accurate but bounded by historical sample size
+expected_freshness_seconds: 1800   # Reasoning: distribution changes only on new releases (weekly to monthly); 30-min cache safe
+is_deterministic: true   # Reasoning: same (id, buckets) at a given DB state yields identical histogram
+version: "1.0.0"   # Reasoning: Phase 85 initial release

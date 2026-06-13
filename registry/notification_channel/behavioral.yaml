@@ -3,7 +3,11 @@ type: notification_channel
 status: real
 shipped: 74
 planned_phase: null
-last_changed: "2026-06-03"
+last_changed: "2026-06-13"
+# Stage 2 schema requires `impact_on_decision`. Behavioral signals inform
+# discipline and risk decisions; classification MEDIUM (they surface patterns,
+# rarely trigger a direct trade decision by themselves).
+impact_on_decision: MEDIUM
 
 display_name: Behavioral
 badge_color: blue-500

@@ -1,0 +1,39 @@
+id: vm107.executive_summary_writer
+type: agent_profile
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm107.executive_summary_writer
+description: >-
+  Phase 85 — composes Hero Card 50-word executive summary from release_analyst +
+  asset_exposure_analyst outputs. Third and final Phase 85 agent — fires LAST per
+  Brain task DAG. WS publish fires AFTER this agent completes (Plan 85-11).
+  Composer-only; no VM102 tool re-fetch (upstream agents already fetched this data).
+  Graceful degradation on missing upstream: returns low-confidence "Awaiting"
+  envelope instead of blocking. REQ-85-2 (60s budget), REQ-85-4 (B1),
+  REQ-85-5 (citations), REQ-85-7 (router fail-fast).
+profile_path: VM107/profiles/executive_summary_writer.yaml
+allowed_tools:
+  - lookup_reasoning_artifact
+  - lookup_capability
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - vm102.indicator_history
+  - vm102.indicator_asset_exposure
+  - vm102.indicator_releases
+  - vm102.indicator_distribution
+  - vm102.indicator_regime
+max_iterations: 3
+max_cost_usd: 0.10
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+tags:
+  - agent-profile
+  - macro
+  - phase-85
+  - event-driven
+  - executive-summary
+  - composer

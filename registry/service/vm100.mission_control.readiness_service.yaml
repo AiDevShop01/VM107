@@ -11,7 +11,7 @@ last_changed: "2026-05-25"
 # under JWTAuth. Plan 04 ships the substrate; Plan 09 ships the frontend
 # binding (mission.pre.readiness widget). Plan 67-13 will extend the
 # privacy chokepoint to internal-route consumers.
-# Marked status: planned (not active) — capability is reachable today but
+# Marked status: stub (not active) — capability is reachable today but
 # the broader Plan 13 wiring (assembler injection) is forward-work.
 
 name: vm100.mission_control.readiness_service

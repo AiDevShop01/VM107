@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Critical supervisory observations (risk/exposure breach) are decision-forcing — HIGH.
+impact_on_decision: HIGH
 
 description: |
   Supervisory AI Critical level observation routes to Risk P1 + acknowledge_required.

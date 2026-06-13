@@ -1,0 +1,55 @@
+id: vm107.lookup_reasoning_artifact
+type: tool
+status: real
+shipped: 85
+last_changed: "2026-06-13"
+name: vm107.lookup_reasoning_artifact
+description: >
+  Phase 85 — Brain B1 retrieval tool. Fetches agent_reasoning_artifact rows from
+  the tradetracker_analytics WORM table by artifact_id or by (agent_profile_id,
+  time_range). Used by vm107.executive_summary_writer to resolve upstream B1
+  artifacts from macro_release_analyst and macro_asset_exposure_analyst before
+  composing the Hero Card executive summary. Also available for post-analysis
+  introspection and audit trail queries.
+capability_type: read_facade
+vm: vm107
+methods:
+  - name: lookup_reasoning_artifact
+    parameters:
+      - { name: artifact_id, type: uuid, required: false, description: "Exact B1 artifact UUID" }
+      - { name: agent_profile_id, type: string, required: false, description: "Filter by agent profile id, e.g. vm107.macro_release_analyst" }
+      - { name: since_ts, type: datetime, required: false, description: "UTC ISO-8601 lower bound on timestamp" }
+      - { name: until_ts, type: datetime, required: false, description: "UTC ISO-8601 upper bound on timestamp" }
+      - { name: limit, type: int, required: false, default: 100, description: "Max rows to return (hard cap 500)" }
+    return_shape: "list[ReasoningArtifactContract]"
+location:
+  source: VM107/tools/lookup_reasoning_artifact.py
+  contracts:
+    request: "params(artifact_id?, agent_profile_id?, since_ts?, until_ts?, limit)"
+    response: "list[ReasoningArtifactContract]"
+contracts:
+  response_contract: vm107.contracts.reasoning_artifact.ReasoningArtifactContract
+consumed_by:
+  - vm107.executive_summary_writer
+related_capabilities:
+  - agent_reasoning_artifact
+hard_scoped: false
+impact_on_decision: MEDIUM
+# allowed_agent_profiles: [] — unrestricted; all vm107.macro_* agents can use this tool.
+# See vm102.indicator_history for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-85
+  - macro
+  - b1
+  - worm
+  - reasoning-artifact
+  - vm107
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 1.0   # Reasoning: deterministic WORM table read; rows are append-only and immutable after write
+expected_freshness_seconds: 0   # Reasoning: WORM rows are immutable; fetched data is always exact historical truth
+is_deterministic: true   # Reasoning: same artifact_id always returns the same immutable row
+version: "1.0.0"   # Reasoning: Phase 85 initial release (Plan 85-02)

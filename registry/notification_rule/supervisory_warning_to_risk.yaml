@@ -4,6 +4,8 @@ status: real
 shipped: 74
 planned_phase: null
 last_changed: "2026-06-03"
+# Stage 2 schema requires `impact_on_decision`. Supervisory warnings inform risk awareness; not yet decision-forcing — MEDIUM.
+impact_on_decision: MEDIUM
 
 description: |
   Supervisory AI Warning level observation routes to Risk P2.
