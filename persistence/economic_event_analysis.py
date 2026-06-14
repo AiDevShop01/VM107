@@ -31,6 +31,41 @@ ON CONFLICT (event_id) DO UPDATE SET
 """
 
 
+def insert_analysis(
+    event_id: str,
+    indicator_id: str,
+    analysis: "dict",
+    envelope_id: "str | None" = None,
+) -> None:
+    """Insert or update economic_event_analysis from a parsed agent output dict.
+
+    Phase 85.1 Plan 02 — higher-level wrapper over upsert() used by the
+    dispatcher routing layer (VM107.workers.output_routing).  Accepts the
+    raw parsed dict from the agent's JSON output and extracts the required
+    fields before calling the canonical upsert().
+
+    Args:
+        event_id: Unique event identifier.
+        indicator_id: FRED series code.
+        analysis: Parsed agent output dict.  Expected keys:
+            what_happened, why_it_matters, regime_impact_label, citations.
+            Missing keys default to empty string / empty list.
+        envelope_id: Phase 70.5 envelope UUID, or None.
+    """
+    import json as _json
+    citations = analysis.get("citations", [])
+    citations_json_str = _json.dumps(citations) if citations else None
+    upsert(
+        event_id=event_id,
+        indicator_id=indicator_id,
+        what_happened=analysis.get("what_happened", ""),
+        why_it_matters=analysis.get("why_it_matters", ""),
+        regime_impact_label=analysis.get("regime_impact_label", ""),
+        citations_json=citations_json_str,
+        envelope_id=envelope_id,
+    )
+
+
 def upsert(
     event_id: str,
     indicator_id: str,
