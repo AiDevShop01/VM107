@@ -1,0 +1,8 @@
+{
+  "event_id": "evt_CPIAUCSL_2026_06_14",
+  "indicator_id": "CPIAUCSL",
+  "actual": 3.1,
+  "consensus": 3.0,
+  "release_timestamp": "2026-06-14T13:30:00Z",
+  "country": "US"
+}
