@@ -52,6 +52,19 @@ from core.scheduling.macro_release_goal import (
 )
 from core.scheduling.orchestrator_factory import build_default_orchestrator
 
+# Phase 85.1 Plan 02 — PRIMARY WS publish path.
+# _ws_publish_once routes through the shared dedup guard so both the listener-
+# registered on_complete hook AND the dispatcher's defence-in-depth call site
+# share the same _published_goal_ids set (W5 dedup contract).
+try:
+    from VM107.workers.task_dispatcher import _publish_once as _ws_publish_once  # type: ignore[import]
+except ImportError:
+    # Fallback: task_dispatcher not yet deployed (e.g. early boot or test-only env).
+    # In this case, use the direct publisher without dedup guard.
+    from VM107.publishers.macro_ws_invalidation import publish_indicator_updated  # type: ignore[import]
+    def _ws_publish_once(goal_id: "str | None", indicator_id: str) -> None:
+        publish_indicator_updated(indicator_id)
+
 logger = logging.getLogger(__name__)
 
 
@@ -174,9 +187,16 @@ def main() -> None:
                     event_id = _extract_event_id(data)
                     indicator_id: str = data["indicator_id"]
 
-                    create_macro_release_goal(
+                    # Phase 85.1 Plan 02 — PRIMARY publish path via on_complete hook.
+                    # The lambda captures indicator_id by value (default-arg pattern
+                    # prevents late-binding closure bug when multiple events are queued).
+                    # goal_id is None in the zero-arg call; the dedup guard uses it as
+                    # a fallback key so the dispatch defence-in-depth path can suppress
+                    # double-publish for this goal when it fires.
+                    goal_id = create_macro_release_goal(
                         event_id=event_id,
                         indicator_id=indicator_id,
+                        on_complete=lambda iid=indicator_id: _ws_publish_once(None, iid),
                     )
                     logger.info({
                         "event": "phase85_goal_created",

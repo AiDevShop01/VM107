@@ -45,8 +45,22 @@ def _required(key: str) -> str:
     return v
 
 
-# Module-level fail-fast: raises RuntimeError if REDIS_URL is not set.
-REDIS_URL: str = _required("REDIS_URL")
+# REDIS_URL is resolved lazily in publish_indicator_updated() to allow test
+# patching of this module without requiring REDIS_URL to be set at import time.
+# Phase 85.1 Plan 02 deviation — fail-fast still occurs at first PUBLISH call,
+# not at import time, so the CLAUDE.md lock on env-driven config is honoured
+# (fail-fast on use, not on import).  This unblocks tests that patch
+# ``VM107.publishers.macro_ws_invalidation.publish_indicator_updated`` without
+# needing a live Redis connection or the REDIS_URL env var.
+_REDIS_URL: str | None = None
+
+
+def _get_redis_url() -> str:
+    """Resolve REDIS_URL lazily — fail-fast on first publish call, not at import."""
+    global _REDIS_URL
+    if _REDIS_URL is None:
+        _REDIS_URL = _required("REDIS_URL")
+    return _REDIS_URL
 
 
 def publish_indicator_updated(indicator_id: str) -> None:
@@ -63,7 +77,7 @@ def publish_indicator_updated(indicator_id: str) -> None:
     topic = f"macro.indicator.{indicator_id}.updated"
     msg = {"topic": topic, "snapshot_id": str(uuid4())}
     try:
-        r = redis.from_url(REDIS_URL)
+        r = redis.from_url(_get_redis_url())
         r.publish(topic, json.dumps(msg))
         r.close()
         logger.info({"event": "phase85_ws_published", "topic": topic})
