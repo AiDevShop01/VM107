@@ -1,0 +1,119 @@
+id: vm107.macro_transmission_analyst
+type: agent_profile
+status: real
+shipped: 87
+last_changed: "2026-06-15"
+name: vm107.macro_transmission_analyst
+description: >-
+  Phase 87 Wave 2 — event-driven transmission analyst. Wakes on Phase 83
+  econ_release events (Redis macro.release_events topic, via Phase 85's
+  macro_release_event_listener service + Brain task type
+  transmission_analysis). Walks the VM105 Neo4j macro graph from the
+  released indicator out to terminal assets via vm105.neo4j_macro_graph_walker,
+  narrates hop-by-hop with inline strength + confidence + evidence_period,
+  emits Phase 71 citation grammar [ref:edge:<src>:<dst>], persists a
+  macro_transmission_analysis envelope + B1 reasoning artifact + WS topic
+  publish, all within 60s (REQ-87-2). B6 episodic memory call site uses the
+  Wave-2 stub; Wave-4 Plan 87-07 swaps in the real EpisodicMemoryService
+  without changing the agent's allowed_tools list.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 87
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-15"
+    change: "Phase 87 Plan 04 — initial release as macro transmission analyst"
+
+# Event trigger declaration (mirrors macro_release_analyst.yaml shape)
+trigger: event_driven
+trigger_sources:
+  - econ_release  # Phase 83 macro.release_events Redis topic
+  - brain_task_type:transmission_analysis  # Phase 42 Brain fan-out
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - vm105.neo4j_macro_graph_walker     # Plan 87-03 walker tool YAML
+  - episodic_memory_service.query      # Wave-2 stub, Wave-4 real B6
+  - lookup_capability                  # standard discovery tool
+  - lookup_reasoning_artifact          # B1 artifact retrieval
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings
+constitutional_skills:
+  - citation-discipline
+  - transmission-narration
+
+# Memory scope (public-factual analyst — no per-account or per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 6
+max_cost_usd: 0.30
+latency_budget_ms: 5000
+
+# Hard-assertion regex gate on emitted narrative (Wave-2 contract)
+# The skill_transmission_narration module reads these regex strings and runs
+# them against every LLM completion. On first failure: retry ONCE with a
+# corrective addendum. On second failure: degraded_fallback() emits a
+# deterministic Markdown rendering of the chain, envelope marked degraded.
+hard_assertions:
+  - id: narrative_strength_for_3_hops
+    regex: "strength\\s*[=:]\\s*-?\\d"
+    min_matches: 3
+    description: >-
+      Narrative MUST cite the per-hop strength value inline (strength=0.42 OR
+      strength:0.42) at least 3 times — confirms the agent narrated rather
+      than waving its hands.
+  - id: narrative_period
+    regex: "\\d{4}-\\d{2}-\\d{2}/\\d{4}-\\d{2}-\\d{2}"
+    min_matches: 1
+    description: >-
+      Narrative MUST cite at least one evidence_period ISO date range
+      (e.g. "2020-01-01/2025-01-01") — confirms sample window is shown.
+
+retry_on_hard_assertion_fail: 1
+on_assertion_fail_after_retry: mark_envelope_degraded
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 30
+
+# Brain absorption ledger
+brain_absorbed:
+  - B6  # episodic memory injection — Wave 2 stub, Wave 4 wires real service
+  - B1  # reasoning artifact persistence
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 86400
+is_deterministic: false   # narrative is LLM-emitted; graph walk is deterministic
+version: "1.0.0"
+
+owner: engineering
+profile_path: VM107/profiles/macro_transmission_analyst.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-87
+  - wave-2
+  - event-driven
+  - transmission
+  - graph-walk
