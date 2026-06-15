@@ -297,7 +297,12 @@ services:
     env_file:
       - .env.local
     environment:
-      PYTHONPATH: /a0_extras:/a0
+      # /git/agent-zero appended so `from agent import AgentContext` falls
+      # through to the baked Agent Zero source (the vm107-agent-zero service
+      # gets /a0/agent.py via /exe/initialize.sh which the dispatcher bypasses).
+      # Order matters — /a0 first so live volume-mounted code (workers/, core/)
+      # wins over the image-baked copy under /git/agent-zero.
+      PYTHONPATH: /a0_extras:/a0:/git/agent-zero
       # ── Required URLs/credentials — fail-fast at startup ─────────────────
       # ${VAR:?msg} aborts `docker compose up` if unset (env-driven-no-fallbacks lock).
       REDIS_URL:    "${REDIS_URL:?REDIS_URL is required (Phase 85.1 — Brain task dispatcher)}"
