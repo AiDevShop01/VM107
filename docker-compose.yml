@@ -264,6 +264,70 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=85"
 
+  # ---------------------------------------------------------------------------
+  # Phase 85.1 Plan 03 — vm107-task-dispatcher sibling service
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): every
+  # long-running poll-loop worker MUST ship as a docker-compose sibling service.
+  # Plan 02 shipped workers/task_dispatcher.py; without this block it is dead
+  # weight — `docker compose up -d` starts no process polling brain_state.
+  # Phase 74-03 was the canonical cautionary tale (run_observation_listener).
+  #
+  # Restart after env changes (NEVER use `docker restart` — it ignores env_file):
+  #   docker compose up -d --force-recreate --no-deps vm107-task-dispatcher
+  # ---------------------------------------------------------------------------
+  vm107-task-dispatcher:
+    container_name: vm107-task-dispatcher
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m workers.task_dispatcher
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Required URLs/credentials — fail-fast at startup ─────────────────
+      # ${VAR:?msg} aborts `docker compose up` if unset (env-driven-no-fallbacks lock).
+      REDIS_URL:    "${REDIS_URL:?REDIS_URL is required (Phase 85.1 — Brain task dispatcher)}"
+      MONGODB_URI:  "${MONGODB_URI:?MONGODB_URI is required (Phase 85.1 — vm107_brain.brain_state poll)}"
+      POSTGRES_HOST: "${POSTGRES_HOST:?POSTGRES_HOST is required (Phase 85.1 — persistence writes)}"
+      POSTGRES_DB:   "${POSTGRES_DB:?POSTGRES_DB is required (Phase 85.1 — persistence writes)}"
+      POSTGRES_ANALYTICS_DB: "${POSTGRES_ANALYTICS_DB:?POSTGRES_ANALYTICS_DB is required (Phase 85.1 — B1 + event analysis writes)}"
+      POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required (Phase 85.1)}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required (Phase 85.1)}"
+      # ── Tunable knobs — defaults acceptable (NOT credentials/URLs) ────────
+      VM107_BRAIN_DB: "${VM107_BRAIN_DB:-vm107_brain}"
+      POSTGRES_PORT: "${POSTGRES_PORT:-5432}"
+      VM107_TEMPLATES_DIR: "${VM107_TEMPLATES_DIR:-/a0/config/templates}"
+      VM107_TASK_DISPATCHER_POLL_SEC: "${VM107_TASK_DISPATCHER_POLL_SEC:-5}"
+      VM107_TASK_DISPATCHER_MAX_CONCURRENT: "${VM107_TASK_DISPATCHER_MAX_CONCURRENT:-10}"
+      VM107_TASK_DISPATCHER_MAX_RETRIES: "${VM107_TASK_DISPATCHER_MAX_RETRIES:-3}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./workers:/a0/workers:ro
+      - ./core:/a0/core:ro
+      - ./persistence:/a0/persistence:ro
+      - ./publishers:/a0/publishers:ro
+      - ./services:/a0/services:ro
+      - ./profiles:/a0/profiles:ro
+      - ./prompts:/a0/prompts:ro
+      - ./registry:/a0/registry:ro
+      - ./config/templates:/a0/config/templates:ro
+    depends_on:
+      vm107:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-task-dispatcher"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=85.1"
+
 volumes:
   redis_data:
 
