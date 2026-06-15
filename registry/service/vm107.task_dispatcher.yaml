@@ -1,0 +1,119 @@
+# REGISTER_CAPABILITY: type=service, id=vm107.task_dispatcher, path=VM107/registry/service/vm107.task_dispatcher.yaml
+id: vm107.task_dispatcher
+type: service
+status: real
+shipped: "85.1"
+planned_phase: null
+short_description: |
+  Production task dispatcher for the VM107 Brain (Phase 42) goal/task DAG.
+  Polls vm107_brain.brain_state for PENDING tasks with empty blocked_by,
+  invokes the configured Agent Zero profile per task, persists output via
+  workers.output_routing.parse_and_persist, transitions status via
+  TieredBulkWriter.write_critical, and fires the WS publish chain on
+  macro_release_analysis goal terminal.
+long_description: |
+  Long-running poll loop deployed as the vm107-task-dispatcher compose
+  sibling service (Phase 85.1 Plan 03). Closes Phase 85 UAT Section 5
+  gap (Redis macro release event -> in-place IndicatorPage hero refresh).
+
+  Architecture:
+  - Polls MongoDB vm107_brain.brain_state every VM107_TASK_DISPATCHER_POLL_SEC
+    seconds for PENDING tasks whose blocked_by is empty.
+  - Per task: invokes Agent Zero via workers.agent_invocation._dispatch_agent_sync
+    (mirrors core/agents/invocation._call_subordinate_sync; late-imported to avoid
+    Pitfall 7 import circular). Routes output via workers.output_routing.parse_and_persist
+    to the correct Plan 85-08a/85-09 persistence table per profile_id.
+  - Status transitions written through TieredBulkWriter.write_critical (Pitfall 5).
+  - Calls GoalService.on_task_completed(task_id) after EVERY terminal transition
+    (Pitfall 3) -- unblocks downstream tasks regardless of COMPLETED/FAILED.
+  - When the goal terminal AND title startswith "macro_release_analysis" AND no
+    FAILED/CANCELLED tasks: routes publish through the shared _publish_once dedup
+    guard (defence-in-depth path; the listener-registered on_complete hook is the
+    primary path and routes through the same guard -- exactly-once semantics).
+
+  Concurrency: VM107_TASK_DISPATCHER_MAX_CONCURRENT cap (default 10) enforced via
+  threading.BoundedSemaphore wrapper (DispatcherConcurrencyGuard, Plan 05).
+  Upper bound is GovernanceMatrix.MAINTENANCE.max_active (also 10).
+
+  Retry: per-task max_retries (default 3); failed dispatch increments retry_count
+  + writes back to PENDING (next poll picks up); exhaustion writes FAILED + still
+  calls on_task_completed (so executive_summary_writer cancels cleanly).
+location:
+  source: VM107/workers/task_dispatcher.py
+  helpers:
+    - VM107/workers/agent_invocation.py
+    - VM107/workers/output_routing.py
+api_structure: |
+  python -m workers.task_dispatcher       # entrypoint (main() polls until SIGTERM)
+
+  _dispatch_one(
+      task_dict: dict,
+      goal_service: GoalService,
+      bulk_writer: TieredBulkWriter,
+      orchestrator: BrainOrchestrator,
+  ) -> None
+
+  _dispatch_agent_sync(profile_id: str, message: str) -> tuple[str, dict]
+  parse_and_persist(profile_id, raw, telemetry, goal_payload) -> envelope_id
+  _publish_once(goal_id: str, indicator_id: str) -> None   # dedup-guarded WS publish
+guarantees:
+  - "Every PENDING task with empty blocked_by is picked up within POLL_SEC seconds"
+  - "Status transitions go through TieredBulkWriter.write_critical (upsert path, Pitfall 5)"
+  - "on_task_completed fires after EVERY terminal transition (COMPLETED or FAILED) — Pitfall 3"
+  - "publish_indicator_updated fires AT MOST ONCE per goal terminal (dedup guard across listener + dispatcher paths)"
+  - "Failed task retried up to max_retries, then FAILED + on_task_completed (no orphan)"
+related_capabilities:
+  - brain.task.dispatch
+  - brain.goal.completion_hook_fire
+  - ws.publish.macro_indicator_updated
+  - macro_release_analyst
+  - macro_asset_exposure_analyst
+  - macro_executive_summary_writer
+  - macro_indicator_describer
+tags:
+  - phase-85.1
+  - vm107
+  - brain
+  - worker
+  - long-running
+  - poll-loop
+hard_scoped: true
+last_changed: 2026-06-15
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - vm107.macro_release_analyst
+  - vm107.macro_asset_exposure_analyst
+  - vm107.macro_executive_summary_writer
+  - vm107.macro_indicator_describer
+deprecated: false
+
+# ── Forward-compat extension fields (Phase 47.6/47.7 normalisation) ────────
+module: workers.task_dispatcher
+entrypoint: main
+container: vm107-task-dispatcher
+runtime: long_running_poll
+poll_interval_sec_env: VM107_TASK_DISPATCHER_POLL_SEC
+max_concurrent_env: VM107_TASK_DISPATCHER_MAX_CONCURRENT
+max_retries_env: VM107_TASK_DISPATCHER_MAX_RETRIES
+reads_from:
+  - "mongodb: vm107_brain.brain_state"
+  - "postgres: tradetracker.economic_event"
+  - "postgres: tradetracker_analytics.economic_event_analysis"
+  - "postgres: tradetracker_analytics.economic_event_asset_exposure"
+writes_to:
+  - "mongodb: vm107_brain.brain_state (status transitions via write_critical)"
+  - "postgres: tradetracker_analytics.economic_event_analysis (via persistence helper)"
+  - "postgres: tradetracker_analytics.economic_event_asset_exposure (via persistence helper)"
+  - "postgres: tradetracker.economic_event.ai_executive_summary (column UPDATE)"
+  - "redis: macro.indicator.<id>.updated (Pub/Sub via publishers.macro_ws_invalidation)"
+dependencies:
+  - workers.agent_invocation
+  - workers.output_routing
+  - core.scheduling.orchestrator_factory
+  - core.scheduling.goal_service
+  - core.scheduling.macro_release_goal
+  - publishers.macro_ws_invalidation
+  - persistence.economic_event_analysis
+  - persistence.economic_event_asset_exposure
+  - persistence.economic_event_executive_summary
+schema_version: 1
