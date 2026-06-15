@@ -50,36 +50,58 @@ class UnknownProfileError(KeyError):
 # ---------------------------------------------------------------------------
 
 def parse_agent_json(raw: str) -> dict:
-    """Parse agent output to a dict; strips markdown code fences if present.
-
-    Agent Zero often wraps JSON in ```json ... ``` markdown fences. This
-    helper strips them before parsing.
+    """Parse agent output to a dict. Tries (in order):
+       1. Raw string as-is.
+       2. Stripped of opening ```json / ``` fence and closing ``` fence.
+       3. First {...} JSON object found anywhere in the text (markdown prose).
+       4. Fallback envelope: ``{"raw_text": <full string>}`` so analyst output
+          that doesn't strictly conform to the JSON contract still persists
+          (Phase 85.1 deployment fix — analysts sometimes return markdown
+          analyses with embedded JSON or no JSON at all).
 
     Args:
         raw: Raw agent output string.
 
     Returns:
-        Parsed dict.
-
-    Raises:
-        OutputParseError: If the string cannot be parsed as JSON after stripping.
+        Parsed dict — always succeeds via the raw_text fallback envelope.
     """
+    import re as _re
+
     text = raw.strip()
-    # Strip markdown code fence: ```json ... ``` or ``` ... ```
-    if text.startswith("```"):
-        lines = text.splitlines()
-        # Remove opening fence (```json or ```)
-        lines = lines[1:]
-        # Remove closing fence if present
-        if lines and lines[-1].strip().startswith("```"):
-            lines = lines[:-1]
-        text = "\n".join(lines).strip()
+
+    # 1. Raw try
     try:
         return json.loads(text)
-    except (json.JSONDecodeError, ValueError) as exc:
-        raise OutputParseError(
-            f"Failed to parse agent output as JSON: {exc!r}\nRaw (first 200 chars): {raw[:200]!r}"
-        ) from exc
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # 2. Strip markdown code fence: ```json ... ``` or ``` ... ```
+    if text.startswith("```"):
+        lines = text.splitlines()
+        lines = lines[1:]  # drop opening fence
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]  # drop closing fence
+        candidate = "\n".join(lines).strip()
+        try:
+            return json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 3. Find first balanced {...} object anywhere in the prose.
+    # Greedy match on the last } caps the JSON block when the LLM produces
+    # both prose and an inline object.
+    match = _re.search(r"\{.*\}", text, _re.DOTALL)
+    if match:
+        candidate = match.group(0)
+        try:
+            return json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 4. Fallback — preserve the raw text so persistence helpers still get a
+    # dict shape. Downstream readers know to inspect raw_text when other
+    # expected keys are missing.
+    return {"raw_text": text}
 
 
 # ---------------------------------------------------------------------------

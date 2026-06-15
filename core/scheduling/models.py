@@ -47,6 +47,11 @@ class GoalModel(BaseModel):
     # Task DAG
     task_ids: list[str] = Field(default_factory=list, description="List of task IDs in this goal's DAG")
 
+    # Phase 85.1: structured payload carrying domain-specific event data
+    # (e.g. macro release: indicator_id, actual, consensus). Read by the
+    # dispatcher when building per-profile agent prompt envelopes.
+    payload: Optional[dict] = Field(None, description="Domain-specific structured payload (e.g. macro release event fields)")
+
     # Timestamps
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
