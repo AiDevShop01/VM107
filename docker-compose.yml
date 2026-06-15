@@ -38,12 +38,13 @@ services:
       # Make fingpt_core importable from VM107 tools/Tier-1 builder.
       # Mounted from sibling Dagster repo at the path below.
       PYTHONPATH: /a0_extras:/a0
-      # 2026-06-11 — point the registry validator at the user overlay only.
-      # The image bakes both an outer vendor tree (`/a0/registry/<type>/`)
-      # AND the FinGPT overlay (`/a0/registry/registry/<type>/`), and Stage 3
-      # validation rejected the duplicate ids the outer tree contributes.
-      # The overlay is the canonical source; the vendor copy is stale.
-      CAPABILITY_REGISTRY_ROOT: /a0/registry/registry
+      # 2026-06-15 Phase 85.1 deployment fix — the prior /a0/registry/registry
+      # overlay path no longer exists in the current image; init silently
+      # loaded 0 entries and any prompt-building extension (_11_tools_prompt.py)
+      # raised "CapabilityRegistry not initialized" when CapabilityRegistry.get()
+      # ran. Pointed at the live volume-mounted ./registry instead so host
+      # YAML edits propagate without rebuild.
+      CAPABILITY_REGISTRY_ROOT: /a0/registry
       # Phase 67 Plan 12 — FastMCP server env (fail-fast — Phase 47.3 lock).
       # The ${VAR:?msg} syntax is docker-compose's fail-fast operator: missing
       # env at `docker compose up` aborts with the message. No fallback defaults.
@@ -70,8 +71,22 @@ services:
       SUPERVISORY_COOLDOWN_WARNING_SEC: ${SUPERVISORY_COOLDOWN_WARNING_SEC}
       SUPERVISORY_COOLDOWN_CRITICAL_SEC: ${SUPERVISORY_COOLDOWN_CRITICAL_SEC}
       DAILY_AI_BUDGET_USD: ${DAILY_AI_BUDGET_USD}
+      # Phase 85.1 — A0 invokes via HTTP from sibling services + in-container backfill.
+      VM107_AGENT_ZERO_URL: "${VM107_AGENT_ZERO_URL:-http://localhost:80}"
     volumes:
       - ./usr:/a0/usr
+      # Phase 85.1 — mount the live registry so capability YAML edits propagate
+      # to A0 without a rebuild. Required for A0's prompt-building extensions
+      # (_11_tools_prompt.py) which read from CapabilityRegistry.
+      - ./registry:/a0/registry:ro
+      # Phase 85.1 — mount workers/ + backfill/ so the in-container backfill CLI
+      # (`python -m backfill.backfill_indicator_descriptions`) imports the live
+      # HTTP-path workers.agent_invocation, not the image-baked old in-process
+      # version. Without these the backfill silently runs the wrong invocation
+      # path and Agent Zero responds with stale runtime errors.
+      - ./workers:/a0/workers:ro
+      - ./backfill:/a0/backfill:ro
+      - ./persistence:/a0/persistence:ro
       # Vendor fingpt_core source (read-only) so the Phase 39/47.2 typed
       # tool layer (`from fingpt_core.clients import ...`,
       # `from fingpt_core.contracts.* import ...`) actually imports inside
