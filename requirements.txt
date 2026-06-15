@@ -44,7 +44,7 @@ crontab==1.0.1
 markdownify==1.1.0
 pydantic==2.11.7
 pymongo>=4.7.0
-neo4j>=5.0
+neo4j>=5.15  # Phase 87 — locked 2026-06-15. See .planning/phases/87-.../87-01-PLAN.md (was >=5.0)
 pymupdf==1.25.3
 pytesseract==0.3.13
 pdf2image==1.17.0
@@ -75,3 +75,7 @@ json-repair>=0.59,<1.0
 # Phase 85 Plan 01 — psycopg2 direct connection to tradetracker_analytics / tradetracker
 # get_analytics_conn() and get_default_conn() in services/postgres_analytics_client.py
 psycopg2-binary>=2.9.0
+# Phase 87 — Wave 4/5 sibling services + Wave 0 conftest fixtures. Locked 2026-06-15.
+# See .planning/phases/87-.../87-01-PLAN.md
+apscheduler>=3.10  # Wave 4 macro_story_tracker, Wave 5 macro_regime_monitor schedulers
+testcontainers>=3.7  # Wave 0 conftest fixtures (neo4j_test_driver, qdrant_test_client)
