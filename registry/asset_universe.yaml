@@ -1,0 +1,15 @@
+# vm107/registry/asset_universe.yaml
+# Phase 86 Plan 08 — created by Phase 86 (Phase 85 did not create it).
+# Minimal v1 with the 8 baseline assets used by EventStudyPanel (ALL_ASSETS array)
+# and the /macro/lab AssetPicker. Phase 87+ may extend this list.
+version: 1
+phase: 86
+assets:
+  - {id: gold,       name: "Gold",          class: commodity}
+  - {id: usd,        name: "USD",           class: fx}
+  - {id: spx,        name: "S&P 500",       class: equity}
+  - {id: treasuries, name: "US Treasuries", class: bond}
+  - {id: copper,     name: "Copper",        class: commodity}
+  - {id: nasdaq,     name: "Nasdaq",        class: equity}
+  - {id: eur,        name: "EUR",           class: fx}
+  - {id: jpy,        name: "JPY",           class: fx}
