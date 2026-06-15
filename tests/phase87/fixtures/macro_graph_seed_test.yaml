@@ -1,0 +1,82 @@
+# Phase 87 Wave 0 minimal test seed — 3 indicators, >=6 AFFECTS edges, >=4 DRIVES edges
+# Reviewer-readable in 60s; mirrors the full Wave 1 seed YAML shape per RESEARCH section Wave 1.
+# Locked 2026-06-15 with PHASE_87_SEED=87.
+indicators:
+  - id: CPIAUCSL
+    name: CPI All Urban Consumers
+    category: inflation
+    release_cadence: monthly
+    affects_chain:
+      - target: UNRATE
+        hop_order: 0
+        strength: 0.40
+        confidence: 0.70
+        sample_size: 60
+        evidence_period: "2021-01-01/2026-01-01"
+      - target: GDP
+        hop_order: 1
+        strength: 0.28
+        confidence: 0.62
+        sample_size: 60
+        evidence_period: "2021-01-01/2026-01-01"
+    drives:
+      - asset: XAUUSD
+        direction: negative
+        strength: 0.41
+        confidence: 0.65
+        sample_size: 240
+        evidence_period: "2018-01-01/2026-01-01"
+      - asset: SPX
+        direction: negative
+        strength: 0.33
+        confidence: 0.58
+        sample_size: 240
+        evidence_period: "2018-01-01/2026-01-01"
+  - id: UNRATE
+    name: Unemployment Rate
+    category: labour
+    release_cadence: monthly
+    affects_chain:
+      - target: GDP
+        hop_order: 0
+        strength: -0.55
+        confidence: 0.74
+        sample_size: 60
+        evidence_period: "2021-01-01/2026-01-01"
+      - target: CPIAUCSL
+        hop_order: 1
+        strength: -0.32
+        confidence: 0.61
+        sample_size: 60
+        evidence_period: "2021-01-01/2026-01-01"
+    drives:
+      - asset: DXY
+        direction: negative
+        strength: 0.39
+        confidence: 0.66
+        sample_size: 240
+        evidence_period: "2018-01-01/2026-01-01"
+  - id: GDP
+    name: Gross Domestic Product
+    category: growth
+    release_cadence: quarterly
+    affects_chain:
+      - target: CPIAUCSL
+        hop_order: 0
+        strength: 0.45
+        confidence: 0.72
+        sample_size: 20
+        evidence_period: "2021-01-01/2026-01-01"
+      - target: UNRATE
+        hop_order: 1
+        strength: -0.50
+        confidence: 0.70
+        sample_size: 20
+        evidence_period: "2021-01-01/2026-01-01"
+    drives:
+      - asset: SPX
+        direction: positive
+        strength: 0.48
+        confidence: 0.70
+        sample_size: 240
+        evidence_period: "2018-01-01/2026-01-01"

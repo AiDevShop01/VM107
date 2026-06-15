@@ -1,0 +1,14 @@
+{
+  "regime_threshold_table_version": "0.1-pending-quant-approval",
+  "anchor_combinations": [
+    {"cpi_dir": 1, "unrate_dir": 1, "gdp_dir": -1, "expected_regime": "stagflation"},
+    {"cpi_dir": 1, "unrate_dir": -1, "gdp_dir": 1, "expected_regime": "inflation"},
+    {"cpi_dir": -1, "unrate_dir": -1, "gdp_dir": 1, "expected_regime": "disinflation"},
+    {"cpi_dir": -1, "unrate_dir": 1, "gdp_dir": -1, "expected_regime": "recession"},
+    {"cpi_dir": 0, "unrate_dir": 0, "gdp_dir": 1, "expected_regime": "expansion"},
+    {"cpi_dir": 0, "unrate_dir": 0, "gdp_dir": -1, "expected_regime": "slowdown"},
+    {"cpi_dir": -1, "unrate_dir": -1, "gdp_dir": -1, "expected_regime": "recovery"}
+  ],
+  "carry_prior_combinations_count_expected": 20,
+  "note": "Plan 87-05 quant approval gate finalises this table before Plan 87-06 (Wave 3 agent) ships. Until then, agent test_regime_classifier_rules.py asserts the 7 explicit combos + that the other 20 combos return prior_regime."
+}

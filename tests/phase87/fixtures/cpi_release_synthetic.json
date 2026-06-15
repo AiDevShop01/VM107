@@ -1,0 +1,11 @@
+{
+  "indicator_id": "CPIAUCSL",
+  "release_id": "00000000-0000-0000-0000-000000000087",
+  "release_date": "2026-06-12T13:30:00Z",
+  "actual": 3.4,
+  "forecast": 3.3,
+  "previous": 3.2,
+  "surprise": 0.1,
+  "surprise_pct": 3.03,
+  "event_status": "released"
+}

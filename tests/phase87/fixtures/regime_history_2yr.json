@@ -1,0 +1,519 @@
+{
+  "seed": 87,
+  "indicator_ids": [
+    "CPIAUCSL",
+    "UNRATE",
+    "GDP"
+  ],
+  "phase_layout": {
+    "early_inflation": "months 0-5",
+    "stagflation": "months 6-17",
+    "recession": "months 18-23"
+  },
+  "anchor_releases": [
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-01-15",
+      "direction": 1,
+      "surprise": 0.129,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-01-15",
+      "direction": 0,
+      "surprise": -0.031,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-01-15",
+      "direction": 1,
+      "surprise": 0.268,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-02-15",
+      "direction": 1,
+      "surprise": 0.208,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-02-15",
+      "direction": 0,
+      "surprise": -0.022,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-02-15",
+      "direction": 1,
+      "surprise": 0.167,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-03-15",
+      "direction": 1,
+      "surprise": 0.209,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-03-15",
+      "direction": 0,
+      "surprise": -0.017,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-03-15",
+      "direction": 1,
+      "surprise": 0.242,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-04-15",
+      "direction": 1,
+      "surprise": 0.124,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-04-15",
+      "direction": 0,
+      "surprise": -0.014,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-04-15",
+      "direction": 1,
+      "surprise": 0.155,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-05-15",
+      "direction": 1,
+      "surprise": 0.251,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-05-15",
+      "direction": 0,
+      "surprise": 0.034,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-05-15",
+      "direction": 1,
+      "surprise": 0.203,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-06-15",
+      "direction": 1,
+      "surprise": 0.278,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-06-15",
+      "direction": 0,
+      "surprise": -0.043,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-06-15",
+      "direction": 1,
+      "surprise": 0.235,
+      "phase_label": "early_inflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-07-15",
+      "direction": 1,
+      "surprise": 0.15,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-07-15",
+      "direction": 1,
+      "surprise": 0.137,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-07-15",
+      "direction": -1,
+      "surprise": -0.189,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-08-15",
+      "direction": 1,
+      "surprise": 0.116,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-08-15",
+      "direction": 1,
+      "surprise": 0.106,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-08-15",
+      "direction": -1,
+      "surprise": -0.244,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-09-15",
+      "direction": 1,
+      "surprise": 0.219,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-09-15",
+      "direction": 1,
+      "surprise": 0.231,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-09-15",
+      "direction": -1,
+      "surprise": -0.138,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-10-15",
+      "direction": 1,
+      "surprise": 0.165,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-10-15",
+      "direction": 1,
+      "surprise": 0.231,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-10-15",
+      "direction": -1,
+      "surprise": -0.105,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-11-15",
+      "direction": 1,
+      "surprise": 0.291,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-11-15",
+      "direction": 1,
+      "surprise": 0.141,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-11-15",
+      "direction": -1,
+      "surprise": -0.231,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2024-12-15",
+      "direction": 1,
+      "surprise": 0.139,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2024-12-15",
+      "direction": 1,
+      "surprise": 0.219,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2024-12-15",
+      "direction": -1,
+      "surprise": -0.204,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-01-15",
+      "direction": 1,
+      "surprise": 0.215,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-01-15",
+      "direction": 1,
+      "surprise": 0.159,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-01-15",
+      "direction": -1,
+      "surprise": -0.114,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-02-15",
+      "direction": 1,
+      "surprise": 0.121,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-02-15",
+      "direction": 1,
+      "surprise": 0.298,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-02-15",
+      "direction": -1,
+      "surprise": -0.133,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-03-15",
+      "direction": 1,
+      "surprise": 0.251,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-03-15",
+      "direction": 1,
+      "surprise": 0.226,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-03-15",
+      "direction": -1,
+      "surprise": -0.108,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-04-15",
+      "direction": 1,
+      "surprise": 0.195,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-04-15",
+      "direction": 1,
+      "surprise": 0.291,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-04-15",
+      "direction": -1,
+      "surprise": -0.111,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-05-15",
+      "direction": 1,
+      "surprise": 0.112,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-05-15",
+      "direction": 1,
+      "surprise": 0.207,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-05-15",
+      "direction": -1,
+      "surprise": -0.277,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-06-15",
+      "direction": 1,
+      "surprise": 0.243,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-06-15",
+      "direction": 1,
+      "surprise": 0.112,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-06-15",
+      "direction": -1,
+      "surprise": -0.112,
+      "phase_label": "stagflation"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-07-15",
+      "direction": -1,
+      "surprise": -0.26,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-07-15",
+      "direction": 1,
+      "surprise": 0.186,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-07-15",
+      "direction": -1,
+      "surprise": -0.296,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-08-15",
+      "direction": -1,
+      "surprise": -0.189,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-08-15",
+      "direction": 1,
+      "surprise": 0.254,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-08-15",
+      "direction": -1,
+      "surprise": -0.12,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-09-15",
+      "direction": -1,
+      "surprise": -0.274,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-09-15",
+      "direction": 1,
+      "surprise": 0.157,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-09-15",
+      "direction": -1,
+      "surprise": -0.222,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-10-15",
+      "direction": -1,
+      "surprise": -0.253,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-10-15",
+      "direction": 1,
+      "surprise": 0.146,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-10-15",
+      "direction": -1,
+      "surprise": -0.23,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-11-15",
+      "direction": -1,
+      "surprise": -0.169,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-11-15",
+      "direction": 1,
+      "surprise": 0.139,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-11-15",
+      "direction": -1,
+      "surprise": -0.105,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "CPIAUCSL",
+      "release_date": "2025-12-15",
+      "direction": -1,
+      "surprise": -0.291,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "UNRATE",
+      "release_date": "2025-12-15",
+      "direction": 1,
+      "surprise": 0.159,
+      "phase_label": "recession"
+    },
+    {
+      "indicator_id": "GDP",
+      "release_date": "2025-12-15",
+      "direction": -1,
+      "surprise": -0.163,
+      "phase_label": "recession"
+    }
+  ]
+}
