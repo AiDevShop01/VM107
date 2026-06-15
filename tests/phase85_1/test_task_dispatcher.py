@@ -41,7 +41,7 @@ def test_dispatcher_picks_pending_task_and_marks_running(
         3. Call bulk_writer.write_critical(task_id, {"status": "running"}).
         4. Invoke _dispatch_agent_sync with the task's agent_name.
     """
-    from VM107.workers.task_dispatcher import dispatch_next_task  # noqa: F401
+    from workers.task_dispatcher import dispatch_next_task  # noqa: F401
 
     release_task = fixture_macro_release_task_docs[0]
     assert release_task["status"] == "pending"
@@ -75,7 +75,7 @@ def test_dispatcher_transitions_completed_on_success(
         3. parse_and_persist called with output + goal_payload.
         4. bulk_writer.write_critical(task_id, {"status": "completed"}).
     """
-    from VM107.workers.task_dispatcher import run_task  # noqa: F401
+    from workers.task_dispatcher import run_task  # noqa: F401
 
     release_task = fixture_macro_release_task_docs[0]
     run_task(task=release_task, goal_service=mock_goal_service)
@@ -99,7 +99,7 @@ def test_dispatcher_calls_on_task_completed_after_terminal(
         on_task_completed(task_id) is invoked exactly once per completed task,
         allowing the DAG unblocking logic to run.
     """
-    from VM107.workers.task_dispatcher import run_task  # noqa: F401
+    from workers.task_dispatcher import run_task  # noqa: F401
 
     release_task = fixture_macro_release_task_docs[0]
     run_task(task=release_task, goal_service=mock_goal_service)
@@ -130,8 +130,8 @@ def test_dispatcher_routes_release_analyst_to_economic_event_analysis_table(
     from unittest.mock import MagicMock, patch
 
     mock_insert = MagicMock()
-    with patch("VM107.persistence.economic_event_analysis.insert_analysis", mock_insert):
-        from VM107.workers.task_dispatcher import parse_and_persist  # noqa: F401
+    with patch("persistence.economic_event_analysis.insert_analysis", mock_insert):
+        from workers.task_dispatcher import parse_and_persist  # noqa: F401
 
         raw_json_str = '{"analysis": "CPI beat consensus by 0.1pp", "regime": "elevated_inflation"}'
         telemetry = {"tokens_used": 120, "latency_ms": 800}
@@ -168,8 +168,8 @@ def test_dispatcher_routes_asset_exposure_to_correct_table(
     from unittest.mock import MagicMock, patch
 
     mock_batch_insert = MagicMock()
-    with patch("VM107.persistence.economic_event_asset_exposure.batch_insert", mock_batch_insert):
-        from VM107.workers.task_dispatcher import parse_and_persist  # noqa: F401
+    with patch("persistence.economic_event_asset_exposure.batch_insert", mock_batch_insert):
+        from workers.task_dispatcher import parse_and_persist  # noqa: F401
 
         raw_json_str = '{"exposures": [{"asset": "DXY", "direction": "POS", "magnitude": 0.8}]}'
         telemetry = {"tokens_used": 110, "latency_ms": 600}
@@ -205,8 +205,8 @@ def test_dispatcher_routes_exec_summary_to_correct_column(
     from unittest.mock import MagicMock, patch
 
     mock_update_summary = MagicMock()
-    with patch("VM107.persistence.economic_event_executive_summary.update_summary", mock_update_summary):
-        from VM107.workers.task_dispatcher import parse_and_persist  # noqa: F401
+    with patch("persistence.economic_event_executive_summary.update_summary", mock_update_summary):
+        from workers.task_dispatcher import parse_and_persist  # noqa: F401
 
         raw_json_str = '{"summary": "CPI came in above consensus. DXY likely to strengthen."}'
         telemetry = {"tokens_used": 90, "latency_ms": 400}
@@ -254,7 +254,7 @@ def test_dispatch_agent_sync_sets_profile_id_before_monologue(monkeypatch):
     mock_agent_ctx = MagicMock()
     mock_agent_ctx.get.return_value = mock_sub
 
-    with patch("VM107.workers.agent_invocation.AgentContext", mock_agent_ctx):
+    with patch("workers.agent_invocation.AgentContext", mock_agent_ctx):
         import asyncio
 
         orig_run = asyncio.run
@@ -264,7 +264,7 @@ def test_dispatch_agent_sync_sets_profile_id_before_monologue(monkeypatch):
             return None
 
         with patch("asyncio.run", _patched_run):
-            from VM107.workers.agent_invocation import _dispatch_agent_sync  # noqa: F401
+            from workers.agent_invocation import _dispatch_agent_sync  # noqa: F401
 
             _dispatch_agent_sync(
                 profile_id="vm107.macro_release_analyst",
@@ -303,7 +303,7 @@ def test_dispatcher_skips_tasks_with_nonempty_blocked_by(
     Even if it is scanned, it must be skipped until both upstream tasks
     have completed and on_task_completed has cleared blocked_by.
     """
-    from VM107.workers.task_dispatcher import get_eligible_tasks  # noqa: F401
+    from workers.task_dispatcher import get_eligible_tasks  # noqa: F401
 
     exec_task = fixture_macro_release_task_docs[2]
     assert exec_task["blocked_by"] != [], "Precondition: exec_summary starts blocked"

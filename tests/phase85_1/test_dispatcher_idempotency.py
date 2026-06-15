@@ -51,8 +51,8 @@ def test_redispatching_same_task_id_does_not_corrupt_status(
 
     initial_write_count = mock_bulk_writer.write_critical.call_count
 
-    with patch("VM107.persistence.economic_event_analysis.insert_analysis", mock_insert):
-        from VM107.workers.task_dispatcher import _dispatch_one  # noqa: F401
+    with patch("persistence.economic_event_analysis.insert_analysis", mock_insert):
+        from workers.task_dispatcher import _dispatch_one  # noqa: F401
 
         # First call (simulating duplicate dispatch)
         _dispatch_one(task=dict(store[task_id]))

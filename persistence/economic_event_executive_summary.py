@@ -17,7 +17,7 @@ Why this file exists:
 """
 from __future__ import annotations
 
-from VM107.persistence.economic_event_summary import write_summary
+from persistence.economic_event_summary import write_summary
 
 
 def update_summary(event_id: str, ai_executive_summary_text: str) -> None:

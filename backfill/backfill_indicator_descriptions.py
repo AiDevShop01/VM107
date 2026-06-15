@@ -43,11 +43,11 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 # Canonical agent invocation + output routing (Plan 02 deliverables).
 # These MUST be module-level attributes so tests can patch them via:
-#   patch("VM107.backfill.backfill_indicator_descriptions._dispatch_agent_sync", mock)
-#   patch("VM107.backfill.backfill_indicator_descriptions.parse_and_persist", mock)
+#   patch("backfill.backfill_indicator_descriptions._dispatch_agent_sync", mock)
+#   patch("backfill.backfill_indicator_descriptions.parse_and_persist", mock)
 # ---------------------------------------------------------------------------
-from VM107.workers.agent_invocation import _dispatch_agent_sync
-from VM107.workers.output_routing import parse_and_persist
+from workers.agent_invocation import _dispatch_agent_sync
+from workers.output_routing import parse_and_persist
 
 logger = logging.getLogger("backfill_indicator_descriptions")
 

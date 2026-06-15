@@ -51,8 +51,8 @@ def test_three_tasks_completed_fires_publish_indicator_updated_once(
 
     mock_publish = MagicMock()
 
-    with patch("VM107.publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
-        from VM107.workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
+    with patch("publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
+        from workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
 
         goal_id = fixture_macro_release_goal_doc["goal_id"]
         indicator_id = fixture_macro_release_goal_doc["payload"]["indicator_id"]
@@ -102,8 +102,8 @@ def test_publish_not_fired_when_any_task_failed(
     release_task = fixture_macro_release_task_docs[0]
     store[release_task["task_id"]]["status"] = "failed"
 
-    with patch("VM107.publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
-        from VM107.workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
+    with patch("publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
+        from workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
 
         goal_id = fixture_macro_release_goal_doc["goal_id"]
         indicator_id = fixture_macro_release_goal_doc["payload"]["indicator_id"]

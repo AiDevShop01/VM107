@@ -44,16 +44,16 @@ from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 from datetime import datetime, timezone
 from typing import Any
 
-from VM107.core.scheduling.enums import GoalStatus, TaskStatus
-from VM107.workers.dispatcher_concurrency import DispatcherConcurrencyGuard
-import VM107.workers.agent_invocation as _agent_inv  # module-ref so test patches are visible
-from VM107.workers.output_routing import OutputParseError, UnknownProfileError, parse_and_persist
+from core.scheduling.enums import GoalStatus, TaskStatus
+from workers.dispatcher_concurrency import DispatcherConcurrencyGuard
+import workers.agent_invocation as _agent_inv  # module-ref so test patches are visible
+from workers.output_routing import OutputParseError, UnknownProfileError, parse_and_persist
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Re-export parse_and_persist so tests can do:
-#     from VM107.workers.task_dispatcher import parse_and_persist
+#     from workers.task_dispatcher import parse_and_persist
 # ---------------------------------------------------------------------------
 __all__ = [
     "main",
@@ -107,7 +107,7 @@ def _publish_once(goal_id: str, indicator_id: str) -> None:
     # That module resolves REDIS_URL at import time via a module-level call
     # to _required("REDIS_URL") which would fail in unit tests without Redis.
     try:
-        from VM107.publishers.macro_ws_invalidation import publish_indicator_updated
+        from publishers.macro_ws_invalidation import publish_indicator_updated
         publish_indicator_updated(indicator_id)
         logger.info({
             "event": "vm107_task_dispatcher_ws_published",
@@ -1024,8 +1024,8 @@ def _build_message_for_profile(
         # Attempt to fetch upstream analysis for context
         upstream_ctx = ""
         try:
-            from VM107.persistence import economic_event_analysis as _ea
-            from VM107.persistence import economic_event_asset_exposure as _eea
+            from persistence import economic_event_analysis as _ea
+            from persistence import economic_event_asset_exposure as _eea
             # Read helpers — best effort, don't fail if unavailable
             upstream_ctx = (
                 f"event_id: {event_id}, indicator: {indicator_id}"
@@ -1105,8 +1105,8 @@ def main() -> None:
     POLL_SEC, MAX_CONCURRENT, MAX_RETRIES_DEFAULT = _load_env_config()
 
     # Build production orchestrator (validates REDIS_URL + MONGODB_URI at startup)
-    from VM107.core.scheduling.orchestrator_factory import build_default_orchestrator
-    from VM107.core.scheduling.macro_release_goal import configure_default_orchestrator
+    from core.scheduling.orchestrator_factory import build_default_orchestrator
+    from core.scheduling.macro_release_goal import configure_default_orchestrator
 
     orchestrator = build_default_orchestrator()
     configure_default_orchestrator(orchestrator)

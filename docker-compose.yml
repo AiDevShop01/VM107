@@ -251,6 +251,16 @@ services:
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
       - ./listeners:/a0/listeners:ro
       - ./core:/a0/core:ro
+      # Phase 85.1 Plan 02 patch loads workers.task_dispatcher (for _publish_once
+      # dedup) and publishers.macro_ws_invalidation at module import — all of
+      # these and their transitive deps need to be mounted.
+      - ./workers:/a0/workers:ro
+      - ./publishers:/a0/publishers:ro
+      - ./persistence:/a0/persistence:ro
+      - ./services:/a0/services:ro
+      - ./profiles:/a0/profiles:ro
+      - ./prompts:/a0/prompts:ro
+      - ./registry:/a0/registry:ro
       - ./config/templates:/a0/config/templates:ro
     depends_on:
       vm107:

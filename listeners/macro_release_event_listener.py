@@ -57,11 +57,11 @@ from core.scheduling.orchestrator_factory import build_default_orchestrator
 # registered on_complete hook AND the dispatcher's defence-in-depth call site
 # share the same _published_goal_ids set (W5 dedup contract).
 try:
-    from VM107.workers.task_dispatcher import _publish_once as _ws_publish_once  # type: ignore[import]
+    from workers.task_dispatcher import _publish_once as _ws_publish_once  # type: ignore[import]
 except ImportError:
     # Fallback: task_dispatcher not yet deployed (e.g. early boot or test-only env).
     # In this case, use the direct publisher without dedup guard.
-    from VM107.publishers.macro_ws_invalidation import publish_indicator_updated  # type: ignore[import]
+    from publishers.macro_ws_invalidation import publish_indicator_updated  # type: ignore[import]
     def _ws_publish_once(goal_id: "str | None", indicator_id: str) -> None:
         publish_indicator_updated(indicator_id)
 

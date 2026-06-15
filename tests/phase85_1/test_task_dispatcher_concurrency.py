@@ -72,7 +72,7 @@ def test_dispatcher_honours_max_concurrent_cap(
 
     mock_dispatch_agent_sync.side_effect = _slow_dispatch
 
-    from VM107.workers.task_dispatcher import dispatch_batch  # noqa: F401
+    from workers.task_dispatcher import dispatch_batch  # noqa: F401
 
     dispatch_batch(
         collection=mock_brain_state_collection,

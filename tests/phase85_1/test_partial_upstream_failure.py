@@ -35,7 +35,7 @@ def test_exec_summary_cancelled_when_release_analyst_failed(
 
     This prevents a partial summary from reaching WS consumers.
     """
-    from VM107.workers.task_dispatcher import handle_upstream_failure  # noqa: F401
+    from workers.task_dispatcher import handle_upstream_failure  # noqa: F401
 
     store = mock_brain_state_collection._store
     release_task = fixture_macro_release_task_docs[0]
@@ -90,8 +90,8 @@ def test_publish_not_fired_when_exec_summary_cancelled(
     store[release_task["task_id"]]["status"] = "failed"
     store[exec_task["task_id"]]["status"] = "cancelled"
 
-    with patch("VM107.publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
-        from VM107.workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
+    with patch("publishers.macro_ws_invalidation.publish_indicator_updated", mock_publish):
+        from workers.task_dispatcher import run_all_tasks_for_goal  # noqa: F401
 
         goal_id = fixture_macro_release_goal_doc["goal_id"]
         indicator_id = fixture_macro_release_goal_doc["payload"]["indicator_id"]

@@ -116,7 +116,7 @@ def parse_and_persist(
 
     if profile_id == "vm107.macro_release_analyst":
         # Late import: avoid requiring Postgres at module load time (unit test safety)
-        import VM107.persistence.economic_event_analysis as _ea
+        import persistence.economic_event_analysis as _ea
         _ea.insert_analysis(
             event_id=event_id,
             indicator_id=indicator_id,
@@ -126,7 +126,7 @@ def parse_and_persist(
         return envelope_id
 
     if profile_id == "vm107.macro_asset_exposure_analyst":
-        import VM107.persistence.economic_event_asset_exposure as _eea
+        import persistence.economic_event_asset_exposure as _eea
         exposures = parsed.get("exposures", parsed)
         _eea.batch_insert(
             event_id=event_id,
@@ -136,7 +136,7 @@ def parse_and_persist(
         return envelope_id
 
     if profile_id == "vm107.macro_executive_summary_writer":
-        import VM107.persistence.economic_event_executive_summary as _ees
+        import persistence.economic_event_executive_summary as _ees
         summary_text = parsed.get("summary", parsed.get("executive_summary", str(parsed)))
         _ees.update_summary(
             event_id=event_id,
@@ -145,7 +145,7 @@ def parse_and_persist(
         return envelope_id
 
     if profile_id == "vm107.macro_indicator_describer":
-        import VM107.persistence.economic_indicator_description as _eid
+        import persistence.economic_indicator_description as _eid
         _eid.upsert_description(
             indicator_code=indicator_id,
             description_dict=parsed,
@@ -166,8 +166,8 @@ def parse_and_persist(
 # ---------------------------------------------------------------------------
 
 PROFILE_TO_PERSISTENCE: dict[str, str] = {
-    "vm107.macro_release_analyst": "VM107.persistence.economic_event_analysis.insert_analysis",
-    "vm107.macro_asset_exposure_analyst": "VM107.persistence.economic_event_asset_exposure.batch_insert",
-    "vm107.macro_executive_summary_writer": "VM107.persistence.economic_event_executive_summary.update_summary",
-    "vm107.macro_indicator_describer": "VM107.persistence.economic_indicator_description.upsert_description",
+    "vm107.macro_release_analyst": "persistence.economic_event_analysis.insert_analysis",
+    "vm107.macro_asset_exposure_analyst": "persistence.economic_event_asset_exposure.batch_insert",
+    "vm107.macro_executive_summary_writer": "persistence.economic_event_executive_summary.update_summary",
+    "vm107.macro_indicator_describer": "persistence.economic_indicator_description.upsert_description",
 }

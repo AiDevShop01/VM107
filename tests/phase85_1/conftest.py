@@ -258,7 +258,7 @@ def mock_dispatch_agent_sync(monkeypatch) -> MagicMock:
     # Attempt to patch; if module doesn't exist yet, store for later use
     try:
         monkeypatch.setattr(
-            "VM107.workers.agent_invocation._dispatch_agent_sync",
+            "workers.agent_invocation._dispatch_agent_sync",
             mock_fn,
         )
     except (ImportError, AttributeError):

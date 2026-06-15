@@ -31,7 +31,7 @@ def test_failed_task_retries_up_to_max_retries(
     Each failure increments retry_count via bulk_writer.write_critical.
     On final failure, status transitions to FAILED (not PENDING).
     """
-    from VM107.workers.task_dispatcher import run_task_with_retry  # noqa: F401
+    from workers.task_dispatcher import run_task_with_retry  # noqa: F401
 
     release_task = dict(fixture_macro_release_task_docs[0])
     release_task["max_retries"] = 3
@@ -71,7 +71,7 @@ def test_failed_task_writes_failure_reason(
     The failure_reason must capture the exception message so operators can
     diagnose why a task failed without digging into logs.
     """
-    from VM107.workers.task_dispatcher import run_task_with_retry  # noqa: F401
+    from workers.task_dispatcher import run_task_with_retry  # noqa: F401
 
     release_task = dict(fixture_macro_release_task_docs[0])
     release_task["max_retries"] = 0  # Fail immediately on first error

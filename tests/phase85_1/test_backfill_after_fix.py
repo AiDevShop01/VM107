@@ -55,15 +55,15 @@ def test_backfill_loops_over_indicators_without_attributeerror(
     try:
         with (
             patch(
-                "VM107.backfill.backfill_indicator_descriptions._dispatch_agent_sync",
+                "backfill.backfill_indicator_descriptions._dispatch_agent_sync",
                 mock_dispatch_agent_sync,
             ),
             patch(
-                "VM107.persistence.economic_indicator_description.upsert_description",
+                "persistence.economic_indicator_description.upsert_description",
                 mock_upsert,
             ),
         ):
-            from VM107.backfill import backfill_indicator_descriptions  # noqa: F401
+            from backfill import backfill_indicator_descriptions  # noqa: F401
 
             backfill_indicator_descriptions.main(limit=10)
 
@@ -120,19 +120,19 @@ def test_backfill_skips_manual_override_rows(
     try:
         with (
             patch(
-                "VM107.backfill.backfill_indicator_descriptions.fetch_indicators_for_backfill",
+                "backfill.backfill_indicator_descriptions.fetch_indicators_for_backfill",
                 mock_fetch,
             ),
             patch(
-                "VM107.backfill.backfill_indicator_descriptions._dispatch_agent_sync",
+                "backfill.backfill_indicator_descriptions._dispatch_agent_sync",
                 mock_dispatch_agent_sync,
             ),
             patch(
-                "VM107.persistence.economic_indicator_description.upsert_description",
+                "persistence.economic_indicator_description.upsert_description",
                 mock_upsert,
             ),
         ):
-            from VM107.backfill import backfill_indicator_descriptions  # noqa: F401
+            from backfill import backfill_indicator_descriptions  # noqa: F401
 
             backfill_indicator_descriptions.main(limit=10)
 
