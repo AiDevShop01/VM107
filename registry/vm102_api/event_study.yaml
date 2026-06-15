@@ -1,0 +1,76 @@
+id: vm102_event_study
+type: vm102_api
+phase: 86
+method: GET
+path: /api/v2/analytics/indicator/<id>/event-study
+query_schema:
+  threshold: {type: float,  required: false, default: 0.2, min: 0.0, max: 1.0}
+  direction: {type: string, required: false, default: beat, allowed: [beat, miss]}
+  assets:    {type: string, required: true, csv_max_items: 5}
+  pre:       {type: int,    required: false, default: 5,  min: 0, max: 30}
+  post:      {type: int,    required: false, default: 10, min: 0, max: 30}
+response_schema_ref: schemas/event_study_response.json
+error_codes:
+  - EventStudySampleTooSmall  # HTTP 200 + envelope error
+  - TooManyAssets              # HTTP 400
+  - UnknownAsset               # HTTP 400
+owner: engineering
+latency_budget_ms: 8000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_event_study_trio  # find_all_events + align_window + compute_cross_section_stats
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+description: >-
+  Phase 86 — Multi-asset price-response event study aligned on macro indicator surprise
+  events. Finds all historical beats/misses (threshold + direction filter), aligns a
+  [pre, post] window around each event, and returns per-asset mean/median/q1/q3 curves.
+  EventStudySampleTooSmall (N<5) returns HTTP 200 with error envelope (UI banner).
+  TooManyAssets (>5 CSV items) returns HTTP 400. Consumed by EventStudyPanel (Plan 86-04)
+  and vm107.macro_historical_analyst (Plan 86-07).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_event_study
+    http_path: /api/v2/analytics/indicator/{id}/event-study
+    http_method: GET
+    parameters:
+      - {name: id,        type: string, required: true,  description: "FRED indicator code"}
+      - {name: threshold, type: float,  required: false, default: 0.2,  description: "Min |surprise_pct| to qualify as event (0.0–1.0)"}
+      - {name: direction, type: string, required: false, default: beat, description: "beat | miss"}
+      - {name: assets,    type: string, required: true,  description: "CSV of asset ids, max 5, from asset_universe"}
+      - {name: pre,       type: int,    required: false, default: 5,   description: "Pre-event window in months (0–30)"}
+      - {name: post,      type: int,    required: false, default: 10,  description: "Post-event window in months (0–30)"}
+    return_shape: "EventStudyResponse"
+location:
+  source: VM102/backend/api/v2/routers/macro_analytics.py
+  endpoint: /api/v2/analytics/indicator/{id}/event-study
+  contracts:
+    request: "params(id, threshold, direction, assets, pre, post)"
+    response: "EventStudyResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.EventStudyResponse
+consumed_by:
+  - vm107.macro_historical_analyst
+related_capabilities:
+  - vm102_correlations
+  - vm102_lead_lag
+  - vm102_seasonality
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - event-study
+  - multi-asset
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 3600
+is_deterministic: true
+version: "1.0.0"

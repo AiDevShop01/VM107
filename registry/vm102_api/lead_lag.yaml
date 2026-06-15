@@ -1,0 +1,65 @@
+id: vm102_lead_lag
+type: vm102_api
+phase: 86
+method: GET
+path: /api/v2/analytics/indicator/<id>/lead-lag
+query_schema:
+  asset: {type: string, required: true}
+response_schema_ref: schemas/lead_lag_response.json
+error_codes:
+  - UnknownAsset  # HTTP 400
+owner: engineering
+latency_budget_ms: 3000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_corr_lag_scan
+notes: |
+  Returns exactly 4 rows (lag_months in {0,1,2,3}) per CONTEXT D2.
+  Rows with insufficient_overlap return corr=null, p_value=null, note='insufficient_overlap'.
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+description: >-
+  Phase 86 — Lead-lag correlation scan between a FRED indicator and an asset at
+  lag_months in {0, 1, 2, 3}. Returns a 4-row table with corr + p_value per lag offset.
+  Insufficient-overlap rows return null corr + null p_value + note='insufficient_overlap'.
+  UnknownAsset returns HTTP 400. Consumed by LeadLagTable panel (Plan 86-04).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_lead_lag
+    http_path: /api/v2/analytics/indicator/{id}/lead-lag
+    http_method: GET
+    parameters:
+      - {name: id,    type: string, required: true, description: "FRED indicator code"}
+      - {name: asset, type: string, required: true, description: "Asset id from asset_universe"}
+    return_shape: "LeadLagResponse"
+location:
+  source: VM102/backend/api/v2/routers/macro_analytics.py
+  endpoint: /api/v2/analytics/indicator/{id}/lead-lag
+  contracts:
+    request: "params(id, asset)"
+    response: "LeadLagResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.LeadLagResponse
+consumed_by: []
+related_capabilities:
+  - vm102_correlations
+  - vm102_event_study
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - lead-lag
+  - lag-scan
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 1800
+is_deterministic: true
+version: "1.0.0"

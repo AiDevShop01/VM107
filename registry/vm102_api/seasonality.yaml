@@ -1,0 +1,63 @@
+id: vm102_seasonality
+type: vm102_api
+phase: 86
+method: GET
+path: /api/v2/analytics/indicator/<id>/seasonality
+query_schema:
+  mode: {type: string, required: true, allowed: [monthly, heatmap]}
+response_schema_ref: schemas/seasonality_response.json
+error_codes:
+  - InsufficientHistory  # HTTP 200 + envelope error (<5 years)
+owner: engineering
+latency_budget_ms: 2000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_seasonality
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+description: >-
+  Phase 86 — Monthly seasonality profile for a FRED macro indicator. Mode=monthly
+  returns 12 rows of (month, mean, stdev, n, anomaly) across all observed years.
+  Mode=heatmap returns a year×month matrix for heatmap visualization (Plan 86-06).
+  InsufficientHistory (<5 years of data) returns HTTP 200 with error envelope.
+  Consumed by SeasonalPatternStrip (Plan 86-06).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_seasonality
+    http_path: /api/v2/analytics/indicator/{id}/seasonality
+    http_method: GET
+    parameters:
+      - {name: id,   type: string, required: true,  description: "FRED indicator code"}
+      - {name: mode, type: string, required: true,  description: "monthly | heatmap"}
+    return_shape: "SeasonalityResponse"
+location:
+  source: VM102/backend/api/v2/routers/macro_analytics.py
+  endpoint: /api/v2/analytics/indicator/{id}/seasonality
+  contracts:
+    request: "params(id, mode)"
+    response: "SeasonalityResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.SeasonalityResponse
+consumed_by: []
+related_capabilities:
+  - vm102_event_study
+  - vm102_distribution
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - seasonality
+  - heatmap
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 3600
+is_deterministic: true
+version: "1.0.0"

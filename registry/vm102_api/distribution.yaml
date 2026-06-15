@@ -1,0 +1,70 @@
+id: vm102_distribution
+type: vm102_api
+phase: 86
+method: GET
+path: /api/v2/analytics/indicator/<id>/distribution
+query_schema:
+  bins: {type: int, required: false, default: 20, min: 10, max: 50}
+response_schema_ref: schemas/distribution_response.json
+error_codes:
+  - InsufficientHistory  # HTTP 200 + envelope error (<5 years)
+  - UnknownIndicator     # HTTP 400
+owner: engineering
+latency_budget_ms: 2000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_distribution_trio  # composes histogram + percentile_of_latest + zscore_of_latest from Wave-0 distribution module
+notes: |
+  REQ-86-4 standalone capability (checker Blocker 1 Option A). Consumed by Plan 86-05 DistributionPanel.
+  result schema: { histogram: [{bin_lo, bin_hi, count}], percentile_of_latest: int,
+                   zscore_of_latest: float, current_value: float,
+                   period_start_year: int, one_liner: str }
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+description: >-
+  Phase 86 — Historical distribution of FRED indicator values: histogram (bins),
+  percentile_of_latest (int), zscore_of_latest (float), current_value, period_start_year,
+  and a one-liner summary. REQ-86-4 standalone capability per checker Blocker 1 Option A.
+  InsufficientHistory (<5 years) returns HTTP 200 with error envelope.
+  UnknownIndicator returns HTTP 400. Consumed by DistributionPanel (Plan 86-05).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_distribution
+    http_path: /api/v2/analytics/indicator/{id}/distribution
+    http_method: GET
+    parameters:
+      - {name: id,   type: string, required: true,  description: "FRED indicator code"}
+      - {name: bins, type: int,    required: false, default: 20, description: "Histogram bin count (10–50)"}
+    return_shape: "DistributionResponse"
+location:
+  source: VM102/backend/api/v2/routers/macro_analytics.py
+  endpoint: /api/v2/analytics/indicator/{id}/distribution
+  contracts:
+    request: "params(id, bins)"
+    response: "DistributionResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.DistributionResponse
+consumed_by: []
+related_capabilities:
+  - vm102_seasonality
+  - vm102_event_study
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - distribution
+  - histogram
+  - percentile
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.90
+expected_freshness_seconds: 1800
+is_deterministic: true
+version: "1.0.0"

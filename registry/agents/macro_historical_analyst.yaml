@@ -1,0 +1,61 @@
+id: vm107_macro_historical_analyst
+type: agent
+phase: 86
+trigger: event_driven
+trigger_sources:
+  - vm100_event_study_panel_run_study
+  - vm100_correlation_laboratory_analyze
+  - vm100_seasonal_pattern_strip_mount   # via dispatcher; Plan 86-08
+input_contract:
+  envelope: phase_70_5
+  indicator_name: string
+  asset_names: list[string]
+output_contract:
+  narrative: string
+  envelope: phase_70_5
+hard_assertions:
+  - narrative_contains_sample_size
+  - narrative_contains_period
+narrative_word_cap: 50
+lifecycle: single_emit_terminate
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 30
+latency_budget_ms: 4000
+owner: engineering
+brain_absorbed: []  # CONTEXT D7 — explicitly empty; no Brain module absorbed
+model_routing:
+  env_driven: LLM_MODEL  # Plan 86-07 note: no hardcoded model; deployment value openai/gpt-4o-mini or anthropic/claude-3-haiku
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+name: vm107.macro_historical_analyst
+description: >-
+  Phase 86 — Event-driven standalone agent (Plan 86-07). Receives a vm102_event_study
+  ToolResultEnvelope from historicalAnalystDispatcher.js (Plan 86-08), emits a <=50-word
+  factual narrative citing sample size N and observation period. Single-emit-terminate
+  lifecycle: invoke() -> validate -> build_prompt -> call_llm -> _missing_citations check
+  -> [reprompt once on failure] -> write_cot_trail -> return narrative envelope.
+  Hard assertions: narrative must contain N (sample size) and period. brain_absorbed: []
+  (CONTEXT D7 — no Brain module incorporated). CoT trail bounded at 30 events (WORM).
+profile_path: VM107/agents/macro_historical_analyst/agent.py
+invoke_path: VM107/api/v1/agents/macro_historical_analyst/invoke.py
+invoke_http:
+  method: POST
+  path: /api/v1/agents/macro_historical_analyst/invoke
+  auth: X-API-KEY M2M
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - agent
+  - event-driven
+  - single-emit-terminate
+  - historical-analyst
+  - vm107

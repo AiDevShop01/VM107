@@ -1,0 +1,63 @@
+id: vm102_correlations
+type: vm102_api
+phase: 86
+method: GET
+path: /api/v2/analytics/indicator/<id>/correlations
+query_schema:
+  asset:  {type: string, required: true}
+  window: {type: int,    required: false, default: 200, allowed: [50, 100, 200, 500]}
+response_schema_ref: schemas/correlations_response.json
+owner: engineering
+latency_budget_ms: 3000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_corr_rolling
+status: real
+shipped: 86
+last_changed: "2026-06-15"
+description: >-
+  Phase 86 — Rolling Pearson correlation time-series between a FRED macro indicator
+  and a target asset (gold, usd, spx, treasuries, copper, nasdaq, eur, jpy).
+  Returns a date-series of correlation coefficients over a configurable rolling window.
+  Wrapped in Phase 70.5 ToolResultEnvelope. Used by CorrelationLaboratory panel (Plan 86-04).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_correlations
+    http_path: /api/v2/analytics/indicator/{id}/correlations
+    http_method: GET
+    parameters:
+      - {name: id,     type: string, required: true,  description: "FRED indicator code, e.g. CPIAUCSL"}
+      - {name: asset,  type: string, required: true,  description: "Asset id from asset_universe (gold, usd, spx, ...)"}
+      - {name: window, type: int,    required: false, default: 200, description: "Rolling window in months (50|100|200|500)"}
+    return_shape: "CorrelationsResponse"
+location:
+  source: VM102/backend/api/v2/routers/macro_analytics.py
+  endpoint: /api/v2/analytics/indicator/{id}/correlations
+  contracts:
+    request: "params(id, asset, window)"
+    response: "CorrelationsResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.CorrelationsResponse
+consumed_by:
+  - vm107.macro_historical_analyst
+related_capabilities:
+  - vm102_lead_lag
+  - vm102_event_study
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - correlations
+  - rolling
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 1800
+is_deterministic: true
+version: "1.0.0"
