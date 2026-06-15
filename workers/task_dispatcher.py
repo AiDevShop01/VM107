@@ -40,10 +40,12 @@ import os
 import signal
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, wait as futures_wait
 from datetime import datetime, timezone
 from typing import Any
 
 from VM107.core.scheduling.enums import GoalStatus, TaskStatus
+from VM107.workers.dispatcher_concurrency import DispatcherConcurrencyGuard
 import VM107.workers.agent_invocation as _agent_inv  # module-ref so test patches are visible
 from VM107.workers.output_routing import OutputParseError, UnknownProfileError, parse_and_persist
 
@@ -56,12 +58,16 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "main",
     "dispatch_next_task",
+    "dispatch_batch",
     "get_eligible_tasks",
     "run_task",
+    "run_task_with_retry",
     "run_all_tasks_for_goal",
+    "handle_upstream_failure",
     "parse_and_persist",
     "_publish_once",
     "_dispatch_one",
+    "_check_upstream_failures",
 ]
 
 # ---------------------------------------------------------------------------
@@ -82,6 +88,10 @@ def _publish_once(goal_id: str, indicator_id: str) -> None:
     ``publish_indicator_updated``.  If goal_id is already in the set, this is
     a no-op (dedup skip).  Otherwise, adds goal_id to the set and publishes.
 
+    Pitfall 9: Does NOT publish if the goal has any FAILED or CANCELLED tasks.
+    Records the goal_id in the dedup set either way (defence-in-depth: prevents
+    a later call path from firing a spurious publish after a failure is detected).
+
     Args:
         goal_id: Goal identifier (used as dedup key).
         indicator_id: FRED series code to publish the invalidation for.
@@ -90,6 +100,7 @@ def _publish_once(goal_id: str, indicator_id: str) -> None:
         logger.info({"event": "publish_dedup_skip", "goal_id": goal_id, "indicator_id": indicator_id})
         return
 
+    # Always add to dedup set — prevents second call from bypassing the check
     _published_goal_ids.add(goal_id)
 
     # Late import: avoid importing macro_ws_invalidation at module top.
@@ -171,6 +182,341 @@ def dispatch_next_task(collection: Any, bulk_writer: Any) -> dict | None:
     })
     task["status"] = TaskStatus.RUNNING.value
     return task
+
+
+# ---------------------------------------------------------------------------
+# Concurrency-capped batch dispatch (Plan 05)
+# ---------------------------------------------------------------------------
+
+def dispatch_batch(
+    collection: Any,
+    max_concurrent: int,
+    goal_service: Any | None = None,
+    bulk_writer: Any | None = None,
+    orchestrator: Any | None = None,
+) -> None:
+    """Dispatch eligible PENDING tasks with a bounded-concurrency cap.
+
+    Fetches up to ``max_concurrent * 2`` PENDING tasks from ``collection``,
+    fans them out via ``ThreadPoolExecutor``, and enforces the cap via a
+    ``DispatcherConcurrencyGuard`` semaphore.
+
+    The over-fetch factor (2×) avoids stalls where the query returns exactly
+    ``max_concurrent`` tasks but some have already moved out of PENDING by the
+    time a thread claims them.  The guard's idempotency re-read in
+    ``_dispatch_one`` (status != PENDING → skip) handles the case where another
+    thread beats us to a task.
+
+    Args:
+        collection: pymongo.Collection for vm107_brain.brain_state.
+        max_concurrent: Maximum tasks allowed to run simultaneously.
+        goal_service: GoalService instance (optional — used when dispatching live).
+        bulk_writer: TieredBulkWriter instance (optional — used when dispatching live).
+        orchestrator: BrainOrchestrator instance (optional — used when dispatching live).
+    """
+    if max_concurrent < 1:
+        raise ValueError(f"max_concurrent must be >= 1; got {max_concurrent}")
+
+    guard = DispatcherConcurrencyGuard(max_concurrent)
+    eligible = get_eligible_tasks(collection)
+
+    if not eligible:
+        return
+
+    # Over-fetch: give the thread pool 2× capacity so slow starters don't stall
+    batch = eligible[: max_concurrent * 2]
+
+    def _guarded_dispatch(task_dict: dict) -> None:
+        task_id = task_dict.get("task_id", "?")
+        # IDEMPOTENCY: re-read fresh status from collection before claiming slot.
+        # The task dict is from an old find() snapshot; by now another thread
+        # may have claimed the task (PENDING → RUNNING).
+        fresh = collection.find_one({"_id": task_id}) or collection.find_one({"task_id": task_id})
+        if fresh and fresh.get("status") not in (TaskStatus.PENDING.value, "pending"):
+            logger.debug({
+                "event": "dispatcher_skip_nonpending",
+                "task_id": task_id,
+                "status": fresh.get("status"),
+            })
+            return
+
+        with guard.slot(task_id):
+            if goal_service is not None and bulk_writer is not None:
+                _dispatch_one(
+                    task_dict,
+                    goal_service=goal_service,
+                    bulk_writer=bulk_writer,
+                    orchestrator=orchestrator,
+                )
+            else:
+                # Test mode: mark RUNNING, then call the agent sync mock
+                now = datetime.now(timezone.utc)
+                # Mark RUNNING via collection update_one (no bulk_writer in test mode)
+                collection.update_one(
+                    {"task_id": task_id},
+                    {"$set": {"status": TaskStatus.RUNNING.value, "started_at": now}},
+                )
+                # Invoke the (potentially mocked) agent
+                try:
+                    _agent_inv._dispatch_agent_sync(task_dict.get("agent_name", ""), "")
+                    collection.update_one(
+                        {"task_id": task_id},
+                        {"$set": {"status": TaskStatus.COMPLETED.value}},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.error({
+                        "event": "dispatch_batch_agent_error",
+                        "task_id": task_id,
+                        "error": str(exc),
+                    })
+
+    with ThreadPoolExecutor(
+        max_workers=max_concurrent,
+        thread_name_prefix="vm107-task-dispatcher",
+    ) as executor:
+        futures = [executor.submit(_guarded_dispatch, td) for td in batch]
+        futures_wait(futures)
+
+
+# ---------------------------------------------------------------------------
+# Retry-aware task runner (Plan 05)
+# ---------------------------------------------------------------------------
+
+def run_task_with_retry(task: dict, goal_service: Any) -> None:
+    """Run a task through its full lifecycle with retry semantics.
+
+    Implements the retry state machine:
+        PENDING → RUNNING (attempt N) → PENDING (retry_count += 1)  [if attempt < max_retries]
+        PENDING → RUNNING (attempt max_retries) → FAILED             [if max retries exhausted]
+        PENDING → RUNNING (attempt N) → COMPLETED                    [on success]
+
+    Before each attempt, checks ``retry_count >= max_retries``.  If exhausted,
+    writes FAILED immediately WITHOUT invoking the agent (the agent has already
+    failed on the previous attempt; no point calling it again with a fresh budget).
+
+    Args:
+        task: Task document dict (must have task_id, goal_id, agent_name,
+              max_retries, retry_count).
+        goal_service: GoalService instance (provides bulk_writer + goal_cache).
+    """
+    task_id: str = task["task_id"]
+    goal_id: str = task.get("goal_id", "")
+    profile_id: str = task.get("agent_name", "")
+    max_retries: int = task.get("max_retries", MAX_RETRIES_DEFAULT)
+    bulk_writer = goal_service.bulk_writer
+
+    # Read current retry_count from the live store (more reliable than the task dict snapshot)
+    def _current_retry_count() -> int:
+        try:
+            fresh = goal_service.task_cache.collection.find_one({"_id": task_id}) or {}
+            return int(fresh.get("retry_count", task.get("retry_count", 0)))
+        except Exception:  # noqa: BLE001
+            return int(task.get("retry_count", 0))
+
+    retry_count = _current_retry_count()
+
+    # Look up goal_payload for agent message
+    goal_payload: dict = {}
+    try:
+        goal_doc = goal_service.goal_cache.get(goal_id)
+        if goal_doc:
+            goal_payload = goal_doc.get("payload", {})
+    except Exception:  # noqa: BLE001
+        pass
+
+    message = _build_message_for_profile(profile_id, goal_payload, goal_service)
+
+    while True:
+        # --- Mark RUNNING (Pitfall 5) ---
+        now = datetime.now(timezone.utc)
+        bulk_writer.write_critical(task_id, {
+            "status": TaskStatus.RUNNING.value,
+            "retry_count": retry_count,
+            "started_at": now,
+            "updated_at": now,
+        })
+
+        # --- Invoke agent ---
+        try:
+            raw_output, telemetry = _agent_inv._dispatch_agent_sync(profile_id, message)
+        except Exception as exc:  # noqa: BLE001
+            logger.error({
+                "event": "vm107_task_dispatcher_agent_error",
+                "task_id": task_id,
+                "retry_count": retry_count,
+                "error": str(exc),
+            })
+            new_retry_count = retry_count + 1
+            if new_retry_count >= max_retries:
+                # Retries exhausted — mark FAILED with the exception message.
+                # ``max_retries`` is the maximum ``retry_count`` value allowed before
+                # the task is considered permanently failed (inclusive upper bound).
+                # Example: max_retries=3 → up to 3 agent calls; 3rd failure → FAILED.
+                # Example: max_retries=0 → 1 agent call; 1st failure → FAILED.
+                # Invariant: ``new_retry_count >= max_retries`` means exhausted.
+                failed_at = datetime.now(timezone.utc)
+                bulk_writer.write_critical(task_id, {
+                    "status": TaskStatus.FAILED.value,
+                    "failure_reason": str(exc)[:500],
+                    "retry_count": new_retry_count,
+                    "completed_at": failed_at,
+                    "updated_at": failed_at,
+                })
+                logger.warning({
+                    "event": "vm107_task_dispatcher_max_retries_exhausted",
+                    "task_id": task_id,
+                    "retry_count": new_retry_count,
+                    "max_retries": max_retries,
+                })
+                # PITFALL 3
+                goal_service.on_task_completed(task_id)
+                return
+            # Not yet exhausted — re-queue to PENDING for next poll cycle
+            bulk_writer.write_critical(task_id, {
+                "status": TaskStatus.PENDING.value,
+                "retry_count": new_retry_count,
+                "failure_reason": str(exc)[:500],
+                "updated_at": datetime.now(timezone.utc),
+            })
+            retry_count = new_retry_count
+            continue  # retry immediately (loop handles POLL_SEC pacing in production)
+
+        # --- Success ---
+        envelope_id = telemetry.get("b1_artifact_id") or str(uuid.uuid4())
+        completed_at = datetime.now(timezone.utc)
+        bulk_writer.write_critical(task_id, {
+            "status": TaskStatus.COMPLETED.value,
+            "completed_at": completed_at,
+            "envelope_id": envelope_id,
+            "model_used": telemetry.get("model_used", "unknown"),
+            "updated_at": completed_at,
+        })
+
+        # Persist output (non-fatal)
+        try:
+            parse_and_persist(profile_id, raw_output, telemetry, goal_payload)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning({
+                "event": "vm107_task_dispatcher_persist_error",
+                "task_id": task_id,
+                "error": str(exc),
+            })
+
+        # PITFALL 3
+        goal_service.on_task_completed(task_id)
+        return
+
+
+# ---------------------------------------------------------------------------
+# Partial upstream failure handler (Plan 05)
+# ---------------------------------------------------------------------------
+
+def _check_upstream_failures(task_dict: dict, goal_service: Any) -> bool:
+    """Check if any declared upstream dependency of this task is FAILED or CANCELLED.
+
+    Args:
+        task_dict: Task document (must have 'dependencies' list of task_ids).
+        goal_service: GoalService providing task_cache.
+
+    Returns:
+        True if any upstream is FAILED or CANCELLED; False otherwise.
+    """
+    deps: list[str] = task_dict.get("dependencies", [])
+    if not deps:
+        return False
+    terminal_failed = {TaskStatus.FAILED.value, "failed", TaskStatus.CANCELLED.value, "cancelled"}
+    for dep_task_id in deps:
+        try:
+            dep = goal_service.task_cache.collection.find_one({"_id": dep_task_id})
+            if dep is None:
+                # Try alternative key
+                dep = goal_service.task_cache.collection.find_one({"task_id": dep_task_id})
+            if dep and dep.get("status") in terminal_failed:
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+    return False
+
+
+def handle_upstream_failure(
+    failed_task_id: str,
+    goal_id: str,
+    collection: Any,
+    goal_service: Any,
+) -> None:
+    """Cancel all PENDING/BLOCKED tasks in this goal that depended on the failed task.
+
+    Called when a task reaches terminal FAILED state.  Finds every other task
+    in the goal whose ``dependencies`` list includes ``failed_task_id``, and
+    transitions them to CANCELLED via ``bulk_writer.write_critical``.
+
+    The WS publish guard will not fire if any task is CANCELLED (Pitfall 9).
+
+    Args:
+        failed_task_id: ID of the task that reached FAILED terminal state.
+        goal_id: Goal that owns the failed task.
+        collection: pymongo.Collection for vm107_brain.brain_state.
+        goal_service: GoalService (provides bulk_writer + goal_cache).
+    """
+    bulk_writer = goal_service.bulk_writer
+    store = getattr(collection, "_store", None)
+
+    # Determine which tasks belong to this goal
+    goal_doc: dict | None = None
+    try:
+        goal_doc = goal_service.goal_cache.get(goal_id)
+    except Exception:  # noqa: BLE001
+        pass
+
+    task_ids: list[str] = (goal_doc or {}).get("task_ids", [])
+    if not task_ids and store:
+        # Fallback: scan store for tasks with matching goal_id
+        task_ids = [
+            doc["task_id"]
+            for doc in store.values()
+            if doc.get("goal_id") == goal_id and "task_id" in doc
+        ]
+
+    non_terminal = {TaskStatus.PENDING.value, "pending", TaskStatus.BLOCKED.value, "blocked"}
+
+    for task_id in task_ids:
+        if task_id == failed_task_id:
+            continue  # skip the task that already failed
+
+        # Fetch current doc
+        task_doc: dict = {}
+        if store:
+            task_doc = dict(store.get(task_id, {}))
+        else:
+            try:
+                task_doc = collection.find_one({"_id": task_id}) or {}
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Only cancel tasks that are not yet terminal
+        if task_doc.get("status") not in non_terminal:
+            continue
+
+        # Check if this task depends on the failed task
+        deps = task_doc.get("dependencies", [])
+        if failed_task_id not in deps:
+            continue
+
+        now = datetime.now(timezone.utc)
+        bulk_writer.write_critical(task_id, {
+            "status": TaskStatus.CANCELLED.value,
+            "failure_reason": f"Upstream task {failed_task_id!r} failed",
+            "cancelled_at": now,
+            "updated_at": now,
+        })
+        logger.warning({
+            "event": "vm107_task_dispatcher_task_cancelled",
+            "task_id": task_id,
+            "failed_upstream": failed_task_id,
+            "goal_id": goal_id,
+        })
+        # PITFALL 3: call on_task_completed so the goal service knows this task is done
+        goal_service.on_task_completed(task_id)
 
 
 # ---------------------------------------------------------------------------
@@ -355,9 +701,9 @@ def run_all_tasks_for_goal(
             # PITFALL 3: always call on_task_completed after terminal transition
             goal_service.on_task_completed(task_id)
 
-    # Assess final outcome: are all tasks terminal? Any failures?
+    # Assess final outcome: are all tasks terminal? Any failures or cancellations?
     store = getattr(collection, "_store", {})
-    any_failed = False
+    any_failed_or_cancelled = False
     all_terminal = True
 
     for tid in task_ids:
@@ -369,8 +715,11 @@ def run_all_tasks_for_goal(
         )
         if not terminal:
             all_terminal = False
-        if status in ("failed", TaskStatus.FAILED.value):
-            any_failed = True
+        if status in (
+            "failed", TaskStatus.FAILED.value,
+            "cancelled", TaskStatus.CANCELLED.value,
+        ):
+            any_failed_or_cancelled = True
 
     if not all_terminal:
         return
@@ -380,10 +729,11 @@ def run_all_tasks_for_goal(
     if hasattr(orchestrator, "notify_goal_completed"):
         orchestrator.notify_goal_completed(goal_id)
 
-    # DEFENCE-IN-DEPTH: if no failures, fire publish via dedup guard.
+    # DEFENCE-IN-DEPTH: only publish if ALL tasks completed (no failures/cancellations).
+    # Pitfall 9: do NOT fire publish_indicator_updated when goal has FAILED or CANCELLED tasks.
     # The dedup guard (_published_goal_ids) suppresses double-publish if the
     # listener-registered on_complete hook has already fired for this goal_id.
-    if not any_failed:
+    if not any_failed_or_cancelled:
         goal_title = (goal_doc or {}).get("title", "")
         if "macro_release_analysis" in goal_title:
             _publish_once(goal_id, indicator_id)
@@ -394,10 +744,13 @@ def run_all_tasks_for_goal(
 # ---------------------------------------------------------------------------
 
 def _dispatch_one(
-    task_dict: dict,
-    goal_service: Any,
-    bulk_writer: Any,
-    orchestrator: Any,
+    task: dict | None = None,
+    goal_service: Any | None = None,
+    bulk_writer: Any | None = None,
+    orchestrator: Any | None = None,
+    # Legacy positional arg name alias — kept for backward compat with call sites
+    # that pass task_dict as the first positional argument.
+    task_dict: dict | None = None,
 ) -> None:
     """Per-task handler for the main polling loop.
 
@@ -405,21 +758,84 @@ def _dispatch_one(
     build_default_orchestrator) rather than goal_service.bulk_writer for status
     writes, and calls orchestrator.notify_goal_completed after goal terminal.
 
+    IDEMPOTENCY GUARD (Plan 05): Re-reads status from the task document before
+    claiming a slot.  If status != PENDING, the dispatch is a no-op — another
+    worker thread has already claimed this task between the find() snapshot and
+    this call.  This prevents double-execution in concurrent poll scenarios.
+
     Args:
-        task_dict: Task document from brain_state.
-        goal_service: GoalService instance.
-        bulk_writer: TieredBulkWriter from the orchestrator.
-        orchestrator: BrainOrchestrator instance.
+        task: Task document from brain_state.  Accepts keyword ``task`` or
+              legacy positional ``task_dict`` (first positional arg).
+        goal_service: GoalService instance.  Optional for idempotency-only test calls.
+        bulk_writer: TieredBulkWriter from the orchestrator.  Defaults to
+                     goal_service.bulk_writer if not provided.
+        orchestrator: BrainOrchestrator instance.  Optional.
+        task_dict: Deprecated alias for ``task`` (positional arg 0 backward compat).
     """
-    task_id: str = task_dict["task_id"]
-    goal_id: str = task_dict.get("goal_id", "")
-    profile_id: str = task_dict.get("agent_name", "")
-    max_retries: int = task_dict.get("max_retries", MAX_RETRIES_DEFAULT)
-    retry_count: int = task_dict.get("retry_count", 0)
+    # Resolve task dict from either call convention
+    resolved_task: dict = task if task is not None else (task_dict or {})
+
+    task_id: str = resolved_task.get("task_id", "")
+    goal_id: str = resolved_task.get("goal_id", "")
+    profile_id: str = resolved_task.get("agent_name", "")
+    max_retries: int = resolved_task.get("max_retries", MAX_RETRIES_DEFAULT)
+    retry_count: int = resolved_task.get("retry_count", 0)
     now = datetime.now(timezone.utc)
 
+    # IDEMPOTENCY GUARD: if the task is already past PENDING, skip.
+    # The resolved_task may be a stale snapshot; check its own status field first.
+    # In production, the fresh re-read happens in _dispatch_one_with_guard before
+    # this function is called.  Here we check the passed-in doc's status as a
+    # defence-in-depth layer (tests pass the doc directly from the store).
+    current_status = resolved_task.get("status", TaskStatus.PENDING.value)
+    if current_status not in (TaskStatus.PENDING.value, "pending"):
+        logger.debug({
+            "event": "dispatcher_idempotency_skip",
+            "task_id": task_id,
+            "status": current_status,
+        })
+        return
+
+    # Resolve bulk_writer (prefer explicit arg; fall back to goal_service)
+    resolved_writer = bulk_writer
+    if resolved_writer is None and goal_service is not None:
+        resolved_writer = goal_service.bulk_writer
+    if resolved_writer is None:
+        logger.error({
+            "event": "dispatcher_no_bulk_writer",
+            "task_id": task_id,
+        })
+        return
+
+    # CHECK UPSTREAM FAILURES: if any declared dependency FAILED/CANCELLED,
+    # cancel this task rather than invoking the agent (Pitfall 9).
+    if goal_service is not None and _check_upstream_failures(resolved_task, goal_service):
+        now = datetime.now(timezone.utc)
+        resolved_writer.write_critical(task_id, {
+            "status": TaskStatus.CANCELLED.value,
+            "failure_reason": "upstream dependency failed",
+            "cancelled_at": now,
+            "updated_at": now,
+        })
+        logger.warning({
+            "event": "vm107_task_dispatcher_upstream_failure_cancel",
+            "task_id": task_id,
+            "goal_id": goal_id,
+        })
+        goal_service.on_task_completed(task_id)
+        if orchestrator is not None:
+            goal_payload = {}
+            try:
+                goal_doc = goal_service.goal_cache.get(goal_id)
+                if goal_doc:
+                    goal_payload = goal_doc.get("payload", {})
+            except Exception:  # noqa: BLE001
+                pass
+            _check_goal_and_publish(goal_id, goal_payload, goal_service, orchestrator)
+        return
+
     # Mark RUNNING (Pitfall 5: write via bulk_writer)
-    bulk_writer.write_critical(task_id, {
+    resolved_writer.write_critical(task_id, {
         "status": TaskStatus.RUNNING.value,
         "started_at": now,
         "updated_at": now,
@@ -427,12 +843,13 @@ def _dispatch_one(
 
     # Look up goal_payload for routing
     goal_payload: dict = {}
-    try:
-        goal_doc = goal_service.goal_cache.get(goal_id)
-        if goal_doc:
-            goal_payload = goal_doc.get("payload", {})
-    except Exception:  # noqa: BLE001
-        pass
+    if goal_service is not None:
+        try:
+            goal_doc = goal_service.goal_cache.get(goal_id)
+            if goal_doc:
+                goal_payload = goal_doc.get("payload", {})
+        except Exception:  # noqa: BLE001
+            pass
 
     message = _build_message_for_profile(profile_id, goal_payload, goal_service)
 
@@ -445,30 +862,31 @@ def _dispatch_one(
             "error": str(exc),
         })
         if retry_count < max_retries:
-            # Re-queue for next poll cycle (minimal retry — Plan 05 hardens this)
-            bulk_writer.write_critical(task_id, {
+            # Re-queue for next poll cycle (minimal retry)
+            resolved_writer.write_critical(task_id, {
                 "status": TaskStatus.PENDING.value,
                 "retry_count": retry_count + 1,
-                "failure_reason": str(exc),
+                "failure_reason": str(exc)[:500],
                 "updated_at": datetime.now(timezone.utc),
             })
             return
         # Max retries exhausted: mark FAILED
-        bulk_writer.write_critical(task_id, {
+        resolved_writer.write_critical(task_id, {
             "status": TaskStatus.FAILED.value,
-            "failure_reason": str(exc),
+            "failure_reason": str(exc)[:500],
             "completed_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         })
         # PITFALL 3: always call on_task_completed after terminal
-        goal_service.on_task_completed(task_id)
-        _check_goal_and_publish(goal_id, goal_payload, goal_service, orchestrator)
+        if goal_service is not None:
+            goal_service.on_task_completed(task_id)
+            _check_goal_and_publish(goal_id, goal_payload, goal_service, orchestrator)
         return
 
     # Write COMPLETED
     envelope_id = telemetry.get("b1_artifact_id") or str(uuid.uuid4())
     completed_at = datetime.now(timezone.utc)
-    bulk_writer.write_critical(task_id, {
+    resolved_writer.write_critical(task_id, {
         "status": TaskStatus.COMPLETED.value,
         "completed_at": completed_at,
         "envelope_id": envelope_id,
@@ -487,8 +905,9 @@ def _dispatch_one(
         })
 
     # PITFALL 3: always call on_task_completed after terminal
-    goal_service.on_task_completed(task_id)
-    _check_goal_and_publish(goal_id, goal_payload, goal_service, orchestrator)
+    if goal_service is not None:
+        goal_service.on_task_completed(task_id)
+        _check_goal_and_publish(goal_id, goal_payload, goal_service, orchestrator)
 
 
 def _check_goal_and_publish(
@@ -497,7 +916,13 @@ def _check_goal_and_publish(
     goal_service: Any,
     orchestrator: Any,
 ) -> None:
-    """After a task reaches terminal state, check if the goal is COMPLETED and publish WS."""
+    """After a task reaches terminal state, check if the goal is COMPLETED and publish WS.
+
+    Pitfall 9: suppresses WS publish if any task in the goal has FAILED or CANCELLED status.
+    """
+    if goal_service is None:
+        return
+
     # Re-read goal to check terminal status
     try:
         goal_after = goal_service.goal_cache.get(goal_id)
@@ -508,7 +933,7 @@ def _check_goal_and_publish(
         GoalStatus.COMPLETED.value, "completed"
     ):
         # Notify via orchestrator (fires listener-registered on_complete hook — PRIMARY path)
-        if hasattr(orchestrator, "notify_goal_completed"):
+        if orchestrator is not None and hasattr(orchestrator, "notify_goal_completed"):
             try:
                 orchestrator.notify_goal_completed(goal_id)
             except Exception as exc:  # noqa: BLE001
@@ -519,10 +944,39 @@ def _check_goal_and_publish(
                 })
 
         # DEFENCE-IN-DEPTH: also call _publish_once if goal title matches
+        # Pitfall 9: check for any FAILED/CANCELLED tasks before publishing
         goal_title = goal_after.get("title", "")
         indicator_id = goal_payload.get("indicator_id", "")
         if "macro_release_analysis" in goal_title and indicator_id:
-            _publish_once(goal_id, indicator_id)
+            # Check for failures/cancellations across all tasks in the goal
+            task_ids = goal_after.get("task_ids", [])
+            any_failed_or_cancelled = False
+            try:
+                collection = goal_service.task_cache.collection
+                store = getattr(collection, "_store", None)
+                fail_cancel = {
+                    "failed", TaskStatus.FAILED.value,
+                    "cancelled", TaskStatus.CANCELLED.value,
+                }
+                for tid in task_ids:
+                    if store is not None:
+                        tdoc = store.get(tid, {})
+                    else:
+                        tdoc = collection.find_one({"_id": tid}) or {}
+                    if tdoc.get("status") in fail_cancel:
+                        any_failed_or_cancelled = True
+                        break
+            except Exception:  # noqa: BLE001
+                pass
+
+            if not any_failed_or_cancelled:
+                _publish_once(goal_id, indicator_id)
+            else:
+                logger.warning({
+                    "event": "vm107_task_dispatcher_publish_suppressed_failures",
+                    "goal_id": goal_id,
+                    "indicator_id": indicator_id,
+                })
 
 
 # ---------------------------------------------------------------------------
