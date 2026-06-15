@@ -28,7 +28,7 @@ def _make_agent(
     directions: tuple[int, int, int],
     prior_regime: str | None = "expansion",
     analogues: list | None = None,
-    llm_text: str = "Stagflation persists [ref:release:abc123].",
+    llm_text: str = "The stagflation regime persists [ref:release:abc123].",
     belief_confidence: float = 0.5,
 ):
     """Build a MacroRegimeAnalyst wired to MagicMock collaborators."""
@@ -112,7 +112,7 @@ class TestRegimeAnalystClassifyStep:
         agent, mocks = _make_agent(
             directions=(0, 0, 0),
             prior_regime="inflation",
-            llm_text="Inflation persists; comparable to [ref:release:p1].",
+            llm_text="The inflation regime persists; comparable to [ref:release:p1].",
         )
         result = agent.run(release_event_factory())
 
@@ -128,7 +128,7 @@ class TestRegimeAnalystClassifyStep:
         agent, mocks = _make_agent(
             directions=(0, 0, +1),  # expansion
             prior_regime=None,      # cold start
-            llm_text="Expansion continues [ref:release:cold].",
+            llm_text="The expansion regime continues [ref:release:cold].",
         )
         result = agent.run(release_event_factory())
         assert result.prior_regime == "expansion"

@@ -79,7 +79,7 @@ def _build_agent_with_three_analogues(prior_regime: str = "expansion"):
 
     llm = MagicMock()
     llm.complete.return_value = (
-        "Stagflation regime with high transition probability; "
+        "Current stagflation regime with high transition probability; "
         "[ref:release:rel-1] [ref:release:rel-2] [ref:release:rel-3]."
     )
 

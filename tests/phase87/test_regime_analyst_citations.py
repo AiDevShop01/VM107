@@ -97,7 +97,7 @@ def _build_agent_with_analogues(analogues: list[HistoricalAnalogue]):
         f"[ref:release:{a.release_id}]" for a in analogues
     ) or "[ref:release:none]"
     llm.complete.return_value = (
-        f"Stagflation regime persists; comparable to {citations_text}."
+        f"The stagflation regime persists; comparable to {citations_text}."
     )
     envelope_repo = MagicMock()
     envelope_repo.persist.return_value = uuid.uuid4()
