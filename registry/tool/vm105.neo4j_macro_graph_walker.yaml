@@ -1,0 +1,129 @@
+id: vm105.neo4j_macro_graph_walker
+type: tool
+status: real
+shipped: 87
+last_changed: 2026-06-15
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - vm107.macro_transmission_analyst
+
+name: Macro Graph Walker
+short_description: |
+  Walks the VM105 Neo4j macro graph from an indicator out to terminal assets
+  via :AFFECTS and :DRIVES edges.
+description: |
+  Walks the VM105 Neo4j macro graph from an indicator out to terminal assets.
+  Per Phase 39 typed-API lock VM107 NEVER queries Neo4j directly — this tool
+  calls a VM100-hosted internal endpoint that wraps the Cypher MATCH walk.
+
+  Plan 87-04 implements the wrapping service; this YAML declares the contract
+  in Wave 1 so the transmission analyst (Wave 2) can discover the walker via
+  lookup_capability the moment Plan 87-04 starts (per the distributed-registry-
+  YAML lock — tool contracts ship with their producer wave, not in a batch
+  ahead of consumer wave).
+
+endpoint: ${VM100_INTERNAL_BASE_URL}/api/macro/internal/graph-walk/{indicator_id}
+
+location:
+  source: VM107/tools/vm105_neo4j_macro_graph_walker.py  # implemented in Plan 87-04
+  endpoint: VM100/api/macro/internal/graph-walk/{indicator_id}
+  contracts:
+    # Wave 2 (Plan 87-04) lands the request/response contracts in fingpt_core
+    request: fingpt_core.contracts.macro.graph_walk.GraphWalkRequest
+    response: fingpt_core.contracts.macro.graph_walk.GraphWalkResponse
+  computed_by: vm105.neo4j (graph seeded by Plan 87-03 macro_graph_seed_loader)
+  consumed_by:
+    - vm107.macro_transmission_analyst  # Wave 2 (Plan 87-04)
+    - vm107.macro_regime_analyst        # Wave 3 (Plan 87-06) — secondary consumer
+
+input_schema:
+  indicator_id:
+    type: str
+    description: FRED-style indicator id (UNIQUE :MacroIndicator.id)
+    required: true
+  max_hops:
+    type: int
+    description: Maximum AFFECTS chain length to walk
+    default: 5
+    minimum: 1
+    maximum: 5
+  include_drives:
+    type: bool
+    description: Include terminal :DRIVES->:Asset hops
+    default: true
+
+output_schema:
+  hops:
+    type: list
+    item_schema:
+      source:
+        type: str
+        description: Source node id (MacroIndicator.id) or Asset.symbol
+      target:
+        type: str
+        description: Target node id or asset symbol
+      relationship_type:
+        type: str
+        enum: [AFFECTS, DRIVES]
+      strength:
+        type: float
+        description: Edge strength (signed for AFFECTS, unsigned for DRIVES)
+      confidence:
+        type: float
+        minimum: 0.0
+        maximum: 1.0
+      sample_size:
+        type: int
+      evidence_period:
+        type: str
+        description: ISO date range "YYYY-MM-DD/YYYY-MM-DD"
+      hop_order:
+        type: int
+        nullable: true
+        description: 0-indexed AFFECTS hop position; null for DRIVES terminals
+      curation_source:
+        type: str
+        enum: [seed_yaml, vm102_correlation, discovery_agent]
+      degraded:
+        type: bool
+        description: True when augmentation fell back to the YAML hand value
+
+api_structure: |
+  Args:
+    indicator_id (str, required) — e.g., "CPIAUCSL"
+    max_hops (int, optional, default=5) — 1..5
+    include_drives (bool, optional, default=true)
+
+  Returns: GraphWalkResponse with `hops: list[HopEdge]` ordered by traversal.
+
+  Raises:
+    ContractValidationError — request shape invalid
+    VMResponseError — VM100 internal endpoint returned 4xx/5xx
+
+unblocks_when:
+  - VM105 Neo4j healthy
+  - Plan 87-03 macro graph seed loaded (>=60 AFFECTS + >=30 DRIVES on dev VM105)
+  - Plan 87-04 VM100 graph-walk internal endpoint deployed
+
+related_capabilities:
+  - vm107.macro_transmission_analyst       # Wave 2 — primary consumer
+  - vm107.quant_approval_gate              # Wave 2 — sibling
+
+tags:
+  - macro
+  - graph
+  - neo4j
+  - transmission
+  - phase_87
+  - wave_1
+
+owner: engineering
+latency_budget_ms: 200
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: hand-curated seed + best-effort VM102 correlation augmentation; high but not deterministic (depends on degraded vs measured edges)
+expected_freshness_seconds: 86400   # Reasoning: macro graph re-loaded weekly at most; seed is curated and rarely changes
+is_deterministic: true   # Reasoning: same indicator_id + max_hops always returns same walk; pure graph traversal
+version: "1.0.0"
+deprecated: false
