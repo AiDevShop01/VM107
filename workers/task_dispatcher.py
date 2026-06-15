@@ -1104,6 +1104,31 @@ def main() -> None:
 
     POLL_SEC, MAX_CONCURRENT, MAX_RETRIES_DEFAULT = _load_env_config()
 
+    # Phase 47.6 CapabilityRegistry — A0 extensions (_11_tools_prompt) call
+    # CapabilityRegistry.get() during prompt-building; the singleton MUST be
+    # initialised in this process before any agent dispatch. initialize.py's
+    # initialize_capability_registry() does this in the vm107-agent-zero
+    # main process; the dispatcher runs in its own process and inherits
+    # nothing, so it must replicate the call here.
+    import os
+    from pathlib import Path as _Path
+    from core.registry.capability_registry import CapabilityRegistry
+    try:
+        registry_root = _Path(os.environ["CAPABILITY_REGISTRY_ROOT"])
+    except KeyError as exc:
+        raise SystemExit(
+            "CAPABILITY_REGISTRY_ROOT env var REQUIRED (Phase 85.1 dispatcher boot — "
+            "no fallback default, env-driven-no-fallbacks lock)."
+        ) from exc
+    try:
+        CapabilityRegistry.initialize(registry_root)
+    except RuntimeError:
+        pass  # already initialised (e.g. test re-import)
+    logger.info({
+        "event": "vm107_task_dispatcher_capability_registry_initialized",
+        "registry_root": str(registry_root),
+    })
+
     # Build production orchestrator (validates REDIS_URL + MONGODB_URI at startup)
     from core.scheduling.orchestrator_factory import build_default_orchestrator
     from core.scheduling.macro_release_goal import configure_default_orchestrator

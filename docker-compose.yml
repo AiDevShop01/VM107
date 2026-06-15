@@ -319,6 +319,10 @@ services:
       VM107_TASK_DISPATCHER_POLL_SEC: "${VM107_TASK_DISPATCHER_POLL_SEC:-5}"
       VM107_TASK_DISPATCHER_MAX_CONCURRENT: "${VM107_TASK_DISPATCHER_MAX_CONCURRENT:-10}"
       VM107_TASK_DISPATCHER_MAX_RETRIES: "${VM107_TASK_DISPATCHER_MAX_RETRIES:-3}"
+      # Phase 47.6 capability registry path — A0 prompt-building extensions
+      # need this initialised in-process before any task dispatches.
+      # Image-mounted registry/ via the ./registry volume.
+      CAPABILITY_REGISTRY_ROOT: "${CAPABILITY_REGISTRY_ROOT:-/a0/registry}"
     volumes:
       - ./usr:/a0/usr
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"

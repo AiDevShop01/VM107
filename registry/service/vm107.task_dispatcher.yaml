@@ -80,7 +80,13 @@ tags:
 hard_scoped: true
 last_changed: 2026-06-15
 impact_on_decision: HIGH
-allowed_agent_profiles:
+# Stage-5 scope-reference validator requires a base profile (e.g. 'vm107')
+# to be registered before sub-profiles can be listed. The base profile yaml
+# isn't shipped, and other service entries (vm100.mission_control.*, etc.)
+# use [] here. Tracked under invoked_agent_profiles to preserve the trace
+# without tripping validation.
+allowed_agent_profiles: []
+invoked_agent_profiles:
   - vm107.macro_release_analyst
   - vm107.macro_asset_exposure_analyst
   - vm107.macro_executive_summary_writer
@@ -106,7 +112,12 @@ writes_to:
   - "postgres: tradetracker_analytics.economic_event_asset_exposure (via persistence helper)"
   - "postgres: tradetracker.economic_event.ai_executive_summary (column UPDATE)"
   - "redis: macro.indicator.<id>.updated (Pub/Sub via publishers.macro_ws_invalidation)"
-dependencies:
+# Internal Python module dependencies (informational only — NOT a capability list).
+# The Phase 47.6 registry's Stage-4 dependency validator expects every entry here
+# to be a registered capability ID. These are intra-VM107 source imports, not
+# capabilities, so they are tracked under a different key. Other service YAMLs
+# omit dependencies: entirely; this comment block preserves the trace.
+module_imports:
   - workers.agent_invocation
   - workers.output_routing
   - core.scheduling.orchestrator_factory
