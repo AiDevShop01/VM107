@@ -38,13 +38,16 @@ def _make_orchestrator(existing_goal_id: str | None = None) -> MagicMock:
     orc = MagicMock()
     orc.find_goal_by_event_id.return_value = existing_goal_id
     orc.create_goal.return_value = "goal_abc123"
-    # Phase 87 Wave 2 (Plan 87-04) added a 4th parallel task
-    # (vm107.macro_transmission_analyst). DAG is now:
+    # Phase 87 Wave 3 (Plan 87-06) added a 5th parallel task
+    # (vm107.macro_regime_analyst). DAG is now:
     #   task_001 = vm107.macro_release_analyst         (parallel)
     #   task_002 = vm107.macro_asset_exposure_analyst  (parallel)
-    #   task_003 = vm107.macro_transmission_analyst    (parallel — Phase 87)
-    #   task_004 = vm107.macro_executive_summary_writer (depends on 001 + 002)
-    orc.add_task.side_effect = ["task_001", "task_002", "task_003", "task_004"]
+    #   task_003 = vm107.macro_transmission_analyst    (parallel — Plan 87-04)
+    #   task_004 = vm107.macro_regime_analyst          (parallel — Plan 87-06)
+    #   task_005 = vm107.macro_executive_summary_writer (depends on 001 + 002)
+    orc.add_task.side_effect = [
+        "task_001", "task_002", "task_003", "task_004", "task_005",
+    ]
     return orc
 
 
@@ -55,13 +58,15 @@ def _make_orchestrator(existing_goal_id: str | None = None) -> MagicMock:
 class TestCreateMacroReleaseGoalFanout:
     """Goal wrapper creates 3 child tasks in the correct parallel + serial order."""
 
-    def test_create_macro_release_goal_creates_four_tasks(self):
-        """create_macro_release_goal must call add_task exactly 4 times.
+    def test_create_macro_release_goal_creates_five_tasks(self):
+        """create_macro_release_goal must call add_task exactly 5 times.
 
         Phase 85 fan-out shipped 3 tasks (release / asset_exposure /
         executive_summary). Phase 87 Wave 2 (Plan 87-04) added a 4th
-        parallel task — vm107.macro_transmission_analyst — that runs in
-        parallel with release + asset_exposure (no dependencies).
+        parallel task — vm107.macro_transmission_analyst. Phase 87 Wave 3
+        (Plan 87-06) added a 5th parallel task —
+        vm107.macro_regime_analyst — that runs in parallel with
+        release + asset_exposure + transmission_analyst (no dependencies).
         """
         from core.scheduling.macro_release_goal import create_macro_release_goal
 
@@ -72,9 +77,9 @@ class TestCreateMacroReleaseGoalFanout:
             orchestrator=orc,
         )
 
-        assert orc.add_task.call_count == 4, (
-            f"Expected 4 add_task calls (Phase 87 added transmission_analyst), "
-            f"got {orc.add_task.call_count}"
+        assert orc.add_task.call_count == 5, (
+            f"Expected 5 add_task calls (Phase 87 added transmission_analyst "
+            f"+ regime_analyst), got {orc.add_task.call_count}"
         )
         assert result_goal_id == "goal_abc123"
 
@@ -125,14 +130,13 @@ class TestCreateMacroReleaseGoalFanout:
             f"asset_exposure (no deps); got {t3_kwargs['depends_on']!r}"
         )
 
-    def test_executive_summary_writer_depends_on_first_two_tasks(self):
-        """executive_summary_writer must depend on task1 + task2.
+    def test_regime_analyst_added_in_parallel(self):
+        """Phase 87 Plan 87-06 — regime_analyst added as 4th parallel task.
 
-        Note: depends_on uses task_001 (release_analyst) + task_002
-        (asset_exposure_analyst), NOT the transmission analyst (task_003).
-        Phase 85 Plan 85-08a contract — exec summary reads
-        economic_event_analysis + economic_event_asset_exposure rows;
-        transmission analysis is a separate envelope on its own DAG node.
+        Position: after release_analyst (calls[0]), asset_exposure_analyst
+        (calls[1]), transmission_analyst (calls[2]); runs alongside them
+        with no dependencies. Persists the macro_regime_classification
+        envelope via the LOCK-10 27-entry deterministic classifier.
         """
         from core.scheduling.macro_release_goal import create_macro_release_goal
 
@@ -144,11 +148,42 @@ class TestCreateMacroReleaseGoalFanout:
         )
 
         calls = orc.add_task.call_args_list
-        # Executive summary writer is now the 4th call (after release,
-        # asset_exposure, transmission_analyst).
         t4_kwargs = calls[3][1]
-        assert t4_kwargs["profile_id"] == "vm107.macro_executive_summary_writer"
-        depends_on = t4_kwargs["depends_on"]
+        assert t4_kwargs["profile_id"] == "vm107.macro_regime_analyst", (
+            f"4th task must be regime_analyst (Phase 87 Wave 3); "
+            f"got {t4_kwargs['profile_id']!r}"
+        )
+        assert t4_kwargs["depends_on"] == [], (
+            f"regime_analyst must run in parallel with release + "
+            f"asset_exposure + transmission_analyst (no deps); "
+            f"got {t4_kwargs['depends_on']!r}"
+        )
+
+    def test_executive_summary_writer_depends_on_first_two_tasks(self):
+        """executive_summary_writer must depend on task1 + task2.
+
+        Note: depends_on uses task_001 (release_analyst) + task_002
+        (asset_exposure_analyst), NOT the transmission analyst (task_003)
+        nor the regime_analyst (task_004). Phase 85 Plan 85-08a contract
+        — exec summary reads economic_event_analysis +
+        economic_event_asset_exposure rows; transmission + regime are
+        separate envelopes on their own DAG nodes (Plan 87-04 + 87-06).
+        """
+        from core.scheduling.macro_release_goal import create_macro_release_goal
+
+        orc = _make_orchestrator()
+        create_macro_release_goal(
+            event_id="CPIAUCSL:2026-06-12T12:30:00Z",
+            indicator_id="CPIAUCSL",
+            orchestrator=orc,
+        )
+
+        calls = orc.add_task.call_args_list
+        # Executive summary writer is now the 5th call (after release,
+        # asset_exposure, transmission_analyst, regime_analyst).
+        t5_kwargs = calls[4][1]
+        assert t5_kwargs["profile_id"] == "vm107.macro_executive_summary_writer"
+        depends_on = t5_kwargs["depends_on"]
         assert "task_001" in depends_on, f"exec summary must depend on task_001 (release); got {depends_on}"
         assert "task_002" in depends_on, f"exec summary must depend on task_002 (asset_exposure); got {depends_on}"
 
@@ -234,10 +269,12 @@ class TestCreateMacroReleaseGoalDispatch:
         assert orc.dispatch.call_count == 1, (
             f"dispatch must be called once, got {orc.dispatch.call_count}"
         )
-        # dispatch must come AFTER all 4 add_task calls (Phase 87 added a 4th)
+        # dispatch must come AFTER all 5 add_task calls (Phase 87 Plan 87-04
+        # added transmission_analyst as task 3; Plan 87-06 added
+        # regime_analyst as task 4).
         dispatch_index = call_order.index("dispatch")
-        assert dispatch_index == 4, (
-            f"dispatch must be 5th call (index 4), got index {dispatch_index}; order={call_order}"
+        assert dispatch_index == 5, (
+            f"dispatch must be 6th call (index 5), got index {dispatch_index}; order={call_order}"
         )
 
     def test_dispatch_called_with_goal_id(self):

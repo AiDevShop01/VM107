@@ -1073,6 +1073,26 @@ def _build_message_for_profile(
         }
         return _json.dumps(envelope)
 
+    # Phase 87 Wave 3 (Plan 87-06) — macro_regime_analyst envelope.
+    # Anchor indicators (CPI / UNRATE / GDP) are extracted from
+    # recent_history by the agent's anchor_direction_provider; the
+    # envelope carries the release surprise so the agent can compute
+    # direction + drive Phase 86 /event-study analogue retrieval.
+    if profile_id == "vm107.macro_regime_analyst":
+        envelope = {
+            "event_id": event_id,
+            "indicator_id": indicator_id,
+            "release_id": goal_payload.get("release_id", event_id),
+            "release": {
+                "actual": goal_payload.get("actual"),
+                "forecast": goal_payload.get("consensus"),
+                "previous": goal_payload.get("previous"),
+                "surprise": goal_payload.get("surprise"),
+            },
+            "recent_history": goal_payload.get("recent_history", []),
+        }
+        return _json.dumps(envelope)
+
     return _json.dumps({
         "profile_id": profile_id,
         "event_id": event_id,

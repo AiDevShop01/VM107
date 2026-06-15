@@ -362,11 +362,21 @@ def create_macro_release_goal(
     # Runs in parallel with task1 + task2 (no dependencies); independent of
     # Phase 85's existing analysts. Walks the VM105 Neo4j macro graph via
     # the vm105.neo4j_macro_graph_walker tool and persists a
-    # macro_transmission_analysis envelope. Plan 87-06 (Wave 3) regime
-    # analyst will be added as a similar parallel fan-out task.
+    # macro_transmission_analysis envelope.
     orc.add_task(
         goal_id,
         profile_id="vm107.macro_transmission_analyst",
+        depends_on=[],
+    )
+    # Phase 87 Wave 3 (Plan 87-06) — regime_assessment fan-out task.
+    # Runs in parallel with task1 + task2 + transmission_analyst (no
+    # dependencies). Classifies the current macro regime via the LOCK-10
+    # 27-entry threshold table and persists a macro_regime_classification
+    # envelope. BeliefStore stub in Wave 3; Plan 87-09 (Wave 5) wires
+    # real B9 without changing this fan-out.
+    orc.add_task(
+        goal_id,
+        profile_id="vm107.macro_regime_analyst",
         depends_on=[],
     )
     # task3 runs after both task1 and task2 complete
