@@ -2,9 +2,10 @@
   "regime_threshold_table_version": "1.0",
   "approved_at": "2026-06-15T23:25:07Z",
   "approved_by": "Paul Barisich",
+  "approval_decision": "approve-as-drafted",
   "source": "indicator.md §Regime Change Detection + LOCK-10 stakeholder sign-off",
   "approval_doc": ".planning/phases/87-macro-intelligence-workbench-regime-transmission-engine-macro-graph-background-trackers/87-QUANT-APPROVAL.md",
-  "note": "Byte-identical anchor_combinations vs VM107/agents/macro_regime_analyst/regime_threshold_table.json. Plan 87-06 unit tests assert classifier output matches expected_regime for each (cpi_dir, unrate_dir, gdp_dir) tuple. Replaces the Plan 87-01 placeholder fixture (was 7 explicit + 20 carry_prior).",
+  "audit_rule": "Any change requires a sibling decimal phase (e.g. 87.1) with fresh approval signature + bumped regime_threshold_table_version. NO silent edits.",
   "anchor_combinations": [
     {"cpi_dir": 1, "unrate_dir": 1, "gdp_dir": -1, "expected_regime": "stagflation"},
     {"cpi_dir": 1, "unrate_dir": -1, "gdp_dir": 1, "expected_regime": "inflation"},
