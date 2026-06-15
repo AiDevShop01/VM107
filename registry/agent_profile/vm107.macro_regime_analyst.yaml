@@ -1,0 +1,123 @@
+id: vm107.macro_regime_analyst
+type: agent_profile
+status: real
+shipped: 87
+last_changed: "2026-06-15"
+name: vm107.macro_regime_analyst
+description: >-
+  Phase 87 Wave 3 — event-driven macro regime analyst. Wakes on Phase 83
+  econ_release events (Redis macro.release_events topic, via Phase 85's
+  macro_release_event_listener service + Brain task type
+  regime_assessment). Deterministic 7-regime classifier (LOCK-10
+  approved 27-entry table) over 3 anchor indicator directions
+  (CPI, UNRATE, GDP). Calls Phase 86 /event-study for top-3 historical
+  analogues. Persists macro_regime_classification envelope + B1
+  reasoning artifact + WS topic publish, all within 60s (REQ-87-3).
+  BeliefStore is STUBBED in Wave 3; Plan 87-09 (Wave 5) swaps in the
+  real B9 BeliefStore without changing the agent's allowed_tools list
+  or its call site.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 87
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-15"
+    change: "Phase 87 Plan 06 — initial release as macro regime analyst"
+
+# Event trigger declaration (mirrors macro_transmission_analyst.yaml shape)
+trigger: event_driven
+trigger_sources:
+  - econ_release  # Phase 83 macro.release_events Redis topic
+  - brain_task_type:regime_assessment  # Phase 42 Brain fan-out
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - vm102.event_study                  # Phase 86 cross-asset event-study endpoint
+  - episodic_memory_service.query      # Wave-3 stub, Wave-4 real B6 (Plan 87-07)
+  - belief_store.query                 # Wave-3 stub, Wave-5 real B9 (Plan 87-09)
+  - belief_store.propose               # Wave-3 stub (NotImplemented), Wave-5 real B9
+  - lookup_capability                  # standard discovery tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings
+constitutional_skills:
+  - citation-discipline
+  - regime-classifier
+  - regime-narration
+
+# Memory scope (public-factual analyst — no per-account or per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 6
+max_cost_usd: 0.30
+latency_budget_ms: 5000
+
+# Hard-assertion regex gate on emitted narrative (Wave-3 contract)
+# The skill_regime_narration module reads these regex strings and runs
+# them against every LLM completion. On first failure: retry ONCE with a
+# corrective addendum. On second failure: degraded_fallback() emits a
+# deterministic Markdown rendering naming the regime + citing analogues,
+# envelope marked degraded.
+hard_assertions:
+  - id: narrative_names_one_of_7_regimes
+    regex: "\\b(expansion|slowdown|inflation|disinflation|stagflation|recession|recovery)\\b"
+    min_matches: 1
+    description: >-
+      Narrative MUST name one of the 7 LOCK-2 regimes — confirms the
+      LLM articulated the classifier's output rather than waving its
+      hands.
+  - id: narrative_cites_analogue
+    regex: "\\[ref:(episode|release):[A-Za-z0-9_-]+\\]"
+    min_matches: 1
+    description: >-
+      Narrative MUST cite at least one historical analogue via Phase 71
+      evidence-drawer grammar — confirms episodic memory / event-study
+      output was actually used.
+
+retry_on_hard_assertion_fail: 1
+on_assertion_fail_after_retry: mark_envelope_degraded
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 30
+
+# Brain absorption ledger
+brain_absorbed:
+  - B9  # BeliefStore — Wave 3 stub, Wave 5 wires real client (Plan 87-09)
+  - B1  # reasoning artifact persistence
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 86400
+is_deterministic: false   # narrative is LLM-emitted; classifier is deterministic
+version: "1.0.0"
+
+owner: engineering
+profile_path: VM107/profiles/macro_regime_analyst.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-87
+  - wave-3
+  - event-driven
+  - regime
+  - classifier
