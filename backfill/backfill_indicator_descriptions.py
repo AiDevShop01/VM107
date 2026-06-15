@@ -38,6 +38,7 @@ import argparse
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -52,6 +53,109 @@ from workers.output_routing import parse_and_persist
 logger = logging.getLogger("backfill_indicator_descriptions")
 
 PROMPT_VERSION = os.environ.get("VM107_DESCRIBER_PROMPT_VERSION", "v1")
+
+
+# ---------------------------------------------------------------------------
+# Direct LLM dispatch (Phase 86-10 UAT hot-patch)
+# ---------------------------------------------------------------------------
+#
+# The original Agent Zero dispatch path (`_dispatch_agent_sync` → `/api/api_message`)
+# corrupted itself after 2-3 successive calls during Phase 86-10 UAT:
+#   - AAA + ANFCI wrote cleanly (HTTP 200, valid envelopes)
+#   - BAA onwards: `ValueError: Tool request must have a tool_name (type string)`
+#     from the agent's tool-call validation. The agent's response (clean JSON)
+#     was being interpreted as an attempted tool call and rejected.
+#   - Agent then thrashes through reprompt-once retries and never completes.
+#
+# Editorial description generation does not need Agent Zero's full agent runtime
+# (no tools, no subordinates, no memory). It needs a prompt + an LLM call. The
+# direct dispatch path below skips A0 entirely:
+#   1. Load the system prompt from the agent's existing prompt file (so the
+#      contract stays identical and admin override compatibility is preserved).
+#   2. Build the user message using the same _build_describer_message logic.
+#   3. Call the configured model (CHAT_MODEL env var, defaults to deepseek-chat)
+#      via litellm. Each call is stateless — no shared conversation state.
+#   4. Return the raw response text + a telemetry dict shaped like the A0 path
+#      so parse_and_persist downstream is unchanged.
+#
+# A0 path is intentionally kept available for tests + the existing
+# macro_release_analyst / macro_executive_summary_writer profiles which require
+# Agent Zero's tool ecosystem.
+
+_PROMPT_FILE_DEFAULT = Path(__file__).resolve().parent.parent / "prompts" / "macro_indicator_describer.md"
+
+
+def _load_system_prompt(prompt_path: Path = _PROMPT_FILE_DEFAULT) -> str:
+    """Load the macro_indicator_describer system prompt from disk."""
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Describer system prompt not found at {prompt_path}. "
+            "Phase 85-15 should have shipped this file; check VM107/prompts/."
+        )
+    return prompt_path.read_text()
+
+
+def _dispatch_describer_direct(indicator: dict) -> tuple[str, dict]:
+    """Direct LLM dispatch — bypasses Agent Zero.
+
+    Returns (raw_response_text, telemetry_dict) — same shape as
+    _dispatch_agent_sync so parse_and_persist downstream is unchanged.
+
+    Model selection:
+        Uses CHAT_MODEL env var (set by A0 startup), defaults to
+        ``deepseek/deepseek-chat`` which is configured for the local stack and
+        has good JSON-mode support. Override via DESCRIBER_MODEL env var.
+
+    Raises:
+        RuntimeError: if API_KEY_DEEPSEEK (or the resolved provider's key) is
+                      unset — fail-fast, no fallback default key.
+    """
+    import litellm  # local import — keep module-load fast for tests that mock this
+
+    code = indicator.get("indicator_id", "UNKNOWN")
+    system_prompt = _load_system_prompt()
+    user_message = _build_describer_message(indicator)
+
+    model = os.environ.get("DESCRIBER_MODEL") or os.environ.get(
+        "CHAT_MODEL", "deepseek/deepseek-chat"
+    )
+
+    # Fail-fast on missing API key (Phase 47.3 env-driven-no-fallbacks lock).
+    # Provider→env-var name follows the API_KEY_<PROVIDER> convention used by A0.
+    provider = model.split("/")[0].upper() if "/" in model else "DEEPSEEK"
+    api_key_env = f"API_KEY_{provider}"
+    api_key = os.environ.get(api_key_env)
+    if not api_key:
+        raise RuntimeError(
+            f"{api_key_env} env var REQUIRED for direct dispatch (model={model}). "
+            "Set it in /a0/usr/.env or pass DESCRIBER_MODEL to use a provider whose key is set."
+        )
+
+    response = litellm.completion(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        max_tokens=800,
+        temperature=0.2,
+        api_key=api_key,
+    )
+
+    raw = response.choices[0].message.content or ""
+    telemetry = {
+        "model_used": getattr(response, "model", model),
+        "reason_chain": [],
+        "cost": {
+            "prompt_tokens": getattr(response.usage, "prompt_tokens", 0),
+            "completion_tokens": getattr(response.usage, "completion_tokens", 0),
+            "total_tokens": getattr(response.usage, "total_tokens", 0),
+        },
+        "fallback_used": False,
+        "b1_artifact_id": None,
+        "context_id": None,
+    }
+    return raw, telemetry
 
 
 # ---------------------------------------------------------------------------
@@ -182,8 +286,14 @@ def _dispatch_describer(indicator: dict, prompt_version: str = PROMPT_VERSION) -
         indicator does not abort the batch.
     """
     code = indicator["indicator_id"]
-    message = _build_describer_message(indicator)
-    raw, telemetry = _dispatch_agent_sync("vm107.macro_indicator_describer", message)
+    # Phase 86-10 UAT hot-patch: bypass Agent Zero (broken after 2-3 calls,
+    # see _dispatch_describer_direct docstring). The A0 path is preserved via
+    # the BACKFILL_USE_AGENT_ZERO env var for tests + future profile recovery.
+    if os.environ.get("BACKFILL_USE_AGENT_ZERO", "0") == "1":
+        message = _build_describer_message(indicator)
+        raw, telemetry = _dispatch_agent_sync("vm107.macro_indicator_describer", message)
+    else:
+        raw, telemetry = _dispatch_describer_direct(indicator)
     envelope_id = parse_and_persist(
         "vm107.macro_indicator_describer",
         raw,
