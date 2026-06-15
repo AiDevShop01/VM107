@@ -346,8 +346,8 @@ def create_macro_release_goal(
         "goal_id": goal_id,
     })
 
-    # --- Add 3 tasks in DAG order ---
-    # task1 + task2 run in parallel (no dependencies)
+    # --- Add tasks in DAG order ---
+    # task1 + task2 + task4 run in parallel (no dependencies)
     task1_id = orc.add_task(
         goal_id,
         profile_id="vm107.macro_release_analyst",
@@ -356,6 +356,17 @@ def create_macro_release_goal(
     task2_id = orc.add_task(
         goal_id,
         profile_id="vm107.macro_asset_exposure_analyst",
+        depends_on=[],
+    )
+    # Phase 87 Wave 2 (Plan 87-04) — transmission_analysis fan-out task.
+    # Runs in parallel with task1 + task2 (no dependencies); independent of
+    # Phase 85's existing analysts. Walks the VM105 Neo4j macro graph via
+    # the vm105.neo4j_macro_graph_walker tool and persists a
+    # macro_transmission_analysis envelope. Plan 87-06 (Wave 3) regime
+    # analyst will be added as a similar parallel fan-out task.
+    orc.add_task(
+        goal_id,
+        profile_id="vm107.macro_transmission_analyst",
         depends_on=[],
     )
     # task3 runs after both task1 and task2 complete

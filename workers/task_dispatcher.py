@@ -1054,6 +1054,25 @@ def _build_message_for_profile(
         }
         return _json.dumps(envelope)
 
+    # Phase 87 Wave 2 (Plan 87-04) — macro_transmission_analyst envelope.
+    # Walks the VM105 Neo4j macro graph from indicator_id outward and
+    # narrates the causal chain hop-by-hop. The Phase 83 release fields
+    # (actual/forecast/previous/surprise) feed the narration prompt; the
+    # walker tool needs only indicator_id + max_hops.
+    if profile_id == "vm107.macro_transmission_analyst":
+        envelope = {
+            "event_id": event_id,
+            "indicator_id": indicator_id,
+            "release": {
+                "actual": goal_payload.get("actual"),
+                "forecast": goal_payload.get("consensus"),
+                "previous": goal_payload.get("previous"),
+                "surprise": goal_payload.get("surprise"),
+            },
+            "max_hops": 5,
+        }
+        return _json.dumps(envelope)
+
     return _json.dumps({
         "profile_id": profile_id,
         "event_id": event_id,
