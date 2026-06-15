@@ -229,63 +229,43 @@ def test_dispatcher_routes_exec_summary_to_correct_column(
 # Pitfall 2 guard — profile_id ordering before monologue
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Plan 02 — _dispatch_agent_sync not yet implemented", strict=False)
 def test_dispatch_agent_sync_sets_profile_id_before_monologue(monkeypatch):
-    """profile_id must be set BEFORE hist_add_user_message BEFORE monologue().
-
-    This is the Pitfall 2 guard: slot-30 router (fail-fast) + slot-20 B1 write
-    both filter on profile_id, not config.profile.  If profile_id is set after
-    hist_add_user_message, the router drops the message silently.
-
-    Ordering assertion:
-        sub.set_data("profile_id", ...) called BEFORE
-        sub.hist_add_user_message(...)  called BEFORE
-        asyncio.run(sub.monologue())
+    """Pitfall 2 guard (HTTP shape): agent_profile + message MUST be in the
+    POST body. Deployment surfaced that in-process A0 invocation can't run
+    in a sibling container; dispatcher now POSTs to /api/api_message on the
+    existing vm107-agent-zero service. The slot-30 router on the A0 server
+    still keys off ``agent_profile``, so the contract becomes: ``agent_profile``
+    is present in the JSON body and matches the requested profile_id.
     """
-    from unittest.mock import MagicMock, call, patch
+    from unittest.mock import patch
 
-    call_order: list[str] = []
+    monkeypatch.setenv("VM107_AGENT_ZERO_URL", "http://test-a0:80")
+    monkeypatch.setenv("VM107_INTERNAL_TOKEN", "test-token")
 
-    mock_sub = MagicMock()
-    mock_sub.set_data.side_effect = lambda key, val: call_order.append(f"set_data:{key}")
-    mock_sub.hist_add_user_message.side_effect = lambda msg: call_order.append("hist_add_user_message")
-    mock_sub.monologue = MagicMock(return_value=None)
+    captured: dict = {}
 
-    mock_agent_ctx = MagicMock()
-    mock_agent_ctx.get.return_value = mock_sub
+    def _fake_post(base_url, token, body, timeout_sec=300):
+        captured["base_url"] = base_url
+        captured["token"] = token
+        captured["body"] = body
+        return {"response": "ok", "context_id": "ctx-test"}
 
-    with patch("workers.agent_invocation.AgentContext", mock_agent_ctx):
-        import asyncio
+    with patch("workers.agent_invocation._post_message", _fake_post):
+        from workers.agent_invocation import _dispatch_agent_sync
 
-        orig_run = asyncio.run
+        raw, telemetry = _dispatch_agent_sync(
+            profile_id="vm107.macro_release_analyst",
+            user_message="Analyze CPI release",
+        )
 
-        def _patched_run(coro):
-            call_order.append("asyncio.run(monologue)")
-            return None
-
-        with patch("asyncio.run", _patched_run):
-            from workers.agent_invocation import _dispatch_agent_sync  # noqa: F401
-
-            _dispatch_agent_sync(
-                profile_id="vm107.macro_release_analyst",
-                user_message="Analyze CPI release",
-            )
-
-    # Assert ordering: profile_id set BEFORE hist_add_user_message BEFORE monologue
-    assert "set_data:profile_id" in call_order, "set_data(profile_id) never called"
-    assert "hist_add_user_message" in call_order, "hist_add_user_message never called"
-    assert "asyncio.run(monologue)" in call_order, "asyncio.run(monologue) never called"
-
-    idx_profile = call_order.index("set_data:profile_id")
-    idx_hist = call_order.index("hist_add_user_message")
-    idx_monologue = call_order.index("asyncio.run(monologue)")
-
-    assert idx_profile < idx_hist, (
-        f"profile_id set (idx={idx_profile}) must come BEFORE hist_add_user_message (idx={idx_hist})"
+    assert captured["base_url"] == "http://test-a0:80"
+    assert captured["token"] == "test-token"
+    assert captured["body"]["agent_profile"] == "vm107.macro_release_analyst", (
+        "agent_profile MUST be in the request body — slot-30 router keys off it"
     )
-    assert idx_hist < idx_monologue, (
-        f"hist_add_user_message (idx={idx_hist}) must come BEFORE monologue (idx={idx_monologue})"
-    )
+    assert captured["body"]["message"] == "Analyze CPI release"
+    assert raw == "ok"
+    assert telemetry["context_id"] == "ctx-test"
 
 
 # ---------------------------------------------------------------------------

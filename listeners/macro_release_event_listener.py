@@ -196,6 +196,7 @@ def main() -> None:
                     goal_id = create_macro_release_goal(
                         event_id=event_id,
                         indicator_id=indicator_id,
+                        event_data=data,
                         on_complete=lambda iid=indicator_id: _ws_publish_once(None, iid),
                     )
                     logger.info({

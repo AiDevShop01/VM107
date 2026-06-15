@@ -990,16 +990,19 @@ def _build_message_for_profile(
 ) -> str:
     """Build the agent prompt message from goal payload.
 
-    For Phase 85.1: minimal prompts using event_id + indicator_id from payload.
-    The exec_summary_writer additionally fetches upstream outputs from persistence.
+    The Phase 85 analyst system prompts (prompts/macro_release_analyst.md etc.)
+    expect a JSON envelope with event_id/indicator_id/release fields, not English.
+    Profile prompts that don't get the structured envelope respond with "I need
+    you to specify the indicator and event_id" instead of producing the requested
+    JSON.
 
     Args:
         profile_id: Agent profile identifier.
-        goal_payload: Goal payload dict (event_id, indicator_id).
-        goal_service: GoalService (used to read upstream outputs for exec_summary).
+        goal_payload: Goal payload dict (event_id, indicator_id, actual, consensus, ...).
+        goal_service: GoalService (kept for back-compat; future use for upstream lookups).
 
     Returns:
-        Prompt string for the agent.
+        JSON-string prompt for the agent (matches profile system-prompt input contract).
     """
     import json as _json
 
@@ -1007,49 +1010,55 @@ def _build_message_for_profile(
     indicator_id = goal_payload.get("indicator_id", "")
 
     if profile_id == "vm107.macro_release_analyst":
-        return (
-            f"Analyze the macro release event for indicator {indicator_id!r} "
-            f"(event_id: {event_id}). "
-            f"Provide: what_happened, why_it_matters, regime_impact_label, citations."
-        )
+        envelope = {
+            "event_id": event_id,
+            "indicator_id": indicator_id,
+            "release": {
+                "actual": goal_payload.get("actual"),
+                "forecast": goal_payload.get("consensus"),
+                "previous": goal_payload.get("previous"),
+                "surprise": goal_payload.get("surprise"),
+            },
+            "indicator_metadata": goal_payload.get("indicator_metadata", {}),
+            "recent_history": goal_payload.get("recent_history", []),
+        }
+        return _json.dumps(envelope)
 
     if profile_id == "vm107.macro_asset_exposure_analyst":
-        return (
-            f"Identify asset exposures for macro release event {event_id!r} "
-            f"for indicator {indicator_id!r}. "
-            f"Provide: exposures list with asset_id, direction, strength_score, confidence, rationale."
-        )
+        envelope = {
+            "event_id": event_id,
+            "indicator_id": indicator_id,
+            "release": {
+                "actual": goal_payload.get("actual"),
+                "forecast": goal_payload.get("consensus"),
+            },
+            "country": goal_payload.get("country"),
+        }
+        return _json.dumps(envelope)
 
     if profile_id == "vm107.macro_executive_summary_writer":
-        # Attempt to fetch upstream analysis for context
-        upstream_ctx = ""
-        try:
-            from persistence import economic_event_analysis as _ea
-            from persistence import economic_event_asset_exposure as _eea
-            # Read helpers — best effort, don't fail if unavailable
-            upstream_ctx = (
-                f"event_id: {event_id}, indicator: {indicator_id}"
-            )
-        except Exception:  # noqa: BLE001
-            upstream_ctx = f"event_id: {event_id}, indicator: {indicator_id}"
-
-        return (
-            f"Write a concise (~50-word) executive summary for the macro release event "
-            f"({upstream_ctx}). Context is available in the economic_event_analysis and "
-            f"economic_event_asset_exposure tables for event_id={event_id!r}. "
-            f"Provide: summary (plain text)."
-        )
+        envelope = {
+            "event_id": event_id,
+            "indicator_id": indicator_id,
+            "instruction": (
+                "Read economic_event_analysis and economic_event_asset_exposure rows "
+                f"for event_id={event_id!r} via the lookup_reasoning_artifact tool. "
+                "Produce a ~50-word executive summary."
+            ),
+        }
+        return _json.dumps(envelope)
 
     if profile_id == "vm107.macro_indicator_describer":
-        return (
-            f"Describe the economic indicator {indicator_id!r} for traders. "
-            f"Provide: what_is_it, why_important, why_traders_care."
-        )
+        envelope = {
+            "indicator_id": indicator_id,
+        }
+        return _json.dumps(envelope)
 
-    return (
-        f"Execute task for profile={profile_id!r}, "
-        f"event_id={event_id!r}, indicator_id={indicator_id!r}."
-    )
+    return _json.dumps({
+        "profile_id": profile_id,
+        "event_id": event_id,
+        "indicator_id": indicator_id,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -1103,31 +1112,6 @@ def main() -> None:
     global POLL_SEC, MAX_CONCURRENT, MAX_RETRIES_DEFAULT
 
     POLL_SEC, MAX_CONCURRENT, MAX_RETRIES_DEFAULT = _load_env_config()
-
-    # Phase 47.6 CapabilityRegistry — A0 extensions (_11_tools_prompt) call
-    # CapabilityRegistry.get() during prompt-building; the singleton MUST be
-    # initialised in this process before any agent dispatch. initialize.py's
-    # initialize_capability_registry() does this in the vm107-agent-zero
-    # main process; the dispatcher runs in its own process and inherits
-    # nothing, so it must replicate the call here.
-    import os
-    from pathlib import Path as _Path
-    from core.registry.capability_registry import CapabilityRegistry
-    try:
-        registry_root = _Path(os.environ["CAPABILITY_REGISTRY_ROOT"])
-    except KeyError as exc:
-        raise SystemExit(
-            "CAPABILITY_REGISTRY_ROOT env var REQUIRED (Phase 85.1 dispatcher boot — "
-            "no fallback default, env-driven-no-fallbacks lock)."
-        ) from exc
-    try:
-        CapabilityRegistry.initialize(registry_root)
-    except RuntimeError:
-        pass  # already initialised (e.g. test re-import)
-    logger.info({
-        "event": "vm107_task_dispatcher_capability_registry_initialized",
-        "registry_root": str(registry_root),
-    })
 
     # Build production orchestrator (validates REDIS_URL + MONGODB_URI at startup)
     from core.scheduling.orchestrator_factory import build_default_orchestrator

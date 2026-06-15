@@ -130,6 +130,18 @@ class BrainOrchestrator:
             objective_label="macro_intelligence",
         )
         goal = self._goal_service.create_goal(request, creator="vm107.macro_release_event_listener")
+        # Phase 85.1 deployment fix: GoalCreateRequest forbids extra fields, so we
+        # write the structured event payload to the goal doc directly. The dispatcher
+        # reads goal_doc.payload at dispatch time to build the agent JSON envelope —
+        # without this field the analysts receive empty inputs.
+        try:
+            self._goal_service.goal_cache.collection.update_one(
+                {"_id": goal.goal_id},
+                {"$set": {"payload": payload}},
+            )
+        except Exception:  # noqa: BLE001
+            # best-effort; don't fail goal creation if mirror update fails
+            pass
         # Track for idempotency
         event_id = payload.get("event_id", "")
         if event_id:
@@ -270,6 +282,7 @@ def create_macro_release_goal(
     event_id: str,
     indicator_id: str,
     *,
+    event_data: dict | None = None,
     orchestrator: BrainOrchestratorProtocol | None = None,
     on_complete: Any | None = None,
 ) -> str:
@@ -316,9 +329,15 @@ def create_macro_release_goal(
         return existing_goal_id
 
     # --- Create the goal ---
+    # event_data carries the full release envelope (actual, consensus, previous,
+    # country, indicator_metadata, recent_history); fall back to the minimal
+    # 2-field payload for back-compat when the listener doesn't pass it.
+    full_payload: dict = {"event_id": event_id, "indicator_id": indicator_id}
+    if event_data:
+        full_payload.update({k: v for k, v in event_data.items() if k not in full_payload})
     goal_id = orc.create_goal(
         name="macro_release_analysis",
-        payload={"event_id": event_id, "indicator_id": indicator_id},
+        payload=full_payload,
     )
     logger.info({
         "event": "macro_release_goal_created",

@@ -297,12 +297,7 @@ services:
     env_file:
       - .env.local
     environment:
-      # /git/agent-zero appended so `from agent import AgentContext` falls
-      # through to the baked Agent Zero source (the vm107-agent-zero service
-      # gets /a0/agent.py via /exe/initialize.sh which the dispatcher bypasses).
-      # Order matters — /a0 first so live volume-mounted code (workers/, core/)
-      # wins over the image-baked copy under /git/agent-zero.
-      PYTHONPATH: /a0_extras:/a0:/git/agent-zero
+      PYTHONPATH: /a0_extras:/a0
       # ── Required URLs/credentials — fail-fast at startup ─────────────────
       # ${VAR:?msg} aborts `docker compose up` if unset (env-driven-no-fallbacks lock).
       REDIS_URL:    "${REDIS_URL:?REDIS_URL is required (Phase 85.1 — Brain task dispatcher)}"
@@ -319,10 +314,11 @@ services:
       VM107_TASK_DISPATCHER_POLL_SEC: "${VM107_TASK_DISPATCHER_POLL_SEC:-5}"
       VM107_TASK_DISPATCHER_MAX_CONCURRENT: "${VM107_TASK_DISPATCHER_MAX_CONCURRENT:-10}"
       VM107_TASK_DISPATCHER_MAX_RETRIES: "${VM107_TASK_DISPATCHER_MAX_RETRIES:-3}"
-      # Phase 47.6 capability registry path — A0 prompt-building extensions
-      # need this initialised in-process before any task dispatches.
-      # Image-mounted registry/ via the ./registry volume.
-      CAPABILITY_REGISTRY_ROOT: "${CAPABILITY_REGISTRY_ROOT:-/a0/registry}"
+      # Phase 85.1 HTTP path to Agent Zero — dispatcher POSTs to /api/api_message
+      # on the existing vm107-agent-zero service rather than invoking A0 in-process.
+      # Required: VM107_AGENT_ZERO_URL + VM107_INTERNAL_TOKEN (in .env.local).
+      VM107_AGENT_ZERO_URL: "${VM107_AGENT_ZERO_URL:-http://vm107-agent-zero:80}"
+      VM107_INTERNAL_TOKEN: "${VM107_INTERNAL_TOKEN:?VM107_INTERNAL_TOKEN is required (Phase 85.1 — A0 HTTP X-API-KEY)}"
     volumes:
       - ./usr:/a0/usr
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
