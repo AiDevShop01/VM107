@@ -80,10 +80,26 @@ def qdrant_test_client():
     # v1.13.0 supports the /collections/{c}/points/query endpoint that
     # qdrant_client>=1.10 emits via .query_points() (the .search() method is
     # deprecated upstream). Plan 87-07 Wave 4a required the bump.
+    import time
+
     with DockerContainer("qdrant/qdrant:v1.13.0").with_exposed_ports(6333) as ctr:
         host = ctr.get_container_host_ip()
         port = int(ctr.get_exposed_port(6333))
-        client = QdrantClient(host=host, port=port)
+        # Wait for Qdrant HTTP server to start accepting connections.
+        # Plain DockerContainer wrapper exposes the port the moment the
+        # container starts; Qdrant takes ~1-3s to bind. Without this poll
+        # the first .create_collection() call races and yields "Connection
+        # reset by peer" intermittently when tests run in batch.
+        client = QdrantClient(host=host, port=port, check_compatibility=False)
+        for _attempt in range(40):  # 40 * 0.25s = 10s budget
+            try:
+                client.get_collections()
+                break
+            except Exception:  # noqa: BLE001
+                time.sleep(0.25)
+        else:
+            raise RuntimeError("qdrant testcontainer never became ready")
+
         client.create_collection(
             collection_name="macro_episode",
             vectors_config=qm.VectorParams(size=768, distance=qm.Distance.COSINE),
