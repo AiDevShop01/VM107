@@ -1,8 +1,16 @@
-id: belief_store
+id: belief_store_service
 type: service
 status: real
 shipped: 87
 last_changed: "2026-06-16"
+# Phase 47.6 Stage 3 (identity_uniqueness): ids are globally unique across
+# types. The contract YAML at registry/contract/belief_store.yaml owns the
+# canonical `belief_store` id (cited by agent_profile allowed_tools as
+# `belief_store.query` / `belief_store.propose`). This service YAML carries
+# the runtime deployment surface (env_vars, source_module, latency_budget)
+# and takes the suffixed id `belief_store_service`. Bug fix shipped in
+# Plan 87-14 — Plan 87-09 originally shipped both with id=belief_store
+# which broke Phase 47.6 boot-time validation.
 impact_on_decision: HIGH
 hard_scoped: true
 allowed_agent_profiles:

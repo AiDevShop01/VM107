@@ -237,8 +237,15 @@ def validate_scope_references(
 ) -> list[CapabilitySnapshotEntry]:
     """Stage 5: All allowed_agent_profiles must resolve to known agent_profile ids.
 
-    Sub-profile notation (e.g., 'agent_zero._writer') is matched by checking that
-    the base id (before the first '.') exists as an agent_profile.
+    Resolution rules (most→least specific):
+      1. Full id match — `vm107.macro_regime_analyst` is itself an agent_profile id
+         (Phase 87+ namespaced profile convention: `vm{N}.{role}`).
+      2. Legacy underscore-sub-profile — `agent_zero._writer` resolves to base
+         `agent_zero` (id before the first '.', when the suffix starts with '_').
+
+    Bug fix (Plan 87-14): previously only rule #2 was applied, which mis-fired
+    on every namespaced `vm{N}.{role}` profile reference. Plan 87-04 deferred-
+    items.md flagged this as a stage-5 "base profile `vm107`" mis-fire.
 
     Iterates sorted(entries, key=(type, id)) and raises on FIRST unresolved reference.
     """
@@ -246,20 +253,25 @@ def validate_scope_references(
 
     for entry in sorted(entries, key=lambda e: (e.type.value, e.id)):
         for profile_ref in entry.allowed_agent_profiles:
-            # Sub-profile: "agent_zero._writer" -> base is "agent_zero"
+            # Rule 1: full id match (Phase 87+ namespaced convention)
+            if profile_ref in agent_profile_ids:
+                continue
+            # Rule 2: legacy underscore-sub-profile (`agent_zero._writer`)
             base_id = profile_ref.split(".")[0]
-            if base_id not in agent_profile_ids:
-                raise RegistryValidationError(
-                    stage=5,
-                    type="unresolved_agent_profile",
-                    capability_id=entry.id,
-                    missing_ref=profile_ref,
-                    message=(
-                        f"Stage 5 scope reference error: '{entry.id}' lists "
-                        f"allowed_agent_profiles=[..., '{profile_ref}', ...] "
-                        f"but base profile '{base_id}' is not registered as an agent_profile."
-                    ),
-                )
+            if base_id in agent_profile_ids:
+                continue
+            raise RegistryValidationError(
+                stage=5,
+                type="unresolved_agent_profile",
+                capability_id=entry.id,
+                missing_ref=profile_ref,
+                message=(
+                    f"Stage 5 scope reference error: '{entry.id}' lists "
+                    f"allowed_agent_profiles=[..., '{profile_ref}', ...] "
+                    f"but neither '{profile_ref}' nor base '{base_id}' is "
+                    "registered as an agent_profile."
+                ),
+            )
 
     return entries
 

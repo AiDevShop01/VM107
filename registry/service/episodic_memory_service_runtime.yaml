@@ -1,9 +1,18 @@
-id: episodic_memory_service
+id: episodic_memory_service_runtime
 type: service
 status: real
 shipped: 87
 planned_phase: null
-last_changed: "2026-06-15"
+last_changed: "2026-06-16"
+# Phase 47.6 Stage 3 (identity_uniqueness): ids are globally unique across
+# types. The contract YAML at registry/contract/episodic_memory_service.yaml
+# owns the canonical `episodic_memory_service` id (cited by agent_profile
+# allowed_tools as `episodic_memory_service.query`). This service YAML carries
+# the runtime deployment surface (env_vars, source_module, latency_budget_ms,
+# top_k_default, rerank_formula) and takes the suffixed id
+# `episodic_memory_service_runtime`. Bug fix shipped in Plan 87-14 —
+# Plan 87-07 originally shipped both with id=episodic_memory_service which
+# broke Phase 47.6 boot-time validation.
 # Service surface for Brain B6 RAG — every Phase 87 macro agent calls this.
 # HIGH impact (contract YAML carries the deeper rationale).
 impact_on_decision: HIGH
