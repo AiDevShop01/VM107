@@ -1,0 +1,97 @@
+id: vm107.macro_regime_monitor
+type: agent_profile
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+name: vm107.macro_regime_monitor
+description: >-
+  Phase 87 Wave 5b — every-6h background agent. Re-evaluates regime
+  classification across all 7 LOCK-2 regimes via B9 BeliefStore Bayesian
+  updates over the last 12h of anchor indicator releases. At LOCK-3 0.65
+  threshold emits regime_transition_detected event; Phase 74
+  NotificationDispatcher consumes at macro channel P2 Warning level with
+  templated copy "Regime transition detected: {prior} → {current}
+  (probability {p:.2f}). Supporting: {top_3_indicators}." LOCK-9 12h dedup
+  window prevents notification spam on regime-flap days. REQ-87-9
+  multi-indicator joint pattern flag propagates to event payload + notification
+  metadata when ≥3 anchor indicators move in the same surprise direction.
+  Ships as docker-compose sibling service vm107-macro-regime-monitor per
+  LOCK-8 / REQ-87-8 / feedback_mgmt_commands_need_compose_service —
+  alongside Plan 87-08's vm107-macro-story-tracker in the same compose file.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 87
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-16"
+    change: "Phase 87 Plan 10 — initial release as 6-hourly macro regime monitor"
+
+# Schedule trigger (second scheduled-cron agent — follows Plan 87-08 precedent)
+trigger: schedule
+schedule_cron: "0 */6 * * *"   # every 6 hours UTC
+sibling_service: vm107-macro-regime-monitor
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - belief_store.query     # Plan 87-09 real B9
+  - belief_store.propose   # Plan 87-09 — proposer_id=macro_regime_monitor
+  - lookup_capability      # standard discovery tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings
+constitutional_skills:
+  - transition-detection
+  - multi-indicator-pattern
+
+# Memory scope (public-factual analyst — no per-account or per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 4
+max_cost_usd: 0.10
+latency_budget_ms: 12000
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 15
+
+# Brain absorption ledger
+brain_absorbed:
+  - B9  # belief read + write via BeliefStore (Plan 87-09 real client)
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.75
+expected_freshness_seconds: 21600   # every-6h cadence
+is_deterministic: true              # pure Bayesian update, no LLM in path
+version: "1.0.0"
+
+owner: engineering
+profile_path: VM107/profiles/macro_regime_monitor.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-87
+  - wave-5
+  - schedule
+  - background
+  - regime-monitor
+  - sibling-service
+  - brain-b9

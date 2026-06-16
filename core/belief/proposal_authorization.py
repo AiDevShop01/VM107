@@ -9,7 +9,10 @@ from __future__ import annotations
 
 DETERMINISTIC_PROPOSERS: set[str] = {
     "macro_regime_analyst",
-    # Future Phase 87 sibling decimal phases may add proposers
+    # Phase 87 Plan 10 (Wave 5b) — macro_regime_monitor 6-hourly background
+    # agent re-runs Bayesian updates across all 7 regimes and emits
+    # regime_transition_detected events at LOCK-3 0.65 threshold.
+    "macro_regime_monitor",
 }
 
 

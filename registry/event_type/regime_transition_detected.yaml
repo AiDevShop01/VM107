@@ -1,0 +1,38 @@
+id: regime_transition_detected
+type: event_type
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+# Direct trigger for the Phase 74 NotificationDispatcher macro channel
+# P2 Warning notification. HIGH — one step from a trader-visible alert.
+impact_on_decision: HIGH
+hard_scoped: false
+
+name: regime_transition_detected
+description: |
+  Emitted by vm107.macro_regime_monitor when max regime transition
+  probability exceeds LOCK-3 0.65 threshold. Producer-side LOCK-9 12h
+  dedup window applied: same (from_regime, to_regime) pair will NOT
+  re-emit within 12h. Phase 74 NotificationDispatcher consumes at macro
+  channel P2 Warning level with templated copy "Regime transition
+  detected: {prior} → {current} (probability {p:.2f}). Supporting:
+  {top_3_indicators}." REQ-87-9 joint_pattern_detected flag is set when
+  ≥3 anchor indicators in the 12h window moved in the same surprise
+  direction.
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  event_id: str (UUID)
+  from_regime: str (one of 7 LOCK-2 regimes)
+  to_regime: str (one of 7 LOCK-2 regimes)
+  probability: float (>0.65 LOCK-3)
+  confidence: float
+  top_3_indicators: list[str]
+  joint_pattern_detected: bool
+  triggering_belief_id: str (UUID)
+  detected_at: str (ISO-8601 UTC)
+consumers:
+  - phase74.notification_dispatcher
+producers:
+  - vm107.macro_regime_monitor
