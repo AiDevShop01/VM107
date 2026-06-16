@@ -1,0 +1,51 @@
+id: dagster_macro_alfred_vintages
+type: dagster_asset
+phase: 88
+asset_key: macro_alfred_vintages
+group_name: macro_alfred
+source: alfred
+compute: vm101
+refresh_frequency: daily
+partition_strategy: "indicator x date — daily partitions per (indicator_code, date)"
+owner: engineering
+status: real
+shipped: 88
+last_changed: "2026-06-16"
+vm: vm111
+description: >-
+  Phase 88 — daily ALFRED vintage refresh for the 64 Phase-83 indicators.
+  Pulls a 7-day vintage window per indicator from FRED ALFRED API; writer is
+  idempotent on the unique (indicator_id, release_date, vintage_date).
+  Late-arriving revisions land here naturally on the next refresh. Emits
+  ref_economic_event_revisions rows via the writer (activated Plan 88-04).
+  Dev runs in Mac Docker dagster_daemon; prod runs on VM111 dagster_daemon.
+location:
+  source: fingpt_orchestration/src/fingpt_orchestration/assets/macro/ingestion/macro_alfred_vintages.py
+  asset_key: macro_alfred_vintages
+  group_name: macro_alfred
+consumed_by:
+  - vm102_indicator_vintage_history
+  - vm102_indicator_revision_chain
+related_capabilities:
+  - vm102_indicator_vintage_history
+  - vm102_indicator_revision_chain
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-88
+  - macro
+  - indicator
+  - alfred
+  - vintage
+  - ingestion
+  - dagster
+  - vm101-compute
+  - vm111-orchestration
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.95
+expected_freshness_seconds: 86400
+is_deterministic: true
+version: "1.0.0"

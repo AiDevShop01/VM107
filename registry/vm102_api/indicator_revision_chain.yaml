@@ -1,0 +1,61 @@
+id: vm102_indicator_revision_chain
+type: vm102_api
+phase: 88
+method: GET
+path: /api/v2/indicator-revisions/<id>
+query_schema:
+  release_date: {type: string, required: true, format: "ISO date YYYY-MM-DD"}
+response_schema_ref: schemas/revision_chain_response.json
+owner: engineering
+latency_budget_ms: 500
+envelope_contract: phase_70_5
+status: real
+shipped: 88
+last_changed: "2026-06-16"
+description: >-
+  Phase 88 — Revision chain API. Returns the ordered chain of every vintage
+  of a single release (Initial → Revision 1 → Revision N) with
+  delta_from_previous + days_after_release. Walk computes deltas in Python
+  from a SQL query ORDERed by vintage_date ASC. Empty chain (no rows for the
+  release_date) returns 200 + chain=[] — the indicator exists; the date just
+  has no vintage data. Single-entry chain (initial release only) returns
+  length 1 with delta_from_previous=null. Used by Phase 89 contradiction
+  detector + the VM100 Revision View animation.
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_revision_chain
+    http_path: /api/v2/indicator-revisions/{id}
+    http_method: GET
+    parameters:
+      - {name: id,           type: string, required: true,  description: "FRED indicator code, e.g. PAYEMS"}
+      - {name: release_date, type: string, required: true,  description: "ISO date YYYY-MM-DD; the release date whose revision chain to fetch"}
+    return_shape: "RevisionChainResponse"
+location:
+  source: VM102/backend/api/v2/indicator_revisions.py
+  endpoint: /api/v2/indicator-revisions/{id}
+  contracts:
+    request: "params(id, release_date)"
+    response: "RevisionChainResponse"
+consumed_by:
+  - vm100.macro_indicator_page_revision_view
+related_capabilities:
+  - vm102_indicator_vintage_history
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-88
+  - macro
+  - indicator
+  - revision-chain
+  - alfred
+  - vm102
+  - read-facade
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.9
+expected_freshness_seconds: 86400
+is_deterministic: true
+version: "1.0.0"
