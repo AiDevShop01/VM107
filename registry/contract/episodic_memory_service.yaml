@@ -1,0 +1,70 @@
+id: episodic_memory_service
+type: contract
+status: real
+shipped: 87
+planned_phase: null
+last_changed: "2026-06-15"
+# Brain B6 RAG sits in the middle of every macro reasoning prompt — it
+# directly biases the LLM's narrative toward similar past episodes. HIGH.
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - vm107.macro_story_tracker
+  - vm107.macro_transmission_analyst
+  - vm107.macro_regime_analyst
+
+name: EpisodicMemoryService
+description: |
+  Brain B6 (Retrieval-Augmented Reasoning). Qdrant-backed retrieval of top-K
+  similar past macro episodes. Phase 87 Plan 87-07 Wave 4a contract.
+  Per LOCK-6, default top_k=5 (Brain Part 2 default K=3; widened for Phase
+  87 narrative + transmission breadth at the cost of ~150 extra tokens per
+  prompt). Re-rank composite = decay_weight x cosine_score (over-fetch 3x
+  then sort) so high-decay-low-cosine candidates can outrank
+  low-decay-high-cosine ones.
+owner_vm: vm107
+owner: engineering
+
+contract_version: "1.0"
+source_module: VM107.core.memory.episodic_memory_service
+
+input_contract: EpisodicQuery
+output_contract: EpisodicResult
+record_contract: MemoryRecord
+
+embedding_dim: 768
+embedding_model: all-mpnet-base-v2
+distance: COSINE
+
+qdrant_collections:
+  - macro_episode
+
+# Indexed payload fields enable filterable HNSW (Qdrant best practice — index
+# before ingest). See VM107/core/memory/qdrant_macro_episode_collection.py.
+indexed_payload_fields:
+  - indicator_id
+  - regime_at_episode
+  - release_date
+
+# Brain Part 2 §B6 verbatim citation grammar — Phase 71 evidence drawer
+# parses [ref:episode:<uuid>] tokens by this regex.
+citation_grammar:
+  pattern: "\\[ref:episode:[0-9a-fA-F-]+\\]"
+  kind: episode
+
+# Error envelope — surfaced to callers via RuntimeError at construction.
+error_envelope:
+  missing_qdrant_url:
+    raise: RuntimeError
+    message: "QDRANT_URL required — env-driven config, no default fallback"
+
+brain_absorbed:
+  - B6
+
+tags:
+  - phase-87
+  - brain-b6
+  - rag
+  - qdrant
+  - episodic-memory
+  - macro

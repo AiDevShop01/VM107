@@ -1,0 +1,61 @@
+id: episodic_memory_service
+type: service
+status: real
+shipped: 87
+planned_phase: null
+last_changed: "2026-06-15"
+# Service surface for Brain B6 RAG — every Phase 87 macro agent calls this.
+# HIGH impact (contract YAML carries the deeper rationale).
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - vm107.macro_story_tracker
+  - vm107.macro_transmission_analyst
+  - vm107.macro_regime_analyst
+
+name: EpisodicMemoryService runtime
+description: |
+  In-process Python service deployment. Constructed once at agent runtime
+  per VM107 worker; calls Qdrant over the standard HTTP client API. NOT a
+  cross-VM HTTP service — agents import VM107.core.memory directly.
+  Env-driven QDRANT_URL — fails fast at construction with no default
+  fallback (CLAUDE.md no-fallback-defaults lock).
+owner_vm: vm107
+owner: engineering
+
+# Contract sibling — Phase 47.6 LD-7 parser tolerates unknown keys; the
+# contract YAML at registry/contract/episodic_memory_service.yaml carries
+# the schemas + citation grammar + error envelope.
+contracts:
+  - episodic_memory_service
+
+runtime: python_in_process
+source_module: VM107.core.memory.episodic_memory_service
+
+env_vars:
+  - QDRANT_URL
+
+# Latency budget per query (Brain Part 2 §B6 guidance — RAG must not
+# dominate the agent's wall clock). Production target: <100ms typical;
+# generous headroom for 4000-episode collection scan.
+latency_budget_ms: 200
+
+# Top-K default — LOCK-6 binds this number across the whole phase. Changing
+# it requires a sibling decimal plan + version bump (no silent edits).
+top_k_default: 5
+
+# Re-rank composite — documents the algorithm at the registry surface so
+# anyone discovering the capability via lookup_capability sees it.
+rerank_formula: "decay_weight × cosine_score (over-fetch 3x then sort)"
+
+brain_absorbed:
+  - B6
+
+tags:
+  - phase-87
+  - brain-b6
+  - rag
+  - qdrant
+  - episodic-memory
+  - macro
+  - in-process
