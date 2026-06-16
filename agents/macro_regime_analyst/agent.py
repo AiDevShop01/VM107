@@ -23,6 +23,23 @@ macro_transmission_analyst structure):
 REQ-87-3: End-to-end within 60s of the release event; envelope names
 one of the 7 LOCK-2 regimes with ≥1 historical analogue citation and
 ≥3 anchor indicator citations in supporting_evidence.
+
+Plan 87-10 (Wave 5b) stub-swap notice
+-------------------------------------
+The ``belief_store_client`` constructor argument receives the REAL
+``core.belief.belief_store.BeliefStore`` (Plan 87-09) in production /
+deploy wiring. No code change is required at the agent call site —
+``self._beliefs.query(subject_type=..., subject_id=...)`` returns the
+same shape (``{"probability": float, "confidence": float, ...}``) from
+both the Wave-3 ``belief_store_stub`` fixture and the Wave-5 real
+client. DI swap happens at construction time only.
+
+The Wave-3 unit tests continue to use the ``belief_store_stub`` fixture
+in ``tests/phase87/conftest.py`` (flat probability=0.5, confidence=0.5,
+``propose()`` raises AttributeError so Wave-3 tests cannot accidentally
+write beliefs). Production wires ``BeliefStore()`` from
+``core.belief.belief_store`` — env-driven fail-fast on
+``BELIEF_STORE_POSTGRES_URL`` + ``BELIEF_STORE_MONGO_URL``.
 """
 from __future__ import annotations
 
@@ -101,7 +118,7 @@ class MacroRegimeAnalyst:
         *,
         anchor_direction_provider: Any,   # extracts (cpi_dir, unrate_dir, gdp_dir)
         analogue_client: EventStudyAnalogueClient,
-        belief_store_client: Any,         # Wave-3 stub; Wave-5 real B9
+        belief_store_client: Any,         # Wave-3 stub; Wave-5 real B9 (Plan 87-10 swap)
         narration_skill: RegimeNarrationSkill,
         envelope_repo: Any,               # Phase 70.5 envelope writer
         b1_repo: Any,                     # Brain B1 reasoning artifact writer
