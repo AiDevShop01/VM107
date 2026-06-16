@@ -431,6 +431,85 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=87"
 
+  # ---------------------------------------------------------------------------
+  # Phase 87 Plan 10 — vm107-macro-regime-monitor sibling service
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): every
+  # long-running worker MUST ship as a docker-compose sibling service.  Plan
+  # 87-10 ships an APScheduler BlockingScheduler that fires the
+  # macro_regime_monitor every 6 hours UTC (cron `0 */6 * * *`); without
+  # this block it would die on every backend restart (Phase 74-03 lesson —
+  # observation pipeline silently severed for ≥1 cycle).
+  #
+  # The runner queries BeliefStore (Plan 87-09) for all 7 LOCK-2 regimes,
+  # polls VM101 typed economic_event API for the last 12h of anchor
+  # indicator releases (Phase 47.2 lock — no parquet), calls
+  # BeliefStore.propose() with proposer_id='macro_regime_monitor' (the
+  # second of two entries in DETERMINISTIC_PROPOSERS), and on LOCK-3 0.65
+  # transition threshold emits a regime_transition_detected event +
+  # dispatches a Phase 74 macro-channel P2 Warning notification (LOCK-9
+  # 12h producer-side dedup applied first).
+  #
+  # Restart after env changes (NEVER use `docker restart` — it ignores env_file edits):
+  #   docker compose up -d --force-recreate --no-deps vm107-macro-regime-monitor
+  # ---------------------------------------------------------------------------
+  vm107-macro-regime-monitor:
+    container_name: vm107-macro-regime-monitor
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m scripts.run_macro_regime_monitor
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Required URLs — fail-fast at startup (env-driven-no-fallbacks lock) ──
+      # ${VAR:?msg} aborts `docker compose up` if unset.  The runner ALSO
+      # re-checks these at process boot before wiring collaborators so the
+      # sibling-service container never silently no-ops.
+      BELIEF_STORE_POSTGRES_URL: "${BELIEF_STORE_POSTGRES_URL:?BELIEF_STORE_POSTGRES_URL is required (Phase 87 Plan 10 — macro_regime_monitor BeliefStore writes)}"
+      BELIEF_STORE_MONGO_URL: "${BELIEF_STORE_MONGO_URL:?BELIEF_STORE_MONGO_URL is required (Phase 87 Plan 10 — macro_regime_monitor BeliefStore cache)}"
+      PHASE74_DISPATCHER_URL: "${PHASE74_DISPATCHER_URL:?PHASE74_DISPATCHER_URL is required (Phase 87 Plan 10 — macro_regime_monitor Phase 74 NotificationDispatcher)}"
+      VM101_INTERNAL_BASE_URL: "${VM101_INTERNAL_BASE_URL:?VM101_INTERNAL_BASE_URL is required (Phase 87 Plan 10 — macro_regime_monitor release poller)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      # Plan 87-10 modules + their transitive deps (mirrors the
+      # macro_story_tracker sibling-service bind-mount set so host edits
+      # propagate without rebuild).
+      - ./agents:/a0/agents:ro
+      - ./scripts:/a0/scripts:ro
+      - ./core:/a0/core:ro
+      - ./persistence:/a0/persistence:ro
+      - ./publishers:/a0/publishers:ro
+      - ./services:/a0/services:ro
+      - ./profiles:/a0/profiles:ro
+      - ./prompts:/a0/prompts:ro
+      - ./registry:/a0/registry:ro
+      - ./config/templates:/a0/config/templates:ro
+      # Heartbeat file is written under /app/logs by the runner; the
+      # healthcheck reads it from the same path.
+      - ./logs:/app/logs
+    depends_on:
+      vm107:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/opt/venv-a0/bin/python", "-m", "scripts.macro_regime_monitor_health"]
+      interval: 10m
+      timeout: 30s
+      retries: 3
+      # Plan 87-14 deploy gate also verifies survival across
+      # `docker compose restart vm107` (the agent-zero backend service).
+      start_period: 5m
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-macro-regime-monitor"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=87"
+
 volumes:
   redis_data:
 

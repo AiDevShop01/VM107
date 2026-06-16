@@ -29,5 +29,23 @@ def test_unknown_proposer_blocked():
         authorize_proposer("vm107.macro_random_unknown_agent")
 
 
-def test_deterministic_proposer_set_contains_only_regime_analyst():
-    assert DETERMINISTIC_PROPOSERS == {"macro_regime_analyst"}
+def test_deterministic_proposer_set_contains_both_phase87_proposers():
+    """Plan 87-09 shipped with {macro_regime_analyst} only.
+
+    Plan 87-10 (Wave 5b) added macro_regime_monitor as the second
+    authorized deterministic proposer — the 6-hourly background agent
+    that re-runs Bayesian updates across all 7 regimes. Both proposers
+    MUST be present; nothing else may sneak in without a sibling decimal
+    phase update + this test bump.
+    """
+    assert DETERMINISTIC_PROPOSERS == {
+        "macro_regime_analyst",
+        "macro_regime_monitor",
+    }
+
+
+def test_macro_regime_monitor_allowed():
+    """Plan 87-10 — macro_regime_monitor must be an allowed proposer
+    (used by the every-6h background agent for Bayesian updates)."""
+    authorize_proposer("macro_regime_monitor")          # does not raise
+    authorize_proposer("vm107.macro_regime_monitor")    # bare-id strip
