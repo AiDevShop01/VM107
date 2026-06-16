@@ -1,0 +1,48 @@
+id: belief_store
+type: contract
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+# Brain B9 BeliefStore sits in front of every regime-monitor decision —
+# misclassifying or misweighting beliefs would cascade across all macro
+# downstream consumers. HIGH.
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+
+name: BeliefStore
+description: |
+  Brain B9 (Belief Tracker). Beta-Bernoulli Bayesian update per Brain Part 2
+  §B9 verbatim math. Per Phase 87 LOCK-5: decay_model=bayesian with 14-day
+  half-life applied weekly via Dagster asset belief_weekly_decay (Sundays
+  02:00 UTC). Per Phase 53 lifecycle: shadow → proposed → active → retired,
+  with governance_action events emitted on every transition.
+  LOCK: LLM-direct propose() rejected at API level (Brain Part 2 §B9). Only
+  DETERMINISTIC_PROPOSERS may call propose().
+owner_vm: vm107
+owner: engineering
+
+contract_version: "1.0"
+source_module: VM107.core.belief.belief_store
+
+operations:
+  - query
+  - propose
+  - audit
+  - retire
+  - apply_weekly_decay_to_all_active
+subject_types:
+  - regime   # Phase 87 only ships this subject_type
+decay_model: bayesian
+decay_half_life_days: 14
+lifecycle_states:
+  - shadow
+  - proposed
+  - active
+  - retired
+deterministic_proposers:
+  - macro_regime_analyst
+brain_absorbed:
+  - B9

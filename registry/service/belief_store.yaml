@@ -1,0 +1,30 @@
+id: belief_store
+type: service
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+impact_on_decision: HIGH
+hard_scoped: true
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+
+name: BeliefStore runtime
+description: |
+  In-process Python service. Reads/writes the Postgres `belief` table (owned
+  by VM101 migration 0004_phase87_belief); caches reads in MongoDB collection
+  `belief_query_cache` (TTL 60s). Fails-fast at construction if either
+  BELIEF_STORE_POSTGRES_URL or BELIEF_STORE_MONGO_URL env var is missing.
+owner_vm: vm107
+owner: engineering
+
+runtime: python_in_process
+contract: belief_store
+contracts:
+  - belief_store
+env_vars:
+  - BELIEF_STORE_POSTGRES_URL
+  - BELIEF_STORE_MONGO_URL
+latency_budget_ms: 50
+brain_absorbed:
+  - B9

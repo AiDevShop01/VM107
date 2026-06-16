@@ -1,0 +1,31 @@
+id: belief_proposal
+type: event_type
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+# Proposal events drive the Phase 53 admin approval queue and back-propagate
+# into the regime monitor's decision loop. MEDIUM (one step removed from
+# direct trading decisions, but high-fidelity for governance).
+impact_on_decision: MEDIUM
+hard_scoped: false
+
+name: belief_proposal
+description: |
+  Emitted every time a deterministic proposer (Phase 87: macro_regime_analyst)
+  proposes a belief through BeliefStore.propose(). Phase 53 admin UI consumes
+  this event for the approval queue (shadow→proposed→active flow).
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  belief_id: str
+  proposer_id: str
+  subject_type: str
+  subject_id: str
+  probability: float
+  confidence: float
+  created_at: str (ISO)
+consumers:
+  - phase53_admin_ui
+producers:
+  - vm107.macro_regime_analyst
