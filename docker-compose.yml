@@ -358,6 +358,79 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=85.1"
 
+  # ---------------------------------------------------------------------------
+  # Phase 87 Plan 08 — vm107-macro-story-tracker sibling service
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): every
+  # long-running worker MUST ship as a docker-compose sibling service.  Plan
+  # 87-08 ships an APScheduler BlockingScheduler that fires the
+  # macro_story_tracker hourly (cron minute 5 UTC); without this block it
+  # would die on every backend restart (Phase 74-03 lesson — observation
+  # pipeline silently severed for ≥1 cycle).
+  #
+  # The runner polls VM101 typed economic_event API (Phase 47.2 lock — no
+  # parquet), pulls top-K=5 episodes via Plan 87-07 EpisodicMemoryService,
+  # CREATEs/REINFORCEs/RETIREs macro_story rows on VM101 Postgres, and
+  # publishes macro.story.updated on the VM100 WS topic.
+  #
+  # Restart after env changes (NEVER use `docker restart` — it ignores env_file edits):
+  #   docker compose up -d --force-recreate --no-deps vm107-macro-story-tracker
+  # ---------------------------------------------------------------------------
+  vm107-macro-story-tracker:
+    container_name: vm107-macro-story-tracker
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m scripts.run_macro_story_tracker
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Required URLs — fail-fast at startup (env-driven-no-fallbacks lock) ──
+      # ${VAR:?msg} aborts `docker compose up` if unset.  The runner ALSO
+      # re-checks these at process boot before wiring collaborators so the
+      # sibling-service container never silently no-ops.
+      VM101_INTERNAL_BASE_URL: "${VM101_INTERNAL_BASE_URL:?VM101_INTERNAL_BASE_URL is required (Phase 87 Plan 08 — macro_story_tracker poller)}"
+      QDRANT_URL: "${QDRANT_URL:?QDRANT_URL is required (Phase 87 Plan 08 — B6 EpisodicMemoryService)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      # Plan 87-08 modules + their transitive deps (mirrors the
+      # macro_release_event_listener bind-mount set so host edits propagate
+      # without rebuild).
+      - ./agents:/a0/agents:ro
+      - ./scripts:/a0/scripts:ro
+      - ./core:/a0/core:ro
+      - ./persistence:/a0/persistence:ro
+      - ./publishers:/a0/publishers:ro
+      - ./services:/a0/services:ro
+      - ./profiles:/a0/profiles:ro
+      - ./prompts:/a0/prompts:ro
+      - ./registry:/a0/registry:ro
+      - ./config/templates:/a0/config/templates:ro
+      # Heartbeat file is written under /app/logs by the runner; the
+      # healthcheck reads it from the same path.
+      - ./logs:/app/logs
+    depends_on:
+      vm107:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/opt/venv-a0/bin/python", "-m", "scripts.macro_story_tracker_health"]
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      # Plan 87-14 deploy gate also verifies survival across
+      # `docker compose restart vm107` (the agent-zero backend service).
+      start_period: 5m
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-macro-story-tracker"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=87"
+
 volumes:
   redis_data:
 
