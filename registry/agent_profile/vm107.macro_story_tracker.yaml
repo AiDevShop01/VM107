@@ -1,0 +1,97 @@
+id: vm107.macro_story_tracker
+type: agent_profile
+status: real
+shipped: 87
+last_changed: "2026-06-16"
+name: vm107.macro_story_tracker
+description: >-
+  Phase 87 Wave 4b — hourly background agent maintaining evolving macro
+  "story" objects (e.g. "inflation persistence trend emerging"). Polls the
+  last 6h of releases via the VM101 typed economic_event API (Phase 47.2
+  lock; no parquet reads), pulls top-K=5 prior episodes via the Plan 87-07
+  EpisodicMemoryService (via the message_loop_prompts_before_b6 hook),
+  detects multi-indicator joint patterns (REQ-87-9), CREATEs / REINFORCEs /
+  RETIREs macro_story rows on VM101 Postgres (WORM-style supersedes_story_id
+  lineage). LOCK-7 retirement: 3 consecutive opposite-direction releases
+  flip is_active=false with retirement_reason. Ships as docker-compose
+  sibling service vm107-macro-story-tracker per LOCK-8 / REQ-87-8 /
+  feedback_mgmt_commands_need_compose_service — Plan 74-03's observation
+  pipeline died by skipping this lock; Plan 87-08 honours it from day one.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 87
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-16"
+    change: "Phase 87 Plan 08 — initial release as hourly macro story tracker"
+
+# Schedule trigger (first scheduled-cron agent — Wave 4b)
+trigger: schedule
+schedule_cron: "5 * * * *"   # hourly at minute 5 UTC
+sibling_service: vm107-macro-story-tracker
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - episodic_memory_service.query   # Plan 87-07 real B6
+  - lookup_capability               # standard discovery tool
+  - lookup_reasoning_artifact       # B1 artifact retrieval
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings
+constitutional_skills:
+  - citation-discipline
+  - story-update-skill
+  - multi-indicator-pattern
+
+# Memory scope (public-factual analyst — no per-account or per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 4
+max_cost_usd: 0.20
+latency_budget_ms: 8000
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 20
+
+# Brain absorption ledger
+brain_absorbed:
+  - B6  # episodic memory injection (Plan 87-07 service)
+  - B9  # belief writes via story-update skill (Plan 87-09 BeliefStore)
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.75
+expected_freshness_seconds: 3600    # hourly cadence
+is_deterministic: false             # candidate headlines are LLM-emitted
+version: "1.0.0"
+
+owner: engineering
+profile_path: VM107/profiles/macro_story_tracker.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-87
+  - wave-4
+  - schedule
+  - background
+  - story-tracker
+  - sibling-service
