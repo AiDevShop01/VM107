@@ -1,0 +1,32 @@
+id: drawing_break_to_opportunities
+type: notification_rule
+status: real
+shipped: 93
+planned_phase: null
+last_changed: "2026-06-17"
+# Stage 2 schema requires `impact_on_decision`. A BOS/CHoCH drawing break
+# is a discretionary opportunity signal — the user reviews and decides;
+# the notification doesn't directly enact a trade.
+impact_on_decision: MEDIUM
+
+description: |
+  BOS/CHoCH user-drawn level breaks (status flip active → broken in the
+  VM109 drawings table) route to the Opportunities channel at P3.
+  The bell + toast surfaces already render the channel without any
+  drawing-specific UI changes — Phase 93 Plan 03 wires the rule only.
+
+trigger_event_type: drawing_break
+channel: opportunities
+priority: P3
+condition_expr: ""
+dismissibility_profile: fully_dismissible
+precedence: 60
+terminal: true
+active: true
+
+tags:
+  - phase-93
+  - drawings
+  - opportunities-channel
+  - bos-choch
+deprecated: false
