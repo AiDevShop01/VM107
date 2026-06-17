@@ -1,0 +1,59 @@
+id: drawing_broken
+type: event_type
+status: real
+shipped: 93
+name: drawing_broken
+description: 'A user-owned BOS or CHoCH chart Drawing flipped from status=active
+  to status=broken because an OHLC bar wick (high for bearish drawings, low for
+  bullish drawings) touched the drawing''s level. Emitted by VM109''s
+  drawings.services.break_detector inside the same transaction.atomic() as the
+  status flip — Phase 87 regime layer consumes this event for transmission-chain
+  causality. Idempotent via uuid5 source_envelope_id derived from drawing_id.
+
+  '
+event_type: drawing.broken
+category: structure
+version: 1.0
+producer: vm109
+payload_schema: DrawingBrokenEvent
+retention: permanent
+pii: false
+replayable: true
+phase: 93
+payload_fields:
+  drawing_id: UUID of the Drawing that broke (string-form uuid4)
+  user_id: Integer user_id that owns the drawing
+  instrument: Symbol the drawing was placed on (e.g. EURUSD)
+  timeframe: Timeframe the drawing was anchored on (e.g. H1, H4, D, W)
+  shape_type: "bos or choch"
+  level: Price level the wick touched to trigger the break (float)
+  direction: "bullish (low<=level) or bearish (high>=level)"
+  broken_at: ISO-8601 UTC timestamp of the status flip
+causality_scope: DRAWING
+trigger:
+  entity: Drawing
+  from_states:
+  - active
+  mechanism: drawings.services.break_detector.detect_and_break() via
+    POST /api/internal/drawings/check (Dagster OHLC post-hook caller in Plan 03)
+replay_notes: 'This event is replayable and deterministic. The
+  source_envelope_id is uuid5(NAMESPACE_OID, "fingpt.phase-93.drawing_broken" +
+  drawing_id) — same drawing always produces the same envelope id, regardless
+  of replay order or fan-out duplication. Consumers (Phase 87 regime layer)
+  dedupe on source_envelope_id.
+
+  '
+related_events:
+- analytics_snapshot_recorded (downstream — Phase 87 regime transmission
+  may attach a drawing.broken causality chain entry)
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+hard_scoped: false
+tags:
+- structure
+- bos
+- choch
+- drawings
+- phase-93
+- phase-87

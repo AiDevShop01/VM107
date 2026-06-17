@@ -1,0 +1,24 @@
+id: drawings
+type: data_domain
+status: real
+shipped: 93
+name: drawings
+description: 'BOS/CHoCH structural levels per (user_id, instrument, timeframe).
+  Owned by VM109 — the `drawing`, `drawing_event`, and `user_chart_drawing_prefs`
+  tables live in the `tradetracker` Postgres database. Read API:
+  GET /api/drawings/?instrument=&timeframe=. Phase 87 regime layer consumes
+  drawing_broken events emitted from this domain via VM109''s break_detector.
+
+  '
+owner: vm109
+read_endpoint: /api/drawings/
+event_types:
+- drawing_broken
+phase: 93
+tags:
+- structure
+- bos
+- choch
+- drawings
+- phase-93
+- phase-87
