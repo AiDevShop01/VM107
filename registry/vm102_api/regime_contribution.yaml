@@ -1,0 +1,74 @@
+id: vm102_regime_contribution
+type: vm102_api
+phase: 88.1
+method: GET
+path: /api/v2/regime/contribution/{indicator_id}
+query_schema:
+  lookback: {type: string, required: false, default: "1Y", description: "Reserved for Phase 89+ statistical providers"}
+  date:     {type: string, required: false, default: null, description: "Reserved for Phase 89+ AS-OF queries"}
+owner: engineering
+latency_budget_ms: 200
+envelope_contract: rce_phase_88_1
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 — Regime Contribution Engine endpoint. Returns the decomposition of
+  a macro indicator into {growth, inflation, liquidity, risk_appetite} quadrants.
+  Phase 1 uses curator-only provider (yaml); base == adjusted for all quadrants.
+  Missing curator YAML returns InsufficientCurator error (never 500, always 200).
+  Cache TTL controlled by VM102_PHASE_88_1_CACHE_TTL_SECONDS env var.
+
+capability_type: read_facade
+vm: vm102
+
+methods:
+  - name: get_regime_contribution
+    http_path: /api/v2/regime/contribution/{indicator_id}
+    http_method: GET
+    parameters:
+      - {name: indicator_id, type: string, required: true, description: "FRED indicator code e.g. CPIAUCSL"}
+      - {name: lookback,     type: string, required: false, default: "1Y", description: "Reserved Phase 89+ parameter"}
+      - {name: date,         type: string, required: false, default: null, description: "Reserved Phase 89+ AS-OF date"}
+    return_shape: "RCEEnvelope{envelope, result: RegimeContribution | null, error: null | {code, message}}"
+
+location:
+  source: VM102/backend/api/v2/indicator_regime_contribution.py
+  endpoint: /api/v2/regime/contribution/{indicator_id}
+  contracts:
+    request: "params(indicator_id, lookback?, date?)"
+    response: "RCEEnvelope"
+
+contracts:
+  response_contract: fingpt_core.contracts.regime_contribution.RegimeContribution
+
+consumed_by:
+  - vm100.frontend.RegimeContributionPanel
+
+related_capabilities:
+  - vm102_regime_contribution
+  - contract_regime_contribution
+
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+deprecated: false
+
+tags:
+  - phase-88-1
+  - macro
+  - indicator
+  - regime
+  - decomposition
+  - rce
+  - curator
+  - vm102
+  - read-facade
+
+typical_confidence: 0.88
+expected_freshness_seconds: 120
+is_deterministic: true
+version: "1.0.0"

@@ -1,0 +1,38 @@
+id: contract_regime_contribution
+type: contract
+phase: 88.1
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+profile_path: fingpt_core/src/fingpt_core/contracts/regime_contribution.py
+enforcement_gates: [write_time_pydantic]
+
+required_fields:
+  - indicator_id
+  - growth
+  - inflation
+  - liquidity
+  - risk_appetite
+  - provider
+  - confidence
+  - generated_at
+
+quadrant_schema:
+  fields: [base, adjusted, confidence]
+  base_range: [-1.0, 1.0]
+  adjusted_range: [-1.0, 1.0]
+  confidence_range: [0.0, 1.0]
+  phase_88_1_invariant: "base == adjusted"
+
+top_level_confidence_range: [0.0, 1.0]
+
+providers:
+  yaml: "Phase 88.1 — curator-only; base == adjusted"
+  hybrid: "Phase 89+ — 40% yaml + 30% statistical + 30% graph"
+
+description: >
+  RegimeContribution contract — per-indicator regime quadrant decomposition.
+  Pydantic v2 write-time enforcement with extra='forbid'.
+  Phase 88.1 curator-only: base == adjusted for all quadrants.
+  Phase 89+ hybrid blend introduces divergence between base and adjusted.
+  Used by VM102 RCE endpoint + VM100 RegimeContributionPanel.

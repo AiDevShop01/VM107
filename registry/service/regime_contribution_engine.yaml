@@ -1,0 +1,51 @@
+id: regime_contribution_engine
+type: service
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+impact_on_decision: MEDIUM
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+  - vm107.macro_historical_analyst
+
+name: Regime Contribution Engine (RCE)
+description: |
+  VM102 service that decomposes a macro indicator into contributions across
+  the 4 regime quadrants: growth, inflation, liquidity, risk_appetite.
+
+  Phase 88.1 ships the curator-only provider (yaml). Phase 89+ extends with
+  statistical (30%) and graph (30%) providers blended at 40%/30%/30%.
+
+  Each quadrant returns {base, adjusted, confidence} where:
+    - base == adjusted in Phase 88.1 (curator-only)
+    - adjusted deviates in Phase 89+ (hybrid blend)
+    - confidence is curator certainty [0.0, 1.0]
+
+  Missing curator YAML → InsufficientCurator error (never 500).
+  Phase 88.1 ships 64 curator YAMLs covering 12 Tier-1 + 52 Tier-2/3 indicators.
+
+owner_vm: vm102
+owner: engineering
+
+runtime: django_ninja_endpoint
+contract: regime_contribution
+contracts:
+  - regime_contribution
+env_vars:
+  - VM102_PHASE_88_1_CACHE_TTL_SECONDS
+  - JWT_SECRET
+latency_budget_ms: 200
+
+source_module: VM102/backend/analytics/regime/contribution_engine/
+endpoint: /api/v2/regime/contribution/{indicator_id}
+
+curator_yaml_dir: VM102/config/curator/rce/
+curator_yaml_count_phase_88_1: 64
+tier1_coverage: 12
+
+phase_89_extension_plan:
+  - StatisticalProvider (30% weight)
+  - GraphProvider (30% weight)
+  - HybridProvider (40/30/30 blend)
