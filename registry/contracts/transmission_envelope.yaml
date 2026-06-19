@@ -1,0 +1,86 @@
+id: contract_transmission_envelope
+type: contract
+phase: 88.1
+status: real
+shipped: "88.1"
+last_changed: "2026-06-19"
+profile_path: fingpt_core/contracts/transmission_envelope.py
+enforcement_gates: [write_time_pydantic]
+forbidden_fields: [raw_text]
+
+description: >-
+  TransmissionEnvelope contract — Phase 88.1 Plan 07 (MAT-01/MAT-02).
+  Defines the shape of macro transmission analysis for a single indicator.
+  Pydantic v2 extra='forbid' enforcement (write-time gate).
+  UI (VM100) renders identically regardless of source field value — source-transparent
+  rendering is the MAT-02 contract lock.
+
+required_fields:
+  - indicator
+  - generated_at
+  - source
+  - confidence
+  - transmission_chain
+  - affected_assets
+  - narrative
+  - version
+
+nested_types:
+  TransmissionStep:
+    fields: [from_node, to_node, relationship, strength]
+    constraints:
+      strength: "float [0.0, 1.0]"
+  AffectedAsset:
+    fields: [asset, direction, magnitude]
+    constraints:
+      direction: "Literal['up', 'down', 'neutral']"
+
+source_values:
+  prod: "Live AI materializer (VM107 agent)"
+  dagster_materialized: "VM102 deterministic dev materializer (no agent)"
+  fixture: "Unit test fixture (deterministic, no DB)"
+
+source_transparent_rendering: true  # MAT-02 lock — UI renders identically regardless of source
+
+consumers:
+  - vm100.frontend.useMacroTransmissionWS (reads macro_transmission_analysis identically)
+  - vm100.frontend.TransmissionChainOverlay (renders regardless of source)
+  - vm102.macro.materializers.MacroTransmissionMaterializer (dev writer)
+  - dagster.assets.macro.materializers.macro_transmission_materializer (Dagster asset)
+
+writers:
+  - vm102.macro.materializers.MacroTransmissionMaterializer (mode=dagster_materialized, dev)
+  - vm107.production_materializer (mode=prod, future)
+
+reads_from:
+  - macro_transmission_analysis (Postgres table, tradetracker_analytics DB)
+
+writes_to:
+  - macro_transmission_analysis (Postgres table, tradetracker_analytics DB)
+
+env_requirements:
+  TRANSMISSION_MODE:
+    required: true
+    valid_values: [prod, dagster_materialized, fixture]
+    fail_fast: true  # Raised at module import time via _required()
+    fallback_default: null  # NO fallback — env-driven-no-fallbacks lock
+
+related_capabilities:
+  - service_macro_transmission_materializer
+  - contract_indicator_enrichment
+
+tags:
+  - phase-88-1
+  - macro
+  - transmission
+  - contract
+  - pydantic-v2
+  - mat-01
+  - mat-02
+  - source-transparent
+
+notes: >-
+  raw_text is forbidden by extra='forbid' Pydantic gate (same pattern as
+  IndicatorEnrichment). Any payload carrying raw_text raises ValidationError.
+  source field distinguishes dev vs production origin — UI consumer must
+  never branch on this field (MAT-02 source-transparent rendering lock).

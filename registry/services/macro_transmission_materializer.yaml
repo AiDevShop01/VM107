@@ -1,0 +1,94 @@
+id: vm102_macro_transmission_materializer
+type: service
+phase: 88.1
+vm: vm102
+status: real
+shipped: "88.1"
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 Plan 07 — VM102 Development Transmission Materializer.
+  Deterministic, reproducible dev-time materializer that produces TransmissionEnvelope
+  rows for 12 Tier-1 indicators without live API calls or agent involvement.
+
+  Architecture lock (CONTEXT.md): VM102 Development Materializer, NOT a VM107 sibling
+  service. Avoids container sprawl / Mac dev resource cost. Future expansion:
+    VM102/development/intelligence/materializers/{regime,story,correlation}_materializer.py
+
+  Mode selection via TRANSMISSION_MODE env var (fail-fast at import — no fallback):
+    dagster_materialized → Dagster asset writes to macro_transmission_analysis (dev)
+    prod                 → Reserved for live AI materializer (VM107, future)
+    fixture              → Unit test fixture, no DB write
+
+location:
+  source: VM102/backend/macro/materializers/
+  modules:
+    - __init__.py
+    - macro_transmission_materializer.py
+
+capability_type: deterministic_materializer
+
+env_requirements:
+  TRANSMISSION_MODE:
+    required: true
+    valid_values: [prod, dagster_materialized, fixture]
+    fail_fast: true  # _required() raises RuntimeError at module import
+    fallback_default: null  # NO fallback — env-driven-no-fallbacks lock
+
+tier1_indicators:
+  - CPIAUCSL    # Consumer Price Index (headline)
+  - CPILFESL   # Core CPI (ex-food/energy)
+  - GDPC1      # Real GDP (quarterly)
+  - ISM        # ISM Manufacturing PMI
+  - PAYEMS     # Non-Farm Payrolls
+  - UNRATE     # Unemployment Rate
+  - M2SL       # M2 Money Supply
+  - WALCL      # Fed Balance Sheet (Assets)
+  - FEDFUNDS   # Federal Funds Rate
+  - DGS10      # 10-Year Treasury Yield
+  - VIXCLS     # CBOE VIX
+  - OIL        # WTI Crude Oil Price
+
+output_contract: contract_transmission_envelope
+
+deterministic: true
+# Same indicator_id + same code version always produces identical transmission_chain,
+# affected_assets, and narrative. No RNG, no time-based variation beyond generated_at.
+
+consumed_by:
+  - dagster.assets.macro.materializers.macro_transmission_materializer (Dagster trigger)
+  - vm100.frontend.useMacroTransmissionWS (via macro_transmission_analysis table read)
+  - vm100.frontend.TransmissionChainOverlay (renders envelope from DB)
+
+writes_to:
+  - macro_transmission_analysis (via POST /api/v2/macro/transmission/materialize on VM102)
+
+reads_from:
+  - _TEMPLATES dict (static, no DB reads — pure computation)
+
+related_capabilities:
+  - contract_transmission_envelope
+  - dagster_asset_macro_transmission_materializer
+  - vm102_historical_coverage_engine
+
+hard_scoped: false
+impact_on_decision: HIGH  # Gates TransmissionChainOverlay Ready state
+deprecated: false
+
+tags:
+  - phase-88-1
+  - macro
+  - transmission
+  - materializer
+  - deterministic
+  - vm102
+  - dev-only
+  - mat-01
+  - mat-02
+
+notes: >-
+  No agent involvement. No external API calls. TRANSMISSION_MODE=dagster_materialized
+  is the dev default (set in VM102/docker-compose.yml and Dagster/docker-compose.yml).
+  Dagster asset (macro_transmission_materializer) wraps this service via a POST to
+  /api/v2/macro/transmission/materialize for each Tier-1 indicator.
+  12 templates are static per CONTEXT.md LOCK-1 (Tier-1 seed set only in Phase 88.1).
