@@ -1,0 +1,33 @@
+id: contract_asset_sensitivity
+type: contract
+phase: 88.1
+status: real
+last_changed: "2026-06-19"
+
+name: AssetSensitivity Contract
+description: |
+  Pydantic v2 contract for the Asset x Surprise-Direction Table.
+  Returned by GET /api/v2/sensitivity/indicator/{id}.
+
+  Four-level nesting:
+    AssetSensitivity → list[AssetReaction] → SurpriseReaction → TimeHorizonImpact
+
+  AssetReaction fields:
+    asset: str — series code (e.g. 'SP500', 'GOLDAMGBD228NLBM')
+    expected_direction: Literal['up', 'down', 'neutral'] — Layer 1 (curator)
+    actual_direction: Literal['up', 'down', 'neutral', 'unknown'] — Layer 2 (event-study)
+    agreement: float[-1, 1] — Layer 3 (gap score)
+    positive_surprise: SurpriseReaction — impact on beat by bucket x horizon
+    negative_surprise: SurpriseReaction — impact on miss by bucket x horizon
+    confidence: float[0, 1] — min(curator, event_study)
+
+  SurpriseReaction:
+    small / medium / large: TimeHorizonImpact — by sigma bucket
+
+  TimeHorizonImpact:
+    t0 / t1 / t3 / t5: float | None — impact in bps/pp at T+0/T+1/T+3/T+5
+
+  All models: extra='forbid', frozen=True (Phase 38 typed-contract lock)
+
+source_file: fingpt_core/src/fingpt_core/contracts/asset_sensitivity.py
+service: asset_sensitivity_engine

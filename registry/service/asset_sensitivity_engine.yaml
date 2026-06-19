@@ -1,0 +1,64 @@
+id: asset_sensitivity_engine
+type: service
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+impact_on_decision: HIGH
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_historical_analyst
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+
+name: Asset Sensitivity Engine (ASE)
+description: |
+  VM102 service that produces the Asset x Surprise-Direction Table for a
+  macro indicator. Implements a three-layer hybrid architecture:
+
+    Layer 1 (Expectation): YamlProvider — curator-stated expected asset
+      directions on positive/negative surprise per indicator.
+    Layer 2 (Measurement): EventStudyProvider — Phase 86 event-study
+      aggregated actual reactions by surprise bucket x time horizon.
+    Layer 3 (Agreement): HybridProvider — surfaces the gap between
+      curator expectation and historical measurement.
+
+  CONTEXT.md §8 principle: "The gap is where intelligence lives."
+  agreement=1.0  → curator and history agree (reinforced signal)
+  agreement=-1.0 → curator diverges from history (the gap = intelligence)
+  agreement=0.0  → measurement unknown (Phase 88.1 stub or insufficient history)
+
+  Phase 88.1: EventStudyProvider uses a deterministic stub (actual=unknown,
+  confidence=0.5) so the architecture ships and the UI renders real structure.
+  Phase 89+: Real event-study calls replace the stub.
+  Phase 90+: Regime conditioning and Drift Detection added.
+
+  Missing curator YAML → InsufficientCurator error (never 500).
+  Phase 88.1 ships 12 Tier-1 curator YAMLs.
+
+owner_vm: vm102
+owner: engineering
+
+runtime: django_ninja_endpoint
+contract: asset_sensitivity
+contracts:
+  - asset_sensitivity
+env_vars:
+  - VM102_PHASE_88_1_ASE_CACHE_TTL_SECONDS
+  - JWT_SECRET
+latency_budget_ms: 200
+
+source_module: VM102/backend/analytics/asset_reaction_engine/
+endpoint: /api/v2/sensitivity/indicator/{indicator_id}
+
+curator_yaml_dir: VM102/config/curator/ase/
+curator_yaml_count_phase_88_1: 12
+tier1_coverage: 12
+
+phase_89_extension_plan:
+  - EventStudyProvider real integration (Phase 86 event-study primitives)
+  - Surprise bucket aggregation (small/medium/large)
+  - Time horizon impact values (T+0/T+1/T+3/T+5 in bps/pp)
+
+phase_90_extension_plan:
+  - RegimeConditioningProvider (conditional sensitivity by regime)
+  - DriftDetectionProvider (sensitivity shift detection)

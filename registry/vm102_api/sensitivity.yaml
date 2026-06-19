@@ -1,0 +1,32 @@
+id: vm102_api_sensitivity
+type: vm102_api
+phase: 88.1
+status: real
+last_changed: "2026-06-19"
+
+name: VM102 Asset Sensitivity Engine API
+description: |
+  GET /api/v2/sensitivity/indicator/{indicator_id}
+
+  Returns the Asset x Surprise-Direction Table for a macro indicator.
+  Three-layer hybrid: YAML expectations + event-study measurements + agreement gap.
+
+  Auth: JWT bearer (MacroIndicatorAuth — same as all /v2/ endpoints)
+  Cache: VM102_PHASE_88_1_ASE_CACHE_TTL_SECONDS (300s default)
+
+  Response envelope:
+    {
+      "envelope": {"indicator_id": str, "source": "vm102_phase88_1_ase", "version": 1, "generated_at": str|None},
+      "result": AssetSensitivity | null,
+      "error": null | {"code": "InsufficientCurator", "message": str}
+    }
+
+  Phase 88.1: EventStudyProvider stub — actual_direction='unknown', confidence<=0.5
+  Phase 89+: Real event-study integration replaces stub
+
+base_url: NEXT_PUBLIC_VM102_API_URL (from env — no hardcoded URL)
+endpoint: /api/v2/sensitivity/indicator/{indicator_id}
+method: GET
+auth: jwt_bearer
+contract: asset_sensitivity
+source_module: VM102/backend/api/v2/indicator_sensitivity.py
