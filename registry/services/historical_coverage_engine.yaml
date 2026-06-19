@@ -1,0 +1,118 @@
+id: vm102_historical_coverage_engine
+type: service
+phase: 88.1
+vm: vm102
+status: real
+shipped: "88.1"
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 — Historical Coverage Engine (HCE). A 4-stage pipeline that
+  profiles indicator history depth and gates downstream analytical engines
+  (ASE, RCE, Forecast, Regime, Narrative) based on capability thresholds.
+
+  Pipeline: HistoricalLoader -> MeasurementNormalizer -> CoverageValidator
+  -> CapabilityClassifier -> IndicatorHistoryProfile dict.
+
+  Architecture lock: ALFRED owns historical truth; FRED owns freshness.
+  This service reads from ALFRED-written vintage table only.
+
+location:
+  source: VM102/backend/macro/history/coverage_engine/
+  modules:
+    - historical_loader.py
+    - measurement_normalizer.py
+    - coverage_validator.py
+    - capability_classifier.py
+    - pipeline.py
+
+capability_type: profiling_pipeline
+
+pipeline_stages:
+  - stage: 1
+    module: HistoricalLoader
+    input: "indicator_id: str"
+    output: "Polars DataFrame [date, value, vintage_date]"
+    source: ref_economic_indicator_vintages (ALFRED-written)
+
+  - stage: 2
+    module: MeasurementNormalizer
+    input: "DataFrame [date, value, vintage_date]"
+    output: "DataFrame [date, latest_value, original_value, revision_count]"
+
+  - stage: 3
+    module: CoverageValidator
+    input: "normalized DataFrame"
+    output: "CoverageMetrics {first_observation, latest_observation, total_observations, revisions_available, coverage_score}"
+
+  - stage: 4
+    module: CapabilityClassifier
+    input: "CoverageMetrics"
+    output: "dict {history_level, feature_flags}"
+
+history_level_taxonomy:
+  canonical:      ">=50y (CPI ~80y, GDP ~80y quarterly)"
+  sufficient:     ">=20y (most modern post-1970 indicators)"
+  limited:        ">=10y (event study / correlation minimum)"
+  sparse:         ">=5y (basic forecasting only)"
+  experimental:   ">=1y (insufficient for most engines)"
+  unrecoverable:  "<1y or no data (all features blocked)"
+
+capability_thresholds:
+  forecasting:  ">=5y"
+  sensitivity:  ">=8y (Asset Sensitivity Engine)"
+  correlations: ">=10y"
+  event_study:  ">=10y"
+  regime:       ">=15y"
+  analogue:     ">=20y"
+
+tier1_indicators:
+  - CPIAUCSL
+  - CPILFESL
+  - GDPC1
+  - ISM
+  - PAYEMS
+  - UNRATE
+  - M2SL
+  - WALCL
+  - FEDFUNDS
+  - DGS10
+  - VIXCLS
+  - OIL
+
+consumed_by:
+  - vm102.api.v2.indicator_sensitivity (ASE capability gate)
+  - vm102.api.v2.indicator_regime_contribution (RCE capability gate)
+  - vm102.api.v2.indicator_history (HCE direct output)
+  - vm100.frontend.AnalyticalSufficiencyComponent (progress bars)
+
+writes_to:
+  - indicator_history_profile (via VM101 mgmt command hce_backfill_tier1)
+
+reads_from:
+  - ref_economic_indicator_vintages (ALFRED-owned; VM101 writer)
+
+related_capabilities:
+  - vm101_mgmt_hce_backfill_tier1
+  - vm102_capability_evaluator
+  - contract_indicator_enrichment
+
+hard_scoped: false
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - phase-88-1
+  - macro
+  - history
+  - coverage
+  - capability-gating
+  - hce
+  - vm102
+  - polars
+  - alfred
+
+notes: >-
+  Does NOT write to DB directly — returns dict only. DB upsert is the
+  VM101 hce_backfill_tier1 mgmt command's responsibility. Idempotent
+  read-only service suitable for on-demand capability checks.
