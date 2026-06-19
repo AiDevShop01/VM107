@@ -1,0 +1,32 @@
+# Curator Layer — All Employees, Total Nonfarm (Nonfarm Payrolls)
+# Phase 88.1 Plan 08 — Layer 1 permanent source of truth
+# AI NEVER modifies this file.
+
+indicator_id: PAYEMS
+name: All Employees, Total Nonfarm (Nonfarm Payrolls)
+category: employment
+frequency: monthly
+country: US
+importance: critical
+
+short_description: >
+  The headline US jobs number — total nonfarm payroll employment released monthly
+  by the Bureau of Labor Statistics in the Employment Situation report.
+  The most market-moving labor market indicator in the US calendar.
+
+why_it_matters: |
+  Nonfarm payrolls (NFP) is the single most-watched monthly macro release for
+  USD and US risk assets. It directly informs the Federal Reserve's dual-mandate
+  assessment (maximum employment + price stability). A beat on NFP typically
+  strengthens USD, pressures Treasuries, and supports cyclical equities as it
+  signals economic resilience. A significant miss signals labor market softening,
+  raising recession risk and fuelling rate-cut expectations. The release time
+  (8:30 AM ET, first Friday of each month) is a universal forex volatility event.
+
+affected_assets:
+  - DEXUSEU       # USD/EUR — primary repricing currency pair
+  - DGS2          # 2-year Treasury — most labour-rate-sensitive
+  - DGS10         # 10-year Treasury
+  - SP500         # Equities — labour cost + demand signal
+  - VIXCLS        # VIX — can spike or compress on large surprise
+  - FEDFUNDS      # Rate expectations reset on each print

@@ -1,0 +1,34 @@
+# Curator Layer — Federal Funds Effective Rate
+# Phase 88.1 Plan 08 — Layer 1 permanent source of truth
+# AI NEVER modifies this file.
+
+indicator_id: FEDFUNDS
+name: Federal Funds Effective Rate
+category: monetary_policy
+frequency: daily
+country: US
+importance: critical
+
+short_description: >
+  The interest rate at which US depository institutions trade federal funds
+  (balances held at Federal Reserve Banks) with each other overnight.
+  The primary operational target of Federal Reserve monetary policy.
+
+why_it_matters: |
+  The federal funds rate is the fulcrum of global financial conditions. It sets
+  the floor for short-term borrowing costs across the US economy and transmits
+  to mortgage rates, corporate debt, and risk asset valuations via the discount
+  rate channel. Changes (or expectations of changes) in the FEDFUNDS rate drive
+  the entire USD complex, global carry trade positioning, and equity sector
+  rotation (growth vs value, financials vs utilities). The Fed's hiking or
+  cutting cycle is the dominant macro regime driver for multi-year asset
+  allocation decisions.
+
+affected_assets:
+  - DEXUSEU       # USD/EUR — rate differential channel
+  - DEXJPUS       # USD/JPY — carry trade repricing
+  - DGS2          # 2-year Treasury — anchored to policy expectations
+  - DGS10         # 10-year Treasury — term premium
+  - GOLDAMGBD228NLBM  # Gold — real rate channel (inverse relationship)
+  - SP500         # Equities — discount rate and PE multiple
+  - HOUST         # Housing starts — mortgage rate transmission

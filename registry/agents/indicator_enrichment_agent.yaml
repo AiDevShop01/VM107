@@ -6,15 +6,14 @@ input_contract:
   indicator_id: string
   curator_layer: object
 output_contract: contract_indicator_enrichment
-status: scaffold
-shipped: 88.1
+status: real
+shipped: 88.1-08
 profile_path: VM107/agents/indicator_enrichment_agent/agent.py
 description: >
   VM107 agent that generates IndicatorEnrichment output for a given economic indicator.
+  Enforces Pydantic write-time gate (extra='forbid', retry-once-then-fail per Phase 38).
   Triggered by: new release, regime change, relationship drift, 7-day elapsed, manual refresh.
-  Agent itself ships in Phase 88.1 Plan 08. This registry entry is pre-registered
-  so downstream plans (Plans 02-07) can reference the output_contract for wire-up.
-  status: scaffold — registry entry only, agent implementation pending.
+  Implemented in Phase 88.1 Plan 08. Layer 2 of the 3-layer AI Description architecture.
 fallback_hierarchy:
   - ai_success: render AI enrichment
   - ai_fail_validation: render curator Layer 1
