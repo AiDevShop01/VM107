@@ -1,0 +1,27 @@
+id: contract_indicator_enrichment
+type: contract
+phase: 88.1
+status: real
+shipped: 88.1
+profile_path: fingpt_core/contracts/indicator_enrichment.py
+zod_parity_path: VM100/frontend/lib/macro/contracts/indicator_enrichment.js
+enforcement_gates: [write_time_pydantic, read_time_zod]
+forbidden_fields: [raw_text]
+token_budget:
+  hard: 1500
+  soft: 1200
+required_fields:
+  - indicator_id
+  - current_narrative
+  - trading_implications
+  - recent_changes
+  - confidence
+  - generated_at
+  - version
+  - model
+  - prompt_version
+description: >
+  IndicatorEnrichment contract — AI enrichment layer output shape (Phase 85.x/88.1).
+  Pydantic v2 (write-time) + Zod .strict() (read-time) dual enforcement.
+  raw_text is forbidden by both gates per Phase 38 typed-contract lock and CONTEXT.md AI-01.
+  Curator YAML (Layer 1) is source of truth; AI only generates fields in this contract.

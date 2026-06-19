@@ -1,0 +1,41 @@
+id: vm107_indicator_enrichment_agent
+type: agent
+phase: 88.1
+trigger: event_driven
+input_contract:
+  indicator_id: string
+  curator_layer: object
+output_contract: contract_indicator_enrichment
+status: scaffold
+shipped: 88.1
+profile_path: VM107/agents/indicator_enrichment_agent/agent.py
+description: >
+  VM107 agent that generates IndicatorEnrichment output for a given economic indicator.
+  Triggered by: new release, regime change, relationship drift, 7-day elapsed, manual refresh.
+  Agent itself ships in Phase 88.1 Plan 08. This registry entry is pre-registered
+  so downstream plans (Plans 02-07) can reference the output_contract for wire-up.
+  status: scaffold — registry entry only, agent implementation pending.
+fallback_hierarchy:
+  - ai_success: render AI enrichment
+  - ai_fail_validation: render curator Layer 1
+  - curator_missing: render Insufficient Metadata state
+  - system_error: render Error state
+regeneration_triggers:
+  - new_release
+  - regime_change
+  - relationship_drift
+  - seven_day_elapsed
+  - manual_refresh
+seed_indicators:
+  - CPIAUCSL
+  - CPILFESL
+  - GDPC1
+  - ISM
+  - PAYEMS
+  - UNRATE
+  - M2SL
+  - WALCL
+  - FEDFUNDS
+  - DGS10
+  - VIXCLS
+  - OIL
