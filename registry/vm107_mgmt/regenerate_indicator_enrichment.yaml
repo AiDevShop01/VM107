@@ -1,0 +1,89 @@
+id: vm107_mgmt_regenerate_indicator_enrichment
+type: vm107_mgmt
+phase: "88.1"
+trigger: on_demand
+status: real
+shipped: "88.1"
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 Plan 09 — Targeted regeneration management command for 6 known-broken
+  economic indicator AI enrichment descriptions. Runs IndicatorEnrichmentAgent
+  (Pydantic + curator-fallback from Plan 08) on exactly the indicators that broke
+  in Phase 88-09: 5 unrecoverable (BUSLOANS, NONBORRES, PAYEMS, PCEPI, TEDRATE)
+  + 1 typo case (IRLTLT01EZM156N — what_it_is -> what_is_it typo now fixed in
+  curator YAML). Validates the fix on the same indicators that caused the failure.
+
+  One-shot command — not a long-running listener. No docker-compose sibling service.
+  Persists via VM100 PUT /api/v2/enrichment/indicator/{id} (idempotent).
+
+profile_path: VM107/agents/indicator_enrichment_agent/management/commands/regenerate_indicator_enrichment.py
+
+input_contract:
+  indicators:
+    type: "str (comma-separated)"
+    default: "BUSLOANS,NONBORRES,PAYEMS,PCEPI,TEDRATE,IRLTLT01EZM156N"
+    description: "The 6-indicator Phase 88.1 target set (all known-broken)"
+  dry_run:
+    type: bool
+    default: false
+    description: "Run agent.invoke but skip VM100 persist call (safe for test)"
+
+output_contract: "ai_enrichment JSONField on EconomicIndicator updated for each successful indicator"
+
+writes_to:
+  - "EconomicIndicator.ai_enrichment column (via VM100 PUT /api/v2/enrichment/indicator/{id})"
+
+reads_from:
+  - "VM107/config/curator/indicators/{indicator_id}.yaml (Layer 1 curator)"
+  - "IndicatorEnrichmentAgent.invoke() (Layer 2 AI generation via injected LLM client)"
+
+env_required:
+  - name: VM100_INTERNAL_API_URL
+    description: "VM100 backend base URL (no trailing slash). Fails fast if unset."
+  - name: INDICATOR_ENRICHMENT_MODEL
+    description: "LLM model identifier for IndicatorEnrichmentAgent"
+
+target_indicators:
+  - BUSLOANS       # C&I Loans — 5 unrecoverable from 88-09
+  - NONBORRES      # Non-Borrowed Reserves — 5 unrecoverable from 88-09
+  - PAYEMS         # Nonfarm Payrolls — 5 unrecoverable from 88-09 (curator YAML from Plan 08)
+  - PCEPI          # PCE Price Index — 5 unrecoverable from 88-09
+  - TEDRATE        # TED Spread — 5 unrecoverable from 88-09
+  - IRLTLT01EZM156N  # Eurozone 10Y — typo case (what_it_is -> what_is_it)
+
+usage:
+  - "docker exec vm107-backend python manage.py regenerate_indicator_enrichment"
+  - "docker exec vm107-backend python manage.py regenerate_indicator_enrichment --dry-run"
+  - "docker exec vm107-backend python manage.py regenerate_indicator_enrichment --indicators BUSLOANS,PCEPI"
+
+idempotency: >-
+  VM100 PUT endpoint uses update-or-create on indicator_id.
+  Re-running updates ai_enrichment with new generated_at timestamp; does not duplicate.
+
+fallback_behaviour: >-
+  On agent ValidationError or ValueError: indicator goes to curator_fallback list.
+  VM100 frontend falls back to Layer 1 curator YAML at render time (4-state hierarchy).
+  System continues to next indicator — does not abort on per-indicator failure.
+
+notes: >-
+  Phase 47.6 capability registry lock honored.
+  Env-driven config: VM100_INTERNAL_API_URL has no fallback default (fail-fast).
+  One-shot: no docker-compose sibling service (per CLAUDE.md mgmt commands lock).
+  DO NOT run with live LLM credentials against production without dev validation first.
+
+related_capabilities:
+  - vm107_indicator_enrichment_agent
+  - contract_indicator_enrichment
+  - macro_indicator_enrichment_view
+
+tags:
+  - phase-88-1
+  - macro
+  - ai-enrichment
+  - curator-yaml
+  - pydantic
+  - targeted-regen
+  - vm107
+  - mgmt-command
+  - on-demand
