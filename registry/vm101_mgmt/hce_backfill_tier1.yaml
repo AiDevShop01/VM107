@@ -1,0 +1,80 @@
+id: vm101_mgmt_hce_backfill_tier1
+type: vm101_mgmt
+phase: "88.1"
+trigger: on_demand
+status: real
+shipped: "88.1"
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 Plan 06 — HCE Tier-1 backfill management command on VM101.
+  Backfills ref_economic_indicator_vintages + populates indicator_history_profile
+  for 12 Tier-1 indicators via the existing Phase 88 ALFRED writer.
+
+  Architecture lock honored: ALFRED owns historical truth. This command
+  reuses backfill_alfred_vintages (Phase 83 single-writer lock). Does NOT
+  add a duplicate FRED long-history writer.
+
+profile_path: VM101/backend/ingestion/management/commands/hce_backfill_tier1.py
+
+input_contract:
+  indicators:
+    type: "list[str]"
+    default: "[CPIAUCSL, CPILFESL, GDPC1, ISM, PAYEMS, UNRATE, M2SL, WALCL, FEDFUNDS, DGS10, VIXCLS, OIL]"
+    description: "12 Tier-1 indicators (Phase 88.1 CONTEXT.md LOCK-1)"
+  dry_run:
+    type: bool
+    default: false
+    description: "Log expected actions; skip all DB writes"
+  skip_alfred_backfill:
+    type: bool
+    default: false
+    description: "Skip ALFRED vintage fetch step (use existing data)"
+  skip_hce_profile:
+    type: bool
+    default: false
+    description: "Skip indicator_history_profile upsert step"
+
+output_contract: "12 rows in indicator_history_profile (one per Tier-1 indicator)"
+
+writes_to:
+  - "ref_economic_indicator_vintages (via backfill_alfred_vintages)"
+  - "indicator_history_profile"
+
+reads_from:
+  - "ALFRED via backfill_alfred_vintages adapter"
+  - "ref_economic_indicator_vintages (for local HCE metric computation)"
+  - "ref_economic_indicators (FK validation)"
+
+dagster_asset: "macro_alfred_hce_backfill"
+
+usage:
+  - "docker exec vm101-backend python manage.py hce_backfill_tier1"
+  - "docker exec vm101-backend python manage.py hce_backfill_tier1 --dry-run"
+  - "docker exec vm101-backend python manage.py hce_backfill_tier1 --indicators CPIAUCSL FEDFUNDS"
+  - "docker exec vm101-backend python manage.py hce_backfill_tier1 --skip-alfred-backfill"
+
+idempotency: "update_or_create() on indicator_history_profile; ALFRED backfill uses ON CONFLICT DO NOTHING"
+
+notes: >-
+  Reuses Phase 88 ALFRED writer (backfill_alfred_vintages); does NOT add
+  a duplicate FRED writer (Phase 83 single-writer lock).
+  One-shot command — not a long-running listener/worker; no docker-compose
+  sibling service needed (per CLAUDE.md: sibling service only for listeners/workers).
+  Triggered on-demand via Dagster asset or direct docker exec.
+
+related_capabilities:
+  - vm102_historical_coverage_engine
+  - vm102_capability_evaluator
+  - dagster_asset_macro_alfred_hce_backfill
+
+tags:
+  - phase-88-1
+  - macro
+  - alfred
+  - hce
+  - backfill
+  - vm101
+  - mgmt-command
+  - on-demand
+  - tier-1
