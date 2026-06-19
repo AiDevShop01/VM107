@@ -1,0 +1,56 @@
+id: macro_relationship_explorer
+type: service
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+impact_on_decision: MEDIUM
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+  - vm107.macro_historical_analyst
+
+name: Macro Relationship Explorer
+description: |
+  VM102 service that returns the upstream/downstream indicator relationship graph
+  for a given macro indicator.
+
+  Phase 88.1: YAML-only provider with hard limits:
+    - max 5 upstream edges
+    - max 5 downstream edges
+    - max depth 2 (CONTEXT.md §6 — NEVER render entire graph)
+
+  Relationship types (8 canonical values):
+    DRIVES, AFFECTS, INFLUENCES, CORRELATES,
+    CONSTRAINS, AMPLIFIES, SUPPRESSES, FEEDS
+
+  Strength taxonomy (bidirectional label/numeric):
+    Weak → 0.2, Moderate → 0.5, Strong → 0.8, Dominant → 0.95
+
+  Missing curator YAML → InsufficientCurator (never 500).
+  Phase 88.1 ships 12 Tier-1 curator YAMLs.
+
+  Phase 89+: Neo4j traversal + drift agent extension (same explore() interface).
+
+owner_vm: vm102
+owner: engineering
+
+runtime: django_ninja_endpoint
+contract: relationship_response
+contracts:
+  - relationship_response
+env_vars:
+  - VM102_PHASE_88_1_REL_CACHE_TTL_SECONDS
+  - JWT_SECRET
+latency_budget_ms: 200
+
+source_module: VM102/backend/analytics/relationships/
+endpoint: /api/v2/relationships/indicator/{indicator_id}
+
+curator_yaml_dir: VM102/config/curator/relationships/
+curator_yaml_count_phase_88_1: 12
+tier1_coverage: 12
+
+phase_89_extension_plan:
+  - Neo4jTraversalProvider (graph walk, depth-bounded)
+  - DriftAgent (relationship drift detection + alerts)

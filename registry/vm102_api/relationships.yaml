@@ -1,0 +1,42 @@
+id: vm102_api_relationships_indicator
+type: vm102_api
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+
+name: Macro Relationship Explorer — GET /api/v2/relationships/indicator/{id}
+method: GET
+path: /api/v2/relationships/indicator/{indicator_id}
+auth: JWT bearer (MacroIndicatorAuth — same as all /v2/ endpoints)
+contract: relationship_response
+
+query_params: []
+
+response_envelope:
+  envelope:
+    indicator_id: str
+    source: "vm102_phase88_1_relationships"
+    version: 1
+    generated_at: "ISO8601 | null"
+  result: "RelationshipResponse | null"
+  error: "null | {code: str, message: str}"
+
+error_codes:
+  InsufficientCurator: "No curator YAML for this indicator — add VM102/config/curator/relationships/{id}.yaml"
+
+hard_limits:
+  upstream_max: 5
+  downstream_max: 5
+  depth_max: 2
+
+cache:
+  key: "phase_88_1_rel:{indicator_id}"
+  ttl_env: VM102_PHASE_88_1_REL_CACHE_TTL_SECONDS
+
+source_module: VM102/backend/api/v2/indicator_relationships.py
+router_mount: /v2/relationships in api/views.py
+
+description: >
+  Macro Relationship Explorer endpoint. Returns {root, upstream, downstream} relationship
+  edges for a focal indicator. Hard limits enforced server-side by the YAML loader.
+  Missing curator YAML returns 200 + InsufficientCurator (never 500).

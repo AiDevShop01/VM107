@@ -1,0 +1,40 @@
+id: contract_relationship_response
+type: contract
+phase: 88.1
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+profile_path: fingpt_core/src/fingpt_core/contracts/relationship_response.py
+enforcement_gates: [write_time_pydantic]
+
+required_fields:
+  - root
+  - upstream
+  - downstream
+  - generated_at
+
+edge_schema:
+  fields: [node, relationship, strength, strength_label, depth]
+  relationship_type:
+    allowed: [DRIVES, AFFECTS, INFLUENCES, CORRELATES, CONSTRAINS, AMPLIFIES, SUPPRESSES, FEEDS]
+  strength_range: [0.0, 1.0]
+  strength_label_values: [Weak, Moderate, Strong, Dominant]
+  strength_map:
+    Weak: 0.2
+    Moderate: 0.5
+    Strong: 0.8
+    Dominant: 0.95
+  depth_values: [1, 2]
+  consistency_rule: "abs(strength - STRENGTH_MAP[strength_label]) <= 0.01"
+
+list_limits:
+  upstream_max_length: 5
+  downstream_max_length: 5
+  depth_max: 2
+
+description: >
+  RelationshipResponse contract — per-indicator macro relationship graph envelope.
+  Pydantic v2 write-time enforcement with extra='forbid'.
+  Phase 88.1: YAML-only provider with hard caps (5/5/depth-2).
+  Phase 89+: Neo4j traversal + drift agent (same schema, live graph source).
+  Used by VM102 Macro Relationship Explorer endpoint + VM100 MacroRelationshipExplorer component.
