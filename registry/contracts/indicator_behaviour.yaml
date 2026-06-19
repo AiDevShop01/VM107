@@ -1,0 +1,45 @@
+id: contract_indicator_behaviour
+type: contract
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+phase: 88.1
+hard_scoped: false
+
+name: IndicatorBehaviour + CadenceProfile (Pydantic v2)
+description: |
+  Layer 1 static behaviour profile contract for macro indicators.
+
+  Top-level fields:
+    indicator_id:           str
+    seasonality:            str (human-readable seasonal pattern)
+    volatility:             str (human-readable volatility description)
+    revision_frequency:     Literal['none','rare','occasional','frequent','always']
+    policy_sensitivity:     Literal['low','medium','high','critical']
+    leading_relationships:  list[str]
+    known_patterns:         list[str]
+    cadence_profile:        CadenceProfile (nested)
+    generated_at:           datetime (UTC, injected at load time)
+
+  CadenceProfile nested model:
+    release_frequency:  Literal['daily','weekly','monthly','quarterly','annual','irregular']
+    average_surprise:   float [0.0, 1.0]
+    typical_volatility: float [0.0, ∞)
+    market_importance:  Literal['low','medium','high','critical']
+
+  Both models use extra='forbid' — unknown fields rejected at validation time.
+  Layer 2 (Dynamic Story Engine) fields will extend a NEW contract in Phase 89+.
+
+source: fingpt_core/src/fingpt_core/contracts/indicator_behaviour.py
+consumed_by:
+  - vm100.frontend.IndicatorBehaviourPanel
+  - vm102.bne_endpoint
+
+tags:
+  - phase-88-1
+  - macro
+  - indicator
+  - behaviour
+  - cadence
+  - layer-1
+  - pydantic-v2

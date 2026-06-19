@@ -1,0 +1,70 @@
+id: vm102_behaviour_cadence
+type: vm102_api
+phase: 88.1
+method: GET
+path: /api/v2/behaviour/indicator/{indicator_id}
+owner: engineering
+latency_budget_ms: 150
+envelope_contract: bne_phase_88_1
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+
+description: >-
+  Phase 88.1 Plan 04 — Behaviour & Narrative Engine Layer 1 endpoint.
+  Returns the static behaviour cadence profile for a macro indicator from
+  curator YAMLs. Fields: {seasonality, volatility, revision_frequency,
+  policy_sensitivity, leading_relationships, known_patterns, cadence_profile}.
+  Layer 2 (story engine, narrative arc) is deferred to Phase 89+.
+  Missing curator YAML returns InsufficientCurator error (never 500, always 200).
+  Cache TTL controlled by VM102_PHASE_88_1_BNE_CACHE_TTL_SECONDS env var.
+
+capability_type: read_facade
+vm: vm102
+
+methods:
+  - name: get_indicator_behaviour
+    http_path: /api/v2/behaviour/indicator/{indicator_id}
+    http_method: GET
+    parameters:
+      - {name: indicator_id, type: string, required: true, description: "FRED indicator code e.g. CPIAUCSL"}
+    return_shape: "BNEEnvelope{envelope, result: IndicatorBehaviour | null, error: null | {code, message}}"
+
+location:
+  source: VM102/backend/api/v2/indicator_behaviour.py
+  endpoint: /api/v2/behaviour/indicator/{indicator_id}
+  contracts:
+    request: "params(indicator_id)"
+    response: "BNEEnvelope"
+
+contracts:
+  response_contract: fingpt_core.contracts.indicator_behaviour.IndicatorBehaviour
+
+consumed_by:
+  - vm100.frontend.IndicatorBehaviourPanel
+
+related_capabilities:
+  - contract_indicator_behaviour
+  - indicator_behaviour_engine
+
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_historical_analyst
+deprecated: false
+
+tags:
+  - phase-88-1
+  - macro
+  - indicator
+  - behaviour
+  - cadence
+  - bne
+  - layer-1
+  - curator
+  - vm102
+  - read-facade
+
+is_deterministic: true
+version: "1.0.0"

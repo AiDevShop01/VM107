@@ -1,0 +1,50 @@
+id: indicator_behaviour_engine
+type: service
+status: real
+shipped: 88.1
+last_changed: "2026-06-19"
+impact_on_decision: MEDIUM
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_regime_analyst
+  - vm107.macro_historical_analyst
+  - vm107.macro_regime_monitor
+
+name: Indicator Behaviour & Narrative Engine (BNE) — Layer 1
+description: |
+  VM102 service that provides Layer 1 static behaviour profiles for macro
+  indicators from curator YAMLs in VM102/config/curator/behaviour/.
+
+  Layer 1 (Phase 88.1): Curator YAML provides {seasonality, volatility,
+  revision_frequency, policy_sensitivity, leading_relationships,
+  known_patterns, cadence_profile} — static, human-authored.
+
+  Layer 2 (Phase 89+): Dynamic Story Engine (current narrative + historical
+  analogues + Narrative Arc state machine) — explicitly deferred.
+
+  Missing curator YAML → InsufficientCurator error (never 500).
+  Phase 88.1 ships 12 Tier-1 curator YAMLs.
+
+owner_vm: vm102
+owner: engineering
+
+runtime: django_ninja_endpoint
+contract: indicator_behaviour
+contracts:
+  - indicator_behaviour
+env_vars:
+  - VM102_PHASE_88_1_BNE_CACHE_TTL_SECONDS
+  - JWT_SECRET
+latency_budget_ms: 150
+
+source_module: VM102/backend/analytics/behaviour/
+endpoint: /api/v2/behaviour/indicator/{indicator_id}
+
+curator_yaml_dir: VM102/config/curator/behaviour/
+curator_yaml_count_phase_88_1: 12
+tier1_coverage: 12
+
+phase_89_extension_plan:
+  - DynamicStoryEngine (current narrative from analogue search)
+  - NarrativeArcStateMachine (regime transition stories)
+  - HistoricalAnalogueEngine (pattern matching)
