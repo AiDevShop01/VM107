@@ -1,0 +1,41 @@
+id: contract_render_walk_report
+type: contract
+phase: 88.1
+status: real
+shipped: 88.1-11
+profile_path: fingpt_core/contracts/render_walk_report.py
+enforcement_gates: [write_time_pydantic]
+forbidden_fields: [raw_text]
+description: >
+  RenderWalkReport contract — output shape of the gsd-render-walk RIV agent.
+  Pydantic v2 with extra='forbid'. Captures full render integrity walk results:
+  per-page/per-section reports, issue severity taxonomy, and page_integrity_scores.
+  status='fail' if any Critical or Major issue found; status='pass' for Warning/Info only.
+  Used by gsd-verifier to determine if a phase is safe to close and deploy.
+models:
+  - RenderWalkReport
+  - PageReport
+  - SectionReport
+  - Issue
+  - SeverityBreakdown
+severity_taxonomy:
+  critical: blocks_plan_close_and_deploy
+  major: blocks_plan_close_and_deploy
+  warning: informational_pass
+  info: informational_pass
+issue_categories:
+  - forbidden_text
+  - invalid_render_state
+  - persistent_loader
+  - red_border_on_insufficient
+  - missing_render_state_attr
+valid_render_states:
+  - loading
+  - ready
+  - partial
+  - insufficient_history
+  - unavailable
+  - error
+consumers:
+  - gsd_render_walk
+  - gsd-verifier

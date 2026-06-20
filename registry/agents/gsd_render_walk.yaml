@@ -1,0 +1,44 @@
+id: gsd_render_walk
+type: agent
+phase: 88.1
+status: real
+shipped: 88.1-11
+profile_path: /Users/paulbarisich/.claude/agents/gsd-render-walk.md
+description: >
+  Render Integrity Verification (RIV) sub-agent. Spawned by gsd-verifier when a
+  phase touches VM100/frontend/**. Walks IndicatorPage and other registered routes
+  with 5 bootstrap fixtures (CPIAUCSL/GDPC1/FEDFUNDS/BUSLOANS/PAYEMS), asserts
+  every widget exposes a valid data-render-state attribute (one of 6 allowed values),
+  no forbidden text strings render (TODO/Coming Soon/Placeholder/Phase XX ships),
+  and no red border appears on InsufficientHistory paths.
+  Semantic DOM validation only — no pixel/screenshot compare (deferred to Phase 90+).
+  Hard fail on Critical/Major issues blocks plan close and deploy.
+spawn_condition: "git diff --name-only HEAD~1 HEAD | grep 'VM100/frontend/'"
+output_contract: render_walk_report
+hard_fail_on:
+  - forbidden_text
+  - invalid_render_state
+  - persistent_loader
+  - red_border_on_insufficient
+  - missing_render_state_attr
+scope:
+  tier_1: always_walked
+  tier_2: when_touched
+  tier_3: nightly_only
+bootstrap_fixtures:
+  - indicator: CPIAUCSL
+    category: canonical
+  - indicator: GDPC1
+    category: sufficient
+  - indicator: FEDFUNDS
+    category: limited
+  - indicator: BUSLOANS
+    category: sparse
+  - indicator: PAYEMS
+    category: unrecoverable
+riv_requirements:
+  - RIV-01
+  - RIV-02
+  - RIV-03
+sibling_agent: gsd-verifier
+closes_feedback: feedback_ui_phase_verify_with_render_chain.md
