@@ -204,3 +204,74 @@ class Command(BaseCommand):
         resp = requests.put(url, json=payload, timeout=30)
         resp.raise_for_status()
         log.info('Persisted enrichment for %s — HTTP %s', indicator_id, resp.status_code)
+
+
+def _run_standalone(argv: list[str] | None = None) -> int:
+    """Plain-Python entry — mirrors `Command.add_arguments` + `handle()`.
+
+    Phase 88.1 Plan 09 shipped this as a Django mgmt command, but no FinGPT
+    VM107 container runs Django (vm107-backend is legacy TradingSystem).
+    The standalone entry below lets the command run from any python image
+    (e.g. vm107-agent-zero) where Django isn't installed.
+
+    Usage:
+        VM100_INTERNAL_API_URL=http://host.docker.internal:8000 \\
+            /opt/venv-a0/bin/python -m agents.indicator_enrichment_agent.management.commands.regenerate_indicator_enrichment \\
+            --indicators CPIAUCSL,PAYEMS --dry-run
+
+    Exit codes:
+        0 = all succeeded (or curator-fallback only; not a fatal failure)
+        1 = at least one system_error (agent crash / persist failure)
+    """
+    import argparse
+    import sys
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s %(levelname)s %(name)s %(message)s',
+    )
+
+    parser = argparse.ArgumentParser(
+        prog='regenerate_indicator_enrichment',
+        description=(
+            'Regenerate AI enrichment for known-broken indicators via the '
+            'Pydantic-validated agent from Plan 08. Mirror of the Django '
+            'BaseCommand for non-Django runtimes.'
+        ),
+    )
+    parser.add_argument(
+        '--indicators',
+        type=str,
+        default=','.join(TARGET_INDICATORS),
+        help=(
+            'Comma-separated indicator IDs to regenerate '
+            f'(default 6-target set: {",".join(TARGET_INDICATORS)})'
+        ),
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=False,
+        help='Skip _persist; safe for testing.',
+    )
+    args = parser.parse_args(argv)
+
+    cmd = Command()
+    # The non-Django BaseCommand shim defaults stdout/stderr to in-memory
+    # StringIO buffers (because mgmt-test environments swallow output to keep
+    # pytest output clean). For real standalone execution we want the writes
+    # to land on the real terminal, so replace the buffers with the actual
+    # streams before invoking handle().
+    cmd.stdout = sys.stdout
+    cmd.stderr = sys.stderr
+    results = cmd.handle(indicators=args.indicators, dry_run=args.dry_run)
+
+    if isinstance(results, dict) and results.get('system_error'):
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    import sys
+
+    sys.exit(_run_standalone())
