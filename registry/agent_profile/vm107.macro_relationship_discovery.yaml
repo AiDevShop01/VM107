@@ -1,0 +1,113 @@
+id: vm107.macro_relationship_discovery
+type: agent_profile
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+name: vm107.macro_relationship_discovery
+description: >-
+  Phase 89 Wave 4 — nightly background agent (03:00 UTC) that discovers new
+  macro graph relationships via cross-indicator + cross-asset correlation and
+  lead-lag scanning. Pairs that pass r>0.3, p<0.05, n>30 thresholds produce
+  EdgeProposal contracts written to Postgres (macro_discovery_proposals) and
+  Neo4j (shadow edge per Decision 8). Each proposal emits alert_candidate_created
+  to Phase 91 UAE (Decision 13). Throughput governor warns on <1 proposal/week
+  and tightens thresholds on >10/week (Decision 4). NOT a docker-compose sibling
+  service (Pitfall 4) — invoked exclusively by the Dagster nightly job.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 89
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-21"
+    change: "Phase 89 Wave 4 — initial release as nightly discovery agent"
+
+# Schedule trigger (Decision 4 — nightly at 03:00 UTC)
+trigger: schedule
+schedule_cron: "0 3 * * *"       # Decision 4: nightly 03:00 UTC
+sibling_service: null             # Pitfall 4: NOT a docker-compose sibling service
+
+# Phase 53 governance (Decision 8)
+phase_53_governance_status_default: shadow   # ALL proposals start here
+phase_53_shadow_window_days: 30              # 30-day review window before proposed
+# NO auto-promotion in Phase 89. Promotion requires human review via Phase 53 UI.
+
+# Throughput governor (Decision 4)
+throughput_target:
+  min_per_week: 1
+  max_per_week: 10
+  min_warning_action: "log_discovery_health_warning"
+  max_warning_action: "tighten_thresholds"
+
+# Correlation thresholds (Decision 4 / REQ-89-4)
+correlation_thresholds:
+  r_min: 0.30
+  p_max: 0.05
+  n_min: 30
+  window_months: 12
+
+# Tool allow-list (Phase 47.6 register-on-ship lock)
+allowed_tools:
+  - vm102.indicator_correlations
+  - vm102.indicator_lead_lag
+  - vm105.neo4j_macro_graph_walker
+  - phase71.evidence_drawer.write
+  - phase91.alert_candidate_emit
+  - lookup_capability
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Brain absorption — no self-eval for structured-data-only agent
+b5_self_eval: false         # structured-data emit, not prose (see 89-CONTEXT §2)
+b1_artifact_required: true  # always write a B1 reasoning artifact
+
+brain_absorbed:
+  - B1
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 4
+max_cost_usd: 0.50
+latency_budget_ms: 1800000   # 30 min budget for nightly batch scan
+
+# Memory scope (background scheduled agent — no per-account scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Constitutional skill bindings
+constitutional_skills:
+  - citation-discipline
+  - discovery-scan-skill
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.60
+expected_freshness_seconds: 86400    # nightly cadence
+is_deterministic: true               # threshold logic is deterministic
+version: "1.0.0"
+
+owner: engineering
+profile_path: VM107/registry/agent_profile/vm107.macro_relationship_discovery.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-89
+  - wave-4
+  - schedule
+  - background
+  - discovery
+  - nightly
+  - not-sibling-service
