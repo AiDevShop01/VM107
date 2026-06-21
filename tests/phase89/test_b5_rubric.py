@@ -223,13 +223,11 @@ def test_b5_hook_second_fail_degrades():
     with (
         patch("core.b5.rubric_scorer._call_utility_model_for_check",
               side_effect=lambda check_id, **_kw: canned_scores[check_id]),
-        patch("core.b5.rubric_loader.load_rubric", return_value=rubric),
+        patch("core.b5.response_self_check_hook.load_rubric", return_value=rubric),
     ):
-        import importlib
-        import core.b5.response_self_check_hook as hook_module
-        importlib.reload(hook_module)
+        from core.b5.response_self_check_hook import run_b5_hook
 
-        hook_module.run_b5_hook(agent)
+        run_b5_hook(agent)
 
     # After 2nd fail: response replaced with degradation text
     assert agent._data.get("b5_degraded") is True, "b5_degraded must be True on second fail"
@@ -268,13 +266,11 @@ def test_b5_hook_reject_degrades_immediately():
     with (
         patch("core.b5.rubric_scorer._call_utility_model_for_check",
               side_effect=lambda check_id, **_kw: canned_scores[check_id]),
-        patch("core.b5.rubric_loader.load_rubric", return_value=rubric),
+        patch("core.b5.response_self_check_hook.load_rubric", return_value=rubric),
     ):
-        import importlib
-        import core.b5.response_self_check_hook as hook_module
-        importlib.reload(hook_module)
+        from core.b5.response_self_check_hook import run_b5_hook
 
-        hook_module.run_b5_hook(agent)
+        run_b5_hook(agent)
 
     assert agent._data.get("b5_degraded") is True
     assert agent.last_response == rubric["graceful_degradation_text"]
@@ -308,13 +304,11 @@ def test_b5_hook_sets_confidence_self_report():
     with (
         patch("core.b5.rubric_scorer._call_utility_model_for_check",
               side_effect=lambda check_id, **_kw: canned_scores[check_id]),
-        patch("core.b5.rubric_loader.load_rubric", return_value=rubric),
+        patch("core.b5.response_self_check_hook.load_rubric", return_value=rubric),
     ):
-        import importlib
-        import core.b5.response_self_check_hook as hook_module
-        importlib.reload(hook_module)
+        from core.b5.response_self_check_hook import run_b5_hook
 
-        hook_module.run_b5_hook(agent)
+        run_b5_hook(agent)
 
     # B5 hook must write confidence_self_report (Pitfall 8)
     assert "confidence_self_report" in agent._data, (
