@@ -69,7 +69,18 @@ class PersistReasoningArtifact(Extension):
         tool_args_json = json.dumps(tool_args_raw) if tool_args_raw is not None else None
 
         citations_raw = agent.get_data("citations") or []
-        citations_json = json.dumps(citations_raw)
+        # Phase 89: embed b5_result into the citations JSONB blob alongside citations.
+        # The column schema is unchanged; b5_result is stored as a sibling key in the
+        # JSONB payload. A future migration can promote it to a dedicated column.
+        # TODO (Phase 89 deferred): add b5_result JSONB column to agent_reasoning_artifact
+        b5_result = agent.get_data("b5_result")
+        b5_degraded = agent.get_data("b5_degraded")
+        citations_payload: dict = {"citations": citations_raw}
+        if b5_result is not None:
+            citations_payload["b5_result"] = b5_result
+        if b5_degraded:
+            citations_payload["b5_degraded"] = True
+        citations_json = json.dumps(citations_payload)
 
         parent_env_id = agent.get_data("parent_envelope_id")
 
@@ -88,7 +99,10 @@ class PersistReasoningArtifact(Extension):
             "timestamp": datetime.now(timezone.utc),
             "model_version": agent.get_data("model_version") or "unknown",
             "prompt_version": agent.get_data("prompt_version") or "unknown",
-            "confidence_self_report": None,  # Filled by future B5; null in Phase 85
+            # Phase 89: B5 hook writes confidence_self_report before this extension fires
+            # (response_self_check/_10_b5_self_check.py runs first in the slot order).
+            # Pitfall 8 from RESEARCH: this was NULL in Phase 85; B5 fills it in Phase 89.
+            "confidence_self_report": agent.get_data("confidence_self_report"),  # B5 fills; null if B5 not enabled
             "citations": citations_json,
         }
 
