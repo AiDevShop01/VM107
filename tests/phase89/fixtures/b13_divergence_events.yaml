@@ -1,0 +1,229 @@
+# Phase 89 B13 Divergence Events — Historical predicted-vs-actual divergences
+# with expected severity labels per B13 contract.
+#
+# 9 events: 3 info + 3 warning + 3 blocking
+# Severity thresholds (per B13 contract):
+#   info:     1.5–2.5σ on a single asset
+#   warning:  2.5–3.5σ on a single asset OR ≥2 assets at 1.5–2.5σ same direction
+#   blocking: >3.5σ on any asset OR contradicts BeliefStore belief at confidence >0.7
+#
+# REQ-89-7 second-trigger path: one blocking case is caused purely by BeliefStore
+# contradiction (sigma = 2.0) not by sigma threshold alone.
+
+divergence_events:
+
+  # ── INFO severity (1.5–2.5σ, single asset) ──────────────────────────────────
+
+  - event_id: "DIV-INFO-01"
+    indicator_id: "CPIAUCSL"
+    release_date: "2024-01-11"
+    predicted_per_asset:
+      DXY: 0.6
+      Gold: -0.8
+      SPX: -0.4
+      UST10Y: 0.05
+    actual_per_asset:
+      DXY: 1.0
+      Gold: -0.8
+      SPX: -0.3
+      UST10Y: 0.07
+    sigma_historical_per_asset:
+      DXY: 1.7
+      Gold: 0.2
+      SPX: 0.3
+      UST10Y: 0.4
+    active_beliefs: []
+    expected_severity: "info"
+    notes: "DXY overshot at 1.7σ — single asset, below warning threshold"
+
+  - event_id: "DIV-INFO-02"
+    indicator_id: "PAYEMS"
+    release_date: "2024-02-02"
+    predicted_per_asset:
+      DXY: 0.3
+      Gold: -0.5
+      SPX: 0.8
+      UST10Y: 0.04
+    actual_per_asset:
+      DXY: 0.6
+      Gold: -0.5
+      SPX: 0.6
+      UST10Y: 0.07
+    sigma_historical_per_asset:
+      DXY: 2.1
+      Gold: 0.0
+      SPX: 0.7
+      UST10Y: 0.9
+    active_beliefs: []
+    expected_severity: "info"
+    notes: "DXY diverged at 2.1σ — single asset, info band"
+
+  - event_id: "DIV-INFO-03"
+    indicator_id: "GDP"
+    release_date: "2023-10-26"
+    predicted_per_asset:
+      DXY: 0.2
+      Gold: -0.3
+      SPX: 1.1
+      UST10Y: 0.03
+    actual_per_asset:
+      DXY: 0.5
+      Gold: -0.3
+      SPX: 0.8
+      UST10Y: 0.06
+    sigma_historical_per_asset:
+      DXY: 1.9
+      Gold: 0.0
+      SPX: 0.8
+      UST10Y: 0.6
+    active_beliefs: []
+    expected_severity: "info"
+    notes: "DXY diverged at 1.9σ — within info band, single asset"
+
+  # ── WARNING severity ─────────────────────────────────────────────────────────
+
+  - event_id: "DIV-WARN-01"
+    indicator_id: "CPIAUCSL"
+    release_date: "2023-06-13"
+    predicted_per_asset:
+      DXY: 0.8
+      Gold: -1.0
+      SPX: -0.6
+      UST10Y: 0.08
+    actual_per_asset:
+      DXY: 1.4
+      Gold: -1.8
+      SPX: -0.5
+      UST10Y: 0.12
+    sigma_historical_per_asset:
+      DXY: 2.8
+      Gold: 2.7
+      SPX: 0.3
+      UST10Y: 0.9
+    active_beliefs: []
+    expected_severity: "warning"
+    notes: "DXY at 2.8σ + Gold at 2.7σ — multi-asset same direction (both strong-than-expected dollar effect) → warning"
+
+  - event_id: "DIV-WARN-02"
+    indicator_id: "FEDFUNDS"
+    release_date: "2023-09-20"
+    predicted_per_asset:
+      DXY: 0.1
+      Gold: -0.2
+      SPX: 0.0
+      UST10Y: 0.0
+    actual_per_asset:
+      DXY: 0.1
+      Gold: -0.5
+      SPX: -0.8
+      UST10Y: 0.18
+    sigma_historical_per_asset:
+      DXY: 0.0
+      Gold: 1.6
+      SPX: 1.8
+      UST10Y: 3.0
+    active_beliefs: []
+    expected_severity: "warning"
+    notes: "UST10Y at 3.0σ — single asset at 3.0σ, in warning band (2.5–3.5)"
+
+  - event_id: "DIV-WARN-03"
+    indicator_id: "PAYEMS"
+    release_date: "2024-04-05"
+    predicted_per_asset:
+      DXY: 0.4
+      Gold: -0.6
+      SPX: 0.3
+      UST10Y: 0.05
+    actual_per_asset:
+      DXY: 0.8
+      Gold: -1.4
+      SPX: 0.1
+      UST10Y: 0.10
+    sigma_historical_per_asset:
+      DXY: 2.0
+      Gold: 2.1
+      SPX: 0.5
+      UST10Y: 0.8
+    active_beliefs: []
+    expected_severity: "warning"
+    notes: "DXY 2.0σ + Gold 2.1σ in same direction — multi-asset warning"
+
+  # ── BLOCKING severity ────────────────────────────────────────────────────────
+
+  - event_id: "DIV-BLOCK-01"
+    indicator_id: "CPIAUCSL"
+    release_date: "2022-06-10"
+    predicted_per_asset:
+      DXY: 0.5
+      Gold: -0.8
+      SPX: -0.5
+      UST10Y: 0.06
+    actual_per_asset:
+      DXY: 0.8
+      Gold: 1.2
+      SPX: -3.1
+      UST10Y: -0.04
+    sigma_historical_per_asset:
+      DXY: 1.0
+      Gold: 5.2
+      SPX: 4.1
+      UST10Y: 2.3
+    active_beliefs: []
+    expected_severity: "blocking"
+    notes: "Gold at 5.2σ + SPX at 4.1σ — both exceed 3.5σ threshold → blocking"
+
+  - event_id: "DIV-BLOCK-02"
+    indicator_id: "GDP"
+    release_date: "2023-07-27"
+    predicted_per_asset:
+      DXY: 0.3
+      Gold: -0.4
+      SPX: 0.7
+      UST10Y: 0.03
+    actual_per_asset:
+      DXY: 0.3
+      Gold: -0.8
+      SPX: 2.3
+      UST10Y: 0.02
+    sigma_historical_per_asset:
+      DXY: 0.0
+      Gold: 1.0
+      SPX: 3.8
+      UST10Y: 0.2
+    active_beliefs: []
+    expected_severity: "blocking"
+    notes: "SPX at 3.8σ — exceeds 3.5σ threshold → blocking"
+
+  # REQ-89-7 second-trigger path: blocking caused ONLY by high-confidence BeliefStore
+  # contradiction. Sigma is only 2.0 (normally 'info'), but an active belief
+  # at confidence 0.85 says Gold should be negatively affected by CPI beat —
+  # the actual Gold +0.6% contradicts this belief at confidence 0.85 → blocking.
+  - event_id: "DIV-BLOCK-03-BELIEF"
+    indicator_id: "CPIAUCSL"
+    release_date: "2024-04-10"
+    predicted_per_asset:
+      DXY: 0.7
+      Gold: -0.4
+      SPX: -0.3
+      UST10Y: 0.05
+    actual_per_asset:
+      DXY: 0.9
+      Gold: 0.6
+      SPX: -0.2
+      UST10Y: 0.06
+    sigma_historical_per_asset:
+      DXY: 0.8
+      Gold: 2.0
+      SPX: 0.2
+      UST10Y: 0.2
+    active_beliefs:
+      - belief_id: "BLF-CPI-GOLD-001"
+        confidence: 0.85
+        subject_id: "CPIAUCSL"
+        statement: "CPI beat suppresses Gold via DXY appreciation (real rate channel)"
+        lifecycle_state: "active"
+    expected_severity: "blocking"
+    notes: |
+      Gold sigma = 2.0 (would be 'info' alone), but contradicts BeliefStore belief
+      BLF-CPI-GOLD-001 at confidence 0.85 → B13 second trigger fires → blocking.
+      This is the REQ-89-7 second-trigger test case.

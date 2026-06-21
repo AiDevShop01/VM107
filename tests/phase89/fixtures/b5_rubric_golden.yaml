@@ -1,0 +1,228 @@
+# Phase 89 B5 Rubric Golden Cases
+# rubric.macro_investigator_qa — golden answers + expected rubric scores
+# per investigator + counterfactual profile
+#
+# Decision 6: Counterfactual has a lighter 3-check rubric.
+# Decision 9: >400 word answers trigger the hard-cap check.
+# Decision 5: Answers referencing evidence outside {start_ts, end_ts} fail
+#             claims_within_cited_evidence (score = 0.0).
+
+rubric:
+  macro_investigator_qa:
+    checks:
+      - id: "factual_grounding"
+        description: "Answer cites specific FRED release values, dates, and consensus estimates"
+        weight: 0.30
+      - id: "causal_chain_coherence"
+        description: "Transmission chain reasoning is internally consistent and matches Neo4j graph"
+        weight: 0.25
+      - id: "claims_within_cited_evidence"
+        description: "All quantitative claims fall within the cited evidence date range"
+        weight: 0.25
+      - id: "regime_awareness"
+        description: "Answer acknowledges regime context when relevant"
+        weight: 0.10
+      - id: "word_count_within_cap"
+        description: "Answer is ≤400 words (hard cap per Decision 9)"
+        weight: 0.10
+
+  macro_counterfactual_qa:
+    checks:
+      - id: "analogue_count_sufficient"
+        description: "At least 10 analogues used (sample_size ≥ 10)"
+        weight: 0.40
+      - id: "directional_consistency"
+        description: "Predicted directional moves are consistent across analogues"
+        weight: 0.35
+      - id: "uncertainty_acknowledged"
+        description: "Answer explicitly notes confidence interval or uncertainty when sample is thin"
+        weight: 0.25
+
+investigator_cases:
+
+  # Pass cases (score ≥ 0.75)
+  - profile_id: "vm107.macro_investigator"
+    case_id: "INV-PASS-01"
+    answer_text: |
+      Gold rose despite the June 2022 CPI beat primarily because real rates remained deeply
+      negative. While the headline CPI of 9.1% (vs 8.8% consensus) strengthened the dollar
+      initially (+0.6% DXY in the first hour), the simultaneous surge in inflation expectations
+      actually suppressed the real yield (10Y TIPS fell 8bps on the day). In periods where
+      nominal CPI beats are large enough that inflation expectations outpace nominal yield
+      adjustment, Gold tends to rally despite DXY strength. Our Neo4j transmission chain
+      confirms this: the CPIAUCSL → DXY (AFFECTS, strength=-0.62) edge only fires cleanly
+      when real rates rise; when they don't, Gold's DRIVES edge to DXY reverses. Historical
+      analogues from 2008 and 2011 show the same pattern in 7 of 9 comparable events.
+    expected_rubric_scores:
+      factual_grounding: 0.90
+      causal_chain_coherence: 0.85
+      claims_within_cited_evidence: 0.90
+      regime_awareness: 0.80
+      word_count_within_cap: 1.00
+    expected_total: 0.88
+    expected_recommendation: "accept"
+    expected_word_count: 148
+
+  - profile_id: "vm107.macro_investigator"
+    case_id: "INV-PASS-02"
+    answer_text: |
+      The Q4 2023 GDP beat (+3.3% vs 2.0% consensus) failed to sustain DXY above
+      104.5 because the beat was driven by inventories and government spending rather
+      than domestic private demand. Markets quickly repriced the carry trade after
+      recognising the composition: a $+0.2tn inventory build and $+0.15tn government
+      contribution meant underlying final demand was only +1.9%. In 6 of 8 historical
+      analogues where GDP beats were inventory-driven, DXY reversed within 3 days.
+      Regime context: the Fed was already signalling a pause in this period, removing
+      the usual positive correlation between growth beats and rate expectations.
+    expected_rubric_scores:
+      factual_grounding: 0.85
+      causal_chain_coherence: 0.80
+      claims_within_cited_evidence: 0.85
+      regime_awareness: 0.90
+      word_count_within_cap: 1.00
+    expected_total: 0.84
+    expected_recommendation: "accept"
+    expected_word_count: 118
+
+  # Refine cases (score 0.40-0.75)
+  - profile_id: "vm107.macro_investigator"
+    case_id: "INV-REFINE-01"
+    answer_text: |
+      CPI beat caused DXY to rise because higher inflation means the Fed will hike more.
+      Gold fell because a stronger dollar hurts gold. Historical data shows this is the
+      typical pattern. The regime at the time was a hiking cycle.
+    expected_rubric_scores:
+      factual_grounding: 0.20
+      causal_chain_coherence: 0.50
+      claims_within_cited_evidence: 0.70
+      regime_awareness: 0.40
+      word_count_within_cap: 1.00
+    expected_total: 0.48
+    expected_recommendation: "refine"
+    expected_word_count: 47
+
+  - profile_id: "vm107.macro_investigator"
+    case_id: "INV-REFINE-02"
+    answer_text: |
+      The NFP surprise of +150k vs +180k expected caused SPX to rally because lower
+      job growth reduces inflation fears. The 2019 analogues show this pattern held
+      in 4 out of 5 cases. DXY was also flat on the day, suggesting the market was
+      waiting for CPI confirmation before committing to a directional move. In 2021,
+      similar patterns were observed.
+    expected_rubric_scores:
+      factual_grounding: 0.60
+      causal_chain_coherence: 0.55
+      claims_within_cited_evidence: 0.80
+      regime_awareness: 0.30
+      word_count_within_cap: 1.00
+    expected_total: 0.60
+    expected_recommendation: "refine"
+    expected_word_count: 74
+
+  # Reject case (score < 0.40)
+  # Also covers Decision 9 (word cap) — 420+ words triggers word_count_within_cap = 0.0
+  - profile_id: "vm107.macro_investigator"
+    case_id: "INV-REJECT-01"
+    answer_text: |
+      Gold always goes up when there's uncertainty in the market. The Federal Reserve
+      has been printing money since 2008 which means gold is always going to be worth
+      more over time because fiat currency is losing value. In the past decades we have
+      seen many examples of gold rising in value when there is geopolitical tension
+      or economic uncertainty. This is because gold is a safe haven asset that investors
+      flee to when they are worried about the future of the economy. The relationship
+      between CPI and gold is complex but generally speaking when inflation rises gold
+      tends to do well because it preserves purchasing power. However there are also
+      times when gold does not follow this pattern because of other factors like interest
+      rates and the dollar. The dollar has an inverse relationship with gold meaning
+      when the dollar is strong gold tends to be weak and vice versa. So when CPI beats
+      and the dollar strengthens gold might fall even though inflation is rising. But
+      this is not always the case because sometimes the inflation expectations component
+      outweighs the dollar strength effect. It really depends on the overall macroeconomic
+      environment and the current regime. In conclusion the relationship between CPI and
+      gold is multifaceted and cannot be reduced to a simple rule. Investors need to
+      consider all of these factors before making a decision about gold. Additionally
+      it is worth noting that gold has historically been a store of value over very long
+      time horizons even if it experiences short term volatility. The long term trend
+      for gold is upward because of the gradual debasement of fiat currencies globally
+      by central banks including the Federal Reserve the European Central Bank and the
+      Bank of Japan which together have expanded their balance sheets enormously since
+      the financial crisis of 2008 2009 through programs of quantitative easing asset
+      purchases and other forms of monetary stimulus which have had the effect of
+      increasing the money supply which all else equal tends to be inflationary which
+      tends to be positive for hard assets like gold and silver and other commodities.
+    expected_rubric_scores:
+      factual_grounding: 0.05
+      causal_chain_coherence: 0.10
+      claims_within_cited_evidence: 0.20
+      regime_awareness: 0.10
+      word_count_within_cap: 0.00
+    expected_total: 0.10
+    expected_recommendation: "reject"
+    expected_word_count: 420
+
+counterfactual_cases:
+
+  # Pass case
+  - profile_id: "vm107.macro_counterfactual"
+    case_id: "CF-PASS-01"
+    answer_text: |
+      Based on 18 historical analogues where CPIAUCSL came in 0.4pp below consensus
+      in a rate-pause regime (2015-2024 period), we estimate: DXY -0.6% ± 0.4% (median),
+      Gold +0.9% ± 0.7%, SPX +0.5% ± 0.8%, 10Y UST -5bps ± 4bps. The directional
+      consensus is strong for DXY and Gold (14/18 analogues agree); SPX shows higher
+      dispersion due to regime variation. Confidence: 0.72. Note: 2 outlier analogues
+      (2017-11, 2019-03) were excluded as they occurred during active Fed hike cycles,
+      which materially changes the DXY transmission.
+    expected_rubric_scores:
+      analogue_count_sufficient: 1.00
+      directional_consistency: 0.85
+      uncertainty_acknowledged: 0.90
+    expected_total: 0.91
+    expected_recommendation: "accept"
+    expected_word_count: 115
+
+  # Refine case
+  - profile_id: "vm107.macro_counterfactual"
+    case_id: "CF-REFINE-01"
+    answer_text: |
+      If CPI had come in lower by 0.4pp, DXY would likely fall and Gold would likely
+      rise. This is the typical pattern based on historical data. SPX might also benefit.
+      We looked at similar historical periods and they generally show this direction.
+    expected_rubric_scores:
+      analogue_count_sufficient: 0.20
+      directional_consistency: 0.60
+      uncertainty_acknowledged: 0.10
+    expected_total: 0.30
+    expected_recommendation: "reject"
+    expected_word_count: 55
+
+  # Reject case — low sample size + overconfident
+  - profile_id: "vm107.macro_counterfactual"
+    case_id: "CF-REJECT-01"
+    answer_text: |
+      DXY will definitely fall -1.2% and Gold will definitely rise +2.0% because CPI
+      misses always cause exactly this pattern. I am certain of this outcome.
+    expected_rubric_scores:
+      analogue_count_sufficient: 0.00
+      directional_consistency: 0.30
+      uncertainty_acknowledged: 0.00
+    expected_total: 0.11
+    expected_recommendation: "reject"
+    expected_word_count: 33
+
+# Decision 5 (range scope) test case — answer references evidence outside prompt date range
+# expected_rubric_score for claims_within_cited_evidence = 0.0
+out_of_range_case:
+  profile_id: "vm107.macro_investigator"
+  case_id: "INV-OOR-01"
+  prompt_start_ts: "2023-01-01"
+  prompt_end_ts: "2023-12-31"
+  answer_text: |
+    Based on the 2008-2009 financial crisis data, CPI beats caused DXY to fall because
+    the Fed was cutting rates aggressively. The 1970s stagflation period also provides
+    relevant context where CPI beats drove Gold dramatically higher over multi-year periods.
+  expected_rubric_scores:
+    claims_within_cited_evidence: 0.00
+    factual_grounding: 0.10
+  expected_recommendation: "reject"
+  expected_word_count: 58

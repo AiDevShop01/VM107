@@ -1,0 +1,19 @@
+{
+  "status": "ok",
+  "reason": null,
+  "eta": null,
+  "fallback_path": null,
+  "expected_dxy": -0.4,
+  "expected_dxy_ci_95": [-0.9, 0.1],
+  "expected_gold": 0.9,
+  "expected_gold_ci_95": [0.2, 1.6],
+  "expected_spx": 0.3,
+  "expected_spx_ci_95": [-0.5, 1.1],
+  "expected_ust10y": -0.05,
+  "expected_ust10y_ci_95": [-0.12, 0.02],
+  "analogue_count": 18,
+  "analogue_period": ["2010-01-01", "2024-12-31"],
+  "regime_alignment": "partial",
+  "confidence": 0.72,
+  "model_version": "phase90-layer4-v1"
+}

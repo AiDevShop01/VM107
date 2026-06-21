@@ -1,0 +1,220 @@
+# Phase 89 UAT Question Bank — 20 macro questions for REQ-89-9 UAT
+# 5 questions per indicator family: CPI, NFP, GDP, FEDFUNDS
+# Categories: factual | counterfactual | explanatory | contradiction_explaining | regime_aware
+# Lock: expected_hallucination_flag = false for all 20 (Wave 6 UAT reviewer fills actuals)
+
+questions:
+
+  # ── CPI (Consumer Price Index) ───────────────────────────────────────────────
+  - question_id: "CPI-01"
+    indicator_id: "CPIAUCSL"
+    category: "factual"
+    prompt: "What was the CPI reading for March 2024, and how did it compare to the consensus forecast?"
+    expected_evidence_kinds:
+      - "fred_release_data"
+      - "consensus_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "CPI-02"
+    indicator_id: "CPIAUCSL"
+    category: "counterfactual"
+    prompt: "If CPI had come in at 2.9% instead of the actual 3.5% in January 2024, how would you expect DXY, Gold, and the 10Y UST to have moved?"
+    expected_evidence_kinds:
+      - "historical_analogues"
+      - "phase_86_event_study"
+      - "market_impact_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "CPI-03"
+    indicator_id: "CPIAUCSL"
+    category: "explanatory"
+    prompt: "Why did Gold rise despite the CPI beat in June 2022, when a CPI beat normally strengthens the dollar and pressures Gold?"
+    expected_evidence_kinds:
+      - "transmission_chain"
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "CPI-04"
+    indicator_id: "CPIAUCSL"
+    category: "contradiction_explaining"
+    prompt: "The system flagged a contradiction: the model predicted DXY +0.8% on the April 2024 CPI beat, but DXY fell -0.3%. What could explain this divergence?"
+    expected_evidence_kinds:
+      - "divergence_event"
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "CPI-05"
+    indicator_id: "CPIAUCSL"
+    category: "regime_aware"
+    prompt: "How does the typical CPI-to-Gold transmission chain differ between a rate-hike regime and a rate-pause regime? Use analogues from 2022-2024."
+    expected_evidence_kinds:
+      - "regime_context"
+      - "transmission_chain"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  # ── NFP (Non-Farm Payrolls) ──────────────────────────────────────────────────
+  - question_id: "NFP-01"
+    indicator_id: "PAYEMS"
+    category: "factual"
+    prompt: "What was the Non-Farm Payrolls print for February 2024, and what was the consensus expectation?"
+    expected_evidence_kinds:
+      - "fred_release_data"
+      - "consensus_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "NFP-02"
+    indicator_id: "PAYEMS"
+    category: "counterfactual"
+    prompt: "If February 2024 NFP had come in at 300k instead of the actual 275k, what would you expect for SPX and UST 10Y in the subsequent week?"
+    expected_evidence_kinds:
+      - "historical_analogues"
+      - "market_impact_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "NFP-03"
+    indicator_id: "PAYEMS"
+    category: "explanatory"
+    prompt: "Why did SPX sell off on the strong January 2024 NFP beat when strong jobs reports often fuel equity rallies?"
+    expected_evidence_kinds:
+      - "transmission_chain"
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "NFP-04"
+    indicator_id: "PAYEMS"
+    category: "contradiction_explaining"
+    prompt: "The system predicted a DXY rally on the May 2024 NFP beat, but the DXY was flat. What factors might explain the non-reaction?"
+    expected_evidence_kinds:
+      - "divergence_event"
+      - "regime_context"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "NFP-05"
+    indicator_id: "PAYEMS"
+    category: "regime_aware"
+    prompt: "How does the NFP-to-DXY transmission change when the Fed is actively hiking vs on hold? Provide historical examples."
+    expected_evidence_kinds:
+      - "regime_context"
+      - "transmission_chain"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  # ── GDP (Gross Domestic Product) ─────────────────────────────────────────────
+  - question_id: "GDP-01"
+    indicator_id: "GDP"
+    category: "factual"
+    prompt: "What was the Q4 2023 GDP growth rate (advance estimate) and how did it compare to the consensus forecast?"
+    expected_evidence_kinds:
+      - "fred_release_data"
+      - "consensus_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "GDP-02"
+    indicator_id: "GDP"
+    category: "counterfactual"
+    prompt: "If Q1 2024 GDP had printed at +1.0% (annualised) instead of the actual +1.6%, how would you expect DXY and Gold to have reacted over the following week?"
+    expected_evidence_kinds:
+      - "historical_analogues"
+      - "market_impact_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "GDP-03"
+    indicator_id: "GDP"
+    category: "explanatory"
+    prompt: "Why did the strong Q3 2023 GDP beat (+4.9%) fail to sustain a DXY rally beyond the first trading day?"
+    expected_evidence_kinds:
+      - "transmission_chain"
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "GDP-04"
+    indicator_id: "GDP"
+    category: "contradiction_explaining"
+    prompt: "The model predicted SPX +1.2% on the Q2 2023 GDP beat but SPX moved -0.4%. What contradicting factors were likely at work?"
+    expected_evidence_kinds:
+      - "divergence_event"
+      - "belief_store_context"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "GDP-05"
+    indicator_id: "GDP"
+    category: "regime_aware"
+    prompt: "Compare the typical GDP-to-SPX transmission during recessions vs expansion phases using analogues from the last 20 years."
+    expected_evidence_kinds:
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  # ── FEDFUNDS (Federal Funds Rate) ────────────────────────────────────────────
+  - question_id: "FED-01"
+    indicator_id: "FEDFUNDS"
+    category: "factual"
+    prompt: "What was the Fed Funds Rate decision at the March 2024 FOMC meeting, and what was the market-implied probability beforehand?"
+    expected_evidence_kinds:
+      - "fred_release_data"
+      - "consensus_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "FED-02"
+    indicator_id: "FEDFUNDS"
+    category: "counterfactual"
+    prompt: "If the Fed had cut rates by 50bps at the December 2023 meeting instead of holding, how would you expect Gold and UST 10Y to have moved in the subsequent month?"
+    expected_evidence_kinds:
+      - "historical_analogues"
+      - "market_impact_estimate"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "FED-03"
+    indicator_id: "FEDFUNDS"
+    category: "explanatory"
+    prompt: "Why did the 10Y UST yield rise after the September 2023 Fed hold, when holding rates is typically neutral-to-dovish for yields?"
+    expected_evidence_kinds:
+      - "transmission_chain"
+      - "regime_context"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "FED-04"
+    indicator_id: "FEDFUNDS"
+    category: "contradiction_explaining"
+    prompt: "The system expected DXY +0.5% on the hawkish hold in January 2024, but DXY fell -0.8%. What factors explain this contradiction?"
+    expected_evidence_kinds:
+      - "divergence_event"
+      - "regime_context"
+      - "belief_store_context"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false
+
+  - question_id: "FED-05"
+    indicator_id: "FEDFUNDS"
+    category: "regime_aware"
+    prompt: "How does the FEDFUNDS-to-Gold transmission differ at the start of a rate-hike cycle versus at the peak? Cite specific historical analogues."
+    expected_evidence_kinds:
+      - "regime_context"
+      - "transmission_chain"
+      - "historical_analogues"
+    expected_word_count_max: 250
+    expected_hallucination_flag: false

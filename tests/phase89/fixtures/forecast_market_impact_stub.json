@@ -1,0 +1,10 @@
+{
+  "status": "unavailable",
+  "reason": "Phase 90 Layer 4 not yet shipped",
+  "eta": "planned",
+  "fallback_path": "phase_86_event_study",
+  "expected_dxy": null,
+  "expected_gold": null,
+  "expected_spx": null,
+  "expected_ust10y": null
+}
