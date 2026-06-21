@@ -484,6 +484,13 @@ class Agent:
                         )
                         await self.handle_intervention(agent_response)
 
+                        # Phase 89 Plan 01 wiring fix — fire B5 response_self_check slot
+                        # Must fire BEFORE reasoning_stream_end so the persist hook can
+                        # read b5_result / confidence_self_report that B5 sets here.
+                        await extension.call_extensions_async(
+                            "response_self_check", self, loop_data=self.loop_data
+                        )
+
                         # Notify extensions to finalize their stream filters
                         await extension.call_extensions_async(
                             "reasoning_stream_end", self, loop_data=self.loop_data
