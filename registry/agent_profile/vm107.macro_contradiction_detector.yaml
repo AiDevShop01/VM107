@@ -1,0 +1,95 @@
+id: vm107.macro_contradiction_detector
+type: agent_profile
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+name: vm107.macro_contradiction_detector
+description: >-
+  Phase 89 Wave 3 — event-driven contradiction detector. Fires on every Phase 85
+  release-completed event AFTER reaction_settled_at elapses (Decision 3 — default
+  T+30min for intraday). Computes per-asset divergence = |actual - predicted| /
+  sigma_historical; grades severity per B13 contract (info/warning/blocking).
+  Blocking severity disables confident emit on the affected indicator even on user
+  re-ask (Decision 7 — refuse_stands). Alert candidates flow to Phase 91 UAE per
+  Decision 13 (severity translation: info→Info, warning→Important, blocking→Critical).
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 89
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-21"
+    change: "Phase 89 Plan 03 — initial release as event-driven contradiction detector"
+
+# Event-driven trigger (Phase 85 macro.release_events channel)
+trigger: event_driven
+event_subscription:
+  topic: macro.release_events       # Phase 83 channel; same as existing Phase 85 listener
+  filter: "reaction_settled_at <= now"        # Decision 3, Pitfall 6
+
+# Tool allow-list (Phase 47.6 register-on-ship lock)
+allowed_tools:
+  - vm102.indicator_event_study
+  - vm105.neo4j_macro_graph_walker            # confounder query
+  - belief_store.query
+  - belief_store.propose                      # contradicting_count increment
+  - phase71.evidence_drawer.write
+  - lookup_capability
+  - phase91.alert_candidate_emit              # Decision 13
+
+# B5 self-eval: NOT a user-facing prose agent — no rubric needed
+b5_self_eval: false
+b1_artifact_required: true
+b13_contract_id: contract.b13_contradiction_engine
+
+# Brain absorptions
+brain_absorbed:
+  - B1
+  - B13
+
+# NOT a long-running listener service — event-driven via Phase 85 listener dispatch
+# The Phase 85 sibling service (vm107-macro-release-event-listener) triggers this
+# agent via _dispatch_agent_sync after reaction_settled_at elapses.
+sibling_service: null
+
+# Per-indicator reaction window (Decision 3)
+reaction_window_minutes:
+  default: 30                                 # T+30min for intraday
+  per_indicator:
+    GDP: 1440                                 # GDP: T+1d (slow-burn)
+    GDPC1: 1440
+    CPIAUCSL: 30
+    PAYEMS: 30
+    UNRATE: 30
+    FEDFUNDS: 30
+
+# Iteration / cost limits
+max_iterations: 4
+latency_budget_ms: 10000
+cost_budget_per_invocation:
+  chat_model_usd: 0.10
+  utility_model_usd: 0.0
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.70
+expected_freshness_seconds: 1800    # T+30min reaction window
+is_deterministic: true              # sigma computation is deterministic
+version: "1.0.0"
+
+owner: engineering
+
+tags:
+  - agent-profile
+  - macro
+  - phase-89
+  - wave-3
+  - event-driven
+  - contradiction-detector
+  - b13

@@ -1,5 +1,8 @@
 """Phase 83 release-event subscriber → Brain goal fan-out (Phase 85 Plan 10).
 
+Extended in Phase 89 Plan 03 (Wave 3) with reaction_settled_at handling per
+Decision 3 and Pitfall 6 (backward-compat LISTENER-SIDE fill).
+
 Subscribes to the ``macro.release_events`` Redis Pub/Sub channel.
 On each well-formed message, calls ``create_macro_release_goal`` which creates a
 ``macro_release_analysis`` Brain goal and fans out 3 child tasks:
@@ -7,6 +10,17 @@ On each well-formed message, calls ``create_macro_release_goal`` which creates a
   1. vm107.macro_release_analyst         (no deps — fires immediately)
   2. vm107.macro_asset_exposure_analyst  (no deps — fires in parallel)
   3. vm107.macro_executive_summary_writer (depends on 1 + 2 — fires after both)
+
+After reaction_settled_at elapses (Decision 3 — default T+30min for intraday,
+per-indicator overrides in macro_contradiction_detector agent profile YAML),
+the listener also dispatches ``vm107.macro_contradiction_detector``.
+
+Phase 89 extension — reaction_settled_at contract:
+  Events from the upstream Phase 83 publisher NOW INCLUDE ``reaction_settled_at``
+  (a pre-deploy gate enforced by Plan 09 — D3 hard lock; no escape hatch here).
+  For backward-compat with older events lacking the field, the LISTENER computes:
+    reaction_settled_at = release_timestamp + per_indicator_reaction_window (default 30min)
+  This is a defensive fill only — Plan 09 gate is the authoritative fix.
 
 Ships as docker-compose sibling service ``vm107-macro-release-event-listener``.
 See docker-compose.yml for the service definition.
@@ -25,7 +39,8 @@ Phase 83 payload contract (``macro.release_events`` channel):
     "consensus_value": 3.3,
     "prior_value": 3.2,
     "revision_flag": false,
-    "source": "vm101.macro_calendar"
+    "source": "vm101.macro_calendar",
+    "reaction_settled_at": "2026-06-12T13:00:00Z"  # Phase 89 extension (Plan 09 gate)
   }
 
 event_id is NOT a standalone field in the Phase 83 contract; it is DERIVED as:
@@ -45,6 +60,7 @@ import logging
 import os
 import signal
 import time
+from datetime import datetime, timedelta, timezone
 
 from core.scheduling.macro_release_goal import (
     configure_default_orchestrator,
@@ -118,6 +134,96 @@ def _extract_event_id(data: dict) -> str:
     if "event_id" in data:
         return data["event_id"]
     return f"{data['indicator_id']}:{data['release_timestamp']}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 89 — reaction_settled_at helpers (Decision 3 + Pitfall 6)
+# ---------------------------------------------------------------------------
+
+# Per-indicator reaction window (minutes) — mirrors macro_contradiction_detector profile YAML.
+# This default table is the LISTENER-SIDE defensive fill for backward-compat events.
+# The canonical source of truth is the agent profile YAML loaded via lookup_capability.
+_DEFAULT_REACTION_WINDOW_MINUTES = 30
+
+_PER_INDICATOR_REACTION_WINDOW: dict[str, int] = {
+    "GDP": 1440,      # T+1d (slow-burn)
+    "GDPC1": 1440,
+    "CPIAUCSL": 30,
+    "PAYEMS": 30,
+    "UNRATE": 30,
+    "FEDFUNDS": 30,
+}
+
+
+def compute_reaction_settled_at(
+    event: dict,
+    per_indicator_windows: dict[str, int] | None = None,
+) -> datetime:
+    """Compute or extract reaction_settled_at from a release event.
+
+    Backward-compat LISTENER-SIDE fill for events lacking the field.
+    Decision 3: default T+30min for intraday; per-indicator overrides.
+
+    NOTE: This fill does NOT replace the upstream publisher fix. Plan 09
+    enforces a pre-deploy gate (D3 hard lock) requiring publishers to
+    populate reaction_settled_at going forward. This is defensive only.
+
+    Args:
+        event: Decoded event dict from the Redis channel.
+        per_indicator_windows: Override map {indicator_id: minutes}.
+                               If None, uses _PER_INDICATOR_REACTION_WINDOW.
+
+    Returns:
+        datetime (UTC) when reaction is considered settled.
+    """
+    # Prefer explicit field from publisher (Plan 09 canonical path)
+    if "reaction_settled_at" in event and event["reaction_settled_at"]:
+        ts = event["reaction_settled_at"]
+        if isinstance(ts, str):
+            # ISO 8601 → datetime (handle Z suffix and +00:00)
+            ts = ts.replace("Z", "+00:00")
+            return datetime.fromisoformat(ts).astimezone(timezone.utc)
+        return ts
+
+    # Backward-compat: compute from release_timestamp + window
+    release_ts_str = event.get("release_timestamp", "")
+    if release_ts_str:
+        release_ts = datetime.fromisoformat(
+            release_ts_str.replace("Z", "+00:00")
+        ).astimezone(timezone.utc)
+    else:
+        # Fallback: treat "now" as release time (edge case — log warning)
+        logger.warning({
+            "event": "phase89_reaction_settled_at_fallback",
+            "reason": "event missing both reaction_settled_at and release_timestamp",
+        })
+        release_ts = datetime.now(tz=timezone.utc)
+
+    windows = per_indicator_windows if per_indicator_windows is not None else _PER_INDICATOR_REACTION_WINDOW
+    indicator_id: str = event.get("indicator_id", "")
+    window_minutes = windows.get(indicator_id, _DEFAULT_REACTION_WINDOW_MINUTES)
+
+    return release_ts + timedelta(minutes=window_minutes)
+
+
+def should_dispatch_now(
+    event: dict,
+    reference_time: datetime | None = None,
+    per_indicator_windows: dict[str, int] | None = None,
+) -> bool:
+    """Return True if reaction_settled_at has elapsed and detector should fire.
+
+    Args:
+        event: Decoded event dict from the Redis channel.
+        reference_time: The "now" for comparison. Defaults to datetime.now(UTC).
+        per_indicator_windows: Per-indicator window overrides (minutes).
+
+    Returns:
+        True if reaction_settled_at <= now; False to defer.
+    """
+    now = reference_time if reference_time is not None else datetime.now(tz=timezone.utc)
+    settled_at = compute_reaction_settled_at(event, per_indicator_windows=per_indicator_windows)
+    return settled_at <= now
 
 
 # ---------------------------------------------------------------------------
