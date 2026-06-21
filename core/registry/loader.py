@@ -30,11 +30,24 @@ def load_all_yamls(registry_root: Path) -> list[tuple[Path, dict]]:
     """
     results: list[tuple[Path, dict]] = []
 
+    # Meta/navigation files — not capability entries; must not be validated by Stage 2.
+    # registry_index.yaml is a human-navigation index (created Phase 89 Plan 08).
+    # _schema.yaml files are schema documentation, not registered capabilities.
+    _META_FILENAMES: frozenset[str] = frozenset({"registry_index.yaml", "_schema.yaml"})
+
     for yaml_path in sorted(registry_root.rglob("*.yaml")):
         # Skip _reserved subdirectories — they are namespace claims, not registered
         # capabilities. Their type field (e.g., event_type_reserved_namespace) is
         # intentionally outside the 16 locked CapabilityType values.
         if "_reserved" in yaml_path.parts:
+            continue
+
+        # Skip meta/navigation files that live at the registry root but are not
+        # capability entries. These files do not carry id/type/status/impact_on_decision
+        # fields and must not be passed to Stage 2 Pydantic validation.
+        # Added Phase 89 Plan 09: registry_index.yaml (created in Plan 08) was being
+        # picked up by the rglob and failing Stage 2 with "field 'id' — Field required".
+        if yaml_path.name in _META_FILENAMES:
             continue
         try:
             with yaml_path.open("r", encoding="utf-8") as f:

@@ -13,7 +13,7 @@
 
 id: event_type.alert_candidate_created
 type: event_type
-status: provisional
+status: experimental  # provisional Phase 91 schema; maps to 'experimental' (valid CapabilityStatus values: stub/experimental/real/deprecated)
 shipped: 89
 last_changed: "2026-06-21"
 capability_type: event_type

@@ -1,6 +1,7 @@
 id: contract.b13_contradiction_engine
 type: contract
 status: real
+impact_on_decision: HIGH
 shipped: 89
 capability_type: contract
 applies_to_agent: vm107.macro_contradiction_detector
