@@ -1,0 +1,107 @@
+# vm107.macro_investigator — Phase 89 Plan 01
+#
+# A0-runtime profile (resolved at agent_init via config.profile).
+# This is the RUNTIME profile — separate from the Phase 47.6 capability-registry
+# entry at VM107/registry/agent_profile/vm107.macro_investigator.yaml (which stays).
+#
+# Role: User-driven free-form macro Q&A agent with B5 self-evaluation.
+# Decisions: 1 (user_driven), 5 (range_scope_required), 6 (per-profile rubric),
+#            7 (contradiction_check_required), 9 (word_cap), 11 (optional research).
+#
+# Bug-0 fix (Phase 89 Plan 01 wiring): this file's absence caused A0 to fall
+# back to the default agent profile, bypassing citation/B5/structured-response
+# behavior entirely.
+
+id: vm107.macro_investigator
+name: vm107.macro_investigator
+status: real
+shipped: 89
+
+# System prompt — citation-mandating, tool-use-mandating (Bug 3 fix)
+prompt: VM107/prompts/macro_investigator.md
+
+# Tool allow-list (mirrors registry entry)
+allowed_tools:
+  - vm102.indicator_history
+  - vm102.indicator_event_study
+  - vm102.indicator_correlations
+  - vm102.indicator_distribution
+  - vm105.neo4j_macro_graph_walker
+  - episodic_memory_service.query
+  - belief_store.query
+  - lookup_capability
+  - lookup_reasoning_artifact
+  - phase71.evidence_drawer.write
+  - search_macro_research
+
+# Optional tools — graceful degradation if absent (Decision 11)
+optional_tools:
+  - search_macro_research
+  - vm102.alfred.vintage_history
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Memory visibility (Phase 87 episodic + belief + B1 WORM)
+memory_visibility:
+  - episodic_memory_service
+  - belief_store
+  - reasoning_artifact
+
+# B5 self-evaluation configuration (Decision 6 — per-profile rubric)
+b5_self_eval: true
+b5_rubric_id: rubric.macro_investigator_qa
+
+# B1 artifact required per Phase 85 lock
+b1_artifact_required: true
+
+# Iteration / cost limits
+max_iterations: 8
+max_cost_usd: 0.70
+latency_budget_ms: 7000
+
+# Cost budgets (Phase 47.6 fail-fast budgets)
+cost_budget_per_invocation:
+  chat_model_usd: 0.50
+  utility_model_usd: 0.20
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 30
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.80
+expected_freshness_seconds: 0
+is_deterministic: false
+version: "1.0.0"
+
+# Decision 7 — refuse confident emit when blocking contradiction active
+contradiction_check_required: true
+
+# Decision 5 — must honor {start_ts, end_ts} scope when provided by chart context
+range_scope_required: true
+
+# Decision 9 — answer length cap
+word_cap:
+  target: 250
+  hard_cap: 400
+
+# REQ-89-1 acceptance + indicator.md §10 suggested prompts
+suggested_prompts:
+  - "Explain this release"
+  - "Compare with history"
+  - "Show affected assets"
+  - "Show opposite scenario"
+  - "Find similar events"
+  - "What changed?"
+  - "What should I watch next?"
+
+# Phase 70.5 router affinity
+router_affinity: vm107.macro
+envelope_type: ToolResultEnvelope
+
+# D2 lock: NO tier-1 deterministic fallback. LLM failure raises loudly.
+# Do NOT add tier-1 fallback without a phase decision.
