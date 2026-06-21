@@ -151,6 +151,57 @@ class ApiMessage(ApiHandler):
             # Clean up expired chats
             self._cleanup_expired_chats()
 
+            # Phase 89 Plan 01 wiring fix (Bug 2) — return AskResponse-compatible
+            # envelope for macro_investigator so VM100 parser gets structured fields
+            # (answer, citations, b5_result, degraded, blocking_contradiction_refusal)
+            # instead of the raw {context_id, response} shape, which VM100 was dumping
+            # verbatim into the answer field.
+            _profile = agent_profile or getattr(
+                getattr(context, "agent0", None),
+                "config",
+                type("_C", (), {"profile": ""})(),
+            ).profile or ""
+            if _profile == "vm107.macro_investigator":
+                import json as _json
+                import uuid as _uuid
+
+                agent0 = context.agent0
+                answer_text = (agent0.last_response or result or "").strip()
+                citations = agent0.get_data("citations") or []
+                b5_result = agent0.get_data("b5_result")
+                degraded = bool(agent0.get_data("b5_degraded") or False)
+                blocking = bool(agent0.get_data("blocking_contradiction_refusal") or False)
+
+                # Model may have emitted a JSON envelope inline — try to extract
+                # structured fields from it so citations/degraded flags survive
+                # even when they weren't stored in agent data slots.
+                try:
+                    parsed = _json.loads(answer_text)
+                    if isinstance(parsed, dict) and "answer" in parsed:
+                        answer_text = parsed.get("answer", answer_text)
+                        if not citations:
+                            citations = parsed.get("citations") or []
+                        if not degraded:
+                            degraded = bool(parsed.get("degraded", False))
+                        if not blocking:
+                            blocking = bool(parsed.get("blocking_contradiction_refusal", False))
+                except (ValueError, TypeError):
+                    pass  # not JSON — keep raw text as answer
+
+                return {
+                    "context_id": context_id,
+                    "response_id": (
+                        agent0.get_data("last_b1_artifact_id") or str(_uuid.uuid4())
+                    ),
+                    "answer": answer_text,
+                    "citations": citations,
+                    "b5_result": b5_result,
+                    "degraded": degraded,
+                    "blocking_contradiction_refusal": blocking,
+                    "truncated_at": agent0.get_data("truncated_at"),
+                }
+
+            # Default (non-investigator) behavior preserved — backward compat
             return {
                 "context_id": context_id,
                 "response": result
