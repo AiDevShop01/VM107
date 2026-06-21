@@ -1,0 +1,99 @@
+# VM107 Capability Registry Index
+# Lists all capability YAML entries by phase for human navigation.
+# Machine consumers use CapabilityRegistry.initialize(registry_root) — not this file.
+# Updated by each phase plan that ships new registry entries.
+
+meta:
+  schema_version: "1.0"
+  last_updated: "2026-06-21"
+  total_phase89_entries: 8
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 89 — Macro Intelligence Workbench
+# Investigation + Counterfactual + Contradiction + Discovery
+# Plans 01-07 (Waves 1-5) + Plan 08 Wave 7 (provisional event_type)
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_89:
+  description: "Phase 89 Macro Intelligence Workbench — 8 new capability entries"
+  shipped: 89
+  wave_summary:
+    wave1: "vm107.macro_investigator + rubric.macro_investigator_qa"
+    wave2: "vm107.counterfactual_engine + rubric.counterfactual_engine_qa"
+    wave3: "vm107.macro_contradiction_detector + contract.b13_contradiction_engine"
+    wave4: "vm107.macro_relationship_discovery"
+    wave7: "event_type.alert_candidate_created (provisional, Phase 91 consumer)"
+
+  entries:
+
+    # ── Agent Profiles (4) ────────────────────────────────────────────────────
+
+    - id: vm107.macro_investigator
+      type: agent_profile
+      path: registry/agent_profile/vm107.macro_investigator.yaml
+      wave: 1
+      status: real
+      phase: 89
+      description: "User-driven free-form Q&A investigator with B5 self-evaluation"
+
+    - id: vm107.counterfactual_engine
+      type: agent_profile
+      path: registry/agent_profile/vm107.counterfactual_engine.yaml
+      wave: 2
+      status: real
+      phase: 89
+      description: "What-if counterfactual simulation grounded in historical analogues"
+
+    - id: vm107.macro_contradiction_detector
+      type: agent_profile
+      path: registry/agent_profile/vm107.macro_contradiction_detector.yaml
+      wave: 3
+      status: real
+      phase: 89
+      description: "Event-driven B13 contradiction detector with severity grading"
+
+    - id: vm107.macro_relationship_discovery
+      type: agent_profile
+      path: registry/agent_profile/vm107.macro_relationship_discovery.yaml
+      wave: 4
+      status: real
+      phase: 89
+      description: "Nightly background relationship discovery via correlation/lead-lag scanning"
+
+    # ── Rubrics (2) ───────────────────────────────────────────────────────────
+
+    - id: rubric.macro_investigator_qa
+      type: rubric
+      path: registry/rubric/rubric.macro_investigator_qa.yaml
+      wave: 1
+      status: real
+      phase: 89
+      description: "B5 rubric for macro_investigator — 5 weighted checks, sum=1.0"
+
+    - id: rubric.counterfactual_engine_qa
+      type: rubric
+      path: registry/rubric/rubric.counterfactual_engine_qa.yaml
+      wave: 2
+      status: real
+      phase: 89
+      description: "B5 rubric for counterfactual_engine — 3 lighter checks, sum=1.0"
+
+    # ── Contracts (1) ─────────────────────────────────────────────────────────
+
+    - id: contract.b13_contradiction_engine
+      type: contract
+      path: registry/contract/contract.b13_contradiction_engine.yaml
+      wave: 3
+      status: real
+      phase: 89
+      description: "B13 contradiction severity rules (info/warning/blocking) + beliefstore wiring"
+
+    # ── Event Types (1) ───────────────────────────────────────────────────────
+
+    - id: event_type.alert_candidate_created
+      type: event_type
+      path: registry/event_type/alert_candidate_created.yaml
+      wave: 7
+      status: provisional
+      phase: 89
+      description: "Provisional Phase 91 alert_candidate_created event schema (Decision 13)"

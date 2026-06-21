@@ -1,0 +1,68 @@
+# Phase 89 — Wave 7 (2026-06-21)
+# Provisional Phase 91 alert_candidate_created event schema (Decision 13).
+# This entry ships as status=provisional; Phase 91 owns the canonical schema.
+# Consumers MUST validate against envelope_schema_ref before processing.
+#
+# Severity translation from B13 internal → Phase 91 UAE severity levels:
+#   info      → Info
+#   warning   → Important
+#   blocking  → Critical
+#
+# Producer agents: vm107.macro_contradiction_detector + vm107.macro_relationship_discovery
+# Consumer phases: 91 (Universal Alert Engine, when shipped)
+
+id: event_type.alert_candidate_created
+type: event_type
+status: provisional
+shipped: 89
+last_changed: "2026-06-21"
+capability_type: event_type
+phase: 89
+schema_version: "0.1-provisional"
+refined_by_phase: 91
+refined_by_phase_plan_id: 91-XX
+
+description: >-
+  Phase 89 provisional event schema for alert_candidate_created. Emitted by
+  vm107.macro_contradiction_detector and vm107.macro_relationship_discovery
+  whenever a contradiction or discovery proposal rises to alert-candidate
+  status. Phase 91 Universal Alert Engine consumes this event. Until Phase 91
+  ships, consumers must validate against the JSON Schema at envelope_schema_ref.
+
+producer_agents:
+  - vm107.macro_contradiction_detector
+  - vm107.macro_relationship_discovery
+
+consumer_phases:
+  - 91   # Universal Alert Engine (when shipped)
+
+applies_to_consumers:
+  - phase: 91
+    consumer: universal_alert_engine
+    status: provisional
+    notes: "Phase 91 will own the canonical schema; provisional until then"
+
+envelope_schema_ref: VM107/tests/phase89/fixtures/alert_candidate_event.schema.json
+
+severity_translation:
+  info: Info
+  warning: Important
+  blocking: Critical
+
+provisional_notes: |
+  Phase 89 ships this contract as provisional. Phase 91 will own the canonical
+  schema in its capability registry. Until then, Phase 89 emits per this YAML;
+  consumers should validate against the JSON Schema at the envelope_schema_ref
+  path before processing.
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - event-type
+  - macro
+  - phase-89
+  - wave-7
+  - provisional
+  - alert-candidate
+  - phase-91-consumer
