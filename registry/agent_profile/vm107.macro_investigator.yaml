@@ -1,0 +1,145 @@
+# Phase 89 — Wave 1 (2026-06-21)
+# macro_investigator: user-driven free-form Q&A agent with B5 self-evaluation.
+# Decision 1 (user_driven), 5 (range_scope_required), 6 (per-profile rubric),
+# 7 (contradiction_check_required), 9 (word_cap), 11 (search_macro_research optional).
+
+id: vm107.macro_investigator
+type: agent_profile
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+name: vm107.macro_investigator
+description: >-
+  Phase 89 Wave 1 — user-driven free-form Q&A investigator agent. Answers
+  trader questions about macro releases and market events (REQ-89-1).
+  Wires Brain B5 self-evaluation (REQ-89-6): every emit is scored by
+  rubric.macro_investigator_qa before reaching the Phase 71 evidence drawer.
+  Decisions 5/7/9/11 baked in: range-scoped answers, contradiction gate,
+  250-word target (400 hard cap), optional research RAG (Phase 92 tool).
+  Decision 2 grounds counterfactual answers in historical analogues; Decision 12
+  delegates market impact simulation to Phase 90 Layer 4 API.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 89
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-21"
+    change: "Phase 89 Plan 01 — initial release as macro investigator with B5 self-eval"
+
+# Decision 1 — Investigator is on-demand user-driven, NOT always-on
+trigger: user_driven
+
+# Tool allow-list (Phase 47.6 register-on-ship lock)
+allowed_tools:
+  - vm102.indicator_history
+  - vm102.indicator_event_study
+  - vm102.indicator_correlations
+  - vm102.indicator_distribution
+  - vm105.neo4j_macro_graph_walker
+  - episodic_memory_service.query          # Phase 87 B6 reuse
+  - belief_store.query                     # Phase 87 B9 reuse
+  - lookup_capability
+  - lookup_reasoning_artifact
+  - phase71.evidence_drawer.write
+  - search_macro_research                  # OPTIONAL — Phase 92 (degrades gracefully if absent)
+
+# Optional tools — graceful degradation if absent (Decision 11 + Phase 88)
+optional_tools:
+  - search_macro_research                  # Decision 11 — investigator absorbs research copilot scope
+  - vm102.alfred.vintage_history           # Phase 88 graceful fallback
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Memory visibility (Phase 87 episodic + belief + B1 WORM)
+memory_visibility:
+  - episodic_memory_service                # Phase 87 episodic
+  - belief_store                           # Phase 87 belief
+  - reasoning_artifact                     # B1 WORM
+
+# Memory scope (public-factual analyst)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# B5 self-evaluation configuration (Decision 6 — per-profile rubric)
+b5_self_eval: true
+b5_rubric_id: rubric.macro_investigator_qa
+
+# B1 artifact required per Phase 85 lock
+b1_artifact_required: true
+
+# Cost budgets (Phase 47.6 fail-fast budgets)
+cost_budget_per_invocation:
+  chat_model_usd: 0.50
+  utility_model_usd: 0.20
+
+# Iteration / cost limits
+max_iterations: 8
+max_cost_usd: 0.70
+latency_budget_ms: 7000
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 30
+
+# Brain absorption ledger
+brain_absorbed:
+  - B1   # reasoning artifact persistence (Phase 85)
+  - B5   # response self-evaluation loop (Phase 89 Wave 1)
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.80
+expected_freshness_seconds: 0    # on-demand; no caching guarantee
+is_deterministic: false          # LLM-generated narrative
+version: "1.0.0"
+
+# Decision 1 — no sibling service (user-driven, not scheduled)
+sibling_service: null
+
+# Decision 7 — refuse confident emit when blocking contradiction active
+contradiction_check_required: true
+
+# Decision 5 — must honor {start_ts, end_ts} scope when provided by chart context
+range_scope_required: true
+
+# Decision 9 — answer length cap
+word_cap:
+  target: 250       # SHOULD-1: target for smooth trader reading
+  hard_cap: 400     # hard: rubric scores 0.0 on confidence_calibrated_and_concise if exceeded
+
+# REQ-89-1 acceptance + indicator.md §10 suggested prompts
+suggested_prompts:
+  - "Explain this release"
+  - "Compare with history"
+  - "Show affected assets"
+  - "Show opposite scenario"
+  - "Find similar events"
+  - "What changed?"
+  - "What should I watch next?"
+
+owner: engineering
+profile_path: VM107/registry/agent_profile/vm107.macro_investigator.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-89
+  - wave-1
+  - user-driven
+  - investigator
+  - b5-self-eval
+  - free-form-qa

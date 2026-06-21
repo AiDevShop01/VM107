@@ -1,0 +1,77 @@
+# Phase 89 — Wave 1 (2026-06-21)
+# B5 rubric for macro_investigator — 5 weighted checks + thresholds.
+# Decision 6: per-profile rubric (investigator has its own; counterfactual is Wave 2).
+# Decision 5: claims_within_cited_evidence enforces {start_ts, end_ts} range scope.
+# Decision 9: confidence_calibrated_and_concise enforces 250-word target / 400-word hard cap.
+
+id: rubric.macro_investigator_qa
+type: rubric
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+impact_on_decision: HIGH
+deprecated: false
+hard_scoped: false
+
+capability_type: rubric
+applies_to_profile: vm107.macro_investigator
+phase: 89
+
+description: >-
+  B5 self-evaluation rubric for vm107.macro_investigator. 5 weighted checks
+  (weights sum to 1.0) scored by the utility model (Phase 43.1 routing per
+  Decision 6 / Pitfall 1 cost guard). Thresholds route to accept/refine/reject;
+  refinement is capped at 1 loop (second fail or reject → graceful degradation).
+
+checks:
+  - id: cites_evidence
+    description: >-
+      Answer references >=1 evidence source via [ref:...] grammar.
+    weight: 0.30
+
+  - id: claims_within_cited_evidence
+    description: >-
+      No claim asserts a fact not supported by a cited source. When prompt provides
+      {start_ts, end_ts}, answer references that range only (Decision 5).
+    weight: 0.25
+
+  - id: acknowledges_uncertainty
+    description: >-
+      When analogue sample <10 OR period >20y stale, answer says so.
+    weight: 0.20
+
+  - id: correlation_not_causation
+    description: >-
+      Correlation language used; no "X caused Y" without explicit confounder discussion.
+    weight: 0.15
+
+  - id: confidence_calibrated_and_concise
+    description: >-
+      Stated confidence matches evidence strength AND word count <=400 hard cap;
+      warn if >250 target (Decision 9).
+    weight: 0.10
+
+threshold:
+  accept: 0.75
+  refine_below: 0.75
+  reject_below: 0.40
+
+refinement:
+  max_loops: 1
+  on_second_fail: "degrade_to_uncertain"
+
+graceful_degradation_text: |
+  I'm not sure I can answer this confidently — the evidence I found
+  was thin. You might try a narrower question (e.g. specific time
+  window, specific asset pair).
+
+utility_model_routing:
+  use_phase_43_1: true   # cheap fast model per Decision 6 / Pitfall 1
+
+tags:
+  - rubric
+  - b5
+  - macro
+  - phase-89
+  - wave-1
+  - investigator
