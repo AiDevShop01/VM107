@@ -1,0 +1,39 @@
+id: contract.b13_contradiction_engine
+type: contract
+status: real
+shipped: 89
+capability_type: contract
+applies_to_agent: vm107.macro_contradiction_detector
+phase: 89
+severity_rules:
+  info:
+    triggers:
+      - "single_asset_divergence_sigma: [1.5, 2.5]"
+    ui_surface: none
+    downstream_confidence_delta: 0
+  warning:
+    triggers:
+      - "single_asset_divergence_sigma: [2.5, 3.5]"
+      - "multi_asset_same_direction_sigma: [1.5, 2.5]"
+    ui_surface: indicator_page_banner
+    downstream_confidence_delta: -0.20
+  blocking:
+    triggers:
+      - "single_asset_divergence_sigma: '> 3.5'"
+      - "contradicts_beliefstore_belief_confidence: '> 0.7'"
+    ui_surface: indicator_page_banner_red
+    downstream_confidence_delta: "REFUSE_CONFIDENT_EMIT"
+    user_re_ask_behavior: "refuse_stands"     # Decision 7
+    refusal_text: "I cannot confidently answer this right now — a blocking contradiction is active. The system is awaiting human review. [Open Contradiction Inbox →]"
+resolution_strategies:
+  - "wait_for_evidence"
+  - "explicit_human_judgment"
+  - "weight_by_recency"
+beliefstore_wiring:
+  on_blocking_contradiction:
+    - "increment_contradicting_count_on_subject_belief"
+    - "if_belief_confidence_below_retirement_threshold: route_to_phase_53_governance"
+phase_91_severity_translation:                # Decision 13
+  info: Info
+  warning: Important
+  blocking: Critical
