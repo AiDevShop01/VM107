@@ -113,6 +113,19 @@ def publish_contradiction_raised(
         })
 
 
+def _kebab_slug(s: str) -> str:
+    """Convert a node ID to a kebab-safe slug for WS topics.
+
+    Replaces underscores and spaces with hyphens; lowercases.
+    E.g. 'CPI_AUCSL' → 'cpi-aucsl', 'Gold Price' → 'gold-price'.
+    """
+    import re
+    s = s.lower()
+    s = re.sub(r"[_\s]+", "-", s)
+    s = re.sub(r"[^a-z0-9\-]", "", s)
+    return s
+
+
 def publish_discovery_proposed(
     proposal_id: str,
     from_node: str,
@@ -120,18 +133,23 @@ def publish_discovery_proposed(
 ) -> None:
     """Publish a thin-invalidation WS message when a discovery proposal is made.
 
-    Phase 89 Plan 03 placeholder — Wave 4 (macro_relationship_discovery) will
-    exercise this function in its own tests.
+    Phase 89 Plan 04 Wave 4 — implements the placeholder from Plan 03.
 
-    Thin invalidation: payload is {topic, snapshot_id} ONLY.
-    VM100 <DiscoveryInbox /> subscribes to macro.discovery.proposed.
+    Topic: ``macro.discovery.{from_node}-to-{to_node}.proposed`` (kebab-safe slug).
+    Thin invalidation (Phase 74 contract): payload is {topic, snapshot_id} ONLY.
+    No domain data in the WS message — frontend re-fetches via /api/macro/discovery.
+
+    VM100 <DiscoveryInbox /> subscribes to ``macro.discovery.*.proposed``
+    or the specific per-pair topic.
 
     Args:
         proposal_id: UUID string of the EdgeProposal artifact.
         from_node: Source indicator/asset node ID.
         to_node: Target indicator/asset node ID.
     """
-    topic = "macro.discovery.proposed"
+    from_slug = _kebab_slug(from_node)
+    to_slug = _kebab_slug(to_node)
+    topic = f"macro.discovery.{from_slug}-to-{to_slug}.proposed"
     msg = {"topic": topic, "snapshot_id": str(uuid4())}
     try:
         r = redis.from_url(_get_redis_url())
