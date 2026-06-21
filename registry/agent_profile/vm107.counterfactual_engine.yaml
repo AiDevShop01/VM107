@@ -1,0 +1,163 @@
+# Phase 89 — Wave 2 (2026-06-21)
+# counterfactual_engine: user-driven "what if" agent wrapping Phase 90 Layer 4
+# market-impact forecast (Decision 12) with explicit fallback to Phase 86
+# event-study + Phase 87 analogue retrieval (Pitfall 5).
+#
+# Decisions baked in:
+#   Decision 2  — k_analogues_minimum=5 hard floor; refuse below (no fabrication)
+#   Decision 6  — lighter 3-check rubric (counterfactual has its own, separate from investigator)
+#   Decision 7  — contradiction_check_required=true (same gate as investigator)
+#   Decision 12 — wraps Phase 90 /forecast/market-impact when available; falls back otherwise
+
+id: vm107.counterfactual_engine
+type: agent_profile
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+name: vm107.counterfactual_engine
+description: >-
+  Phase 89 Wave 2 — user-driven counterfactual simulation agent. Answers
+  "what if CPI had missed by 0.3%?" by grounding estimates in real
+  historical analogues from Phase 87 Neo4j graph + Phase 86 event-study
+  (REQ-89-2). Decision 12: wraps Phase 90 Layer 4 /forecast/market-impact
+  when shipped; falls back to Phase 86 event-study path when Phase 90 is
+  absent (Pitfall 5 — never silent error). Decision 2: refuses with
+  "insufficient analogues, sample size N=X" if fewer than 5 analogues
+  found — never fabricates moves. Decision 7: checks
+  contradiction_engine.active_blocking() before emit.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 89
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-21"
+    change: "Phase 89 Plan 02 — initial release as counterfactual engine with Phase 90 stub-fallback"
+
+# Decision 1 — Counterfactual is on-demand user-driven
+trigger: user_driven
+
+# Tool allow-list (Phase 47.6 register-on-ship lock)
+allowed_tools:
+  - vm102.indicator_event_study           # Phase 86 reuse — primary fallback + analogue scoring
+  - vm102.indicator_distribution          # Phase 86 — analogue range context
+  - vm105.neo4j_macro_graph_walker        # Phase 87 — analogue retrieval by indicator + surprise range
+  - belief_store.query                    # Decision 7 — check blocking contradictions before emit
+  - lookup_capability
+  - lookup_reasoning_artifact
+  - phase71.evidence_drawer.write
+  - phase90.forecast_market_impact        # OPTIONAL — Decision 12; stub-fallback when 90 not shipped
+
+# Optional tools — graceful degradation if absent (Decision 12 + Pitfall 5)
+optional_tools:
+  - phase90.forecast_market_impact        # Decision 12 — prefer Phase 90 when shipped
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+  - search_macro_research                 # out of scope — counterfactual is analogue-grounded, not research
+
+# Memory visibility (Phase 87 episodic + belief + B1 WORM)
+memory_visibility:
+  - episodic_memory_service               # Phase 87 episodic (analogue recall)
+  - belief_store                          # Phase 87 belief (blocking check)
+  - reasoning_artifact                    # B1 WORM
+
+# Memory scope (public-factual analyst — same as investigator)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# B5 self-evaluation configuration (Decision 6 — lighter 3-check rubric)
+b5_self_eval: true
+b5_rubric_id: rubric.counterfactual_engine_qa
+
+# B1 artifact required per Phase 85 lock
+b1_artifact_required: true
+
+# Brain absorption ledger
+brain_absorbed:
+  - B1   # reasoning artifact persistence (Phase 85)
+  - B5   # response self-evaluation loop (Phase 89 Wave 1 infrastructure)
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.75          # slightly lower than investigator — analogue-based
+expected_freshness_seconds: 0     # on-demand; no caching guarantee
+is_deterministic: false           # LLM-generated narrative
+
+# Cost budgets — heavier than investigator (graph query + event-study + possibly Phase 90)
+cost_budget_per_invocation:
+  chat_model_usd: 0.40
+  utility_model_usd: 0.15
+
+# Iteration / cost limits
+max_iterations: 6
+max_cost_usd: 0.55
+latency_budget_ms: 8000           # heavier than investigator (graph + event-study)
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 25
+
+# Decision 1 — no sibling service (user-driven, not scheduled)
+sibling_service: null
+
+# Decision 7 — refuse confident emit when blocking contradiction active
+contradiction_check_required: true
+
+# Decision 2 — analogue floors
+k_analogues_default: 20           # default k passed to neo4j_macro_graph_walker.query_analogues
+k_analogues_minimum: 5            # hard floor — engine refuses if len(analogues) < 5
+
+# Phase 90 stub-fallback configuration (Decision 12 + Pitfall 5)
+phase_90_forecast_env_var: "PHASE_90_FORECAST_URL"
+fallback_path_when_phase_90_absent: "phase_86_event_study"
+
+# Low-confidence flag rules (per 89-ARCHITECTURE §5.3 ExpectedMove.low_confidence_flag)
+low_confidence_flags:
+  sample_size_below: 10           # N<10 → low_confidence_flag=True on all ExpectedMove cells
+  analogue_period_years_above: 20 # period span >20y → stale → low_confidence_flag=True
+  regime_divergent: true          # divergent regime_alignment → low_confidence_flag=True
+
+# Answer length target — shorter than investigator (table + brief narrative)
+word_cap:
+  target: 200
+  hard_cap: 350
+
+# Assets covered by this engine's expected-move table (per 89-ARCHITECTURE §5.3)
+target_assets:
+  - DXY
+  - Gold
+  - SPX
+  - UST10Y
+
+# Expected-move windows per output contract
+output_windows:
+  - "T+1h"
+  - "T+1d"
+  - "T+1w"
+
+owner: engineering
+profile_path: VM107/registry/agent_profile/vm107.counterfactual_engine.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-89
+  - wave-2
+  - user-driven
+  - counterfactual
+  - b5-self-eval
+  - analogue-grounded
+  - phase-90-stub

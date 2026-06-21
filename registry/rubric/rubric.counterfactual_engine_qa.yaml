@@ -1,0 +1,78 @@
+# Phase 89 — Wave 2 (2026-06-21)
+# B5 rubric for counterfactual_engine — 3 lighter checks per Decision 6.
+# Decision 6: counterfactual gets its own rubric, lighter than investigator's 5-check.
+# Focus: "narrative matches numbers" (not general evidence quality).
+#
+# Weights must sum to 1.0:
+#   narrative_matches_numbers         0.45
+#   sample_size_and_period_acknowledged  0.35
+#   regime_alignment_stated           0.20
+#                                  ------
+#                                     1.00
+
+id: rubric.counterfactual_engine_qa
+type: rubric
+status: real
+shipped: 89
+last_changed: "2026-06-21"
+impact_on_decision: HIGH
+deprecated: false
+hard_scoped: false
+
+capability_type: rubric
+applies_to_profile: vm107.counterfactual_engine
+phase: 89
+
+description: >-
+  B5 self-evaluation rubric for vm107.counterfactual_engine. 3 lightweight
+  checks (weights sum to 1.0) scored by the utility model (Phase 43.1 routing,
+  Decision 6 / Pitfall 1 cost guard). Lighter than the investigator's 5-check
+  rubric — counterfactual answers are more structured (expected-move table +
+  short narrative) so fewer orthogonal quality dimensions are needed. Thresholds
+  match the investigator (accept>=0.75, refine below, reject<0.40).
+
+checks:
+  - id: narrative_matches_numbers
+    description: >-
+      Narrative claims (e.g. "DXY typically rose +0.X%") match the per-asset
+      expected-move table values within tolerance. No number in prose that
+      contradicts the tabulated mean_pct / confidence_interval.
+    weight: 0.45
+
+  - id: sample_size_and_period_acknowledged
+    description: >-
+      Narrative explicitly states analogue count (N=X) and approximate period
+      (e.g. "2015–2024"). When N<10 OR period span >20y, answer explicitly
+      flags low confidence per low_confidence_flags rules.
+    weight: 0.35
+
+  - id: regime_alignment_stated
+    description: >-
+      Narrative mentions regime alignment status ("aligned", "partial", or
+      "divergent") matching the output contract's regime_alignment field.
+      Does not omit the qualifier.
+    weight: 0.20
+
+threshold:
+  accept: 0.75
+  refine_below: 0.75
+  reject_below: 0.40
+
+refinement:
+  max_loops: 1
+  on_second_fail: "degrade_to_uncertain"
+
+graceful_degradation_text: |
+  I can't confidently project this scenario right now — the historical
+  analogues were too thin or too dissimilar to current conditions.
+
+utility_model_routing:
+  use_phase_43_1: true   # cheap fast model per Decision 6 / Pitfall 1
+
+tags:
+  - rubric
+  - b5
+  - macro
+  - phase-89
+  - wave-2
+  - counterfactual
