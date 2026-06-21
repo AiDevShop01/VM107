@@ -1,5 +1,11 @@
 """WS invalidation publisher for macro indicator updates (Phase 85 Plan 11).
 
+Extended in Phase 89 Plan 03 (Wave 3) with:
+  - publish_contradiction_raised(indicator_id, contradiction_id, severity) — fires when
+    the B13 contradiction detector detects a warning or blocking divergence.
+  - publish_discovery_proposed(proposal_id, from_node, to_node) — placeholder for Wave 4
+    discovery agent; Wave 4's test will exercise this function.
+
 Publishes a thin-invalidation message to the Redis topic
 ``macro.indicator.<indicator_id>.updated`` when all 3 Phase 85 agents have
 completed their analysis for a given release event.
@@ -11,6 +17,10 @@ Phase 74 contract (thin-invalidation):
 D3 lock:
   Per-indicator topic ``macro.indicator.<id>.updated``.
   NEVER the bulk ``macro.indicators.updated``.
+
+Phase 89 contradiction topic:
+  ``macro.contradiction.<indicator_id>.raised`` — thin invalidation.
+  Payload: {topic, snapshot_id} ONLY — no domain data.
 
 REDIS_URL fail-fast:
   The ``REDIS_URL`` env var is resolved at module load time via ``_required()``.
@@ -61,6 +71,86 @@ def _get_redis_url() -> str:
     if _REDIS_URL is None:
         _REDIS_URL = _required("REDIS_URL")
     return _REDIS_URL
+
+
+def publish_contradiction_raised(
+    indicator_id: str,
+    contradiction_id: str,
+    severity: str = "warning",
+) -> None:
+    """Publish a thin-invalidation WS message when a contradiction is raised.
+
+    Phase 89 Plan 03 — B13 contradiction detector publishes this on every
+    warning or blocking contradiction. VM100 <ContradictionBanner /> subscribes.
+
+    Thin invalidation contract (Phase 74): payload is {topic, snapshot_id} ONLY.
+    No domain data (no severity, no predicted/actual values) in the WS message.
+    Frontend re-fetches contradiction details via /api/macro/contradictions/active.
+
+    Args:
+        indicator_id: FRED indicator ID (e.g. "CPIAUCSL").
+        contradiction_id: UUID string of the contradiction artifact.
+        severity: B13 severity level — for logging/routing only, NOT in WS payload.
+    """
+    topic = f"macro.contradiction.{indicator_id}.raised"
+    msg = {"topic": topic, "snapshot_id": str(uuid4())}
+    try:
+        r = redis.from_url(_get_redis_url())
+        r.publish(topic, json.dumps(msg))
+        r.close()
+        logger.info({
+            "event": "phase89_contradiction_ws_published",
+            "topic": topic,
+            "contradiction_id": contradiction_id,
+            "severity": severity,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.error({
+            "event": "phase89_contradiction_ws_publish_failed",
+            "topic": topic,
+            "contradiction_id": contradiction_id,
+            "error": str(exc),
+        })
+
+
+def publish_discovery_proposed(
+    proposal_id: str,
+    from_node: str,
+    to_node: str,
+) -> None:
+    """Publish a thin-invalidation WS message when a discovery proposal is made.
+
+    Phase 89 Plan 03 placeholder — Wave 4 (macro_relationship_discovery) will
+    exercise this function in its own tests.
+
+    Thin invalidation: payload is {topic, snapshot_id} ONLY.
+    VM100 <DiscoveryInbox /> subscribes to macro.discovery.proposed.
+
+    Args:
+        proposal_id: UUID string of the EdgeProposal artifact.
+        from_node: Source indicator/asset node ID.
+        to_node: Target indicator/asset node ID.
+    """
+    topic = "macro.discovery.proposed"
+    msg = {"topic": topic, "snapshot_id": str(uuid4())}
+    try:
+        r = redis.from_url(_get_redis_url())
+        r.publish(topic, json.dumps(msg))
+        r.close()
+        logger.info({
+            "event": "phase89_discovery_ws_published",
+            "topic": topic,
+            "proposal_id": proposal_id,
+            "from_node": from_node,
+            "to_node": to_node,
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.error({
+            "event": "phase89_discovery_ws_publish_failed",
+            "topic": topic,
+            "proposal_id": proposal_id,
+            "error": str(exc),
+        })
 
 
 def publish_indicator_updated(indicator_id: str) -> None:
