@@ -29,12 +29,8 @@ allowed_tools:
   - vm102.indicator_event_study
   - vm102.indicator_correlations
   - vm102.indicator_distribution
-  - episodic_memory_service.query
-  - belief_store.query
   - lookup_capability
   - lookup_reasoning_artifact
-  - phase71.evidence_drawer.write
-  - search_macro_research
   - response
 
 # Optional tools — graceful degradation if absent (Decision 11)
@@ -47,6 +43,10 @@ denied_tools:
   - code_execution_tool
   - trade_execution_tool
   - filesystem_write
+  - search_macro_research           # not implemented (Phase 92 planned) — deny immediately
+  - episodic_memory_service.query   # memory injection via profile memory_visibility, not a callable tool
+  - belief_store.query              # ditto — not a callable tool in this runtime
+  - phase71.evidence_drawer.write   # Phase 71 not deployed — deny to prevent wasted LLM rounds
 
 # Memory visibility (Phase 87 episodic + belief + B1 WORM)
 memory_visibility:

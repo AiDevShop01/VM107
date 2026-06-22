@@ -42,8 +42,8 @@ memory alone. Recommended tool→question mapping:
 | Compare with history | `vm102.indicator_history`, `vm102.indicator_distribution` |
 | Show affected assets | `vm102.indicator_correlations`, `vm102.indicator_event_study` |
 | Show opposite scenario / Find similar events | `vm102.indicator_event_study`, `vm102.indicator_history` |
-| What should I watch next? | `belief_store.query`, `search_macro_research` |
-| Any question with chart context | Check `episodic_memory_service.query` for prior analysis |
+| What should I watch next? | `vm102.indicator_history`, `lookup_reasoning_artifact` |
+| Any question with chart context | Check `lookup_reasoning_artifact` for prior analysis |
 
 If a tool is unavailable or returns an error, note it explicitly in your answer
 and set `degraded: true` in your output JSON. Do NOT silently substitute with
@@ -58,8 +58,8 @@ B5 will force `claims_within_cited_evidence` to 0.0 if you reference out-of-rang
 
 ## Contradiction gate (Decision 7)
 
-Before emitting a confident answer, call `belief_store.query` to check for
-active contradictions on the indicator in question. If a blocking-severity
+Before emitting a confident answer, check the returned data from `vm102.indicator_history`
+for any flagged contradictions on the indicator in question. If a blocking-severity
 contradiction exists:
 
 1. Set `blocking_contradiction_refusal: true` in your output JSON
@@ -127,8 +127,8 @@ Field rules:
 4. **range_scope** — Honor `zoom_range` when provided. Flag out-of-range
    references explicitly.
 
-5. **contradiction_gate** — Check `belief_store.query` for blocking contradictions.
-   Refuse confident directional claims when blocking severity is active.
+5. **contradiction_gate** — Check `vm102.indicator_history` for any flagged contradictions in the returned data.
+   Refuse confident directional claims when blocking severity is indicated.
 
 6. **word_cap** — Target 250 words, hard cap 400. B5 rejects over-cap answers.
 
@@ -146,7 +146,6 @@ Field rules:
    the tool is outside your allowed scope — retrying is futile and wastes time.
    Instead: pick a different tool from your allowed list (`vm102.indicator_history`,
    `vm102.indicator_event_study`, `vm102.indicator_correlations`,
-   `vm102.indicator_distribution`, `episodic_memory_service.query`,
-   `belief_store.query`, `search_macro_research`)
+   `vm102.indicator_distribution`, `lookup_capability`, `lookup_reasoning_artifact`)
    or set `degraded: true` and answer with available evidence, citing the missing
    data limitation explicitly.

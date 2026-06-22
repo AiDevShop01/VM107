@@ -43,12 +43,12 @@ allowed_tools:
   - vm102.indicator_event_study
   - vm102.indicator_correlations
   - vm102.indicator_distribution
-  - episodic_memory_service.query          # Phase 87 B6 reuse
-  - belief_store.query                     # Phase 87 B9 reuse
   - lookup_capability
   - lookup_reasoning_artifact
-  - phase71.evidence_drawer.write
-  - search_macro_research                  # OPTIONAL — Phase 92 (degrades gracefully if absent)
+# episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write
+# removed from allowed_tools — not callable tools in this runtime. Moved to denied_tools.
+# search_macro_research removed from allowed_tools — tool not implemented (Phase 92 planned).
+# Moved to denied_tools to prevent wasted LLM rounds on "Tool not found" errors.
 
 # Optional tools — graceful degradation if absent (Decision 11 + Phase 88)
 optional_tools:
@@ -61,6 +61,10 @@ denied_tools:
   - trade_execution_tool
   - filesystem_write
   - vm105.neo4j_macro_graph_walker      # not deployed in dev (proxy missing) — deny to prevent wasted rounds
+  - search_macro_research               # not implemented (Phase 92 planned) — deny to prevent wasted LLM rounds
+  - episodic_memory_service.query       # not a callable tool — memory injected via memory_visibility profile field
+  - belief_store.query                  # not a callable tool in this runtime
+  - phase71.evidence_drawer.write       # Phase 71 not deployed in dev
 
 # Memory visibility (Phase 87 episodic + belief + B1 WORM)
 memory_visibility:
