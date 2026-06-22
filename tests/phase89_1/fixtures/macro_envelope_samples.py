@@ -163,3 +163,43 @@ BARE_JSON_TRAILING_EXTRA_BRACE = (
     # NOTE: trailing \n} after the well-formed JSON object — this is the LLM generation artifact
     # that caused json.loads() to fail in the v7 UAT batch (5/20 questions affected)
 )
+
+# ---------------------------------------------------------------------------
+# Phase 89.1 Plan 05 regression fixture — double-encoded JSON quotes
+# Observed in v8 UAT batch: deepseek-v4-flash intermittently emits \\" (literal
+# backslash + quote) inside JSON string values instead of \" (the correct JSON
+# escape). This causes json.loads() to see a bare " that prematurely terminates
+# the string → JSONDecodeError: "Unterminated string" → envelope=None → leakage.
+#
+# Affected in v8 batch: Q1, Q5, Q11 (3/20 questions).
+# The raw text ends with: `\\"blocking_contradiction_refusal\\": false}`
+# where the `\\"` before `blocking` terminates the answer string early.
+# ---------------------------------------------------------------------------
+
+# Construct a string that has the two-character sequence backslash+quote (\")
+# embedded inside the JSON answer value — this mimics the LLM artifact where
+# the model emits double-backslash+quote (\\\") in the serialised text.
+# In Python source: '\\\\\"' is the four-char sequence \\\" (two backslashes + quote).
+# In the actual string value: \\" (backslash + backslash + quote).
+# In a JSON parser's view: \\ → one literal backslash, " → closes the string.
+_DOUBLE_ENCODED_ANSWER = (
+    'The September 2023 FOMC meeting concluded with rates on hold, but the'
+    ' \\\\"higher for longer\\\\" guidance embedded in the dot plot repriced'
+    ' front-end Treasury yields significantly higher.'
+)
+
+BARE_JSON_DOUBLE_ENCODED_QUOTES = (
+    '{"answer": "' + _DOUBLE_ENCODED_ANSWER + '",'
+    ' "citations": ['
+    '{"citation_id": "history:FEDFUNDS-hike-regime",'
+    ' "source": "vm102.indicator_history (FEDFUNDS, 3Y range)",'
+    ' "snippet": "FEDFUNDS 3Y series showing 2022-2023 hiking cycle."},'
+    '{"citation_id": "release:FEDFUNDS-2023-09",'
+    ' "source": "vm102.indicator_history",'
+    ' "snippet": "FEDFUNDS Sep 2023 = 5.33% (peak of hiking cycle)."}],'
+    ' "degraded": false, "blocking_contradiction_refusal": false}'
+)
+# NOTE: the \\\" sequences inside the answer string will cause json.loads() to fail
+# with "Unterminated string" because json sees \\ → literal backslash, then
+# " → string termination. The fix (step 4b in parse_macro_envelope) repairs this
+# by replacing \\" with \" before retrying raw_decode.

@@ -16,6 +16,7 @@ import types
 import pytest
 
 from tests.phase89_1.fixtures.macro_envelope_samples import (
+    BARE_JSON_DOUBLE_ENCODED_QUOTES,
     BARE_JSON_NO_FENCE,
     BARE_JSON_TRAILING_EXTRA_BRACE,
     FENCE_MALFORMED_JSON,
@@ -86,6 +87,41 @@ def test_bare_json_no_fence_backward_compat():
     assert "citations" in envelope, "envelope missing 'citations' key"
     assert len(envelope["citations"]) >= 2
     assert "answer" in envelope
+
+
+@pytest.mark.phase89_1
+def test_bare_json_double_encoded_quotes_extracted():
+    """Phase 89.1 Plan 05 regression: bare JSON with double-encoded quotes (\\").
+
+    deepseek-v4-flash intermittently emits \\" (literal backslash + quote) inside
+    JSON string values instead of \" (the correct JSON escape).  The json parser
+    sees the bare " as string termination → JSONDecodeError: "Unterminated string"
+    → envelope=None → JSON blob leaks into answer field, citations stay empty.
+
+    Affected in v8 UAT batch: Q1, Q5, Q11 (3/20 questions).
+
+    The fix (step 4b in parse_macro_envelope): after raw_decode fails, replace
+    every \\" with \" and retry — handles the dominant double-encoding artifact
+    without altering well-formed JSON.
+    """
+    prose, envelope = parse_macro_envelope(BARE_JSON_DOUBLE_ENCODED_QUOTES)
+
+    assert envelope is not None, (
+        "Expected envelope dict for bare JSON with double-encoded quotes — "
+        "step 4b repair not working"
+    )
+    assert "citations" in envelope, "envelope missing 'citations' key"
+    assert len(envelope["citations"]) >= 2, (
+        f"Expected >=2 citations, got {len(envelope['citations'])}"
+    )
+    assert "answer" in envelope
+    # answer field must be prose text, not the raw JSON blob
+    assert not prose.strip().startswith("{"), (
+        "Prose should be the extracted answer text, not the JSON blob"
+    )
+    assert '"citations":' not in prose, (
+        "Envelope JSON leaked into answer prose despite double-encoded-quotes fix"
+    )
 
 
 @pytest.mark.phase89_1

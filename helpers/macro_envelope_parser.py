@@ -123,5 +123,29 @@ def parse_macro_envelope(answer_text: str) -> tuple[str, dict | None]:
     except (ValueError, TypeError):
         pass
 
+    # Step 4b: raw_decode failed — try repairing double-encoded JSON quotes.
+    # deepseek-v4-flash intermittently emits \\" (a literal backslash followed by a
+    # quote character) inside JSON string values instead of \" (the correct JSON
+    # escape sequence for an embedded quote).  When this artifact is present, the
+    # JSON parser sees the bare `"` after `\\` as a string-termination character,
+    # causing an "Unterminated string" JSONDecodeError.
+    #
+    # Observed in v8 UAT batch: Q1, Q5, Q11 all ended with `\\"key\\": value}`
+    # where `\\"` prematurely closed the answer string.
+    #
+    # Fix: replace every `\\"` (four chars: backslash backslash quote in the raw
+    # Python string, i.e. the two-char sequence backslash+quote in the text)
+    # with `\"` (the standard JSON escape) and retry raw_decode.
+    try:
+        repaired = stripped.replace('\\\\"', '\\"')
+        if repaired != stripped:  # only retry if the substitution changed anything
+            decoder2 = json.JSONDecoder()
+            envelope, end_idx = decoder2.raw_decode(repaired)
+            if isinstance(envelope, dict) and "answer" in envelope:
+                prose = envelope.get("answer", "")
+                return prose, envelope
+    except (ValueError, TypeError):
+        pass
+
     # Step 5: No fence, no parseable JSON — return full text as prose.
     return answer_text, None
