@@ -29,19 +29,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def run_b5_hook(agent: Any) -> None:
+def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
     """Run the B5 self-evaluation loop for the given agent.
 
     Modifies agent in-place:
       - agent.set_data("confidence_self_report", score_total)
       - agent.set_data("b5_result", result_dict)
       - agent.set_data("b5_degraded", True) on reject/second-fail
-      - agent.last_response replaced with graceful_degradation_text on degrade
+      - loop_data.params_temporary["current_agent_response"] replaced with
+        graceful_degradation_text on degrade (agent.last_response doesn't exist on
+        the Agent class — it lives on LoopData, and the current response text is
+        stored in loop_data.params_temporary["current_agent_response"] by agent.py
+        before calling the response_self_check extension slot).
 
     Safe to call in tests via direct import — no Extension framework required.
 
     Args:
-        agent: The agent instance (duck-typed; provides get_data/set_data/last_response).
+        agent: The agent instance (duck-typed; provides get_data/set_data).
+        loop_data: The LoopData instance (optional; used to read/write current
+            response text via params_temporary["current_agent_response"]).
     """
     profile: dict = getattr(agent, "profile", {}) or {}
 
@@ -72,8 +78,21 @@ def run_b5_hook(agent: Any) -> None:
     util_budget: float = cost_budget.get("utility_model_usd", 0.20)
     util_spent: float = agent.get_data("b5_utility_model_spend", 0.0) or 0.0
 
-    # Get current agent response text
-    answer: str = agent.last_response or ""
+    # Get current agent response text.
+    # Priority: loop_data.params_temporary["current_agent_response"] (set by agent.py
+    # just before calling the response_self_check slot).
+    # Fallback: loop_data.last_response (previous iteration, less accurate).
+    # Final fallback: empty string (B5 will score low and degrade).
+    answer: str = ""
+    if loop_data is not None:
+        answer = (
+            loop_data.params_temporary.get("current_agent_response")
+            or getattr(loop_data, "last_response", "")
+            or ""
+        )
+    if not answer:
+        # Legacy path for tests that don't pass loop_data
+        answer = getattr(agent, "last_response", "") or ""
 
     # Get prompt context (for range-scope enforcement, Decision 5)
     prompt_context: dict = agent.get_data("prompt_context") or {}
@@ -110,7 +129,7 @@ def run_b5_hook(agent: Any) -> None:
                     "total": total,
                 },
             )
-            _degrade(agent, rubric, total)
+            _degrade(agent, rubric, total, loop_data)
             return
 
         # Inject refinement context into conversation history and re-run
@@ -128,16 +147,26 @@ def run_b5_hook(agent: Any) -> None:
         return
 
     # refine exhausted OR reject → degrade
-    _degrade(agent, rubric, total)
+    _degrade(agent, rubric, total, loop_data)
 
 
-def _degrade(agent: Any, rubric: dict, total: float) -> None:
+def _degrade(agent: Any, rubric: dict, total: float, loop_data: Any = None) -> None:
     """Replace agent response with graceful degradation text and mark degraded."""
     degradation_text: str = rubric.get(
         "graceful_degradation_text",
         "I'm not confident enough to answer this — please try a narrower question.",
     )
-    agent.last_response = degradation_text
+    # Write degradation text to loop_data.params_temporary["current_agent_response"]
+    # so agent.py picks it up when assembling the final answer.
+    # agent.last_response does NOT exist on Agent — it lives on LoopData.
+    if loop_data is not None:
+        loop_data.params_temporary["current_agent_response"] = degradation_text
+    else:
+        # Legacy path for tests: fall back to attribute set (harmless if absent)
+        try:
+            agent.last_response = degradation_text
+        except AttributeError:
+            pass
     agent.set_data("b5_degraded", True)
     # Ensure confidence_self_report is set (already set before _degrade is called)
     logger.warning(

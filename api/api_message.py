@@ -120,6 +120,48 @@ class ApiMessage(ApiHandler):
         with self._cleanup_lock:
             self._chat_lifetimes[context_id] = datetime.now() + timedelta(hours=lifetime_hours)
 
+        # Phase 89 Plan 01 wiring fix (Bug 1 + Bug 3) — load profile YAML + populate
+        # agent.profile dict + inject system prompt so B5 self-check + citation tool-use
+        # actually fire. /api/api_message bypasses the Phase 85.1 task scheduler that
+        # macro_release_analyst uses, so we replicate the minimum profile-aware setup here.
+        if agent_profile == "vm107.macro_investigator":
+            try:
+                import yaml as _yaml
+                from helpers import files as _files
+
+                _registry_path = _files.get_abs_path(
+                    "registry/agent_profile/vm107.macro_investigator.yaml"
+                )
+                with open(_registry_path, "r", encoding="utf-8") as _f:
+                    _profile_dict = _yaml.safe_load(_f) or {}
+                # Populate agent.profile (dict) so B5 hook + downstream profile-gated
+                # extensions can read agent.profile.get("b5_self_eval"), etc.
+                context.agent0.profile = _profile_dict
+                # Set profile_id slot so reasoning_stream_end persist hook can route
+                # macro_* profile traffic to the B1 WORM artifact.
+                context.agent0.set_data("profile_id", "vm107.macro_investigator")
+                # Inject the citation-mandating system prompt as a one-time system
+                # message in front of the user prompt. Production path doesn't run
+                # initialize_chats for ad-hoc sessions, so we prepend the prompt
+                # to the user message rather than fight A0's prompt resolution.
+                _prompt_path = _files.get_abs_path("prompts/macro_investigator.md")
+                if os.path.exists(_prompt_path):
+                    with open(_prompt_path, "r", encoding="utf-8") as _pf:
+                        _sys_prompt = _pf.read()
+                    # Attach system_message via UserMessage.system_message list — A0
+                    # message_loop_prompts_after picks these up and injects into the
+                    # next LLM call.
+                    if not hasattr(self, "_macro_investigator_system_message"):
+                        pass
+                    # Store on agent.data so a later extension or this same flow
+                    # can inject it. Cleaner: pass via UserMessage.system_message
+                    # below in the `communicate(...)` call.
+                    context.agent0.set_data("_macro_investigator_system_message", _sys_prompt)
+            except Exception as _exc:
+                PrintStyle.error(
+                    f"Phase 89 macro_investigator profile load failed: {_exc}"
+                )
+
         # Process message
         try:
             # Log the message
@@ -145,7 +187,13 @@ class ApiMessage(ApiHandler):
             )
 
             # Send message to agent
-            task = context.communicate(UserMessage(message=message, attachments=attachment_paths, id=msg_id))
+            # Phase 89: attach the macro_investigator system prompt via system_message
+            # so the citation/tool-use instructions reach the LLM.
+            _sys_msgs: list[str] = []
+            _sys_prompt = context.agent0.get_data("_macro_investigator_system_message")
+            if _sys_prompt:
+                _sys_msgs = [_sys_prompt]
+            task = context.communicate(UserMessage(message=message, attachments=attachment_paths, id=msg_id, system_message=_sys_msgs))
             result = await task.result()
 
             # Clean up expired chats
@@ -166,7 +214,11 @@ class ApiMessage(ApiHandler):
                 import uuid as _uuid
 
                 agent0 = context.agent0
-                answer_text = (agent0.last_response or result or "").strip()
+                # `result` is the monologue return value (the final response text).
+                # agent0.last_response does NOT exist on Agent — it lives on LoopData.
+                # Use `result` directly; the JSON-envelope parse below will extract
+                # structured fields if the model emitted the prompt's JSON schema.
+                answer_text = (result or "").strip()
                 citations = agent0.get_data("citations") or []
                 b5_result = agent0.get_data("b5_result")
                 degraded = bool(agent0.get_data("b5_degraded") or False)

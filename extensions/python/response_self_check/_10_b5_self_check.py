@@ -56,13 +56,19 @@ class B5SelfCheckExtension(Extension):
             # Not a B5-enabled profile — skip silently
             return
 
+        # loop_data is passed by agent.py's response_self_check call site so that
+        # run_b5_hook can read/write the current response text via
+        # loop_data.params_temporary["current_agent_response"].
+        loop_data = kwargs.get("loop_data")
+
         try:
-            run_b5_hook(agent)
+            run_b5_hook(agent, loop_data=loop_data)
         except Exception as exc:
             # B5 is observability / quality gate — it must NOT crash the agent loop.
             # Log at ERROR so monitoring detects B5 outages without breaking emission.
             logger.error(
-                "b5_self_check_failed",
+                f"b5_self_check_failed profile={profile.get('id', 'unknown')} error={type(exc).__name__}: {exc}",
+                exc_info=True,
                 extra={
                     "event": "b5_self_check_failed",
                     "profile_id": profile.get("id", "unknown"),

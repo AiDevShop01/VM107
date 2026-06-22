@@ -487,6 +487,11 @@ class Agent:
                         # Phase 89 Plan 01 wiring fix — fire B5 response_self_check slot
                         # Must fire BEFORE reasoning_stream_end so the persist hook can
                         # read b5_result / confidence_self_report that B5 sets here.
+                        # Store agent_response in loop_data so the B5 extension can read
+                        # the current response text (agent.last_response doesn't exist on
+                        # Agent — it lives on LoopData, and loop_data.last_response still
+                        # holds the PREVIOUS iteration's text at this point in the loop).
+                        self.loop_data.params_temporary["current_agent_response"] = agent_response
                         await extension.call_extensions_async(
                             "response_self_check", self, loop_data=self.loop_data
                         )
