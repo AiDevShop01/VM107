@@ -44,6 +44,13 @@ def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
 
     Safe to call in tests via direct import — no Extension framework required.
 
+    IMPORTANT — agent.get_data() contract:
+      Production Agent.get_data(self, field: str) accepts EXACTLY ONE argument
+      (the key). It returns None when the key is absent — no default parameter.
+      Always use: `agent.get_data("key") or default` NOT `agent.get_data("key", default)`.
+      MagicMock absorbs extra args silently, so the wrong form passes all unit tests
+      but raises TypeError in production (RCA 89.1-02: H4).
+
     Args:
         agent: The agent instance (duck-typed; provides get_data/set_data).
         loop_data: The LoopData instance (optional; used to read/write current
@@ -76,7 +83,7 @@ def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
     # Cost guard (Pitfall 1) — check utility-model spend before scoring
     cost_budget: dict = profile.get("cost_budget_per_invocation", {})
     util_budget: float = cost_budget.get("utility_model_usd", 0.20)
-    util_spent: float = agent.get_data("b5_utility_model_spend", 0.0) or 0.0
+    util_spent: float = agent.get_data("b5_utility_model_spend") or 0.0
 
     # Get current agent response text.
     # Priority: loop_data.params_temporary["current_agent_response"] (set by agent.py
@@ -115,7 +122,7 @@ def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
         )
         return
 
-    refinement_loops: int = agent.get_data("b5_refinement_loops", 0) or 0
+    refinement_loops: int = agent.get_data("b5_refinement_loops") or 0
     max_loops: int = rubric.get("refinement", {}).get("max_loops", 1)
 
     if recommendation == "refine" and refinement_loops < max_loops:
