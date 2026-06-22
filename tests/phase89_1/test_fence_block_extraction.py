@@ -19,6 +19,7 @@ from tests.phase89_1.fixtures.macro_envelope_samples import (
     BARE_JSON_DOUBLE_ENCODED_QUOTES,
     BARE_JSON_NO_FENCE,
     BARE_JSON_TRAILING_EXTRA_BRACE,
+    BARE_PROSE_WITH_TRUNCATED_JSON_TAIL,
     FENCE_MALFORMED_JSON,
     NO_FENCE_NO_JSON,
     PROSE_PLUS_FENCED_JSON,
@@ -121,6 +122,42 @@ def test_bare_json_double_encoded_quotes_extracted():
     )
     assert '"citations":' not in prose, (
         "Envelope JSON leaked into answer prose despite double-encoded-quotes fix"
+    )
+
+
+@pytest.mark.phase89_1
+def test_prose_with_truncated_json_tail_extracted():
+    """Phase 89.1 Plan 05 regression: prose with truncated JSON string tail.
+
+    The LLM emits a bare (unescaped) `"` inside the answer string value when
+    constructing the JSON envelope.  That bare `"` terminates the JSON string
+    early; the response tool passes the already-deserialized text through, so
+    parse_macro_envelope sees:
+        <prose>",\n  "citations": [...], "degraded": ..., ...}
+
+    Steps 4 and 4b miss this because the text does not start with `{`.
+    Step 4c (truncated JSON tail recovery) reconstructs the envelope by detecting
+    the `",\n  "citations":` pattern and wrapping the tail.
+
+    Observed in v9 UAT batch: Q8 (NFP-03), Q13 (GDP-03), Q20 (FED-05).
+    """
+    prose, envelope = parse_macro_envelope(BARE_PROSE_WITH_TRUNCATED_JSON_TAIL)
+
+    assert envelope is not None, (
+        "Expected envelope dict for prose-with-truncated-JSON-tail — "
+        "step 4c recovery not working"
+    )
+    assert "citations" in envelope, "envelope missing 'citations' key"
+    assert len(envelope["citations"]) >= 2, (
+        f"Expected >=2 citations, got {len(envelope['citations'])}"
+    )
+    # prose must not contain the JSON tail
+    assert '"citations":' not in prose, (
+        "JSON tail leaked into prose despite truncated-tail fix"
+    )
+    # prose must be the clean answer text (no JSON structure)
+    assert not prose.strip().startswith("{"), (
+        "Prose looks like a JSON object — truncated-tail fix not stripping correctly"
     )
 
 

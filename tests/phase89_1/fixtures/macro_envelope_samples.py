@@ -203,3 +203,39 @@ BARE_JSON_DOUBLE_ENCODED_QUOTES = (
 # with "Unterminated string" because json sees \\ → literal backslash, then
 # " → string termination. The fix (step 4b in parse_macro_envelope) repairs this
 # by replacing \\" with \" before retrying raw_decode.
+
+# ---------------------------------------------------------------------------
+# Phase 89.1 Plan 05 regression fixture — truncated JSON string tail
+# Observed in v9 UAT batch: deepseek-v4-flash emitted a bare (unescaped) `"`
+# inside the `answer` string value when constructing the JSON envelope for the
+# `response` tool's `text` argument.  The bare `"` terminated the answer string
+# early.  The `response` tool receives the already-deserialized string so
+# parse_macro_envelope sees:
+#   <prose>",\n  "citations": [...],\n  "degraded": ...\n}
+#
+# The text does NOT start with `{` so steps 4/4b miss it entirely, returning
+# (raw_blob, None) and leaking the JSON tail into the answer field.
+#
+# Affected in v9 batch: Q8 (NFP-03), Q13 (GDP-03), Q20 (FED-05).
+# ---------------------------------------------------------------------------
+
+BARE_PROSE_WITH_TRUNCATED_JSON_TAIL = (
+    # Simulates: the `answer` string value was terminated early by a bare " in the prose.
+    # The Python string that arrives at parse_macro_envelope looks like:
+    #   <prose text>",\n  "citations": [...], "degraded": ..., ...}
+    # where the `"` before `,` is a literal quote that the LLM emitted unescaped
+    # inside the JSON answer string, closing it prematurely.
+    'The pattern is well-documented across 2023-2024: five of the six biggest '
+    'NFP beats in that period produced negative SPX reactions on the day.",'
+    '\n  "citations": [\n'
+    '    {"citation_id": "history:PAYEMS-Jan2024",'
+    ' "source": "vm102.indicator_event_study",'
+    ' "snippet": "PAYEMS Jan 2024: +353K vs 180K consensus, SPX -0.8%"},'
+    '\n    {"citation_id": "release:PAYEMS-repricing",'
+    ' "source": "vm102.indicator_event_study",'
+    ' "snippet": "2Y UST yield +15bp on Feb 2 2024."}'
+    '\n  ],\n'
+    '  "degraded": true,\n'
+    '  "blocking_contradiction_refusal": false\n'
+    '}'
+)
