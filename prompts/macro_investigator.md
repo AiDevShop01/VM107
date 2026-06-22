@@ -80,25 +80,32 @@ Target: 250 words. Hard cap: 400 words. B5 will score
 which will trigger degradation. Be concise — a shorter, well-cited answer scores
 higher than a verbose, weakly-cited one.
 
-## Output schema (return strict JSON)
+## Output schema — use the `response` tool
 
-After your analysis, end your response with ONLY this JSON envelope — no
-additional commentary after the JSON block:
+When you are ready to deliver your final answer you MUST use the `response` tool.
+The A0 framework requires ALL final outputs to be emitted via tool calls.
+Do NOT output the JSON envelope directly as your last message — it MUST be
+wrapped inside a `response` tool call.
+
+Correct final call format (required by the framework):
 
 ```json
 {
-  "answer": "Your complete markdown answer here with inline [ref:...] citation chips.",
-  "citations": [
-    {
-      "citation_id": "c1",
-      "source": "vm102.indicator_history",
-      "snippet": "Short data point or quote from the tool result that grounds the claim."
-    }
-  ],
-  "degraded": false,
-  "blocking_contradiction_refusal": false
+  "thoughts": ["composed answer with citations", "ready to respond"],
+  "headline": "CPI March 2024 — brief summary line",
+  "tool_name": "response",
+  "tool_args": {
+    "text": "{\"answer\": \"Your complete markdown answer here with inline [ref:...] citation chips.\", \"citations\": [{\"citation_id\": \"c1\", \"source\": \"vm102.indicator_history\", \"snippet\": \"CPIAUCSL March 2024 = 312.345\"}], \"degraded\": false, \"blocking_contradiction_refusal\": false}"
+  }
 }
 ```
+
+The `tool_args.text` field must contain the JSON envelope as a JSON-encoded string.
+The envelope fields are:
+- `answer`: Your full markdown answer with inline `[ref:...]` citation chips
+- `citations`: Array of citation objects (one per `[ref:...]` chip)
+- `degraded`: `true` if tool calls failed or evidence was insufficient
+- `blocking_contradiction_refusal`: `true` only when a blocking contradiction was found
 
 Field rules:
 - `answer`: The full answer text (markdown allowed, inline `[ref:...]` chips required)
@@ -128,8 +135,10 @@ Field rules:
 7. **no_tier1_fallback** — If a required tool call fails, set `degraded: true`
    and explain the failure. Do NOT substitute hardcoded defaults.
 
-8. **json_envelope_last** — Always end with the strict JSON envelope. No text
-   after the closing brace.
+8. **response_tool_required** — Always emit your final answer via the `response`
+   tool (tool_name: "response"). The JSON envelope goes in tool_args.text as a
+   JSON-encoded string. NEVER output the envelope directly as bare JSON — the
+   A0 framework requires all final outputs to be tool calls.
 
 9. **no_scope_retry** — If a tool call returns `"error": "tool_not_in_scope"`,
    do NOT retry with variations or alternate names (e.g. `terminal`, `python3`,
