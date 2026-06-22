@@ -9,6 +9,7 @@ from helpers.print_style import PrintStyle
 from helpers.projects import activate_project
 from helpers.security import safe_filename
 from helpers.macro_envelope_parser import parse_macro_envelope
+from helpers.profile_aware_dispatch import load_profile_into_agent
 from initialize import initialize_agent
 import threading
 
@@ -121,46 +122,23 @@ class ApiMessage(ApiHandler):
         with self._cleanup_lock:
             self._chat_lifetimes[context_id] = datetime.now() + timedelta(hours=lifetime_hours)
 
-        # Phase 89 Plan 01 wiring fix (Bug 1 + Bug 3) — load profile YAML + populate
-        # agent.profile dict + inject system prompt so B5 self-check + citation tool-use
-        # actually fire. /api/api_message bypasses the Phase 85.1 task scheduler that
-        # macro_release_analyst uses, so we replicate the minimum profile-aware setup here.
-        if agent_profile == "vm107.macro_investigator":
+        # Phase 89.1 Plan 04 — profile-aware dispatch middleware (Path B).
+        # Extracted from the former inline if-branch via 89.1-04-DISPATCH-DECISION-LOG.md.
+        # Works for ANY registry/agent_profile/*.yaml profile — no hardcoded profile ids.
+        # For async background agents (macro_release_analyst, etc.) the Phase 85.1
+        # task_scheduler owns its own profile loading; this middleware is for the
+        # synchronous user-Q&A path only.
+        if agent_profile:
             try:
-                import yaml as _yaml
-                from helpers import files as _files
-
-                _registry_path = _files.get_abs_path(
-                    "registry/agent_profile/vm107.macro_investigator.yaml"
+                load_profile_into_agent(context.agent0, agent_profile)
+            except FileNotFoundError:
+                PrintStyle.error(
+                    f"api_message: profile '{agent_profile}' not found in registry; "
+                    f"running in legacy (no-profile) mode"
                 )
-                with open(_registry_path, "r", encoding="utf-8") as _f:
-                    _profile_dict = _yaml.safe_load(_f) or {}
-                # Populate agent.profile (dict) so B5 hook + downstream profile-gated
-                # extensions can read agent.profile.get("b5_self_eval"), etc.
-                context.agent0.profile = _profile_dict
-                # Set profile_id slot so reasoning_stream_end persist hook can route
-                # macro_* profile traffic to the B1 WORM artifact.
-                context.agent0.set_data("profile_id", "vm107.macro_investigator")
-                # Inject the citation-mandating system prompt as a one-time system
-                # message in front of the user prompt. Production path doesn't run
-                # initialize_chats for ad-hoc sessions, so we prepend the prompt
-                # to the user message rather than fight A0's prompt resolution.
-                _prompt_path = _files.get_abs_path("prompts/macro_investigator.md")
-                if os.path.exists(_prompt_path):
-                    with open(_prompt_path, "r", encoding="utf-8") as _pf:
-                        _sys_prompt = _pf.read()
-                    # Attach system_message via UserMessage.system_message list — A0
-                    # message_loop_prompts_after picks these up and injects into the
-                    # next LLM call.
-                    if not hasattr(self, "_macro_investigator_system_message"):
-                        pass
-                    # Store on agent.data so a later extension or this same flow
-                    # can inject it. Cleaner: pass via UserMessage.system_message
-                    # below in the `communicate(...)` call.
-                    context.agent0.set_data("_macro_investigator_system_message", _sys_prompt)
             except Exception as _exc:
                 PrintStyle.error(
-                    f"Phase 89 macro_investigator profile load failed: {_exc}"
+                    f"api_message: profile load failed for '{agent_profile}': {_exc}"
                 )
 
         # Process message
@@ -188,10 +166,11 @@ class ApiMessage(ApiHandler):
             )
 
             # Send message to agent
-            # Phase 89: attach the macro_investigator system prompt via system_message
-            # so the citation/tool-use instructions reach the LLM.
+            # Phase 89.1: attach any profile system prompt via system_message so
+            # citation/tool-use instructions reach the LLM. The middleware stores
+            # the prompt under "_system_prompt" (generic key, not profile-specific).
             _sys_msgs: list[str] = []
-            _sys_prompt = context.agent0.get_data("_macro_investigator_system_message")
+            _sys_prompt = context.agent0.get_data("_system_prompt")
             if _sys_prompt:
                 _sys_msgs = [_sys_prompt]
             task = context.communicate(UserMessage(message=message, attachments=attachment_paths, id=msg_id, system_message=_sys_msgs))
