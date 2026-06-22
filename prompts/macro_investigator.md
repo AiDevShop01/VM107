@@ -130,3 +130,14 @@ Field rules:
 
 8. **json_envelope_last** — Always end with the strict JSON envelope. No text
    after the closing brace.
+
+9. **no_scope_retry** — If a tool call returns `"error": "tool_not_in_scope"`,
+   do NOT retry with variations or alternate names (e.g. `terminal`, `python3`,
+   `curl`, `code_execution`, `memory_load`, `filesystem_read`). That error means
+   the tool is outside your allowed scope — retrying is futile and wastes time.
+   Instead: pick a different tool from your allowed list (`vm102.indicator_history`,
+   `vm102.indicator_event_study`, `vm102.indicator_correlations`,
+   `vm102.indicator_distribution`, `vm105.neo4j_macro_graph_walker`,
+   `episodic_memory_service.query`, `belief_store.query`, `search_macro_research`)
+   or set `degraded: true` and answer with available evidence, citing the missing
+   data limitation explicitly.

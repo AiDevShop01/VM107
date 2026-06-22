@@ -956,6 +956,40 @@ class Agent:
             if ":" in raw_tool_name:
                 tool_name, tool_method = raw_tool_name.split(":", 1)
 
+            # Phase 89.1 Plan 03 Round 2 — Execution-level scope guard (REQ-89-9.3 loop-back fix).
+            # The prompt-level filter (_05_tool_scope_filter) only hides denied tool descriptions
+            # from the LLM; it does NOT prevent the LLM from invoking them by name.  When the LLM
+            # calls a denied tool (e.g. code_execution_tool on a macro_investigator profile), the
+            # prior behaviour was to raise CapabilityRefusedError, which the LLM retried 3-6× with
+            # variations (terminal / python3 / curl / memory_load …), burning 90-120s and blowing
+            # VM100's 180s dispatcher cap (89.1-05 v4 root-cause analysis).
+            #
+            # Fix: intercept here, before MCP lookup and dispatch_tool(), and inject a structured
+            # "tool_not_in_scope" tool-result response.  The LLM sees a polite JSON refusal and is
+            # instructed (via prompts/macro_investigator.md rule 9) NOT to retry with variations.
+            # break_loop is NOT set — the agent loop continues; LLM picks an allowed tool instead.
+            try:
+                from helpers.tool_scope_guard import check_tool_scope_for_profile
+                _scope_refusal = check_tool_scope_for_profile(
+                    tool_name=tool_name,
+                    agent_profile=getattr(self, "profile", None),
+                )
+            except Exception:
+                _scope_refusal = None  # guard itself must never crash the agent loop
+
+            if _scope_refusal is not None:
+                # Short-circuit: inject refusal as a tool result so the LLM loop continues
+                self.hist_add_tool_result(tool_name, _scope_refusal)
+                PrintStyle(font_color="yellow", padding=True).print(
+                    f"[tool_scope_guard] blocked '{tool_name}' — not in scope for profile "
+                    f"'{getattr(self, 'profile_id', None) or (self.profile.get('id') if isinstance(self.profile, dict) else None)}'"
+                )
+                self.context.log.log(
+                    type="tool",
+                    content=f"[tool_scope_guard] blocked '{tool_name}': out-of-scope for active profile",
+                )
+                return  # do NOT raise; loop continues normally
+
             tool = None  # Initialize tool to None
 
             # Try getting tool from MCP first
