@@ -4,6 +4,16 @@ Two sections:
   Helper-level (Tests 1-9):  apply_tool_scope() pure-function contract.
   Integration (Tests 10-12): _05_tool_scope_filter.py system_prompt extension.
 
+Dispatch-path validation summary (Task 3):
+  - CapabilityRegistry.get() is patched via unittest.mock.patch at the
+    extension module import site (not at test-module level) to avoid
+    bootstrapping the real registry in CI.
+  - The extension is called directly with agent stubs matching the
+    production Agent contract (single-arg get_data, two-arg set_data).
+  - Tests 10-11 verify the no-op paths (legacy string profile, bare dict).
+  - Test 12 verifies the full macro_investigator filter produces exactly
+    the 4 expected tool IDs and NONE of the 3 A0 defaults.
+
 REQ-89-9.3 — tool-scope filter:
   - allowed_tools restricts the active registry to EXACTLY those tools.
   - denied_tools strips named tools from whatever list the agent would otherwise use.
