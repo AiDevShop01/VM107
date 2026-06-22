@@ -9,6 +9,7 @@ from helpers.print_style import PrintStyle
 from helpers.projects import activate_project
 from helpers.security import safe_filename
 from helpers.macro_envelope_parser import parse_macro_envelope
+from helpers.citation_harmonizer import harmonize_citations
 from helpers.profile_aware_dispatch import load_profile_into_agent
 from initialize import initialize_agent
 import threading
@@ -225,6 +226,14 @@ class ApiMessage(ApiHandler):
                         blocking = bool(envelope.get("blocking_contradiction_refusal", False))
                     if truncated_at is None:
                         truncated_at = envelope.get("truncated_at")
+
+                # Phase 89.1 Plan 01 follow-up fix (2026-06-22) — citation schema
+                # harmonization.  B1 CitationRef dicts use {citation_id, source, snippet};
+                # VM100 _parse_ask_response() calls Citation(**c) and expects
+                # {ref_id, kind, label}.  harmonize_citations() converts the shape.
+                # Idempotent: already-harmonized dicts (from parse_macro_envelope)
+                # are passed through unchanged.
+                citations = harmonize_citations(citations)
 
                 return {
                     "context_id": context_id,

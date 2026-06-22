@@ -384,3 +384,19 @@ class TestApiMessageEnvelope:
             "BUG 2 REGRESSION: 'response' field present — envelope not assembled. "
             f"Got keys: {list(result.keys())}"
         )
+        # Phase 89.1 Plan 01 follow-up fix (2026-06-22): citation schema harmonization.
+        # The mock data used citation_id/source/snippet (B1 CitationRef shape).
+        # After harmonize_citations() the returned dicts MUST use ref_id/kind/label
+        # so VM100 _parse_ask_response() can call Citation(**c) without TypeError.
+        citations_out = result["citations"]
+        assert len(citations_out) >= 1, "Expected at least one citation in result"
+        for c in citations_out:
+            assert "ref_id" in c, (
+                f"citation missing 'ref_id' — harmonizer did not run. Got: {c!r}"
+            )
+            assert "citation_id" not in c, (
+                f"citation still has 'citation_id' — harmonizer did not convert B1 shape. Got: {c!r}"
+            )
+            assert "kind" in c, (
+                f"citation missing 'kind' — harmonizer did not run. Got: {c!r}"
+            )
