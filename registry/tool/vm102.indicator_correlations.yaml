@@ -1,0 +1,63 @@
+id: vm102.indicator_correlations
+type: tool
+status: real
+shipped: 86
+last_changed: "2026-06-22"
+name: vm102.indicator_correlations
+description: >
+  Phase 86 — Rolling Pearson correlation time-series between a FRED indicator
+  and a market asset. Given an asset slug (gold, eur, jpy, nasdaq) and window
+  (50/100/200/500 days), returns a dated series of correlation coefficients in
+  [-1, +1]. Used by macro_investigator to answer "how has gold's correlation to
+  CPI changed over the last 2 years?" style questions. Complements
+  vm102.indicator_asset_exposure (which returns the current single-point
+  correlation) with the full rolling history.
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_correlations
+    http_path: /api/v2/analytics/indicator/{id}/correlations
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: asset, type: string, required: true, description: "Asset slug: gold, eur, jpy, nasdaq (or canonical symbol)" }
+      - { name: window, type: int, required: false, default: 200, description: "Rolling window in days. Must be one of {50,100,200,500}" }
+    return_shape: "CorrelationsEnvelope"
+location:
+  source: VM107/tools/proxies/vm102_indicator_correlations.py
+  endpoint: VM102/api/v2/analytics/indicator/{id}/correlations
+  contracts:
+    request: "params(id, asset, window)"
+    response: "CorrelationsEnvelope: {envelope, result: {series: [{date, corr}]}, error}"
+# URL NOTE: /api/v2/analytics prefix (Phase 86 analytics router), NOT /api/v2/indicator/ (Phase 85).
+# See VM102/backend/api/views.py: api.add_router("/v2/analytics", macro_analytics_router)
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.build_envelope
+consumed_by:
+  - vm107.macro_investigator
+related_capabilities:
+  - vm102.indicator_asset_exposure
+  - vm102.indicator_history
+  - vm102.indicator_event_study
+hard_scoped: false
+impact_on_decision: HIGH
+# allowed_agent_profiles: [] — unrestricted; vm107.macro_investigator uses this tool.
+# See vm102.indicator_history.yaml for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - correlations
+  - rolling
+  - analytics
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.88   # Reasoning: rolling Pearson is statistically robust over window>=50; subject to regime shifts
+expected_freshness_seconds: 3600   # Reasoning: correlation series cached via Redis (VM102_PHASE_86_CACHE_TTL_SECONDS); 1h safe
+is_deterministic: true   # Reasoning: same (id, asset, window) on unchanged OHLC + indicator DB → same series
+version: "1.0.0"   # Reasoning: Phase 86 initial release

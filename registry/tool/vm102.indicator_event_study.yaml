@@ -1,0 +1,64 @@
+id: vm102.indicator_event_study
+type: tool
+status: real
+shipped: 86
+last_changed: "2026-06-22"
+name: vm102.indicator_event_study
+description: >
+  Phase 86 — Event-study analysis: mean-return curves per asset around FRED
+  indicator beat/miss events. Given a threshold (e.g. surprise >= 0.2) and
+  direction (beat|miss), finds all matching release dates and computes the
+  average asset return in a pre/post window around each event. Returns per-asset
+  curves used by macro_investigator to answer "what typically happens to gold
+  after a CPI beat?" style questions.
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_event_study
+    http_path: /api/v2/analytics/indicator/{id}/event-study
+    http_method: GET
+    parameters:
+      - { name: id, type: string, required: true, description: "FRED indicator code, e.g. CPIAUCSL" }
+      - { name: threshold, type: float, required: false, default: 0.2, description: "Surprise magnitude threshold [0.0, 1.0]" }
+      - { name: direction, type: string, required: false, default: "beat", description: "'beat' or 'miss'" }
+      - { name: assets, type: string, required: true, description: "Comma-separated asset slugs, max 5 (gold,eur,jpy,nasdaq)" }
+      - { name: pre, type: int, required: false, default: 5, description: "Days before event in window [0-30]" }
+      - { name: post, type: int, required: false, default: 10, description: "Days after event in window [0-30]" }
+    return_shape: "EventStudyEnvelope"
+location:
+  source: VM107/tools/proxies/vm102_indicator_event_study.py
+  endpoint: VM102/api/v2/analytics/indicator/{id}/event-study
+  contracts:
+    request: "params(id, threshold, direction, assets, pre, post)"
+    response: "EventStudyEnvelope: {envelope, result: {curves, sample_size, period}, error}"
+# URL NOTE: /api/v2/analytics prefix (Phase 86 analytics router), NOT /api/v2/indicator/ (Phase 85).
+# See VM102/backend/api/views.py: api.add_router("/v2/analytics", macro_analytics_router)
+contracts:
+  response_contract: VM102.backend.api.v2.schemas.macro_analytics.build_envelope
+consumed_by:
+  - vm107.macro_investigator
+related_capabilities:
+  - vm102.indicator_history
+  - vm102.indicator_correlations
+  - vm102.indicator_distribution
+hard_scoped: false
+impact_on_decision: HIGH
+# allowed_agent_profiles: [] — unrestricted; vm107.macro_investigator uses this tool.
+# See vm102.indicator_history.yaml for rationale on empty list.
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-86
+  - macro
+  - indicator
+  - event-study
+  - analytics
+  - fred
+  - vm102
+  - read-facade
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.75   # Reasoning: event-study N varies by indicator; confidence degrades when N < 20 events
+expected_freshness_seconds: 3600   # Reasoning: event-study computed on historical data; 1h cache via Redis (VM102_PHASE_86_CACHE_TTL_SECONDS)
+is_deterministic: true   # Reasoning: same (id, threshold, direction, assets, pre, post) on unchanged DB → same result
+version: "1.0.0"   # Reasoning: Phase 86 initial release
