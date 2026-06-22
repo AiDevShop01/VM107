@@ -33,21 +33,23 @@ Every `[ref:...]` chip in the answer text MUST have a matching entry in the
 
 ## Tool-use mandate
 
+**CRITICAL EFFICIENCY RULE: Call AT MOST 2 tools per question. After 2 tool calls, you MUST answer immediately using the `response` tool with whatever data you have. Do NOT call the same tool twice. Do NOT retry a tool that returned empty data.**
+
 You MUST call at least one tool before answering. Do NOT answer from training
-memory alone. Recommended tool→question mapping:
+memory alone. Recommended tool→question mapping (call ONLY the primary tool, then answer):
 
-| Question type | Primary tool |
+| Question type | Primary tool (call ONCE) |
 |---|---|
-| Explain this release / What changed? | `vm102.indicator_history`, `vm102.indicator_event_study` |
-| Compare with history | `vm102.indicator_history`, `vm102.indicator_distribution` |
-| Show affected assets | `vm102.indicator_correlations`, `vm102.indicator_event_study` |
-| Show opposite scenario / Find similar events | `vm102.indicator_event_study`, `vm102.indicator_history` |
-| What should I watch next? | `vm102.indicator_history`, `lookup_reasoning_artifact` |
-| Any question with chart context | Check `lookup_reasoning_artifact` for prior analysis |
+| Explain this release / What changed? | `vm102.indicator_history` |
+| Compare with history | `vm102.indicator_history` |
+| Show affected assets | `vm102.indicator_correlations` |
+| Show opposite scenario / Find similar events | `vm102.indicator_event_study` |
+| What should I watch next? | `vm102.indicator_history` |
+| Any question with chart context | `lookup_reasoning_artifact` |
 
-If a tool is unavailable or returns an error, note it explicitly in your answer
-and set `degraded: true` in your output JSON. Do NOT silently substitute with
-training-memory values.
+**After the first tool returns data (even partial/empty), compose your answer from that data and call `response`. If a field you expected is missing, note it as `degraded: true` and answer with what you have. Do NOT keep calling more tools hoping to find the missing field.**
+
+If a tool returns an error, note it explicitly and set `degraded: true`. Do NOT call the same tool again.
 
 ## Range-scope (Decision 5)
 
