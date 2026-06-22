@@ -1,26 +1,44 @@
 """Phase 89.1 Plan 02 — B5 hook RCA regression tests.
 
-Root cause (captured 2026-06-22 03:11 UTC, documented in 89.1-02-B5-RCA-LOG.md):
+Round 1 root cause (captured 2026-06-22 03:11 UTC, 89.1-02-B5-RCA-LOG.md):
     TypeError: Agent.get_data() takes 2 positional arguments but 3 were given
     File "/a0/core/b5/response_self_check_hook.py", line 79, in run_b5_hook
         util_spent: float = agent.get_data("b5_utility_model_spend", 0.0) or 0.0
+    Fixed in 6bc3c53: change to `agent.get_data("key") or default` pattern.
 
-`run_b5_hook` passes a default value as the second argument to `agent.get_data`, but
-the production `Agent.get_data(self, field: str)` (agent.py line 680) accepts only the
-key — it returns `None` unconditionally when the key is absent, with no default parameter.
-`MagicMock.get_data` in Plan 89-01 tests absorbed the extra argument silently,
-hiding the contract mismatch.
+Round 2 root cause (captured 2026-06-22 17:00 UTC, 89.1-02-B5-RCA-LOG.md Round 2):
+    ImportError: cannot import name 'call_utility_model' from 'helpers.call_llm'
+    File "/a0/core/b5/rubric_scorer.py", in _call_utility_model_for_check
+        from helpers.call_llm import call_utility_model
+    `call_utility_model` was never defined in helpers/call_llm.py. All 5 checks return
+    the 0.5 fail-open default → total 0.5 → refine → second pass (also 0.5) → b5_degrade.
+    Fix: thread `utility_model_fn` callable from agent through score_answer into scorer.
 
-Two tests:
-1. test_b5_hook_repros_dispatch_path_failure
-   — Uses a production-shaped agent stub (get_data accepts 1 arg only) + canned
-     rubric + loop_data. Must FAIL on pre-fix code (TypeError), PASS after fix.
+Tests:
+1. test_b5_hook_repros_dispatch_path_failure (Round 1 — must remain passing)
+   — Uses _ProductionAgentStub (get_data accepts 1 arg only). Was FAIL pre-6bc3c53,
+     PASS after.
 
-2. test_b5_hook_no_silent_swallow_on_dispatch_path
-   — Confirms the extension wrapper (B5SelfCheckExtension.execute) logs the error
-     via logger.error with exc_info=True and does NOT re-raise. This is a defensive
-     contract test that already passes (f774359 wired exc_info=True). It uses the
-     pre-fix code deliberately to exercise the swallow path.
+2. test_b5_hook_stub_get_data_raises_on_two_args (Round 1 meta-test — must remain passing)
+
+3. test_b5_scorer_check_returns_half_without_utility_fn (Round 2 RED)
+   — Calls _call_utility_model_for_check WITHOUT utility_model_fn. On pre-fix code the
+     broken import fires (ImportError caught, returns 0.5). On post-fix code the function
+     signature has utility_model_fn=None which also returns 0.5 with a warning. Either
+     way this is the failure mode — asserts 0.5 is returned (behaviour preserved).
+     The RED test is the next one.
+
+4. test_b5_scorer_uses_utility_model_fn_when_provided (Round 2 RED → GREEN)
+   — Calls _call_utility_model_for_check WITH a canned utility_model_fn returning 0.9.
+     Pre-fix: function signature has no utility_model_fn param → TypeError on call.
+     Post-fix: utility_model_fn is called, returns 0.9.
+
+5. test_b5_hook_routes_utility_model_fn_through_scorer (Round 2 RED → GREEN)
+   — Calls run_b5_hook with an agent that has call_utility_model returning 0.9 for all
+     checks. Pre-fix: scorer still uses broken import → all 0.5 → degrade.
+     Post-fix: scorer receives the callable → all 0.9 → accept.
+
+6. test_b5_hook_no_silent_swallow_on_dispatch_path (Round 1 defensive — must remain passing)
 """
 from __future__ import annotations
 
@@ -175,7 +193,139 @@ class TestB5HookReproDispatchPathFailure:
 
 
 # ---------------------------------------------------------------------------
-# Test 2: Defensive swallow test (already passing from f774359)
+# Tests 3–5: Round 2 regression — utility_model_fn threading
+# ---------------------------------------------------------------------------
+
+class TestB5ScorerUtilityModelFn:
+    """Round 2: Test that _call_utility_model_for_check uses utility_model_fn.
+
+    Pre-fix: function signature has no utility_model_fn parameter.
+    Post-fix: utility_model_fn is accepted and called when provided.
+    """
+
+    def test_b5_scorer_check_returns_half_without_utility_fn(self):
+        """Without utility_model_fn, check returns 0.5 (fail-open default).
+
+        This is the current broken behaviour: the ImportError from
+        `from helpers.call_llm import call_utility_model` is caught and
+        returns 0.5. After the fix, calling without utility_model_fn still
+        returns 0.5 (same fail-open behaviour, different code path).
+
+        This test documents the fail-open contract — it must pass both
+        before and after the fix.
+        """
+        from core.b5.rubric_scorer import _call_utility_model_for_check
+
+        result = _call_utility_model_for_check(
+            "cites_evidence",
+            check_description="Cites specific evidence sources",
+            answer="The CPI rose in March 2024.",
+            prompt_context={},
+        )
+        # Without a real utility model, must return 0.5 (fail-open)
+        assert result == 0.5, (
+            f"Expected 0.5 fail-open score, got {result}. "
+            "Both pre-fix (ImportError) and post-fix (no fn provided) should return 0.5."
+        )
+
+    def test_b5_scorer_uses_utility_model_fn_when_provided(self):
+        """With utility_model_fn, check uses it and returns its result.
+
+        PRE-FIX STATE: _call_utility_model_for_check has NO utility_model_fn
+        parameter. This call raises TypeError: unexpected keyword argument.
+
+        POST-FIX STATE: utility_model_fn is accepted and called; returns 0.9.
+        """
+        from core.b5.rubric_scorer import _call_utility_model_for_check
+
+        def _canned_fn(prompt: str, **_kw) -> str:
+            """Synchronous callable returning a parseable float string."""
+            return "0.9"
+
+        # Pre-fix: TypeError because utility_model_fn is not in the signature.
+        # Post-fix: returns 0.9 (parsed from _canned_fn's return).
+        result = _call_utility_model_for_check(
+            "cites_evidence",
+            check_description="Cites specific evidence sources",
+            answer="The CPI rose 3.5% in March 2024 [ref:release:CPIAUCSL-2024-03].",
+            prompt_context={},
+            utility_model_fn=_canned_fn,
+        )
+        assert result == pytest.approx(0.9, abs=0.01), (
+            f"Expected 0.9 from utility_model_fn, got {result}. "
+            "Pre-fix: TypeError (no utility_model_fn param). "
+            "Post-fix: canned fn returns '0.9' → parsed to 0.9."
+        )
+
+
+class TestB5HookRoutesUtilityModelFn:
+    """Round 2: Test that run_b5_hook threads utility_model_fn through to scorer.
+
+    Pre-fix: scorer always uses the broken helpers.call_llm import → all 0.5 → degrade.
+    Post-fix: scorer receives the callable from agent.call_utility_model → real scores.
+    """
+
+    def test_b5_hook_routes_utility_model_fn_through_scorer(self):
+        """run_b5_hook with an agent that has call_utility_model gets real scores.
+
+        Agent stub has call_utility_model() returning "0.9" for all prompts.
+        Pre-fix: scorer ignores agent.call_utility_model, uses broken import → 0.5
+                 scores → total 0.5 → refine → second 0.5 → b5_degrade.
+        Post-fix: scorer receives the callable → all 0.9 → total 0.9 → accept.
+
+        We detect the failure mode by checking recommendation == 'accept' after fix.
+        Pre-fix recommendation will be 'refine' (first call) or 'reject' (degrade),
+        NOT 'accept'.
+        """
+        from core.b5.response_self_check_hook import run_b5_hook
+
+        class _AgentWithUtilityModel(_ProductionAgentStub):
+            """Agent stub that also has a synchronous call_utility_model."""
+
+            def call_utility_model(self, prompt: str, **_kw) -> str:
+                """Synchronous utility model returning high-confidence score."""
+                return "0.9"
+
+        agent = _AgentWithUtilityModel(profile={
+            "id": "vm107.macro_investigator",
+            "b5_self_eval": True,
+            "b5_rubric_id": "rubric.macro_investigator_qa",
+            "cost_budget_per_invocation": {
+                "chat_model_usd": 0.50,
+                "utility_model_usd": 0.20,
+            },
+        })
+
+        loop_data = _make_loop_data_stub(
+            "The CPI for March 2024 was 3.5% YoY [ref:release:CPIAUCSL-2024-03]. "
+            "Core CPI remained at 3.8% [ref:release:CORE_CPI-2024-03]. "
+            "The correlation between shelter CPI and yields is noted though causation is uncertain."
+        )
+
+        with patch("core.b5.response_self_check_hook.load_rubric", return_value=_canned_rubric()):
+            # Do NOT patch _call_utility_model_for_check — that's what we're testing.
+            run_b5_hook(agent, loop_data=loop_data)
+
+        b5_result = agent.get_data("b5_result")
+        assert b5_result is not None, "b5_result must be non-null"
+
+        # Pre-fix: all checks return 0.5 → total 0.5 → 'refine' (then degrade).
+        # Post-fix: agent.call_utility_model returns "0.9" → total ~0.9 → 'accept'.
+        recommendation = b5_result.get("recommendation")
+        total = b5_result.get("total", 0.0)
+        assert recommendation == "accept", (
+            f"Expected 'accept' when agent.call_utility_model returns '0.9'. "
+            f"Got recommendation='{recommendation}', total={total:.3f}. "
+            "Pre-fix: scorer uses broken import → 0.5 → 'refine'/'reject'. "
+            "Post-fix: scorer uses agent.call_utility_model → 0.9 → 'accept'."
+        )
+        assert total > 0.75, (
+            f"Expected total > 0.75 (accept threshold), got {total:.3f}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Defensive swallow test (already passing from f774359)
 # ---------------------------------------------------------------------------
 
 class TestB5HookNoSilentSwallow:
