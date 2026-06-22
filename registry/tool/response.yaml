@@ -1,0 +1,54 @@
+id: response
+type: tool
+status: real
+shipped: 89
+last_changed: "2026-06-22"
+name: response
+description: >
+  A0 built-in tool that ends the agent loop and delivers the final answer to the
+  caller. Every macro_investigator answer MUST be emitted via this tool — bare
+  JSON output (not wrapped in a tool call) causes a framework parse error and HTTP
+  500. Put the full JSON envelope in tool_args.text as a JSON-encoded string:
+  {"answer": "...", "citations": [...], "degraded": false,
+  "blocking_contradiction_refusal": false}
+# Phase 89.1 plan 05 note: capability_type=built_in is checked by the agent.py
+# _BUILTIN_TOOLS bypass so this tool always routes through tool.execute() (not
+# dispatch_tool()). http_path=null would cause dispatch_tool() to return
+# capability_unavailable:facade_not_yet_implemented refusal — the bypass prevents that.
+capability_type: built_in
+vm: vm107
+methods:
+  - name: execute
+    http_path: null
+    http_method: null
+    parameters:
+      - { name: text, type: string, required: true, description: "Final answer as a JSON-encoded string containing the macro envelope" }
+    return_shape: "Response(message=text, break_loop=True)"
+location:
+  source: tools/response.py
+  endpoint: null
+  contracts:
+    request: "tool_args.text = JSON-encoded macro envelope string"
+    response: "Response with break_loop=True — terminates the agent loop"
+contracts:
+  response_contract: null
+consumed_by:
+  - vm107.macro_investigator
+  - vm107.macro_release_analyst
+  - vm107.macro_indicator_describer
+related_capabilities: []
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - a0-built-in
+  - response
+  - loop-termination
+  - vm107
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 1.0
+expected_freshness_seconds: 0
+is_deterministic: true
+version: "1.0.0"

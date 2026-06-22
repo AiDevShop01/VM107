@@ -38,6 +38,10 @@ template_version_changelog:
 trigger: user_driven
 
 # Tool allow-list (Phase 47.6 register-on-ship lock)
+# NOTE: `response` is the A0 framework built-in that ends the agent loop.
+# It MUST appear here — profile_aware_dispatch loads THIS file into agent0.profile,
+# which the scope guard checks at execution time. Without `response` in this list
+# the scope guard blocks the final response tool → infinite loop.
 allowed_tools:
   - vm102.indicator_history
   - vm102.indicator_event_study
@@ -45,6 +49,7 @@ allowed_tools:
   - vm102.indicator_distribution
   - lookup_capability
   - lookup_reasoning_artifact
+  - response
 # episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write
 # removed from allowed_tools — not callable tools in this runtime. Moved to denied_tools.
 # search_macro_research removed from allowed_tools — tool not implemented (Phase 92 planned).

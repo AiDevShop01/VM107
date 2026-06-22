@@ -930,9 +930,14 @@ class Agent:
                 for fm in envelope.failure_modes
             ]
 
+        # Phase 89.1 plan 05 fix: response tool is a registry entry but must still break
+        # the agent loop. _envelope_to_response always sets break_loop=False which prevents
+        # the response tool from terminating the loop when routed through dispatch_tool().
+        # Check envelope.tool_name == 'response' and set break_loop=True so the loop exits.
+        _break = (envelope.tool_name == 'response')
         return Response(
             message=_json.dumps(summary, default=str),
-            break_loop=False,
+            break_loop=_break,
         )
 
     @extension.extensible
@@ -1039,12 +1044,20 @@ class Agent:
 
                     # Phase 70.5 Plan 04 — Decision 16: route registered tools through
                     # dispatch_tool(); non-registered tools keep the existing execute() path.
+                    # Phase 89.1 plan 05 fix: built-in tools (response, call_subordinate) must
+                    # ALWAYS use the execute() path regardless of registry presence — they have
+                    # no HTTP facade endpoint (http_path=null) so dispatch_tool() returns a
+                    # capability_unavailable:facade_not_yet_implemented refusal. Built-ins are
+                    # identified by capability_type="built_in" in their registry YAML or by
+                    # explicit name check.
+                    _BUILTIN_TOOLS = frozenset({"response", "call_subordinate"})
                     _reg_summary = None
-                    try:
-                        _reg_summary = CapabilityRegistry.get().lookup(tool_name)
-                    except Exception:
-                        # Registry not yet initialised or lookup error — fall back to execute()
-                        _reg_summary = None
+                    if tool_name not in _BUILTIN_TOOLS:
+                        try:
+                            _reg_summary = CapabilityRegistry.get().lookup(tool_name)
+                        except Exception:
+                            # Registry not yet initialised or lookup error — fall back to execute()
+                            _reg_summary = None
 
                     if _reg_summary is not None:
                         # --- Registered tool path: dispatch through envelope substrate ---
