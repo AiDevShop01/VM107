@@ -29,7 +29,6 @@ allowed_tools:
   - vm102.indicator_event_study
   - vm102.indicator_correlations
   - vm102.indicator_distribution
-  - vm105.neo4j_macro_graph_walker
   - episodic_memory_service.query
   - belief_store.query
   - lookup_capability

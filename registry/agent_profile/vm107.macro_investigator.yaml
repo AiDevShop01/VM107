@@ -43,7 +43,6 @@ allowed_tools:
   - vm102.indicator_event_study
   - vm102.indicator_correlations
   - vm102.indicator_distribution
-  - vm105.neo4j_macro_graph_walker
   - episodic_memory_service.query          # Phase 87 B6 reuse
   - belief_store.query                     # Phase 87 B9 reuse
   - lookup_capability
@@ -61,6 +60,7 @@ denied_tools:
   - code_execution_tool
   - trade_execution_tool
   - filesystem_write
+  - vm105.neo4j_macro_graph_walker      # not deployed in dev (proxy missing) — deny to prevent wasted rounds
 
 # Memory visibility (Phase 87 episodic + belief + B1 WORM)
 memory_visibility:

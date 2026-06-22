@@ -40,9 +40,9 @@ memory alone. Recommended tool→question mapping:
 |---|---|
 | Explain this release / What changed? | `vm102.indicator_history`, `vm102.indicator_event_study` |
 | Compare with history | `vm102.indicator_history`, `vm102.indicator_distribution` |
-| Show affected assets | `vm102.indicator_correlations`, `vm105.neo4j_macro_graph_walker` |
-| Show opposite scenario / Find similar events | `vm102.indicator_event_study`, `vm105.neo4j_macro_graph_walker` |
-| What should I watch next? | `vm105.neo4j_macro_graph_walker`, `belief_store.query` |
+| Show affected assets | `vm102.indicator_correlations`, `vm102.indicator_event_study` |
+| Show opposite scenario / Find similar events | `vm102.indicator_event_study`, `vm102.indicator_history` |
+| What should I watch next? | `belief_store.query`, `search_macro_research` |
 | Any question with chart context | Check `episodic_memory_service.query` for prior analysis |
 
 If a tool is unavailable or returns an error, note it explicitly in your answer
@@ -146,7 +146,7 @@ Field rules:
    the tool is outside your allowed scope — retrying is futile and wastes time.
    Instead: pick a different tool from your allowed list (`vm102.indicator_history`,
    `vm102.indicator_event_study`, `vm102.indicator_correlations`,
-   `vm102.indicator_distribution`, `vm105.neo4j_macro_graph_walker`,
-   `episodic_memory_service.query`, `belief_store.query`, `search_macro_research`)
+   `vm102.indicator_distribution`, `episodic_memory_service.query`,
+   `belief_store.query`, `search_macro_research`)
    or set `degraded: true` and answer with available evidence, citing the missing
    data limitation explicitly.
