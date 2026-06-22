@@ -21,6 +21,9 @@ shipped: 89
 prompt: VM107/prompts/macro_investigator.md
 
 # Tool allow-list (mirrors registry entry)
+# NOTE: `response` is the A0 framework built-in that ends the agent loop.
+# It MUST appear here — the scope filter hides any tool not in this list.
+# Without it the LLM sees "response not in scope" and emits bare JSON → 500.
 allowed_tools:
   - vm102.indicator_history
   - vm102.indicator_event_study
@@ -33,6 +36,7 @@ allowed_tools:
   - lookup_reasoning_artifact
   - phase71.evidence_drawer.write
   - search_macro_research
+  - response
 
 # Optional tools — graceful degradation if absent (Decision 11)
 optional_tools:
