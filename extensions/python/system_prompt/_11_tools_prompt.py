@@ -43,10 +43,19 @@ async def build_prompt(agent: Agent) -> str:
     has been DELETED. The registry is the only source of capability truth.
     Boot assertion in preload.py (assert_no_filesystem_walkers) guards against
     accidental re-introduction.
+
+    Phase 89.1 Plan 03 (REQ-89-9.3): prefers the filtered index stashed by
+    _05_tool_scope_filter.py when present.  Falls back to the full registry
+    path for all agents that have no allowed_tools / denied_tools scope.
     """
-    reg = CapabilityRegistry.get()
-    profile_id = getattr(agent, "profile_id", "agent_zero")
-    index = reg.get_index_for_profile(profile_id)
+    # Prefer filtered index stashed by _05_tool_scope_filter (Phase 89.1 Plan 03)
+    filtered = agent.get_data("_tool_scope_filtered_index")
+    if filtered is not None:
+        index = filtered
+    else:
+        reg = CapabilityRegistry.get()
+        profile_id = getattr(agent, "profile_id", "agent_zero")
+        index = reg.get_index_for_profile(profile_id)
     tools_str = "\n\n".join(
         f"{e['id']}\n→ {e['short_description']}\n→ impact: {e['impact_on_decision']}"
         for e in index
