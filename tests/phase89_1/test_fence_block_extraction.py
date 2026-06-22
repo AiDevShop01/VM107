@@ -17,6 +17,7 @@ import pytest
 
 from tests.phase89_1.fixtures.macro_envelope_samples import (
     BARE_JSON_NO_FENCE,
+    BARE_JSON_TRAILING_EXTRA_BRACE,
     FENCE_MALFORMED_JSON,
     NO_FENCE_NO_JSON,
     PROSE_PLUS_FENCED_JSON,
@@ -85,6 +86,38 @@ def test_bare_json_no_fence_backward_compat():
     assert "citations" in envelope, "envelope missing 'citations' key"
     assert len(envelope["citations"]) >= 2
     assert "answer" in envelope
+
+
+@pytest.mark.phase89_1
+def test_bare_json_trailing_extra_brace_extracted():
+    """Phase 89.1 Plan 05 regression: bare JSON with a trailing extra } brace.
+
+    deepseek-v4-flash intermittently emits an extra closing brace after an
+    otherwise well-formed JSON envelope.  The original json.loads() call
+    raised JSONDecodeError and returned (raw_blob, None), causing envelope
+    JSON to leak into the answer field and citations to stay empty.
+
+    The fix: use json.JSONDecoder().raw_decode() which extracts the first
+    valid JSON object and ignores trailing garbage.
+    """
+    prose, envelope = parse_macro_envelope(BARE_JSON_TRAILING_EXTRA_BRACE)
+
+    assert envelope is not None, (
+        "Expected envelope dict for bare JSON with trailing extra } — raw_decode fix not working"
+    )
+    assert "citations" in envelope, "envelope missing 'citations' key"
+    assert len(envelope["citations"]) >= 2, (
+        f"Expected >=2 citations, got {len(envelope['citations'])}"
+    )
+    assert "answer" in envelope
+    # answer field must be the prose string, not the raw JSON blob
+    assert not prose.strip().startswith("{"), (
+        "Prose should be the extracted answer text, not the JSON blob"
+    )
+    # citations must not appear in the prose/answer output
+    assert '"citations":' not in prose, (
+        "Envelope JSON leaked into answer prose despite trailing-brace fix"
+    )
 
 
 # ---------------------------------------------------------------------------

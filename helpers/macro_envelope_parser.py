@@ -106,15 +106,22 @@ def parse_macro_envelope(answer_text: str) -> tuple[str, dict | None]:
             return prose_before, None
 
     # Step 4: No fence found — try backward-compat bare-JSON path.
+    # Phase 89.1 Plan 05 fix: LLM intermittently emits extra trailing `}` after the
+    # closing brace of a well-formed JSON envelope (non-deterministic generation
+    # artifact from deepseek-v4-flash). `json.loads()` rejects the malformed string,
+    # causing envelope=None → citations stay empty → leakage into answer field.
+    # Fix: use `json.JSONDecoder().raw_decode()` which extracts the first complete JSON
+    # object and ignores any trailing garbage, making the parser robust to this artifact.
     stripped = answer_text.strip()
     try:
-        envelope = json.loads(stripped)
+        decoder = json.JSONDecoder()
+        envelope, end_idx = decoder.raw_decode(stripped)
         if isinstance(envelope, dict) and "answer" in envelope:
-            # Pure JSON envelope with no prose prefix.
+            # Pure JSON envelope with no prose prefix (possibly trailing garbage ignored).
             prose = envelope.get("answer", "")
             return prose, envelope
     except (ValueError, TypeError):
         pass
 
-    # Step 4: No fence, no parseable JSON — return full text as prose.
+    # Step 5: No fence, no parseable JSON — return full text as prose.
     return answer_text, None

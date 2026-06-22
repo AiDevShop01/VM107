@@ -139,3 +139,27 @@ after the March CPI print [ref:release:CPIAUCSL-2024-03] surprised to the upside
 }
 ```"""
 # NOTE: trailing comma after last citations entry makes this invalid JSON
+
+# ---------------------------------------------------------------------------
+# Phase 89.1 Plan 05 regression fixture — trailing extra closing brace
+# Observed in v7 UAT batch: deepseek-v4-flash intermittently emits an extra `}`
+# after the well-formed JSON object (~25% of questions in the v7 run).
+# The parser's original `json.loads(stripped)` call raised JSONDecodeError on
+# this shape, returning (raw_blob, None) and leaking the JSON into answer field.
+# ---------------------------------------------------------------------------
+
+BARE_JSON_TRAILING_EXTRA_BRACE = (
+    '{"answer": "The September 2023 FOMC held rates, but the dot plot and SEP pushed the'
+    " 'higher for longer' narrative aggressively: the median 2024 rate projection rose,"
+    ' signaling fewer cuts. This repriced term premiums higher.",'
+    ' "citations": ['
+    '{"citation_id": "history:CPIAUCSL-hike-regime",'
+    ' "source": "vm102.indicator_history (CPIAUCSL, 5Y range)",'
+    ' "snippet": "CPIAUCSL 5Y series with rate-hike overlays."},'
+    '{"citation_id": "release:CPIAUCSL-2022-06",'
+    ' "source": "vm102.indicator_history",'
+    ' "snippet": "CPIAUCSL June 2022 value = 294.957 (peak of hiking cycle, ~9.1% YoY)."}],'
+    ' "degraded": true, "blocking_contradiction_refusal": false}\n}'
+    # NOTE: trailing \n} after the well-formed JSON object — this is the LLM generation artifact
+    # that caused json.loads() to fail in the v7 UAT batch (5/20 questions affected)
+)
