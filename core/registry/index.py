@@ -48,8 +48,17 @@ def get_index_for_profile(
         # Profile matching — mirrors is_capability_in_scope() logic exactly.
         # hard_scoped=True: exact match only (no base-profile fallback).
         # hard_scoped=False: exact match OR base-id match for sub-profiles.
+        #
+        # Empty allowed_agent_profiles (()) means "unrestricted — available to
+        # all profiles" (see vm102.indicator_history.yaml comment). This is the
+        # inverse of hard_scoped=True with an empty list.
         allowed = False
-        if e.hard_scoped:
+        if not e.allowed_agent_profiles:
+            # Empty list = unrestricted (available to all profiles).
+            # This is the documented intent for cross-VM facade tools (vm102.*,
+            # vm105.*) that deliberately omit profile restrictions.
+            allowed = True
+        elif e.hard_scoped:
             # Exact match only — base profile cannot inherit a hard-scoped capability.
             allowed = profile_id in e.allowed_agent_profiles
         else:
