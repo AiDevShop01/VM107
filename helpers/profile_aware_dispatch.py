@@ -128,23 +128,39 @@ def load_profile_into_agent(
         profile_dict: dict = _yaml.safe_load(_f) or {}
 
     # --- Phase 3: load system prompt (optional) ---
+    # Prompt file naming convention: try two candidates in priority order:
+    #   1. prompts/{profile_id}.md          (full dotted id, e.g. vm107.macro_investigator.md)
+    #   2. prompts/{short_name}.md          (last segment only, e.g. macro_investigator.md)
+    # The second fallback exists because legacy prompt files predate the vm107. prefix
+    # convention (the original api_message.py used the short name). Both are valid.
     system_prompt: str = ""
-    prompt_rel_path = f"prompts/{profile_id}.md"
-    try:
-        prompt_abs_path = _files.get_abs_path(prompt_rel_path)
-        if os.path.exists(prompt_abs_path):
-            with open(prompt_abs_path, "r", encoding="utf-8") as _pf:
-                system_prompt = _pf.read()
-        else:
-            _PrintStyle.debug(
-                f"profile_aware_dispatch: no system prompt file at {prompt_rel_path} "
-                f"(profile '{profile_id}' loaded without system prompt)"
+    _short_name = profile_id.split(".")[-1] if "." in profile_id else profile_id
+    _prompt_candidates = [
+        f"prompts/{profile_id}.md",
+        f"prompts/{_short_name}.md",
+    ]
+    # Deduplicate (handles the case where profile_id has no dots)
+    _prompt_candidates = list(dict.fromkeys(_prompt_candidates))
+
+    for prompt_rel_path in _prompt_candidates:
+        try:
+            prompt_abs_path = _files.get_abs_path(prompt_rel_path)
+            if os.path.exists(prompt_abs_path):
+                with open(prompt_abs_path, "r", encoding="utf-8") as _pf:
+                    system_prompt = _pf.read()
+                break  # found — stop searching
+        except Exception as _exc:
+            # Prompt load failure is non-fatal — profile is still usable.
+            _PrintStyle.error(
+                f"profile_aware_dispatch: failed to load system prompt from "
+                f"'{prompt_rel_path}' for profile '{profile_id}': {_exc}"
             )
-    except Exception as _exc:
-        # Prompt load failure is non-fatal — profile is still usable.
-        _PrintStyle.error(
-            f"profile_aware_dispatch: failed to load system prompt for "
-            f"'{profile_id}': {_exc}"
+            break  # unexpected error — don't try next candidate
+
+    if not system_prompt:
+        _PrintStyle.debug(
+            f"profile_aware_dispatch: no system prompt file found for '{profile_id}' "
+            f"(tried: {_prompt_candidates}); profile loaded without system prompt"
         )
 
     # --- Phase 4: mutate agent0 (all reads succeeded) ---
