@@ -56,26 +56,37 @@ _UNCLOSED_FENCE_RE = re.compile(
     re.DOTALL,
 )
 
-# Matches the "truncated JSON string tail" artifact observed in v9 UAT batch.
+# Matches the "truncated JSON string tail" artifact observed in v9/v10 UAT batches.
 #
 # The LLM constructs its `text` arg as a JSON object {"answer": "...", "citations": [...]}.
 # Inside the `answer` string value it occasionally emits a bare (unescaped) `"` character,
 # which terminates the string early.  The `response` tool receives the JSON-deserialized
 # value, so by the time parse_macro_envelope sees it the Python string looks like:
 #
-#   <prose text ending with some word>",
-#     "citations": [ { "citation_id": "...", ... }, ... ],
-#     "degraded": <bool>, "blocking_contradiction_refusal": <bool>
-#   }
+#   (variant A — prose-first, v9 shape):
+#     <prose text ending with some word>",
+#       "citations": [ { "citation_id": "...", ... }, ... ],
+#       "degraded": <bool>, "blocking_contradiction_refusal": <bool>
+#     }
 #
-# Pattern captures:
-#   prose  — everything before the rogue `"` that closed the string
-#   tail   — the fragment starting after that `"`, i.e. `,\n  "citations": [...], ...}`
+#   (variant B — bare-JSON-first, v10 shape):
+#     {"answer": "<prose ends here>", "citations": [...], ...}
+#     where the answer string was terminated early so raw_decode fails
 #
-# The tail is valid JSON when braced: `{` + tail  but we need to strip the leading `,`
-# and supply a dummy `answer` key to reconstruct a parseable envelope dict.
+# For variant A the text does NOT start with `{`; for variant B it DOES.
+# Both are handled by _try_tail_recovery() via the shared regex below.
+#
+# Regex: searches for the LAST occurrence of `"` followed by a `, ... "citations":` pattern
+# and captures:
+#   prose  — everything before that `"`
+#   tail   — `,\s*"citations": [...],...}` (the JSON fragment after the rogue quote)
+#
+# Changes from v9:
+#   - Removed the mandatory `\n` before `"citations"` (v10 Q15 had inline `, "citations":`)
+#   - Made the pattern search within the full text (not just at `^`) to handle bare-JSON-
+#     prefixed shapes (v10 Q7/Q9 start with `{"answer": "`)
 _TRUNCATED_JSON_TAIL_RE = re.compile(
-    r'^(?P<prose>.*?)"(?P<tail>,\s*\n\s*"citations"\s*:.+}\s*)$',
+    r'(?P<prose>.*?)"(?P<tail>,\s*"citations"\s*:.+}\s*)$',
     re.DOTALL,
 )
 
@@ -177,32 +188,70 @@ def parse_macro_envelope(answer_text: str) -> tuple[str, dict | None]:
     # Step 4c: Truncated JSON string tail recovery.
     # The LLM sometimes emits a bare (unescaped) `"` inside the `answer` string value
     # of the JSON envelope it passes to the `response` tool.  That bare `"` terminates
-    # the JSON string early; the `response` tool receives the already-deserialized `text`
-    # arg, so parse_macro_envelope sees a Python string of the form:
+    # the JSON string early; the `response` tool then deserializes the `text` arg and
+    # passes the result to parse_macro_envelope.  The resulting Python string looks like:
     #
-    #   <prose>",\n  "citations": [...],...}
+    #   (variant A — v9 shape, text does NOT start with `{`):
+    #     <prose>",\n  "citations": [...], "degraded": ..., ...}
     #
-    # The text does NOT start with `{` so steps 4/4b can't help.  Detect the pattern
-    # via _TRUNCATED_JSON_TAIL_RE, reconstruct a parseable JSON envelope, and return
-    # the prose portion with the JSON tail stripped to prevent leakage.
+    #   (variant B — v10 shape, text starts with `{`):
+    #     {"answer": "<prose ends here>", "citations": [...], ...}
+    #     where raw_decode failed because the answer string was terminated early
     #
-    # Observed in v9 UAT batch: Q8 (NFP-03), Q13 (GDP-03), Q20 (FED-05).
+    #   (variant C — v10 Q15 shape, inline tail, no newline before "citations":):
+    #     <prose>", "citations": [...], ...}   ← no \n before "citations"
+    #
+    # Steps 4/4b handle the trailing-garbage and double-encoding cases but not
+    # bare-quote termination.  Step 4c detects the `"citations":` tail by regex,
+    # extracts the prose before the rogue `"`, reconstructs a parseable envelope,
+    # and returns clean prose + envelope.
+    #
+    # Observed: v9 Q8/Q13/Q20 (variant A), v10 Q7/Q9 (variant B), v10 Q15 (variant C).
     tail_match = _TRUNCATED_JSON_TAIL_RE.search(stripped)
     if tail_match:
-        prose_before = tail_match.group("prose").rstrip()
-        tail_fragment = tail_match.group("tail")  # ,\n  "citations": [...], ...}
+        # For variant B (text starts with `{`), the "prose" group will contain the
+        # `{"answer": "` prefix plus the prose content.  We need to strip that prefix
+        # to get the actual prose text.
+        prose_raw = tail_match.group("prose")
+        # Strip leading {"answer": " prefix if present (bare-JSON variant B/C from
+        # a well-formed outer JSON object whose answer string was terminated early).
+        prose_before = re.sub(r'^\{[^{]*"answer"\s*:\s*"', '', prose_raw).rstrip()
+        if not prose_before:
+            prose_before = prose_raw.rstrip()
+
+        tail_fragment = tail_match.group("tail")  # ,\s*"citations": [...], ...}
         # Build a synthetic JSON envelope: {"answer": "<prose>", "citations": [...], ...}
         # Strip the leading comma from tail_fragment and wrap in { }.
+        # Also handle the case where the tail itself contains double-encoded JSON
+        # (e.g. v10 Q7/Q9: the citations array uses \\" instead of \" because the whole
+        # JSON was double-serialised).  If the first reconstruction attempt fails, retry
+        # after replacing \\" → \" in the tail fragment.
         tail_stripped = tail_fragment.lstrip(",").strip()  # "citations": [...], ...}
-        synthetic_json = '{"answer": ' + json.dumps(prose_before) + ", " + tail_stripped
-        try:
-            envelope = json.loads(synthetic_json)
-            if isinstance(envelope, dict) and "citations" in envelope:
-                prose = envelope.get("answer", prose_before)
-                return prose, envelope
-        except (ValueError, TypeError):
-            # Reconstruction failed — at minimum strip the JSON tail to prevent leakage.
-            return prose_before, None
+        # Strip outer-wrapper garbage: v10 Q9 ends with `false}"\n    }\n}`
+        # where there's an extra nested `}\n}` after the envelope.  Strip anything after
+        # the last `}` that closes the envelope (the part matching `false}`).
+        tail_stripped = re.sub(r'(false|true)\s*\}\s*"?[^"]*\}\s*\}?\s*$', r'\1}', tail_stripped)
+
+        # Try three variants of the tail:
+        #   1. As-is (v9/v10-Q15 shape: properly encoded tail)
+        #   2. With \\" → \" repair (step-4b-style fix for double-encoded tail)
+        #   3. With \" → " unescaping (v10-Q7/Q9 shape: tail uses backslash-quote for keys)
+        for attempt_tail in (
+            tail_stripped,
+            tail_stripped.replace('\\\\"', '\\"'),
+            tail_stripped.replace('\\"', '"'),
+        ):
+            synthetic_json = '{"answer": ' + json.dumps(prose_before) + ", " + attempt_tail
+            try:
+                envelope = json.loads(synthetic_json)
+                if isinstance(envelope, dict) and "citations" in envelope:
+                    prose = envelope.get("answer", prose_before)
+                    return prose, envelope
+            except (ValueError, TypeError):
+                continue
+
+        # All reconstruction attempts failed — at minimum strip the JSON tail to prevent leakage.
+        return prose_before, None
 
     # Step 5: No fence, no parseable JSON — return full text as prose.
     return answer_text, None
