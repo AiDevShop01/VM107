@@ -8,6 +8,7 @@ from helpers import files, projects
 from helpers.print_style import PrintStyle
 from helpers.projects import activate_project
 from helpers.security import safe_filename
+from helpers.macro_envelope_parser import parse_macro_envelope
 from initialize import initialize_agent
 import threading
 
@@ -210,35 +211,41 @@ class ApiMessage(ApiHandler):
                 type("_C", (), {"profile": ""})(),
             ).profile or ""
             if _profile == "vm107.macro_investigator":
-                import json as _json
                 import uuid as _uuid
 
                 agent0 = context.agent0
                 # `result` is the monologue return value (the final response text).
                 # agent0.last_response does NOT exist on Agent — it lives on LoopData.
-                # Use `result` directly; the JSON-envelope parse below will extract
-                # structured fields if the model emitted the prompt's JSON schema.
+                # Use `result` directly; parse_macro_envelope extracts structured
+                # fields if the model emitted the standard "prose + ```json fence"
+                # shape (Phase 89.1 Plan 01 — REQ-89-9.1 fence-block extraction fix).
                 answer_text = (result or "").strip()
                 citations = agent0.get_data("citations") or []
                 b5_result = agent0.get_data("b5_result")
                 degraded = bool(agent0.get_data("b5_degraded") or False)
                 blocking = bool(agent0.get_data("blocking_contradiction_refusal") or False)
+                truncated_at = agent0.get_data("truncated_at")
 
-                # Model may have emitted a JSON envelope inline — try to extract
-                # structured fields from it so citations/degraded flags survive
-                # even when they weren't stored in agent data slots.
-                try:
-                    parsed = _json.loads(answer_text)
-                    if isinstance(parsed, dict) and "answer" in parsed:
-                        answer_text = parsed.get("answer", answer_text)
-                        if not citations:
-                            citations = parsed.get("citations") or []
-                        if not degraded:
-                            degraded = bool(parsed.get("degraded", False))
-                        if not blocking:
-                            blocking = bool(parsed.get("blocking_contradiction_refusal", False))
-                except (ValueError, TypeError):
-                    pass  # not JSON — keep raw text as answer
+                # Priority rule: agent0.get_data() slots (set by extensions during
+                # the loop) win OVER envelope values (model self-reports may lie).
+                # Envelope only fills slots that are still empty/falsy after
+                # agent-data extraction.
+                answer_prose, envelope = parse_macro_envelope(answer_text)
+                if envelope:
+                    # Use the clean prose (fence stripped) as the answer.
+                    # Fall back to envelope["answer"] if prose extraction left empty
+                    # (bare-JSON backward-compat path).
+                    answer_text = answer_prose or envelope.get("answer", answer_text)
+                    if not citations:
+                        citations = envelope.get("citations") or []
+                    if b5_result is None:
+                        b5_result = envelope.get("b5_result")
+                    if not degraded:
+                        degraded = bool(envelope.get("degraded", False))
+                    if not blocking:
+                        blocking = bool(envelope.get("blocking_contradiction_refusal", False))
+                    if truncated_at is None:
+                        truncated_at = envelope.get("truncated_at")
 
                 return {
                     "context_id": context_id,
@@ -250,7 +257,7 @@ class ApiMessage(ApiHandler):
                     "b5_result": b5_result,
                     "degraded": degraded,
                     "blocking_contradiction_refusal": blocking,
-                    "truncated_at": agent0.get_data("truncated_at"),
+                    "truncated_at": truncated_at,
                 }
 
             # Default (non-investigator) behavior preserved — backward compat
