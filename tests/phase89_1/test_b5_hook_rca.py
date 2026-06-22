@@ -280,9 +280,15 @@ class TestB5HookRoutesUtilityModelFn:
         from core.b5.response_self_check_hook import run_b5_hook
 
         class _AgentWithUtilityModel(_ProductionAgentStub):
-            """Agent stub that also has a synchronous call_utility_model."""
+            """Agent stub that also has a synchronous call_utility_model.
 
-            def call_utility_model(self, prompt: str, **_kw) -> str:
+            Matches the production Agent signature:
+                agent.call_utility_model(system: str, message: str) -> str
+            _get_utility_model_fn wraps this as:
+                _sync_call(prompt: str) -> method(system=..., message=prompt)
+            """
+
+            def call_utility_model(self, system: str, message: str, **_kw) -> str:
                 """Synchronous utility model returning high-confidence score."""
                 return "0.9"
 

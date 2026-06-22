@@ -14,11 +14,20 @@ Decision flow:
 Pitfall 1 cost guard:
   If b5_utility_model_spend > cost_budget.utility_model_usd, skip refinement
   and degrade immediately.
+
+Utility model wiring (89.1-02 Round 2 fix):
+  agent.call_utility_model(system, message) is an async method on Agent.
+  run_b5_hook is synchronous (extension slot fires sync inside async context).
+  _get_utility_model_fn() builds a synchronous wrapper that runs the async
+  call in a thread pool with its own event loop — safe because we're inside
+  an already-running event loop and cannot use asyncio.run() directly.
 """
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from core.b5.rubric_loader import load_rubric
 from core.b5.rubric_scorer import score_answer
@@ -27,6 +36,46 @@ if TYPE_CHECKING:
     pass  # Agent type is duck-typed (MagicMock in tests, Agent in prod)
 
 logger = logging.getLogger(__name__)
+
+
+def _get_utility_model_fn(agent: Any) -> Optional[Callable[[str], str]]:
+    """Build a synchronous callable that calls agent.call_utility_model.
+
+    agent.call_utility_model(system, message) is an async method. This hook
+    is synchronous but runs inside an already-running asyncio event loop
+    (Agent Zero's main loop). We cannot use asyncio.run() (RuntimeError:
+    loop already running), so we spawn a ThreadPoolExecutor thread and run
+    a fresh event loop there.
+
+    Returns None if agent has no call_utility_model attribute (test stubs
+    that don't need the real model, or agents without a utility model configured).
+    In that case _call_utility_model_for_check returns 0.5 fail-open.
+
+    Note: agents in tests that define a SYNCHRONOUS call_utility_model() are
+    also supported — the wrapper detects whether the return value is a coroutine
+    and handles both cases.
+    """
+    method = getattr(agent, "call_utility_model", None)
+    if method is None:
+        return None
+
+    def _sync_call(prompt: str) -> str:
+        # Build a minimal system + message pair for the check rating prompt.
+        # The prompt already contains the full CHECK + ANSWER text.
+        result = method(
+            system="You are a precise evaluator. Rate answers on a 0.0-1.0 scale.",
+            message=prompt,
+        )
+        # Handle both sync and async implementations
+        if asyncio.iscoroutine(result):
+            # Async — run in a new event loop in a thread pool
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(asyncio.run, result)
+                return future.result(timeout=30)
+        # Sync — return directly (test stubs)
+        return result
+
+    return _sync_call
 
 
 def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
@@ -104,8 +153,20 @@ def run_b5_hook(agent: Any, loop_data: Any = None) -> None:
     # Get prompt context (for range-scope enforcement, Decision 5)
     prompt_context: dict = agent.get_data("prompt_context") or {}
 
+    # Build utility model callable (89.1-02 Round 2 fix).
+    # agent.call_utility_model is async; _get_utility_model_fn wraps it
+    # as a synchronous callable so score_answer (sync) can invoke it.
+    # Returns None if agent has no call_utility_model (tests that patch
+    # _call_utility_model_for_check directly, or stub agents without model).
+    utility_model_fn = _get_utility_model_fn(agent)
+
     # Score the answer
-    result = score_answer(answer=answer, rubric=rubric, prompt_context=prompt_context)
+    result = score_answer(
+        answer=answer,
+        rubric=rubric,
+        prompt_context=prompt_context,
+        utility_model_fn=utility_model_fn,
+    )
 
     recommendation: str = result["recommendation"]
     total: float = result["total"]

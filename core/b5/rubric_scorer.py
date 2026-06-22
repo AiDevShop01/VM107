@@ -81,41 +81,60 @@ def _call_utility_model_for_check(
     check_description: str,
     answer: str,
     prompt_context: dict,
+    utility_model_fn=None,
 ) -> float:
-    """Call the Phase 43.1 utility model to score one rubric check.
+    """Call the utility model to score one rubric check.
 
     Returns a float in [0.0, 1.0] representing how well the answer satisfies
     the check description.
 
-    In production: calls the Phase 43.1 utility-model routing client
-    (cheap/fast model alias per Decision 6 + Pitfall 1 cost guard).
+    Args:
+        check_id: Rubric check identifier (for logging).
+        check_description: Human-readable description of the check.
+        answer: The LLM-generated investigator answer text.
+        prompt_context: Optional dict with zoom_range etc.
+        utility_model_fn: Synchronous callable (prompt: str) -> str.
+            Provided by run_b5_hook from agent.call_utility_model (wrapped in
+            a thread-based sync bridge). If None, returns 0.5 fail-open.
+            In tests: patched via:
+                patch("core.b5.rubric_scorer._call_utility_model_for_check",
+                      side_effect=lambda check_id, **_kw: canned_scores[check_id])
+            or pass utility_model_fn=lambda prompt, **_: "0.9" directly.
 
-    In tests: patched via:
-        patch("core.b5.rubric_scorer._call_utility_model_for_check",
-              side_effect=lambda check_id, **_kw: canned_scores[check_id])
-
-    Phase 43.1 integration note:
-        The utility model is called with a minimal prompt asking the model
-        to rate [0.0-1.0] whether the answer satisfies the check description.
-        We use the `util_model_call_before/after` extension slots if available,
-        or fall back to a direct utility model client call.
+    Root cause note (89.1-02 Round 2 RCA):
+        The previous implementation tried `from helpers.call_llm import call_utility_model`
+        which does not exist in that module. This caused ImportError → 0.5 fail-open on
+        every check → total 0.5 → b5_degrade every request. The correct path is
+        agent.call_utility_model (async method on Agent), threaded through score_answer
+        via this utility_model_fn parameter.
     """
+    if utility_model_fn is None:
+        logger.warning(
+            "b5_utility_model_check_failed",
+            extra={
+                "check_id": check_id,
+                "error": "utility_model_fn not provided — returning 0.5 fail-open",
+            },
+            exc_info=True,
+        )
+        return 0.5
+
     try:
-        from helpers.call_llm import call_utility_model
         prompt = (
             f"Rate 0.0 to 1.0 (one decimal) how well this answer satisfies:\n"
             f"CHECK: {check_description}\n\n"
             f"ANSWER:\n{answer}\n\n"
             f"Reply with ONLY a float between 0.0 and 1.0, nothing else."
         )
-        raw = call_utility_model(prompt, context=prompt_context)
+        raw = utility_model_fn(prompt)
         # Parse the float from the model response
-        score = float(raw.strip().split()[0])
+        score = float(str(raw).strip().split()[0])
         return max(0.0, min(1.0, score))
     except Exception as exc:
         logger.warning(
             "b5_utility_model_check_failed",
             extra={"check_id": check_id, "error": str(exc)},
+            exc_info=True,
         )
         # Fail-open at check level: return 0.5 (ambiguous) so one failed check
         # doesn't immediately reject; Pitfall 1 cost guard may apply at hook level.
@@ -131,6 +150,7 @@ def score_answer(
     answer: str,
     rubric: dict,
     prompt_context: dict | None = None,
+    utility_model_fn=None,
 ) -> dict[str, Any]:
     """Score an answer against a rubric and return a ScorerResult dict.
 
@@ -139,6 +159,10 @@ def score_answer(
         rubric: The rubric dict from load_rubric() or _canned_rubric() in tests.
         prompt_context: Optional dict with zoom_range={start_ts, end_ts} for
                         Decision 5 range-scope enforcement.
+        utility_model_fn: Synchronous callable (prompt: str) -> str.
+            Provided by run_b5_hook from agent.call_utility_model (wrapped in
+            a thread-based sync bridge so the async method can be called from
+            this synchronous scorer). If None, each check returns 0.5 fail-open.
 
     Returns:
         {
@@ -194,6 +218,7 @@ def score_answer(
                     check_description=description,
                     answer=answer,
                     prompt_context=prompt_context,
+                    utility_model_fn=utility_model_fn,
                 )
                 if word_count > target_cap:
                     raw_score = raw_score * 0.5
@@ -214,6 +239,7 @@ def score_answer(
                 check_description=description,
                 answer=answer,
                 prompt_context=prompt_context,
+                utility_model_fn=utility_model_fn,
             )
             per_check[check_id] = max(0.0, min(1.0, raw_score))
 
