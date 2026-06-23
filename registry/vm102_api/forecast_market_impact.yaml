@@ -1,0 +1,128 @@
+id: vm102_forecast_market_impact
+type: vm102_api
+phase: 90
+method: POST
+path: /api/v2/forecast/market-impact
+query_schema: {}
+request_schema_ref: schemas/forecast_market_impact_request.json
+response_schema_ref: schemas/forecast_market_impact_response.json
+error_codes:
+  - ForecastComputeError    # HTTP 500 — simulator crash (fail-soft normally returns valid shape)
+owner: engineering
+latency_budget_ms: 5000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_forecast_layer4_market_impact   # scenario_simulator + Phase 86 event-study internals
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+description: >-
+  Phase 90 Layer 4 deterministic scenario simulator. "If CPI > 3.5%, what
+  happens to DXY / Gold / SPX / UST10Y?" Uses Phase 86 event-study
+  primitives on the provided analogue set (analogue_release_ids from
+  Phase 89 counterfactual analogue retrieval).
+
+  Request payload:
+    {
+      "indicator": "CPIAUCSL",
+      "hypothetical_surprise": 0.3,
+      "analogue_release_ids": ["uuid1", "uuid2"],
+      "asset_keys": ["DXY", "Gold", "SPX", "UST10Y"],
+      "windows": ["T+1h", "T+1d", "T+1w"]
+    }
+
+  Response shape (Phase 89 forecast_client.py REQUIRES exactly this):
+    {
+      "per_asset": {
+        "<asset>": {
+          "<window>": {
+            "mean_pct": float,
+            "ci_low": float,
+            "ci_high": float,
+            "sample_size": int
+          }
+        }
+      },
+      "forecast_source": "phase_90_layer_4"
+    }
+
+  Pitfall 3 (RESEARCH.md): if any cell omits ci_low / ci_high /
+  sample_size, Phase 89 forecast_client.py falls back to Phase 86
+  event-study path FOREVER. Layer 4 endpoint is the canonical contract.
+
+  LD-90-8 LOCK: deterministic only. Narrative belongs to Phase 89
+  counterfactual_engine (which consumes this endpoint, then wraps the
+  numeric output in LLM-emitted ExplanationResult — never another
+  ForecastResult).
+
+  Empty analogue_release_ids → graceful zero-fill (sample_size=0). The
+  caller can detect "no analogues" and decide what to do without a
+  shape-violation error.
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: post_market_impact
+    http_path: /api/v2/forecast/market-impact
+    http_method: POST
+    parameters:
+      - name: indicator
+        type: string
+        in: body
+        required: true
+      - name: hypothetical_surprise
+        type: number
+        in: body
+        required: true
+      - name: analogue_release_ids
+        type: array
+        in: body
+        required: true
+      - name: asset_keys
+        type: array
+        in: body
+        required: true
+      - name: windows
+        type: array
+        in: body
+        required: true
+    return_shape: "MarketImpactResponse"
+location:
+  source: VM102/backend/api/v2/forecast/market_impact.py
+  endpoint: /api/v2/forecast/market-impact
+  contracts:
+    request: "MarketImpactRequest"
+    response: "MarketImpactResponse"
+contracts:
+  request_contract: VM102.backend.api.v2.forecast.market_impact.MarketImpactRequest
+  response_contract: VM102.backend.api.v2.forecast.market_impact.MarketImpactResponse
+consumed_by:
+  - vm107.counterfactual_engine            # Phase 89 forecast_client.py — primary consumer
+  - vm107.macro_forecast_narrator           # READ-only per LD-90-1
+  - vm100.frontend.indicator_page.section_11_forecast_widget
+related_capabilities:
+  - vm102_forecast_result                   # contract entry (Plan 01)
+  - vm102_forecast_indicator                # Layer 1 statistical sibling (Plan 02)
+  - vm102_forecast_regime                   # Layer 3 regime sibling (Plan 04)
+  - vm102_forecast_surprise                 # Layer 2 surprise sibling (Plan 05 Task 1)
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - vm107.counterfactual_engine
+  - vm107.macro_forecast_narrator
+deprecated: false
+tags:
+  - phase-90
+  - macro
+  - market-impact
+  - forecast
+  - layer-4
+  - event-study
+  - vm102
+  - read-facade
+  - ld-90-8-deterministic-only
+  - pitfall-3-ci-shape-required
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.55      # Conditional on analogue quality
+expected_freshness_seconds: 300   # on-demand compute (no Postgres cache yet per RESEARCH.md Q2)
+is_deterministic: true        # LD-90-8 — no LLM, no fabricated numbers
+version: "1.0.0"
