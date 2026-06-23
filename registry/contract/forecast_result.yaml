@@ -1,0 +1,85 @@
+id: forecast_result
+type: contract
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+# ForecastResult is THE envelope all Phase 90 statistical/ML/regime/
+# ensemble producers emit. A misshapen envelope (or — worst case —
+# an LLM emitting ForecastResult against LD-90-1) cascades into
+# Phase 85 §11 Forecast widget, Phase 89 counterfactual_engine, and
+# every Phase 91 forecast-deviation alert. HIGH.
+impact_on_decision: HIGH
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_forecast_narrator   # reads ForecastResult, emits ExplanationResult (NEVER ForecastResult)
+  - vm107.macro_indicator_analyst
+  - vm107.macro_regime_analyst
+  - vm107.counterfactual_engine
+
+name: ForecastResult
+description: |
+  Phase 90 canonical forecast envelope. Wraps all 4 forecast layers
+  (indicator / surprise / regime / market_impact) in a single Pydantic
+  contract.
+
+  LD-90-1: ForecastResult.producer_kind='llm' is REJECTED at the
+  Pydantic model_validator level. LLM agents may emit ExplanationResult
+  or ScenarioResult, but never ForecastResult.
+
+  LD-90-3: ForecastResult.distribution (ForecastDistribution) is a
+  MANDATORY field — single-number outputs ("Forecast: 3.4") cannot pass
+  validation. Producers emit p10/p25/p50/p75/p90 + confidence_pct +
+  point_estimate.
+
+  Consumers: VM102 backend Plans 2-5 producers (write); Phase 85 §11
+  Forecast widget (read); VM107 macro_forecast_narrator (read, emits
+  ExplanationResult).
+owner_vm: vm102
+owner: engineering
+
+contract_version: "1.0"
+source_module: fingpt_core.contracts.forecast_result
+
+operations:
+  - read
+  # NOTE: deliberately omitting 'propose' — only deterministic producers
+  # (statistical / ml / regime / ensemble) emit ForecastResult; there is
+  # no LLM-proposer path by design (LD-90-1).
+
+layers:
+  - indicator
+  - surprise
+  - regime
+  - market_impact
+
+producer_kinds_allowed:
+  - statistical
+  - ml
+  - regime
+  - ensemble
+producer_kinds_rejected:
+  - llm   # LD-90-1 lock — enforced by Pydantic model_validator
+
+mandatory_fields:
+  - indicator_id
+  - layer
+  - producer_kind
+  - producer_model
+  - distribution         # LD-90-3 — full quantile distribution required
+  - horizon_months
+  - direction
+  - direction_confidence
+  - generated_at
+
+distribution_fields:
+  - point_estimate
+  - p10
+  - p25
+  - p50
+  - p75
+  - p90
+  - confidence_pct
+
+related_contracts:
+  - explanation_result   # LD-90-1 sibling — LLM narrative envelope
+  - scenario_result      # LD-90-8 — scenario / counterfactual envelope
