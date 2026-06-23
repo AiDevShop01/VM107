@@ -1,0 +1,41 @@
+id: forecast_regime_change_detected
+type: event_type
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+# Phase 91 Universal Alert Engine routes this event to the
+# `regime_change` alert_type. HIGH — one step from a trader-visible alert.
+impact_on_decision: HIGH
+hard_scoped: false
+
+name: forecast_regime_change_detected
+description: |
+  Emitted by the Plan 04b `cpd_nightly` Dagster asset after the nightly
+  POST /api/v2/forecast/regime/cpd run, when ruptures PELT detects one or
+  more change-points in the last 30 days for any Tier-1 indicator
+  (CPIAUCSL, CPILFESL, PCEPI, UNRATE, FEDFUNDS, M2SL, GDPC1). One event
+  per indicator with detected breakpoints — payload carries the list of
+  detected sample indices in chronological order. Phase 91 Universal
+  Alert Engine consumes these for `alert_type=regime_change` routing;
+  Phase 85 §11 forecast widget may display a "regime shift detected"
+  banner on the IndicatorPage of the affected indicator.
+
+  LD-90-6 lock — CPD is mandatory, not optional. Most forecasting
+  failures occur because the model assumes a regime continues while
+  reality changes; this event is the canary for that failure mode.
+
+owner_vm: vm102
+owner: engineering
+
+payload_schema:
+  event_id: str (UUID)
+  indicator_id: str (FRED code)
+  breakpoints: list[int]              # sample indices of detected change-points (chronological)
+  detected_at: str (ISO-8601 UTC)
+  penalty: float                      # ruptures PELT penalty used (default 10.0)
+  lookback_days: int                  # window size scanned for breakpoints (default 30)
+producers:
+  - dagster.cpd_nightly
+consumers:
+  - phase91.alert_engine
+  - vm100.frontend.indicator_page.section_11_forecast_widget

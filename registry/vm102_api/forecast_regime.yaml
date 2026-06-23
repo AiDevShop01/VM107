@@ -1,0 +1,86 @@
+id: vm102_forecast_regime
+type: vm102_api
+phase: 90
+method: GET
+path: /api/v2/forecast/regime
+query_schema: {}
+response_schema_ref: schemas/forecast_regime_response.json
+error_codes:
+  - ForecastComputeError   # HTTP 500 — load failure / HMM convergence / insufficient data / VM107_URL unset
+owner: engineering
+latency_budget_ms: 10000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_forecast_layer3_regime  # MacroHMM + ruptures PELT + B9 BeliefStore reader
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+description: >-
+  Phase 90 Layer 3 Regime forecast for the macro economy. Fits a 7-state
+  GaussianHMM (hmmlearn) on the last 36 months of Tier-1 macro panel
+  (CPIAUCSL/CPILFESL/PCEPI/UNRATE/FEDFUNDS/M2SL/GDPC1) and remaps HMM
+  state indices to the Phase 87 LOCK-2 regime ontology
+  (expansion/slowdown/inflation/disinflation/stagflation/recession/recovery)
+  deterministically via post-fit mean-sort on the primary inflation-proxy
+  feature dimension (Pitfall 4 fix — two fits on same data yield same
+  labels). Returns transition_probs (length 7, ordered by LOCK-2 index),
+  current_regime, next_regime_forecast (argmax of transition_probs),
+  confidence (max transition prob), and bayesian_priors read from the
+  VM107 B9 BeliefStore (subject_type=regime — read-only, NEVER calls
+  propose() per LD-90-7 + Phase 87 LOCK). regime_labels in the response
+  is the LOCK-2 ordering reference for consumers parsing transition_probs
+  by index. Sibling POST /api/v2/forecast/regime/cpd runs ruptures PELT
+  across the same panel for change-point detection (consumed by Plan 04b
+  cpd_nightly Dagster asset which emits forecast_regime_change_detected
+  events for Phase 91 Universal Alert Engine).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_regime_forecast
+    http_path: /api/v2/forecast/regime
+    http_method: GET
+    parameters: []
+    return_shape: "RegimeForecastResponse"
+  - name: run_cpd
+    http_path: /api/v2/forecast/regime/cpd
+    http_method: POST
+    parameters: []
+    return_shape: "Dict[str, List[int]]"     # {indicator_id: [breakpoint_indices]}
+location:
+  source: VM102/backend/api/v2/forecast/regime.py
+  endpoint: /api/v2/forecast/regime
+  contracts:
+    request: "no body / no query"
+    response: "RegimeForecastResponse"
+contracts:
+  response_contract: VM102.backend.api.v2.forecast.regime.RegimeForecastResponse
+consumed_by:
+  - vm107.macro_forecast_narrator        # READ-only; narrator emits ExplanationResult per LD-90-1
+  - vm100.frontend.indicator_page.section_11_forecast_widget
+  - dagster.cpd_nightly                  # POST /regime/cpd (Plan 04b)
+related_capabilities:
+  - vm102_forecast_result                # contract entry (Plan 01)
+  - vm102_forecast_indicator             # Layer 1 statistical sibling (Plan 02)
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - vm107.macro_forecast_narrator        # READ-only — never emits ForecastResult (LD-90-1 LOCK)
+deprecated: false
+tags:
+  - phase-90
+  - macro
+  - regime
+  - forecast
+  - hmm
+  - cpd
+  - bayesian
+  - lock-2
+  - vm102
+  - read-facade
+  - ld-90-7-b9-readonly
+  - pitfall-4-state-ordering
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.65                  # HMM regime forecasting is harder than indicator stat models
+expected_freshness_seconds: 86400         # daily — macro panel refreshes monthly per indicator
+is_deterministic: true                    # GaussianHMM random_state=42 + post-fit mean-sort remap
+version: "1.0.0"
