@@ -1,0 +1,78 @@
+id: vm102_forecast_indicator
+type: vm102_api
+phase: 90
+method: GET
+path: /api/v2/forecast/indicator/<id>
+query_schema:
+  horizon: {type: int, required: false, default: 3, min: 1, max: 12}
+response_schema_ref: schemas/forecast_result.json
+error_codes:
+  - UnknownIndicator       # HTTP 404 — indicator not in tier_classification.yaml
+  - TierThreeNoForecast    # HTTP 400 — LD-90-4 lock; use scenario analysis
+  - ForecastComputeError   # HTTP 500 — model crash / loader failure / envelope validation
+owner: engineering
+latency_budget_ms: 8000
+envelope_contract: phase_70_5
+wraps_primitive: vm102_forecast_layer1_statistical  # auto_arima + auto_ets via statsforecast
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+description: >-
+  Phase 90 Layer 1 Statistical forecast for a single macro indicator. Fits
+  AutoARIMA + AutoETS (statsforecast, season_length=12) on the last 60 months
+  of indicator data, returns ForecastResult-shaped JSON with mandatory
+  ForecastDistribution (LD-90-3) p10/p25/p50/p75/p90 quantiles plus direction
+  classification, direction confidence, and a 12-month rolling directional
+  accuracy backtest score. Tier-3 indicators (EVENT_SHOCK and equivalent
+  black-swan/policy-surprise series) short-circuit with HTTP 400
+  TierThreeNoForecast per LD-90-4 — no point estimate is ever emitted for
+  Tier-3; consumers should call the scenario analysis endpoint instead.
+  AutoETS convergence failures return None internally and the endpoint falls
+  back to AutoARIMA alone, preserving LD-90-2's minimum-two-models intent on
+  best-effort basis (orchestrator winner-selection at the result level).
+capability_type: read_facade
+vm: vm102
+methods:
+  - name: get_indicator_forecast
+    http_path: /api/v2/forecast/indicator/{indicator_id}
+    http_method: GET
+    parameters:
+      - {name: indicator_id, type: string, required: true,  description: "FRED indicator code (CPIAUCSL, UNRATE, FEDFUNDS, ...)"}
+      - {name: horizon,      type: int,    required: false, default: 3, description: "Forecast horizon in months (1..12)"}
+    return_shape: "ForecastResult"
+location:
+  source: VM102/backend/api/v2/forecast/indicator.py
+  endpoint: /api/v2/forecast/indicator/{indicator_id}
+  contracts:
+    request: "params(indicator_id, horizon)"
+    response: "ForecastResult"
+contracts:
+  response_contract: fingpt_core.contracts.forecast_result.ForecastResult
+consumed_by:
+  - vm107.macro_forecast_narrator
+  - vm100.frontend.indicator_page.section_11_forecast_widget
+related_capabilities:
+  - vm102_forecast_result    # contract entry, also Phase 90 (Plan 01)
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - vm107.macro_forecast_narrator   # READ-only; narrator emits ExplanationResult, never another ForecastResult (LD-90-1)
+deprecated: false
+tags:
+  - phase-90
+  - macro
+  - indicator
+  - forecast
+  - statistical
+  - auto-arima
+  - auto-ets
+  - vm102
+  - read-facade
+  - ld-90-3-distribution
+  - ld-90-4-tier3
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.72
+expected_freshness_seconds: 86400  # daily — series changes only on monthly releases
+is_deterministic: false              # statsforecast convergence has minor stochasticity
+version: "1.0.0"
