@@ -1,0 +1,122 @@
+id: vm107.macro_forecast_narrator
+type: agent_profile
+status: real
+shipped: 90
+last_changed: "2026-06-23"
+name: vm107.macro_forecast_narrator
+description: >-
+  Phase 90 Plan 06 — LLM narrative agent for the 4-layer forecast
+  intelligence engine. STRICTLY narrative-only: consumes ForecastResult
+  envelopes emitted by VM102 Plans 2-5 (statistical / ML / regime /
+  surprise) and emits ExplanationResult (LD-90-1 lock: LLMs MUST NOT
+  emit ForecastResult). Hard assertion blocks any narrative that
+  predicts specific values ("will be 3.4%", "will reach 5.0", "will
+  print 0.3"). Phase 71 evidence drawer is mandatory — every factual
+  claim must cite via [ref:episode:ID] or [ref:release:ID]. Surfaces
+  on the Phase 85 §11 ForecastWidget IndicatorPage panel.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM   # narrative; primary decision signal stays with VM102 producers
+hard_scoped: true
+deprecated: false
+phase: 90
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-23"
+    change: "Phase 90 Plan 06 — initial release (LD-90-1 narrative-only)"
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - vm102_forecast_indicator       # Layer 1 — statistical (Plan 02)
+  - vm102_forecast_regime          # Layer 3 — regime + CPD (Plan 04)
+  - vm102_forecast_surprise        # Layer 2 — surprise (Plan 05)
+  - vm102_forecast_market_impact   # Layer 4 — scenario simulator (Plan 05)
+  - lookup_capability              # standard discovery tool
+
+# Hard denials — LD-90-1 + Phase 87 DETERMINISTIC_PROPOSERS lock.
+# The narrator MUST NOT propose beliefs, MUST NOT emit ForecastResult,
+# MUST NOT execute trades, MUST NOT write to the filesystem.
+denied_tools:
+  - belief_store.propose            # LD-90-1 + Phase 87 DETERMINISTIC_PROPOSERS lock
+  - vm102_forecast_result_emit      # not permitted — narrator emits ExplanationResult only
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings — populated by Plan 06 (citation discipline
+# + LD-90-1 narrative-only check).
+constitutional_skills:
+  - citation-discipline
+
+# Memory scope (public-factual analyst — no per-account / per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 4
+max_cost_usd: 0.20
+latency_budget_ms: 5000
+
+# Hard-assertion regex gate on emitted narrative.
+# Mirrors the agent's regex constants exactly (agents/macro_forecast_narrator/agent.py).
+# The agent enforces these directly (regex-driven check) so the YAML is the
+# documented contract — registry sweep, narrator profile loader, and any
+# future Brain-B5 dispatch wrapper all read the SAME rules from one place.
+hard_assertions:
+  - id: narrator_no_value_prediction
+    regex: "\\b(will be|will reach|will print)\\b"
+    mode: reject_if_matched          # custom: match -> assertion fails
+    min_matches: 0                   # ZERO tolerance
+    retry: 1
+    on_retry_fail: mark_envelope_degraded
+    description: >-
+      LD-90-1 hard lock. Narrative MUST NOT contain a value prediction.
+      "CPI will be 3.4%" or "rate will reach 5.0" = assertion failure.
+      One retry with corrective addendum; if still matched, the
+      ExplanationResult returns with b5_self_eval_passed=False.
+
+  - id: narrative_cites_evidence
+    regex: "\\[ref:(episode|release):[A-Za-z0-9_-]+\\]"
+    min_matches: 1
+    description: >-
+      Narrative MUST cite at least one Phase 71 evidence reference
+      (episode or release). Missing -> envelope returned with
+      b5_self_eval_passed=False; caller decides whether to surface.
+
+retry_on_hard_assertion_fail: 1
+on_assertion_fail_after_retry: mark_envelope_degraded
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 20
+
+# Brain absorption ledger
+brain_absorbed:
+  - B5  # self-eval rubric — narrator pre-bakes the LD-90-1 + citation checks
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.65            # narrative confidence; lower than producer envelopes
+expected_freshness_seconds: 86400
+is_deterministic: false             # narrative is LLM-emitted
+version: "1.0.0"
+
+owner: engineering
+profile_path: null                  # Plan 06 ships the standalone agent module; profile loader wiring lands later if needed
+
+tags:
+  - agent-profile
+  - macro
+  - phase-90
+  - wave-5
+  - narrative
+  - explanation-result
+  - ld-90-1-llm-narrative-only
