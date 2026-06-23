@@ -1,0 +1,21 @@
+{
+  "indicator_id": "CPIAUCSL",
+  "layer": "indicator",
+  "producer_kind": "statistical",
+  "producer_model": "auto_arima",
+  "distribution": {
+    "point_estimate": 3.2,
+    "p10": 2.8,
+    "p25": 3.0,
+    "p50": 3.2,
+    "p75": 3.4,
+    "p90": 3.6,
+    "confidence_pct": 0.80
+  },
+  "horizon_months": 3,
+  "direction": "up",
+  "direction_confidence": 0.72,
+  "feature_attribution": null,
+  "generated_at": "2026-06-22T00:00:00+00:00",
+  "backtest_accuracy_12m": 0.74
+}
