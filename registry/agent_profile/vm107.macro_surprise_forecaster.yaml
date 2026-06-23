@@ -1,0 +1,83 @@
+id: vm107.macro_surprise_forecaster
+type: agent_profile
+status: stub
+shipped: 90
+last_changed: "2026-06-23"
+name: vm107.macro_surprise_forecaster
+description: >-
+  Phase 90 Plan 05 Task 1 — macro surprise forecaster (Layer 2). Consumes
+  VM102 GET /api/v2/forecast/surprise/<id> to produce Surprise direction
+  assessments (Beat / Miss / In-Line) with confidence. The VM102 endpoint
+  ships in Plan 05; the dedicated VM107 agent wiring (LLM-emitted
+  ExplanationResult narrative around the surprise verdict) is Plan 06
+  scope per LD-90-1 (LLMs may explain forecasts but never emit
+  ForecastResult). Currently a STUB profile so the
+  ``vm102_forecast_surprise.allowed_agent_profiles`` lookup resolves
+  during boot-validation sweep; Plan 06 promotes to status=real.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 90
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-23"
+    change: "Phase 90 Plan 05 Task 1 — initial release as stub for Layer-2 surprise forecaster"
+
+# Tool allow-list (Phase 47.6 register-on-ship lock — every tool id resolves)
+allowed_tools:
+  - vm102_forecast_surprise           # Layer 2 endpoint — beat/miss/in_line
+  - vm102_forecast_indicator          # Layer 1 — needed when surprise=in_line, surface indicator forecast
+  - lookup_capability                 # standard discovery tool
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Constitutional skill bindings (Plan 06 will populate)
+constitutional_skills: []
+
+# Memory scope (public-factual analyst — no per-account or per-trade scope)
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 4
+max_cost_usd: 0.20
+latency_budget_ms: 5000
+
+# Phase 70.5 CoT trail config
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 20
+
+# Brain absorption ledger (Plan 06 will populate)
+brain_absorbed: []
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.60          # Layer-2 inherits VM102 endpoint confidence
+expected_freshness_seconds: 86400
+is_deterministic: false           # narrative (Plan 06) will be LLM-emitted
+version: "1.0.0"
+
+owner: engineering
+profile_path: null                # populated in Plan 06 when LLM narrator wires up
+
+tags:
+  - agent-profile
+  - macro
+  - phase-90
+  - layer-2
+  - surprise
+  - stub
+  - ld-90-1-llm-narrative-only
