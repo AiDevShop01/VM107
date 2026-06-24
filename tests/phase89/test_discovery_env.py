@@ -102,23 +102,23 @@ def test_neo4j_uri_present_in_vm107_env():
     )
 
 
-@pytest.mark.xfail(
-    reason="Phase 89.2 Plan 06 — VM107_AGENT_URL 3-place wiring not yet complete",
-    strict=False,
-)
 def test_vm107_agent_url_wired_3_places():
     """VM107_AGENT_URL wired in Dagster (.env, docker-compose.yml, dagster.yaml).
 
-    The Dagster 3-place lock pattern (same shape as BELIEF_STORE_POSTGRES_URL):
+    The Dagster 3-place lock pattern (same shape as BELIEF_STORE_POSTGRES_URL),
+    per Phase 89.2 Plan 06 / REQ-89.2-6 — landed 2026-06-24:
       1. Dagster/.env contains a `VM107_AGENT_URL=...` line.
       2. Dagster/docker-compose.yml has `VM107_AGENT_URL: ${VM107_AGENT_URL}`
-         in BOTH dagster_webserver and dagster_daemon service `environment:`
-         blocks — at minimum ≥ 2 occurrences in the file.
-      3. Dagster/dagster_home/dagster.yaml references VM107_AGENT_URL (either
-         in `run_launcher.env_vars` list or via a documentation comment per
-         the project pattern).
-
-    Plan 06 lands all 3 edits. Wave 0 stub keeps the test target reachable.
+         in ALL THREE service `environment:` blocks (dagster_webserver +
+         dagster_daemon + code_location) — ≥ 3 occurrences total. The
+         per-service-block-not-launcher-inheritance lock is critical:
+         `DefaultRunLauncher` only inherits env *within* the spawning
+         container's process tree, NOT across containers. The
+         `macro_relationship_discovery` asset code runs inside
+         `fingpt_code_location` and reads ITS OWN container env, so the
+         var MUST be declared in the code_location block too.
+      3. Dagster/dagster_home/dagster.yaml references VM107_AGENT_URL
+         (documentation comment OR live env_vars entry).
     """
     missing: list[str] = []
     for path in (DAGSTER_ENV, DAGSTER_COMPOSE, DAGSTER_YAML):
@@ -131,7 +131,7 @@ def test_vm107_agent_url_wired_3_places():
     compose_text = DAGSTER_COMPOSE.read_text()
     dagster_yaml_text = DAGSTER_YAML.read_text()
 
-    # Place 1: Dagster/.env
+    # Place 1: Dagster/.env — exactly one VM107_AGENT_URL=... assignment line.
     env_lines = [
         line for line in env_text.splitlines()
         if line.strip().startswith("VM107_AGENT_URL=")
@@ -141,17 +141,22 @@ def test_vm107_agent_url_wired_3_places():
         "(Phase 89.2 Plan 06 / REQ-89.2-6, 3-place lock #1)"
     )
 
-    # Place 2: Dagster/docker-compose.yml — must appear in ≥ 2 service blocks
-    # (dagster_webserver and dagster_daemon at minimum).
-    compose_occurrences = compose_text.count("VM107_AGENT_URL")
-    assert compose_occurrences >= 2, (
-        f"Dagster/docker-compose.yml must reference VM107_AGENT_URL in BOTH "
-        f"dagster_webserver and dagster_daemon environment blocks (≥ 2 "
-        f"occurrences). Found {compose_occurrences}. "
+    # Place 2: Dagster/docker-compose.yml — must appear in ALL THREE service
+    # blocks (dagster_webserver + dagster_daemon + code_location). Counting
+    # 'VM107_AGENT_URL:' (with colon) restricts to YAML key occurrences and
+    # excludes the env-var-style references that may appear in comments.
+    compose_key_occurrences = compose_text.count("VM107_AGENT_URL:")
+    assert compose_key_occurrences >= 3, (
+        f"Dagster/docker-compose.yml must reference VM107_AGENT_URL in ALL "
+        f"THREE service environment: blocks (dagster_webserver, "
+        f"dagster_daemon, code_location). Found {compose_key_occurrences} "
+        f"'VM107_AGENT_URL:' YAML-key occurrences. "
+        f"DefaultRunLauncher does NOT propagate env across containers, so "
+        f"the code_location block needs its own declaration. "
         f"(Phase 89.2 Plan 06 / REQ-89.2-6, 3-place lock #2)"
     )
 
-    # Place 3: Dagster/dagster_home/dagster.yaml — comment or env_vars entry
+    # Place 3: Dagster/dagster_home/dagster.yaml — comment or env_vars entry.
     assert "VM107_AGENT_URL" in dagster_yaml_text, (
         "Dagster/dagster_home/dagster.yaml must reference VM107_AGENT_URL "
         "(comment or run_launcher.env_vars entry). "
