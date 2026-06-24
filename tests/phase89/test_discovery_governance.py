@@ -71,7 +71,8 @@ def test_schedule_cron_is_03_utc():
 # ─── Test 2: Dagster asset dispatches via _dispatch_agent_sync ───────────────
 
 def test_dagster_asset_dispatches_discovery_agent():
-    """Dagster macro_relationship_discovery asset source calls _dispatch_agent_sync."""
+    """Dagster macro_relationship_discovery asset source calls _dispatch_agent_sync
+    AND sends the X-API-KEY auth header (Phase 89.2-07 truth — 401 regression guard)."""
     asset_path = (
         DAGSTER_DIR
         / "fingpt_orchestration"
@@ -92,6 +93,17 @@ def test_dagster_asset_dispatches_discovery_agent():
     )
     assert "_dispatch_agent_sync" in src, (
         "Asset must use _dispatch_agent_sync for HTTP dispatch"
+    )
+    # Phase 89.2-07 401 regression guard: dispatcher MUST read VM107_INTERNAL_TOKEN
+    # and pass it as X-API-KEY. Initial Phase 89.2-07 smoke proved the asset 401'd
+    # without these — VM107 generic /api/v1/agents/run requires the service token.
+    assert "VM107_INTERNAL_TOKEN" in src, (
+        "Asset must read VM107_INTERNAL_TOKEN env var (X-API-KEY service token) — "
+        "VM107 /api/v1/agents/run returns 401 without it"
+    )
+    assert "X-API-KEY" in src, (
+        "Asset must send X-API-KEY header on the dispatch POST — "
+        "VM107 /api/v1/agents/run returns 401 without it"
     )
 
 
