@@ -267,7 +267,19 @@ class MacroRelationshipDiscovery:
             )
             throughput_action = governor.evaluate_threshold(weekly_count)
 
-            # 10. Persist the tightened threshold if the governor wants it
+            # 10. Record this evaluation in macro_discovery_throughput so a
+            #     row always exists for the current ISO week — even on a
+            #     zero-proposal run where ``record_proposal()`` never fired
+            #     (Phase 89.2-07 truth #6 fix). On a "tightened" outcome the
+            #     row is upserted again in step 11 below with the new
+            #     r_min_applied; the order is intentional so failure of step
+            #     11 still leaves a representative row for the week.
+            governor.record_evaluation(
+                this_week_count=weekly_count,
+                threshold_action=throughput_action,
+            )
+
+            # 11. Persist the tightened threshold if the governor wants it
             #     so next week's r_min read picks it up.
             if throughput_action == "tightened":
                 governor.tighten_thresholds()

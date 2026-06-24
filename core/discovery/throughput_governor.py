@@ -106,6 +106,74 @@ class ThroughputGovernor:
         })
         return count
 
+    def record_evaluation(self, this_week_count: int, threshold_action: str) -> None:
+        """Upsert this week's row capturing the evaluation outcome.
+
+        Phase 89.2-07 gap-close: ``evaluate_threshold()`` is pure logging — on a
+        zero-proposal week ``record_proposal()`` is never called either, so the
+        ``macro_discovery_throughput`` table stays empty and truth #6 of the
+        Plan 07 must_haves (≥1 row per ISO week) can never be satisfied.
+        ``record_evaluation()`` runs unconditionally after every evaluation
+        and writes:
+          - week_start_iso (PK)
+          - proposal_count (set on insert; left untouched on conflict so a
+            later record_proposal() bump in the same week is preserved)
+          - threshold_action + threshold_action_at (always set)
+          - r_min_applied (the floor the agent ran with this evaluation)
+
+        Idempotent — multiple calls in the same week update the latest action
+        and r_min snapshot but never decrement ``proposal_count``.
+
+        Args:
+            this_week_count: proposals counted in-memory or read from Postgres
+                             at evaluation time. Used as the ``proposal_count``
+                             value when the row does not yet exist.
+            threshold_action: one of {"ok", "warned_low", "tightened"} — the
+                              return value of :meth:`evaluate_threshold`.
+        """
+        week_start = self._week_start()
+        pg_url = self._get_pg_url()
+        now = datetime.now(tz=timezone.utc)
+
+        # COALESCE on the conflict path keeps an existing higher proposal_count
+        # (record_proposal increments it; we never want to overwrite to a
+        # lower in-memory snapshot if a parallel write landed first).
+        sql = """
+            INSERT INTO macro_discovery_throughput (
+                week_start_iso, proposal_count,
+                threshold_action, threshold_action_at,
+                r_min_applied
+            ) VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (week_start_iso) DO UPDATE
+            SET threshold_action = EXCLUDED.threshold_action,
+                threshold_action_at = EXCLUDED.threshold_action_at,
+                r_min_applied = EXCLUDED.r_min_applied
+        """
+        conn = psycopg2.connect(pg_url)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql,
+                    (
+                        week_start,
+                        int(this_week_count),
+                        str(threshold_action),
+                        now,
+                        float(self._base_r_min),
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        logger.info({
+            "event": "phase89_throughput_evaluation_recorded",
+            "week_start": week_start.isoformat(),
+            "this_week_count": int(this_week_count),
+            "threshold_action": str(threshold_action),
+            "r_min_applied": float(self._base_r_min),
+        })
+
     def evaluate_threshold(self, this_week_count: int) -> str:
         """Evaluate the current week's count against Decision 4 targets.
 
