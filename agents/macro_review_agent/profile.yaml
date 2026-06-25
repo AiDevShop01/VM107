@@ -1,0 +1,87 @@
+# Phase 91 Plan 6 — vm107.macro_review_agent agent runtime profile.
+#
+# Synchronous review agent invoked by VM100 AlertDispatcher when:
+#   - alert_type='liquidity', severity='critical'
+#   - alert_type='regime',    severity='regime_change'
+#
+# Cross-checks the payload against Phase 87 regime_state + Phase 89 correlation
+# data, synthesizes a findings string, and may emit FOLLOW-UP alert_candidate
+# envelopes (alert_type='discovery' — never 'liquidity'/'regime' which would
+# loop back to this agent).
+#
+# Capability Registry agent_profile YAML lives separately at
+# VM107/registry/agent_profile/vm107.macro_review_agent.yaml.
+
+id: vm107.macro_review_agent
+name: vm107.macro_review_agent
+version: "1.0.0"
+phase: 91
+plan: 91-06
+
+description: >-
+  Phase 91 Wave 6 — synchronous review agent triggered by VM100 AlertDispatcher
+  when a high-severity macro alert fires (liquidity_critical or regime_change).
+  Cross-checks the payload against Phase 87 regime_state + Phase 89 correlation
+  data, synthesizes deterministic findings, and may emit a follow-up
+  discovery_alert when conditions suggest a potential macro pivot. NEVER
+  emits alert_type='liquidity' or alert_type='regime' — denied_dispatch_targets
+  list bans self-targeting at the contract layer, and the agent code asserts
+  the same invariant at emit time as defense in depth.
+
+# ── Self-loop ban — REQ-91-9 substrate ───────────────────────────────────
+#
+# macro_review_agent MUST NOT be targeted as a follow-up dispatch target by
+# its own findings. VM100's loop_safety_guard provides depth-based defense
+# (MAX_AGENT_CHAIN_DEPTH=3); this list provides agent-contract-level defense
+# that ALL future agents can read at scheduling time to avoid even attempting
+# the self-loop.
+denied_dispatch_targets:
+  - macro_review_agent
+  - vm107.macro_review_agent
+
+# Trigger mode (event-driven, not scheduled)
+trigger: on_demand
+sibling_service: null
+
+# Consumed capabilities — Phase 87 regime + Phase 89 correlations (degraded-
+# mode safe; agent ships findings even when these are unavailable).
+consumed_capabilities:
+  - phase87.regime_state_reader
+  - phase89.correlation_data_reader
+
+# Emitted event types — follow-ups land as discovery_alert (never self-loop).
+emits:
+  - discovery_alert
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+  - belief_store.propose   # read-only review agent — does not write beliefs
+
+# Constitutional skills — citation-discipline ensures findings cite the
+# original payload citations + any Phase 87 / Phase 89 corroborating sources.
+constitutional_skills:
+  - citation-discipline
+
+# Memory scope — global review (no per-account scoping); execution scope NONE
+# because the agent reads from VM107 / VM102 typed APIs only.
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits — synchronous within VM100 60s SLA.
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 30000  # 30s — well inside REQ-91-9 60s SLA budget
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.70
+expected_freshness_seconds: 300
+is_deterministic: true  # initial impl is deterministic (no LLM in Plan 6)
+
+owner: engineering

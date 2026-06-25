@@ -1,0 +1,85 @@
+id: agent_webhook
+type: notification_channel
+status: real
+shipped: 91
+planned_phase: null
+last_changed: "2026-06-25"
+# Stage 2 schema requires impact_on_decision. Agent dispatch is high-impact —
+# triggers a synchronous agent run that can emit follow-up alert candidates.
+impact_on_decision: HIGH
+
+display_name: Agent Webhook
+badge_color: violet-500
+phase: 91
+description: |
+  Phase 91 Plan 6 — third DELIVERY_CHANNEL transport. Delivers AlertTrigger
+  payloads to a VM107 agent endpoint (e.g. macro_review_agent.invoke) via
+  Bearer-authenticated HTTPS POST. The agent runs synchronous review and may
+  emit follow-up alert_candidate envelopes (subject to loop_safety_guard's
+  MAX_AGENT_CHAIN_DEPTH=3 + per-agent denied_dispatch_targets list).
+
+  Unlike WS / Email, agent_webhook is NOT a user-visible transport — it's
+  a system-to-system channel that fans out high-severity macro alerts into
+  the agent fleet. Users do not subscribe to it directly; AlertDispatcher
+  routes via agent_dispatch_router YAML config.
+
+# Not batched — synchronous within the AlertDispatcher request handler.
+# REQ-91-9 60s SLA requires immediate dispatch.
+batchable_by_priority:
+  P1: false
+  P2: false
+  P3: false
+  P4: false
+
+batch_window_seconds_by_priority:
+  P1: null
+  P2: null
+  P3: null
+  P4: null
+
+dismissibility_default: fully_dismissible
+
+dismissibility_by_priority:
+  P1: fully_dismissible
+  P2: fully_dismissible
+  P3: fully_dismissible
+  P4: fully_dismissible
+
+# No state-machine guard — agent dispatch is independent of trader cognitive state.
+lifecycle_state_guard: []
+guard_action_by_priority: {}
+
+# Quiet preset cannot suppress agent_webhook — it's not user-facing.
+quiet_preset_bypass_priorities: []
+
+# Not delivered to user surfaces — dispatched to agent endpoints.
+default_delivery: []
+
+auto_escalate_to_p1_triggers: []
+default_priority: P1   # high-severity routing only
+
+# Delivery envelope schema (informational; the actual contract is the
+# alert_candidate_event.schema.json + the trigger payload + chain context).
+delivery_envelope_schema: |
+  {
+    profile_id, alert_trigger_id, alert_type, severity, subject_id,
+    payload, agent_chain_depth, parent_dispatch_id, event_id
+  }
+
+# Cross-VM contract — endpoint registered in VM100/backend/cross_vm_contracts.py
+# under VM100_TO_VM107. Auth: Bearer + VM107_API_TOKEN.
+cross_vm_contract: vm107.macro_review_agent.invoke
+
+# Loop safety — both layers cited so future agents see the defense.
+loop_safety:
+  python_guard: mission_control.services.loop_safety_guard.MAX_AGENT_CHAIN_DEPTH = 3
+  db_constraint: agent_dispatch_log.agent_chain_depth CHECK 1..10
+  agent_contract: denied_dispatch_targets in agent_profile.yaml
+
+tags:
+  - phase-91
+  - wave-6
+  - notification-channel
+  - agent-dispatch
+  - cross-vm
+deprecated: false
