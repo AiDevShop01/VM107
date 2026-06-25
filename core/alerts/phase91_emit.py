@@ -22,6 +22,7 @@ Per project locks:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -114,9 +115,34 @@ def _write_to_dlq(envelope: dict) -> None:
 
 # ── Main emit function ────────────────────────────────────────────────────────
 
+def _synthesise_event_id(
+    producer_agent_id: str,
+    subject_id: str,
+    created_at: str,
+) -> str:
+    """Generate a deterministic 16-char hex event_id when caller does not supply one.
+
+    Phase 91 idempotency contract: VM100 alert_trigger.event_id is UNIQUE.
+    Duplicate POSTs with same event_id return 409 (NOT 500). When the producer
+    does not supply an event_id we synthesise one from the producer + subject +
+    timestamp, which preserves idempotency for retries within the same emit call
+    (same payload → same id → 409 on second POST).
+
+    Args:
+        producer_agent_id: VM107 agent identifier
+        subject_id: FRED indicator or asset ID
+        created_at: ISO 8601 UTC timestamp
+
+    Returns:
+        16-char hex string suitable for AlertTrigger.event_id
+    """
+    raw = f"{producer_agent_id}|{subject_id}|{created_at}".encode()
+    return hashlib.sha256(raw).hexdigest()[:16]
+
+
 def emit_alert_candidate(
     alert_type: Literal["contradiction", "discovery", "regime", "correlation",
-                        "macro_indicator", "liquidity", "price"],
+                        "macro_indicator", "liquidity", "price", "economic_release"],
     producer_agent_id: str,
     subject_id: str,
     b13_internal_severity: Literal["info", "warning", "blocking"] | None,
@@ -126,6 +152,7 @@ def emit_alert_candidate(
     proposal_id: UUID | None = None,
     subject_type: str = "indicator",
     confidence: float | None = None,
+    event_id: str | None = None,
 ) -> None:
     """Emit an alert_candidate_created event to Phase 91 UAE.
 
@@ -148,6 +175,9 @@ def emit_alert_candidate(
         proposal_id: UUID of the EdgeProposal (discovery path only).
         subject_type: Entity type, defaults to "indicator".
         confidence: Agent confidence [0.0, 1.0]. Defaults to severity-based heuristic.
+        event_id: 16-char hex idempotency key. If None, synthesised from
+            sha256(producer_agent_id|subject_id|created_at)[:16]. Phase 91 Plan 1
+            requires this on all envelopes (schema v1.0).
     """
     phase91_severity = _translate_severity(b13_internal_severity, alert_type)
 
@@ -161,6 +191,12 @@ def emit_alert_candidate(
         }
         confidence = _severity_confidence.get(b13_internal_severity, 0.50)
 
+    created_at_iso = datetime.now(tz=timezone.utc).isoformat()
+
+    # Phase 91 Plan 1 — synthesise event_id when caller omits (schema v1.0 requires it)
+    if event_id is None:
+        event_id = _synthesise_event_id(producer_agent_id, subject_id, created_at_iso)
+
     # Build envelope
     envelope: dict = {
         "event_type": "alert_candidate_created",
@@ -173,8 +209,9 @@ def emit_alert_candidate(
         "confidence": confidence,
         "explanation": explanation,
         "citations": citations,
-        "created_at": datetime.now(tz=timezone.utc).isoformat(),
-        "schema_version": "0.1-provisional",
+        "created_at": created_at_iso,
+        "event_id": event_id,
+        "schema_version": "1.0",
     }
 
     # Optional path-specific fields

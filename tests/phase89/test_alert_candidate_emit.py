@@ -83,8 +83,12 @@ def test_contradiction_emit_path_schema_valid():
     assert envelope["b13_internal_severity"] == "warning"
     assert envelope["alert_type"] == "contradiction"
     assert len(envelope["citations"]) >= 1
-    assert envelope["schema_version"] == "0.1-provisional"
+    # Phase 91 Plan 1 — schema promoted from 0.1-provisional → 1.0
+    assert envelope["schema_version"] == "1.0"
     assert envelope["event_type"] == "alert_candidate_created"
+    # Phase 91 Plan 1 — event_id is now required (schema v1.0)
+    assert "event_id" in envelope
+    assert len(envelope["event_id"]) >= 16
 
 
 # ── Test 7: Discovery emit path ───────────────────────────────────────────────
@@ -171,3 +175,67 @@ def test_dlq_when_phase91_url_unset():
     dlq_envelope = captured_dlq[0]
     assert dlq_envelope["event_type"] == "alert_candidate_created"
     assert dlq_envelope["alert_type"] == "contradiction"
+
+
+# ── Phase 91 Plan 1 — event_id idempotency contract ──────────────────────────
+
+def test_phase91_event_id_auto_synthesised_when_omitted():
+    """When caller omits event_id, emit_alert_candidate must synthesise one.
+
+    Phase 91 schema v1.0 requires event_id. Auto-synthesis from sha256 of
+    producer_agent_id + subject_id + created_at ensures backward-compat for
+    existing callers (contradiction_engine, edge_proposer) that pre-date the
+    event_id parameter.
+    """
+    from core.alerts.phase91_emit import emit_alert_candidate
+
+    captured = []
+
+    def _mock_post(url, *, json=None, **kwargs):
+        captured.append(json)
+        return MagicMock(status_code=201)
+
+    with patch.dict("os.environ", {"PHASE_91_UAE_URL": "http://mock-phase91/alerts"}):
+        with patch("core.alerts.phase91_emit.requests.post", side_effect=_mock_post):
+            emit_alert_candidate(
+                alert_type="contradiction",
+                producer_agent_id="vm107.macro_contradiction_detector",
+                subject_id="CPIAUCSL",
+                b13_internal_severity="warning",
+                explanation="auto event_id test",
+                citations=[],
+                contradiction_id=uuid.uuid4(),
+            )
+
+    assert len(captured) == 1
+    envelope = captured[0]
+    assert "event_id" in envelope
+    assert len(envelope["event_id"]) >= 16
+    assert envelope["schema_version"] == "1.0"
+
+
+def test_phase91_event_id_uses_caller_supplied_value():
+    """When caller supplies event_id explicitly, it is preserved verbatim."""
+    from core.alerts.phase91_emit import emit_alert_candidate
+
+    captured = []
+
+    def _mock_post(url, *, json=None, **kwargs):
+        captured.append(json)
+        return MagicMock(status_code=201)
+
+    fixed_id = "abcdef0123456789"
+
+    with patch.dict("os.environ", {"PHASE_91_UAE_URL": "http://mock-phase91/alerts"}):
+        with patch("core.alerts.phase91_emit.requests.post", side_effect=_mock_post):
+            emit_alert_candidate(
+                alert_type="discovery",
+                producer_agent_id="vm107.macro_relationship_discovery",
+                subject_id="DXY",
+                b13_internal_severity=None,
+                explanation="caller-supplied id test",
+                citations=[],
+                event_id=fixed_id,
+            )
+
+    assert captured[0]["event_id"] == fixed_id

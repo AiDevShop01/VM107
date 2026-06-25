@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$comment": "Provisional Phase 89 schema. Refined by Phase 91 capability registry YAML.",
+  "$comment": "Phase 91 Plan 1 (2026-06-25) — promoted from v0.1-provisional → v1.0. Added required event_id field for idempotency.",
   "title": "alert_candidate_created",
-  "description": "Provisional Phase 89 JSON Schema for Phase 91 alert_candidate_created envelope (Decision 13).",
+  "description": "Phase 91 canonical JSON Schema for alert_candidate_created envelope. event_id is the idempotency key — VM100 mission_control rejects duplicate POSTs with same event_id (returns 409).",
   "type": "object",
   "required": [
     "event_type",
@@ -16,6 +16,7 @@
     "explanation",
     "citations",
     "created_at",
+    "event_id",
     "schema_version"
   ],
   "additionalProperties": true,
@@ -34,7 +35,8 @@
         "contradiction",
         "macro_indicator",
         "liquidity",
-        "price"
+        "price",
+        "economic_release"
       ],
       "description": "Category of alert for Phase 91 routing"
     },
@@ -86,10 +88,15 @@
       "format": "date-time",
       "description": "ISO 8601 UTC timestamp when alert candidate was created"
     },
+    "event_id": {
+      "type": "string",
+      "minLength": 16,
+      "description": "sha256-derived idempotency key (>= 16 chars). VM100 alert_trigger.event_id has UNIQUE constraint — duplicate POSTs return 409."
+    },
     "schema_version": {
       "type": "string",
-      "const": "0.1-provisional",
-      "description": "Schema version — incremented when Phase 91 stabilises the contract"
+      "const": "1.0",
+      "description": "Schema version — bumped to 1.0 by Phase 91 Plan 1 (2026-06-25)"
     }
   }
 }

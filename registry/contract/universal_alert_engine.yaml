@@ -1,0 +1,154 @@
+id: universal_alert_engine
+type: contract
+status: real
+shipped: 91
+planned_phase: null
+last_changed: "2026-06-25"
+# Universal Alert Engine is the single source of truth for "did the user
+# see X?" — user-facing alerts (bell + email + future channels). HIGH
+# because every Phase 91 consumer (price, macro, regime, correlation,
+# liquidity, discovery, contradiction) routes through this contract.
+impact_on_decision: HIGH
+hard_scoped: true
+phase: 91
+
+name: UniversalAlertEngine
+description: |
+  Phase 91 Universal Alert Engine (UAE) on VM100 mission_control. Owns
+  the canonical 3-table schema (alert_definition / alert_trigger /
+  alert_delivery) and the YAML DSL contract. VM107 emits
+  alert_candidate_created events via VM107/core/alerts/phase91_emit.py;
+  UAE evaluates subscriptions and dispatches via Phase 74
+  NotificationDispatcher. REQ-91-1 lock: this is the ONLY alert service —
+  no parallel implementation on VM107 / VM109. The /alerts/ package
+  lives exclusively at VM100/backend/mission_control/services/alert_*.py.
+owner_vm: vm100
+owner: mission_control
+
+contract_version: "1.0"
+
+# REQ-91-3 — YAML DSL closed operator set. Adding an operator requires
+# updating this registry entry AND the alert_dsl_parser.DSL_OPERATORS dict.
+dsl_operators:
+  leaf:
+    - greater_than       # CPI > 4
+    - less_than          # bar_low < target_price
+    - crosses_above      # value crosses above threshold (intra-bar)
+    - crosses_below      # value crosses below threshold (intra-bar)
+    - percentile         # value > 95th percentile
+    - surprise           # |actual - forecast| > sigma_threshold
+  compound:
+    - all                # AND compound: {all: [{op}, {op}, ...]}
+    - any                # OR compound: {any: [{op}, {op}, ...]}
+
+# REQ-91-3 / LD-91-3 — 7-type taxonomy locked at Wave 6
+alert_types:
+  - price                # Phase 91 Plan 1 (absorbed 83.3)
+  - macro_indicator      # CPI > 4%, surprise > 0.3
+  - regime               # inflation/growth/liquidity regime changes
+  - correlation          # DXY-Gold correlation breakdown
+  - liquidity            # Global Liquidity Score thresholds
+  - economic_release     # CPI/NFP/FOMC release events
+  - discovery            # agent-emitted anomalies (no threshold)
+
+# REQ-91-4 — severity enum enforced at ORM choices + Postgres CheckConstraint
+severity_enum:
+  - info
+  - watch
+  - important
+  - critical
+  - regime_change
+
+# LD-91-6 — lifecycle FSM. transition_to(definition, new_state) raises
+# StateTransitionError on illegal moves. WORM at app layer (no DELETE).
+lifecycle_fsm:
+  created:
+    - active
+    - expired
+  active:
+    - triggered
+    - expired
+    - dismissed
+  triggered:
+    - acknowledged
+    - dismissed
+    - expired
+  acknowledged:
+    - dismissed
+    - expired
+  dismissed:
+    - expired
+  expired: []
+
+# Cross-VM intake — VM107 emitters POST here
+intake_endpoint:
+  path: /api/mission-control/internal/alert-candidate-created
+  method: POST
+  auth: X-API-KEY
+  url_env_var: PHASE_91_UAE_URL
+  token_env_var: VM100_INTERNAL_TOKEN
+  schema_ref: VM107/tests/phase89/fixtures/alert_candidate_event.schema.json
+  idempotency_key: event_id
+
+# Public CRUD — user-facing subscription management (JWT bearer)
+public_endpoints:
+  - path: /api/mission-control/alerts/subscribe
+    method: POST
+  - path: /api/mission-control/alerts/history
+    method: GET
+  - path: /api/mission-control/alerts/{definition_id}/ack
+    method: PATCH
+  - path: /api/mission-control/alerts/{definition_id}/dismiss
+    method: PATCH
+  - path: /api/mission-control/alerts/{definition_id}
+    method: DELETE
+  # 83.3-compat (absorbed Phase 83.3 scope per Amendment A-91-1)
+  - path: /api/mission-control/price-alerts
+    method: POST
+  - path: /api/mission-control/price-alerts
+    method: GET
+  - path: /api/mission-control/price-alerts/{id}
+    method: DELETE
+
+# Internal — Dagster bar /check fan-out (no JWT, X-API-KEY)
+internal_endpoints:
+  - path: /api/mission-control/internal/price-alerts/check
+    method: POST
+    auth: X-API-KEY
+    caller: fingpt_orchestration/helpers/price_alert_dispatcher.py
+
+# 3-table schema (LD-91-6)
+tables:
+  - alert_definition     # user subscriptions
+  - alert_trigger        # WORM firing record (event_id UNIQUE)
+  - alert_delivery       # per-channel send status (UPDATE allowed)
+
+# Phase 74 delivery dependency — never bypass NotificationDispatcher
+delivery_substrate:
+  module: VM100/backend/notifications/dispatcher.py
+  contract: NotificationContract
+  channels:
+    - opportunities      # default for price alerts
+    - macro              # macro indicator + regime
+    - risk               # liquidity collapse
+    - system             # operational alerts
+
+# REQ-91-1 negative coverage — this lock is enforced by
+# test_alerts_no_parallel_implementation.py in VM100/backend/mission_control/tests/
+no_parallel_implementation:
+  alert_definition_declared_in:
+    - VM100/backend/mission_control/models.py
+  notification_dispatcher_declared_in:
+    - VM100/backend/notifications/dispatcher.py
+  forbidden_paths:
+    - VM109/alerts/
+
+deprecated: false
+
+tags:
+  - phase-91
+  - alert-engine
+  - mission-control
+  - cross-vm-intake
+  - dsl
+  - worm

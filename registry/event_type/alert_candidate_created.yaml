@@ -1,7 +1,8 @@
-# Phase 89 — Wave 7 (2026-06-21)
-# Provisional Phase 91 alert_candidate_created event schema (Decision 13).
-# This entry ships as status=provisional; Phase 91 owns the canonical schema.
-# Consumers MUST validate against envelope_schema_ref before processing.
+# Phase 91 Plan 1 (2026-06-25) — promoted from experimental → real, schema v1.0
+# Canonical Phase 91 alert_candidate_created event schema.
+# Both contradiction (Wave 3) and discovery (Wave 4) agents emit through
+# VM107/core/alerts/phase91_emit.py — POSTs to PHASE_91_UAE_URL (VM100
+# /api/mission-control/internal/alert-candidate-created).
 #
 # Severity translation from B13 internal → Phase 91 UAE severity levels:
 #   info      → Info
@@ -9,38 +10,39 @@
 #   blocking  → Critical
 #
 # Producer agents: vm107.macro_contradiction_detector + vm107.macro_relationship_discovery
-# Consumer phases: 91 (Universal Alert Engine, when shipped)
+# Consumer phases: 91 (Universal Alert Engine, canonical schema owner)
 
 id: event_type.alert_candidate_created
 type: event_type
-status: experimental  # provisional Phase 91 schema; maps to 'experimental' (valid CapabilityStatus values: stub/experimental/real/deprecated)
+status: real
 shipped: 89
-last_changed: "2026-06-21"
+last_changed: "2026-06-25"
 capability_type: event_type
 phase: 89
-schema_version: "0.1-provisional"
+schema_version: "1.0"
 refined_by_phase: 91
-refined_by_phase_plan_id: 91-XX
+refined_by_phase_plan_id: 91-01
 
 description: >-
-  Phase 89 provisional event schema for alert_candidate_created. Emitted by
+  Canonical Phase 91 event schema for alert_candidate_created. Emitted by
   vm107.macro_contradiction_detector and vm107.macro_relationship_discovery
   whenever a contradiction or discovery proposal rises to alert-candidate
-  status. Phase 91 Universal Alert Engine consumes this event. Until Phase 91
-  ships, consumers must validate against the JSON Schema at envelope_schema_ref.
+  status. Phase 91 Universal Alert Engine consumes this event via
+  /api/mission-control/internal/alert-candidate-created. event_id is the
+  idempotency key — duplicate POSTs with same event_id return 409.
 
 producer_agents:
   - vm107.macro_contradiction_detector
   - vm107.macro_relationship_discovery
 
 consumer_phases:
-  - 91   # Universal Alert Engine (when shipped)
+  - 91   # Universal Alert Engine (canonical schema owner — VM100 mission_control)
 
 applies_to_consumers:
   - phase: 91
     consumer: universal_alert_engine
-    status: provisional
-    notes: "Phase 91 will own the canonical schema; provisional until then"
+    status: real
+    notes: "Phase 91 Plan 1 owns the canonical schema v1.0 (2026-06-25)"
 
 envelope_schema_ref: VM107/tests/phase89/fixtures/alert_candidate_event.schema.json
 
@@ -48,12 +50,6 @@ severity_translation:
   info: Info
   warning: Important
   blocking: Critical
-
-provisional_notes: |
-  Phase 89 ships this contract as provisional. Phase 91 will own the canonical
-  schema in its capability registry. Until then, Phase 89 emits per this YAML;
-  consumers should validate against the JSON Schema at the envelope_schema_ref
-  path before processing.
 
 impact_on_decision: HIGH
 deprecated: false
@@ -63,6 +59,5 @@ tags:
   - macro
   - phase-89
   - wave-7
-  - provisional
   - alert-candidate
   - phase-91-consumer
