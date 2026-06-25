@@ -1,0 +1,64 @@
+# Phase 92 Plan 05 — Capability Registry tool YAML for search_macro_research.
+# Per 92-RESEARCH.md §"Pattern 5: Capability Registry YAML for New Tool"
+# (lines 373-417). Stage 2 schema (Phase 47.6) requires impact_on_decision.
+
+id: search_macro_research
+type: tool
+status: real
+shipped: 92
+name: search_macro_research
+description: |
+  Semantic search across macro research documents (Tier 1 official + Tier 3
+  academic). Joins Qdrant `knowledge_base_v2` chunks with Neo4j
+  (:ResearchDocument)-[:DISCUSSES_INDICATOR] edges to return per-indicator
+  filtered, cited results. Used by macro_investigator (Phase 89 LD-92-8
+  consolidation) + 3 Plan-5 research-intelligence agents (summarisation /
+  citation / contrarian).
+category: knowledge-retrieval
+version: "1.0.0"
+producer: vm107
+phase: 92
+location:
+  source: VM107/tools/search_macro_research.py
+  endpoint:
+    search: VM101/api/v1/research/search
+    graph: VM101/api/v1/research/graph/by-indicator
+  contracts:
+    request: fingpt_core.contracts.research.SearchMacroResearchRequest
+    response: fingpt_core.contracts.research.SearchMacroResearchResponse
+related_capabilities:
+  - search_knowledge
+  - vm102.indicator_history
+tags:
+  - macro
+  - research
+  - rag
+  - phase-92
+  - wave-5
+hard_scoped: false
+allowed_agent_profiles:
+  - vm107.macro_investigator
+  - vm107.research_summarisation_agent
+  - vm107.research_citation_agent
+  - vm107.research_contrarian_agent
+  - vm107.research_discovery_agent
+last_changed: "2026-06-26"
+
+# Phase 47.6 LD-3 capability registry fields (Stage 2 schema required)
+impact_on_decision: HIGH
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (required by Plan-5 sweep)
+typical_confidence: 0.80
+expected_freshness_seconds: 3600   # RSS poll cadence is the freshness floor
+is_deterministic: false             # LLM-mediated retrieval + Qdrant ANN
+
+# Env vars referenced by tool implementation
+env_vars:
+  - name: VM101_RESEARCH_SEARCH_URL
+    purpose: "Full URL of VM101 POST /api/v1/research/search"
+    required: true
+    fallback_allowed: false
+
+# Capability owner
+owner: engineering

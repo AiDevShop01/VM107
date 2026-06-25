@@ -7,7 +7,7 @@ id: vm107.macro_investigator
 type: agent_profile
 status: real
 shipped: 89
-last_changed: "2026-06-21"
+last_changed: "2026-06-26"  # Phase 92 Plan 05 LD-92-8 flip — search_macro_research denied→allowed
 name: vm107.macro_investigator
 description: >-
   Phase 89 Wave 1 — user-driven free-form Q&A investigator agent. Answers
@@ -49,15 +49,17 @@ allowed_tools:
   - vm102.indicator_distribution
   - lookup_capability
   - lookup_reasoning_artifact
+  - search_macro_research                  # Phase 92 Plan 05 LD-92-8 flip — moved from denied → allowed (2026-06-26)
   - response
 # episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write
 # removed from allowed_tools — not callable tools in this runtime. Moved to denied_tools.
-# search_macro_research removed from allowed_tools — tool not implemented (Phase 92 planned).
-# Moved to denied_tools to prevent wasted LLM rounds on "Tool not found" errors.
+# search_macro_research flipped denied → allowed in Phase 92 Plan 05 (LD-92-8
+# consolidation). The Phase 92 search tool is now shipped (VM107/tools/search_macro_research.py
+# backed by VM101 POST /api/v1/research/search).
 
 # Optional tools — graceful degradation if absent (Decision 11 + Phase 88)
 optional_tools:
-  - search_macro_research                  # Decision 11 — investigator absorbs research copilot scope
+  - search_macro_research                  # Decision 11 — retained for backward compat; primary entry is allowed_tools
   - vm102.alfred.vintage_history           # Phase 88 graceful fallback
 
 denied_tools:
@@ -66,7 +68,7 @@ denied_tools:
   - trade_execution_tool
   - filesystem_write
   - vm105.neo4j_macro_graph_walker      # not deployed in dev (proxy missing) — deny to prevent wasted rounds
-  - search_macro_research               # not implemented (Phase 92 planned) — deny to prevent wasted LLM rounds
+  # search_macro_research removed from denied_tools in Phase 92 Plan 05 (LD-92-8 flip).
   - episodic_memory_service.query       # not a callable tool — memory injected via memory_visibility profile field
   - belief_store.query                  # not a callable tool in this runtime
   - phase71.evidence_drawer.write       # Phase 71 not deployed in dev
