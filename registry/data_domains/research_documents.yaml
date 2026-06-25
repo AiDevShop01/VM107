@@ -1,0 +1,65 @@
+id: research_documents
+type: data_domain
+status: real
+shipped: 92
+phase: 92
+name: research_documents
+description: |
+  Phase 92 macro research-document substrate. Two tables owned by VM101
+  ``knowledge.research``:
+  * ``knowledge_research_researchdocument`` — 1:1 extension of the Phase 40.1
+    ``knowledge_document`` row carrying tier (1-5), acquisition_stream
+    (A/B/C/D/E), source_url, indicators[]/assets[]/classifications{} (Plan 3
+    populates these), and lifecycle status (ingested → processed → classified
+    | unlinked | rejected → graphed → intelligence_processed).
+  * ``knowledge_research_ingestcursor`` — per-source cursor for RSS/API
+    pollers (etag + last_modified + seen_guids[:1000] + last_success_at +
+    last_error). Sensors and Plan-2+ asset_checks read .last_success_at to
+    fire freshness alerts.
+
+  Read APIs (Plan 2 ships): ``GET /api/knowledge/research/documents`` and
+  ``GET /api/knowledge/research/cursors``. Phase 92 Plan 6 Research Hub UI
+  consumes these endpoints to populate the per-indicator Research Hub tab.
+
+owner: vm101
+read_endpoint: /api/knowledge/research/documents
+location:
+  database: postgresql
+  database_name: tradetracker
+  table: knowledge_research_researchdocument
+  cursor_table: knowledge_research_ingestcursor
+event_types:
+  - research_document_ingested
+  - research_document_classified
+  - research_document_graphed
+tags:
+  - knowledge
+  - research
+  - macro
+  - rss
+  - arxiv
+  - ssrn
+  - nber
+  - phase-92
+
+# Phase 47.6 Stage-2 schema-required field. HIGH — the entire Phase 92 stack
+# (Plans 2-6 + Phase 85 §15 Research Hub UI consumer) hangs off this data
+# domain. Without it, the Macro Workbench cannot surface narrative evidence
+# beside indicator charts. HIGH is the correct severity.
+impact_on_decision: HIGH
+
+contracts:
+  read:
+    - id: research_document_read_envelope
+      description: VM101 returns Phase 70.5 ToolResultEnvelope-wrapped list of ResearchDocument rows
+      example_path: /api/knowledge/research/documents?indicator=DGS10&tier=1&limit=50
+  write:
+    - id: research_document_ingest
+      description: Dagster rss_ingest_asset POSTs normalized RSS/ArXiv/NBER/SSRN payloads here
+      example_path: /api/knowledge/research/ingest
+
+# Cross-references to capabilities that consume this domain.
+related_capabilities:
+  - data_domain.drawings           # Phase 93 — peer data domain for structural overlays
+  - vm107.macro_investigator       # Phase 89 — investigator can cite research_documents
+  - vm107.macro_relationship_discovery  # Phase 89 — discovery uses graph edges built from these

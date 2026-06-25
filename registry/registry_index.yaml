@@ -5,8 +5,9 @@
 
 meta:
   schema_version: "1.0"
-  last_updated: "2026-06-21"
+  last_updated: "2026-06-25"
   total_phase89_entries: 8
+  total_phase92_entries: 1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 89 — Macro Intelligence Workbench
@@ -97,3 +98,25 @@ phase_89:
       status: provisional
       phase: 89
       description: "Provisional Phase 91 alert_candidate_created event schema (Decision 13)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 92 — Macro Knowledge & Research Platform
+# Plan 1 Wave 1 — research acquisition substrate (RSS/ArXiv/NBER/SSRN ingest)
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_92:
+  description: "Phase 92 Macro Knowledge & Research Platform — 1 new capability entry (Plan 1)"
+  shipped: 92
+  wave_summary:
+    wave1: "data_domain.research_documents — VM101 knowledge_research_researchdocument + knowledge_research_ingestcursor"
+
+  entries:
+
+    - id: research_documents
+      type: data_domain
+      path: registry/data_domains/research_documents.yaml
+      wave: 1
+      status: real
+      phase: 92
+      description: "1:1 extension of Phase 40.1 Document for tier/stream/lifecycle + per-source IngestCursor for RSS/API pollers"
+
