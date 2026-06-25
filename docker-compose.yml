@@ -60,6 +60,15 @@ services:
       # (opportunities/ranked, intelligence_feed/*, narratives/global).
       VM107_INTERNAL_TOKEN: "${VM107_INTERNAL_TOKEN:?VM107_INTERNAL_TOKEN is required (Phase 73-followup — VM100↔VM107 service auth)}"
 
+      # Phase 91 Plan 1 — Universal Alert Engine intake URL.
+      # VM107 emitters (core/alerts/phase91_emit.py) POST alert_candidate_event
+      # v1.0 envelopes here. Producer-side DLQ on missing URL preserves
+      # observability when Phase 91 is gated off; when alerts are enabled the
+      # var MUST be set (no fallback default per env-driven config lock).
+      # Dev value example: http://192.168.1.100/api/mission-control/internal/alert-candidate-created
+      # X-Internal-Token uses VM100_INTERNAL_TOKEN above.
+      PHASE_91_UAE_URL: "${PHASE_91_UAE_URL:?PHASE_91_UAE_URL is required (Phase 91 Plan 1 — UAE intake endpoint, no fallback)}"
+
       # Phase 74 — Supervisory AI + Cost Anomaly emitter config.
       # Read by supervisory_emitter.py + cost_anomaly_detector.py at import time.
       # No fallback defaults (env-driven-no-fallbacks lock).
