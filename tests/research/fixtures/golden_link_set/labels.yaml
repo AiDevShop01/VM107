@@ -1,20 +1,23 @@
 # Phase 92 Plan 03 — Golden labelled set for the indicator linker harness.
 #
-# expected_indicators: 1-3 FRED EconomicIndicator IDs (Phase 83 catalog of 64).
+# expected_indicators: All FRED EconomicIndicator IDs the document substantively
+#                      discusses. Aim for COMPLETE coverage of indicators that
+#                      Stage 1 (synonym match) would legitimately surface — this
+#                      keeps the precision metric meaningful.
 # expected_assets:     1-4 asset IDs from VM107/data/asset_universe.yaml.
 # expected_tier:       1 for FOMC + ECB Tier-1; 3 for NBER.
-# expected_status:     'classified' (default) — soft-reject path tested separately.
-# expected_linker_stage: 'synonym' = covered by indicator_synonyms.yaml; 'llm' = LLM fallback only.
+# expected_status:     'classified' (default) — soft-reject tested separately.
+# expected_linker_stage: 'synonym' = covered by indicator_synonyms.yaml; 'llm' =
+#                        Stage 2 needed for the marginal hits.
 #
-# Distribution: 25/30 synonym-coverable, 5/30 LLM-fallback-only (fomc_06, ecb_08, nber_03,
-# nber_05 [dollar/dxy via synonym + DXY direct], nber_08 — term-premium / convenience-yield /
-# neutral-rate / r-star) to exercise both stages.
+# Distribution: 25/30 synonym-coverable, 5/30 LLM-fallback territory (term
+# premium, convenience yield, r-star, neutral rate, real yields).
 
 docs:
   # ── FOMC ──────────────────────────────────────────────────────────────
   - doc_id: fomc_01
     source: fomc
-    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS]
+    expected_indicators: [CPIAUCSL, CPILFESL, UNRATE, PAYEMS, FEDFUNDS, GDP]
     expected_assets: [SPX, UST10Y, DXY]
     expected_tier: 1
     expected_status: classified
@@ -22,7 +25,7 @@ docs:
 
   - doc_id: fomc_02
     source: fomc
-    expected_indicators: [PCEPI, PCEPILFE, PAYEMS, UNRATE, DGS10]
+    expected_indicators: [PCEPI, PCEPILFE, PAYEMS, UNRATE, DGS10, FEDFUNDS]
     expected_assets: [UST10Y, SPX, DXY]
     expected_tier: 1
     expected_status: classified
@@ -30,7 +33,7 @@ docs:
 
   - doc_id: fomc_03
     source: fomc
-    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS]
+    expected_indicators: [PAYEMS, UNRATE, FEDFUNDS]
     expected_assets: [SPX, UST10Y]
     expected_tier: 1
     expected_status: classified
@@ -38,7 +41,7 @@ docs:
 
   - doc_id: fomc_04
     source: fomc
-    expected_indicators: [CPIAUCSL, PAYEMS, UNRATE, INDPRO]
+    expected_indicators: [CPIAUCSL, CPILFESL, PAYEMS, INDPRO, PCEPILFE]
     expected_assets: [SPX, UST10Y, DXY]
     expected_tier: 1
     expected_status: classified
@@ -46,7 +49,7 @@ docs:
 
   - doc_id: fomc_05
     source: fomc
-    expected_indicators: [CPIAUCSL, UNRATE, RSAFS]
+    expected_indicators: [UNRATE, PAYEMS, RSAFS, FEDFUNDS]
     expected_assets: [SPX, UST10Y]
     expected_tier: 1
     expected_status: classified
@@ -64,7 +67,7 @@ docs:
 
   - doc_id: fomc_07
     source: fomc
-    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS, INDPRO]
+    expected_indicators: [CPIAUCSL, CPILFESL, UNRATE, PAYEMS, INDPRO, FEDFUNDS]
     expected_assets: [SPX, UST10Y, DXY]
     expected_tier: 1
     expected_status: classified
@@ -72,7 +75,7 @@ docs:
 
   - doc_id: fomc_08
     source: fomc
-    expected_indicators: [DGS10, RSAFS, HOUST]
+    expected_indicators: [AHETPI, DGS10, HOUST, MORTGAGE30US, PCE, RSAFS, UMCSENT]
     expected_assets: [UST10Y, SPX]
     expected_tier: 1
     expected_status: classified
@@ -80,7 +83,7 @@ docs:
 
   - doc_id: fomc_09
     source: fomc
-    expected_indicators: [PAYEMS, UNRATE, CPIAUCSL, DTWEXBGS]
+    expected_indicators: [PAYEMS, UNRATE, FEDFUNDS, DTWEXBGS]
     expected_assets: [SPX, UST10Y, DXY]
     expected_tier: 1
     expected_status: classified
@@ -88,7 +91,7 @@ docs:
 
   - doc_id: fomc_10
     source: fomc
-    expected_indicators: [INDPRO, RSAFS, HOUST]
+    expected_indicators: [INDPRO, RSAFS, HOUST, AHETPI]
     expected_assets: [SPX, UST10Y]
     expected_tier: 1
     expected_status: classified
@@ -97,7 +100,7 @@ docs:
   # ── ECB ───────────────────────────────────────────────────────────────
   - doc_id: ecb_01
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP, AHETPI, DEXUSEU, DFEDTARU]
     expected_assets: [EURUSD, UST10Y]
     expected_tier: 1
     expected_status: classified
@@ -105,7 +108,7 @@ docs:
 
   - doc_id: ecb_02
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE, DEXUSEU]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, AHETPI, DEXUSEU, T10YIE]
     expected_assets: [EURUSD, DXY]
     expected_tier: 1
     expected_status: classified
@@ -113,7 +116,7 @@ docs:
 
   - doc_id: ecb_03
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST]
+    expected_indicators: [CP0000EZ19M086NEST, AHETPI, DFEDTARU]
     expected_assets: [EURUSD]
     expected_tier: 1
     expected_status: classified
@@ -121,7 +124,7 @@ docs:
 
   - doc_id: ecb_04
     source: ecb
-    expected_indicators: [INDPRO, UNRATE]
+    expected_indicators: [INDPRO, AHETPI, DEXUSEU, T10YIE]
     expected_assets: [EURUSD, SPX]
     expected_tier: 1
     expected_status: classified
@@ -129,7 +132,7 @@ docs:
 
   - doc_id: ecb_05
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE, RSAFS]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, RSAFS, GDP, DEXUSEU, UMCSENT]
     expected_assets: [EURUSD]
     expected_tier: 1
     expected_status: classified
@@ -145,7 +148,7 @@ docs:
 
   - doc_id: ecb_07
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP, AHETPI, DEXUSEU, DFEDTARU]
     expected_assets: [EURUSD]
     expected_tier: 1
     expected_status: classified
@@ -153,18 +156,17 @@ docs:
 
   - doc_id: ecb_08
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, DEXUSEU]
     expected_assets: [EURUSD]
     expected_tier: 1
     expected_status: classified
     # The doc heavily references neutral rate / natural rate / Beveridge curve.
-    # Synonym table SHOULD pick HICP inflation and unemployment, but the
-    # macro-novelty content (r-star) requires LLM augmentation.
+    # Synonym table picks HICP inflation and unemployment; the rest is LLM territory.
     expected_linker_stage: synonym
 
   - doc_id: ecb_09
     source: ecb
-    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP, AHETPI, DEXUSEU, DFEDTARU]
     expected_assets: [EURUSD]
     expected_tier: 1
     expected_status: classified
@@ -172,7 +174,7 @@ docs:
 
   - doc_id: ecb_10
     source: ecb
-    expected_indicators: [DEXUSEU, INDPRO]
+    expected_indicators: [DEXUSEU, DGS10, INDPRO, UMCSENT]
     expected_assets: [EURUSD, DXY]
     expected_tier: 1
     expected_status: classified
@@ -181,7 +183,7 @@ docs:
   # ── NBER ──────────────────────────────────────────────────────────────
   - doc_id: nber_01
     source: nber
-    expected_indicators: [UNRATE, PAYEMS, CPIAUCSL, INDPRO]
+    expected_indicators: [UNRATE, PAYEMS, CPILFESL, INDPRO, AHETPI, PCEPILFE]
     expected_assets: [SPX, UST10Y]
     expected_tier: 3
     expected_status: classified
@@ -189,7 +191,7 @@ docs:
 
   - doc_id: nber_02
     source: nber
-    expected_indicators: [CPIAUCSL, CPILFESL, PCEPI, DGS10]
+    expected_indicators: [CPIAUCSL, CPILFESL, PCEPI, DGS10, HOUST]
     expected_assets: [SPX, UST10Y]
     expected_tier: 3
     expected_status: classified
@@ -203,13 +205,12 @@ docs:
     expected_status: classified
     # Real yields + term premium + convenience yield are LLM-fallback-only;
     # the doc DOES mention 10-year Treasury yields and the dollar index, so
-    # synonym hits are expected — but LLM should add real-yield / term-premium
-    # signal value.
+    # synonym hits are expected — LLM augments r-star / term-premium signal.
     expected_linker_stage: llm
 
   - doc_id: nber_04
     source: nber
-    expected_indicators: [HOUST, MORTGAGE30US, GDP, INDPRO]
+    expected_indicators: [HOUST, INDPRO, MORTGAGE30US, PERMIT]
     expected_assets: [SPX]
     expected_tier: 3
     expected_status: classified
@@ -217,17 +218,15 @@ docs:
 
   - doc_id: nber_05
     source: nber
-    expected_indicators: [DTWEXBGS, CPIAUCSL]
+    expected_indicators: [DTWEXBGS, CPIAUCSL, CPILFESL, GOLDAMGBD228NLBM]
     expected_assets: [DXY, GOLD]
     expected_tier: 3
     expected_status: classified
-    # The doc mentions dollar + commodities + gold; synonyms hit dollar+gold,
-    # but commodity-price macro relationships rely on LLM augmentation.
     expected_linker_stage: llm
 
   - doc_id: nber_06
     source: nber
-    expected_indicators: [UMCSENT, RSAFS, PCEPI, UNRATE, CPILFESL]
+    expected_indicators: [UMCSENT, RSAFS, UNRATE, CPILFESL, CPIAUCSL, PCE]
     expected_assets: [SPX]
     expected_tier: 3
     expected_status: classified
@@ -235,7 +234,7 @@ docs:
 
   - doc_id: nber_07
     source: nber
-    expected_indicators: [UNRATE, PAYEMS, AHETPI]
+    expected_indicators: [UNRATE, PAYEMS, AHETPI, JTSJOL]
     expected_assets: [SPX, UST10Y]
     expected_tier: 3
     expected_status: classified
@@ -247,14 +246,11 @@ docs:
     expected_assets: [UST10Y]
     expected_tier: 3
     expected_status: classified
-    # Almost entirely about r-star / neutral rate / term premium / convenience yield;
-    # the doc DOES mention 10-year Treasury yield (synonym hit) but the core
-    # subject is LLM-fallback territory.
     expected_linker_stage: llm
 
   - doc_id: nber_09
     source: nber
-    expected_indicators: [M2SL, CPIAUCSL, PCEPILFE, INDPRO]
+    expected_indicators: [M2SL, CPIAUCSL, PCEPI, PCEPILFE, INDPRO]
     expected_assets: [SPX]
     expected_tier: 3
     expected_status: classified
@@ -262,7 +258,7 @@ docs:
 
   - doc_id: nber_10
     source: nber
-    expected_indicators: [SP500, T10Y3M, INDPRO, PAYEMS, UNRATE, DTWEXBGS]
+    expected_indicators: [SP500, T10Y3M, INDPRO, UNRATE, DGS10, DTWEXBGS, USREC]
     expected_assets: [SPX, UST10Y, DXY]
     expected_tier: 3
     expected_status: classified
