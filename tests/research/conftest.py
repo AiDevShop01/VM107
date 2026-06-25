@@ -192,3 +192,28 @@ def _set_indicator_catalog_env_for_tests():
     os.environ["PHASE92_INDICATOR_CATALOG_FILE"] = str(catalog_file)
     yield
     os.environ.pop("PHASE92_INDICATOR_CATALOG_FILE", None)
+
+
+# ── Plan 4 helper: Neo4j availability probe ───────────────────────────────
+# Phase 92 Plan 4 introduces the GraphSearchTool indicator-to-asset traversal
+# latency test. That test requires a live Neo4j bolt endpoint; on host shells
+# without a local Neo4j the test is auto-skipped via MINOR-6.
+def _try_connect_neo4j(host: str = "localhost", port: int = 7687, timeout: float = 2.0) -> bool:
+    """Return True iff a TCP connection to the Neo4j bolt port succeeds.
+
+    Used by ``@pytest.mark.skipif`` decorators on Plan 4 graph tests so the
+    suite cleanly skips when Neo4j isn't running rather than emitting a
+    misleading hard FAIL.
+    """
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except (OSError, socket.timeout):
+        return False
+
+
+# Public alias matching the plan's contract.
+def neo4j_available(timeout: float = 2.0) -> bool:
+    return _try_connect_neo4j(timeout=timeout)
