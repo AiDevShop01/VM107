@@ -105,10 +105,11 @@ phase_89:
 # ─────────────────────────────────────────────────────────────────────────────
 
 phase_92:
-  description: "Phase 92 Macro Knowledge & Research Platform — 1 new capability entry (Plan 1)"
+  description: "Phase 92 Macro Knowledge & Research Platform — 2 capability entries (Plans 1 + 3)"
   shipped: 92
   wave_summary:
-    wave1: "data_domain.research_documents — VM101 knowledge_research_researchdocument + knowledge_research_ingestcursor"
+    wave1: "data_domain.research_documents — VM101 knowledge_research_researchdocument + knowledge_research_ingestcursor (Plan 1)"
+    wave3: "agent_profile.vm107.research_classification_agent — hybrid synonym + LLM indicator/asset linker (Plan 3)"
 
   entries:
 
@@ -119,4 +120,12 @@ phase_92:
       status: real
       phase: 92
       description: "1:1 extension of Phase 40.1 Document for tier/stream/lifecycle + per-source IngestCursor for RSS/API pollers"
+
+    - id: vm107.research_classification_agent
+      type: agent_profile
+      path: registry/agent_profile/vm107.research_classification_agent.yaml
+      wave: 3
+      status: real
+      phase: 92
+      description: "Hybrid synonym+LLM indicator linker + deterministic asset linker; soft-rejects status='unlinked' (Pitfall 3 fix); LD-92-7 indicator-link-required"
 

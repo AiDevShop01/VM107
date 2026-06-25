@@ -39,6 +39,17 @@ inflation:
     "personal consumption expenditures (pce)": [PCEPI]
     "the price index for personal consumption expenditures": [PCEPI]
     "core inflation":            [CPILFESL, PCEPILFE]
+    "inflation has eased":       [CPIAUCSL]
+    "inflation has come down":   [CPIAUCSL]
+    "inflation has declined":    [CPIAUCSL]
+    "inflation has continued to decline": [CPIAUCSL]
+    "inflation remains elevated": [CPIAUCSL]
+    "inflation has fallen":      [CPIAUCSL]
+    "the disinflation":          [CPIAUCSL]
+    "disinflation process":      [CPIAUCSL]
+    "inflation persistence":     [CPIAUCSL]
+    "inflation dynamics":        [CPIAUCSL]
+    "inflation episode":         [CPIAUCSL]
 
 eurozone_inflation:
   match:

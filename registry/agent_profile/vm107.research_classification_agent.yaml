@@ -1,0 +1,99 @@
+# Phase 92 Plan 03 — Capability Registry profile for the
+# ResearchClassificationAgent. Stage 2 schema (Phase 47.6 LD-3) compliant.
+
+id: vm107.research_classification_agent
+type: agent_profile
+status: real
+shipped: 92
+last_changed: "2026-06-25"
+name: vm107.research_classification_agent
+version: "1.0.0"
+phase: 92
+description: >-
+  Phase 92 Plan 03 — orchestration agent that turns Plan 2's
+  `processed` ResearchDocument rows into `classified` rows (or
+  `unlinked` soft-rejects, Pitfall 3) carrying tier ∈ {1..5} +
+  indicators[] (≥1, from the 64-row Phase 83 FRED EconomicIndicator
+  catalog) + assets[] (≥0, from VM107/data/asset_universe.yaml).
+  Linker is hybrid: deterministic synonym table for precision + LLM
+  fallback for recall. Powers per-indicator drill-in on Phase 85 §15
+  Research Hub (LD-92-7).
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH    # LD-92-7 — every doc MUST link to ≥1 indicator
+hard_scoped: true
+deprecated: false
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-25"
+    change: "Phase 92 Plan 03 — initial release (hybrid linker + Pitfall 3 soft-reject)"
+
+# Decision-trigger: Dagster sensor (research_classification_sensor) polls VM101
+# for status='processed' rows and dispatches one HTTP RPC per row.
+trigger: dagster_sensor
+
+# Tool allow-list. The classifier is mostly deterministic + LLM-augmented;
+# `response` is needed for the agent loop terminator (per macro_investigator
+# precedent). `search_knowledge` lets the LLM-fallback prompt ask "is there
+# already a research doc that links term-premium to DGS10 in our Qdrant?"
+# as a tie-breaker for borderline confidences.
+allowed_tools:
+  - search_knowledge
+  - lookup_capability
+  - response
+
+optional_tools:
+  - lookup_reasoning_artifact
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+  - belief_store.propose
+
+# Constitutional skills: enforce LD-92-7 (every doc links to ≥1 indicator)
+# and the Pitfall-3 soft-reject rule (status='unlinked', never silently dropped).
+constitutional_skills: []
+
+# Memory scope — public-factual analyst; no per-account / per-trade visibility.
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits (Phase 47.6 fail-fast budgets)
+max_iterations: 2
+max_cost_usd: 0.05
+latency_budget_ms: 15000
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85      # high — synonym Stage 1 is deterministic
+expected_freshness_seconds: 86400
+is_deterministic: false       # Stage 2 LLM fallback breaks pure determinism
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 10
+
+# Brain absorption ledger
+brain_absorbed:
+  - B5  # self-eval — Stage-1 precision threshold and Stage-2 confidence floor
+
+owner: engineering
+profile_path: null
+
+tags:
+  - agent-profile
+  - knowledge
+  - research
+  - phase-92
+  - wave-3
+  - classifier
+  - hybrid-linker
+  - pitfall-3-softreject
+  - ld-92-7-indicator-link-required
