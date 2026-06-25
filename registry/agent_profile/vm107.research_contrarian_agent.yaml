@@ -1,0 +1,83 @@
+# Phase 92 Plan 05 — Capability Registry profile for the ContrarianAgent.
+# Stage 2 schema (Phase 47.6 LD-3) compliant.
+
+id: vm107.research_contrarian_agent
+type: agent_profile
+status: real
+shipped: 92
+last_changed: "2026-06-25"
+name: vm107.research_contrarian_agent
+version: "1.0.0"
+phase: 92
+description: >-
+  Phase 92 Plan 05 — identifies cases where a research document claims a
+  contrarian view vs the consensus on its linked indicator (e.g. "Higher
+  CPI did NOT correlate with gold appreciation in 2022"). Writes to MongoDB
+  `research_intelligence_contrarian` with claim + evidence chunks + confidence.
+  Powers Plan 6 §15 Contrarian Views card and informs Phase 89 macro_investigator.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+# HIGH — contrarian findings drive risk-adjusted analyst attention and
+# influence the macro_investigator's qualitative posture in Phase 89.
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-25"
+    change: "Phase 92 Plan 05 — initial release"
+
+trigger: dagster_sensor
+
+allowed_tools:
+  - search_knowledge
+  - search_macro_research
+  - lookup_capability
+  - response
+
+optional_tools:
+  - lookup_reasoning_artifact
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+  - belief_store.propose
+
+constitutional_skills: []
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 3
+max_cost_usd: 0.08
+latency_budget_ms: 20000
+
+# Phase 70.5 envelope provenance
+typical_confidence: 0.70
+expected_freshness_seconds: 86400
+is_deterministic: false
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 10
+
+brain_absorbed: []
+
+owner: engineering
+profile_path: null
+
+tags:
+  - agent-profile
+  - knowledge
+  - research
+  - phase-92
+  - wave-5
+  - contrarian

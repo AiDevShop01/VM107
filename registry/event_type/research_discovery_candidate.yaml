@@ -1,0 +1,59 @@
+# Phase 92 Plan 05 — event_type YAML for research_discovery_candidate.
+# Mirrors Phase 91 alert_candidate_created routing convention so the
+# Universal Alert Engine consumes Discovery agent outputs uniformly.
+
+id: research_discovery_candidate
+type: event_type
+status: real
+shipped: 92
+last_changed: "2026-06-25"
+capability_type: event_type
+phase: 92
+schema_version: "1.0"
+
+description: >-
+  Phase 92 Plan 05 — emitted by vm107.research_discovery_agent whenever
+  cross-doc analysis surfaces ≥3 supporting documents across ≥2 sources
+  for the same pattern. Phase 91 Universal Alert Engine consumes via
+  /api/mission-control/internal/alert-candidate-created (research_discovery
+  category). discovery_id is the idempotency key — duplicate POSTs with the
+  same discovery_id are treated as no-ops.
+
+producer_agents:
+  - vm107.research_discovery_agent
+
+consumer_phases:
+  - 91   # Universal Alert Engine
+
+applies_to_consumers:
+  - phase: 91
+    consumer: universal_alert_engine
+    status: real
+    notes: "Routes via research_discovery category at default severity 'watch'"
+
+# Phase 91 routing convention — mirrors alert_candidate_created
+phase_91_routing:
+  category: research_discovery
+  default_severity: watch
+
+# Schema reference for the event payload
+schema_ref: VM107/contracts/research_discovery_candidate.schema.json
+
+# Severity translation mirrors alert_candidate_created
+severity_translation:
+  watch: Info
+  warning: Important
+  blocking: Critical
+
+# Phase 47.6 LD-3 capability registry fields
+impact_on_decision: MEDIUM
+deprecated: false
+
+tags:
+  - event-type
+  - knowledge
+  - research
+  - phase-92
+  - wave-5
+  - discovery
+  - phase-91-consumer

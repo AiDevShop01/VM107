@@ -1,0 +1,89 @@
+# Phase 92 Plan 05 — Capability Registry profile for the DiscoveryAgent.
+# Stage 2 schema (Phase 47.6 LD-3) compliant.
+
+id: vm107.research_discovery_agent
+type: agent_profile
+status: real
+shipped: 92
+last_changed: "2026-06-25"
+name: vm107.research_discovery_agent
+version: "1.0.0"
+phase: 92
+description: >-
+  Phase 92 Plan 05 — runs cross-doc analysis (weekly batch, or on-demand
+  per indicator) to surface novel patterns: ≥3 docs across ≥2 sources
+  supporting the same key_finding constitute a `research_discovery_candidate`
+  event that routes to Phase 91 Universal Alert Engine. Writes to MongoDB
+  `research_intelligence_discoveries` and emits via Phase 91 routing convention.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+# HIGH — discoveries raise alerts via Phase 91 UAE; the bar is higher than
+# summarisation because false positives cost analyst attention.
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-25"
+    change: "Phase 92 Plan 05 — initial release"
+
+# Discovery agent is batch — weekly Dagster job + ad-hoc per-indicator runs.
+trigger: dagster_sensor
+
+allowed_tools:
+  - search_knowledge
+  - search_macro_research
+  - lookup_capability
+  - response
+
+optional_tools:
+  - lookup_reasoning_artifact
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+  - belief_store.propose
+
+constitutional_skills: []
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 3
+max_cost_usd: 0.10
+latency_budget_ms: 30000
+
+# Phase 70.5 envelope provenance
+typical_confidence: 0.70
+expected_freshness_seconds: 604800  # weekly batch — discoveries refresh slowly
+is_deterministic: false
+cot_trail: phase_70_5_worm
+cot_trail_max_events: 20
+
+brain_absorbed: []
+
+# Phase 91 routing — produces research_discovery_candidate events consumed by UAE.
+emits_events:
+  - research_discovery_candidate
+
+owner: engineering
+profile_path: null
+
+tags:
+  - agent-profile
+  - knowledge
+  - research
+  - phase-92
+  - wave-5
+  - discovery
+  - phase-91-emitter

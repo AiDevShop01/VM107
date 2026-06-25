@@ -7,7 +7,7 @@ meta:
   schema_version: "1.0"
   last_updated: "2026-06-25"
   total_phase89_entries: 8
-  total_phase92_entries: 3
+  total_phase92_entries: 9
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 89 — Macro Intelligence Workbench
@@ -105,12 +105,13 @@ phase_89:
 # ─────────────────────────────────────────────────────────────────────────────
 
 phase_92:
-  description: "Phase 92 Macro Knowledge & Research Platform — 3 capability entries (Plans 1 + 3 + 4)"
+  description: "Phase 92 Macro Knowledge & Research Platform — 9 capability entries (Plans 1 + 3 + 4 + 5)"
   shipped: 92
   wave_summary:
     wave1: "data_domain.research_documents — VM101 knowledge_research_researchdocument + knowledge_research_ingestcursor (Plan 1)"
     wave3: "agent_profile.vm107.research_classification_agent — hybrid synonym + LLM indicator/asset linker (Plan 3)"
     wave4: "contract.phase92_neo4j_schema_extension — formal Phase 41 RelationshipTypeEnum (+3) + OPERATIONAL_LABELS (+7) extension (Plan 4 Pitfall 5 mitigation)"
+    wave5: "4 research intelligence agents (summarisation/citation/contrarian/discovery) + search_macro_research tool + research_discovery_candidate event_type (Plan 5)"
 
   entries:
 
@@ -137,4 +138,52 @@ phase_92:
       status: real
       phase: 92
       description: "Formal Phase 41 schema extension — 3 new relationship types (DISCUSSES_INDICATOR/AFFECTS_ASSET/AUTHORED_BY) + 7 new operational labels; powers GraphSearchTool find_research_for_indicator template (≤200ms p95)"
+
+    - id: vm107.research_summarisation_agent
+      type: agent_profile
+      path: registry/agent_profile/vm107.research_summarisation_agent.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "3-bullet executive summary + key_findings per graphed ResearchDocument; writes MongoDB research_intelligence_summaries; impact_on_decision=HIGH (Plan 5)"
+
+    - id: vm107.research_citation_agent
+      type: agent_profile
+      path: registry/agent_profile/vm107.research_citation_agent.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "DOI regex + optional LLM fallback citation extraction; writes MongoDB research_intelligence_citations; impact_on_decision=MEDIUM (Plan 5)"
+
+    - id: vm107.research_contrarian_agent
+      type: agent_profile
+      path: registry/agent_profile/vm107.research_contrarian_agent.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "LLM-mediated contrarian-claim detector vs indicator consensus; writes MongoDB research_intelligence_contrarian; impact_on_decision=HIGH (Plan 5)"
+
+    - id: vm107.research_discovery_agent
+      type: agent_profile
+      path: registry/agent_profile/vm107.research_discovery_agent.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "Cross-doc novel-pattern discovery; ≥3 docs across ≥2 sources → research_discovery_candidate event routed to Phase 91 UAE; impact_on_decision=HIGH (Plan 5)"
+
+    - id: search_macro_research
+      type: tool
+      path: registry/tool/search_macro_research.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "Indicator-aware semantic search over Qdrant knowledge_base_v2 + Neo4j research edges; LD-92-8 Phase 89 macro_investigator integration (Plan 5)"
+
+    - id: research_discovery_candidate
+      type: event_type
+      path: registry/event_type/research_discovery_candidate.yaml
+      wave: 5
+      status: real
+      phase: 92
+      description: "Phase 91 routing event for novel research patterns; mirrors alert_candidate_created shape; default severity=watch (Plan 5)"
 
