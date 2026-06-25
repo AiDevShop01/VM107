@@ -9,12 +9,32 @@ import json
 import logging
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
-from core.contracts.base import BaseContract
-from helpers.tool import Response
-from pydantic import Field, field_validator
-from tools.vm_contracts.base import ContractTool
+try:  # Production import path (VM107 container).
+    from core.contracts.base import BaseContract  # type: ignore
+    from helpers.tool import Response  # type: ignore
+    from pydantic import Field, field_validator  # type: ignore
+    from tools.vm_contracts.base import ContractTool  # type: ignore
+except Exception:  # pragma: no cover - host-shell test fallback
+    # Minimal shims so the tool can be import-tested without VM107's full
+    # ContractTool stack. The Phase 92 Plan 4 latency test exercises only
+    # ``run_template`` which doesn't need ContractTool at all.
+    BaseContract = object  # type: ignore
+    Response = object  # type: ignore
+
+    def Field(*args, **kwargs):  # type: ignore
+        return None
+
+    def field_validator(*args, **kwargs):  # type: ignore
+        def _wrap(fn):
+            return fn
+
+        return _wrap
+
+    class ContractTool:  # type: ignore
+        pass
 
 logger = logging.getLogger("fingpt.tools")
 
@@ -98,6 +118,16 @@ class GraphSearchTool(ContractTool):
     # Class-level dependency (set during agent initialization)
     neo4j_driver = None
 
+    # Phase 92 Plan 4 — file-backed templates loaded on first run_template call.
+    # Template catalog declared as path map; loaded lazily + cached so the
+    # ``find_research_for_indicator.cypher`` text lives in version control on
+    # disk, not in the source file.
+    TEMPLATE_FILES = {
+        "find_research_for_indicator": Path(__file__).parent
+        / "templates"
+        / "find_research_for_indicator.cypher",
+    }
+
     # Cypher template definitions
     CYPHER_TEMPLATES = {
         "find_predecessors": """
@@ -158,8 +188,51 @@ class GraphSearchTool(ContractTool):
                    r.final_score AS confidence
             ORDER BY r.final_score DESC
             LIMIT $top_k
-        """
+        """,
     }
+
+    # Cache of template text loaded from TEMPLATE_FILES.
+    _TEMPLATE_CACHE: dict[str, str] = {}
+
+    @classmethod
+    def _load_template(cls, name: str) -> str:
+        """Load and cache a file-backed Cypher template."""
+        if name in cls._TEMPLATE_CACHE:
+            return cls._TEMPLATE_CACHE[name]
+        if name in cls.CYPHER_TEMPLATES:
+            cls._TEMPLATE_CACHE[name] = cls.CYPHER_TEMPLATES[name]
+            return cls._TEMPLATE_CACHE[name]
+        if name in cls.TEMPLATE_FILES:
+            path = cls.TEMPLATE_FILES[name]
+            text = Path(path).read_text()
+            cls._TEMPLATE_CACHE[name] = text
+            # Also mirror into CYPHER_TEMPLATES for downstream introspection.
+            cls.CYPHER_TEMPLATES[name] = text
+            return text
+        raise KeyError(f"Unknown template: {name}")
+
+    def run_template(self, name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        """Phase 92 Plan 4 — execute a parameterised template directly.
+
+        This is a thinner surface than ``_call_vm`` (which expects the
+        ContractTool request/response cycle). Suitable for the Plan 4
+        ``find_research_for_indicator`` traversal where the agent (Plan 5)
+        will pass {indicator_id, limit}.
+
+        Args:
+            name: template name (must be in TEMPLATE_FILES or CYPHER_TEMPLATES)
+            params: cypher parameters
+
+        Returns:
+            list of dict rows from the Neo4j result.
+        """
+        if self.neo4j_driver is None:
+            return []
+
+        cypher = self._load_template(name)
+        with self.neo4j_driver.session() as session:
+            result = session.run(cypher, **params)
+            return [dict(record) for record in result]
 
     def _validate_request(self, args: dict) -> GraphSearchRequest:
         """

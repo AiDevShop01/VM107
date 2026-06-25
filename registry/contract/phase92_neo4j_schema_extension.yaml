@@ -1,0 +1,129 @@
+id: phase92_neo4j_schema_extension
+type: contract
+status: real
+shipped: 92
+last_changed: "2026-06-25"
+name: Phase92Neo4jSchemaExtension
+description: |
+  Phase 92 Plan 4 formal extension of the Phase 41 Neo4j operational
+  subgraph for the research substrate (LD-92-6).
+
+  Adds 3 new relationship types + 7 new node labels to the Phase 41
+  validation sets so research_graph_writer can MERGE edges via the
+  formal OperationalGraphBuilder.add_node / add_edge surface — NOT raw
+  Cypher (Pitfall 5 mitigation).
+
+  Plan 5's search_macro_research tool + Plan 6's Research Hub UI both
+  traverse this substrate via GraphSearchTool.run_template(
+  'find_research_for_indicator', ...). Phase 89's macro_investigator
+  reads the same edges to surface "papers about X" citations.
+
+owner_vm: vm101
+contract_version: "1.0"
+source_module: knowledge.graph.relationship_types + knowledge.graph.operational_graph_builder
+
+# ── Relationship types added (formally extended into RelationshipTypeEnum) ──
+relationship_types_added:
+  - name: DISCUSSES_INDICATOR
+    enum_value: "discusses_indicator"
+    direction: "(:ResearchDocument)-[r]->(:EconomicIndicator)"
+    properties:
+      - confidence       # 0.0–1.0, from indicator_linker stage 1 or 2
+      - linker_stage     # 'synonym' | 'llm'
+    semantics: |
+      One per (ResearchDocument, EconomicIndicator) per linker decision.
+      MERGE idempotent. Direction = doc → indicator.
+
+  - name: AFFECTS_ASSET
+    enum_value: "affects_asset"
+    direction: "(:ResearchDocument)-[r]->(:Asset)"
+    properties:
+      - confidence
+      - direction        # 'positive' | 'negative' | 'unknown'
+      - via_indicator    # FRED id used to derive the asset link
+    semantics: |
+      Deterministic join from doc.indicators ∩ asset_universe.drivers.
+      Direction inherited from the asset_universe driver entry.
+
+  - name: AUTHORED_BY
+    enum_value: "authored_by"
+    direction: "(:ResearchDocument)-[r]->(:Author)"
+    properties: []
+    semantics: |
+      Only created when author metadata is extractable from doc
+      classifications or top-level field. Silent skip otherwise.
+
+# ── Node labels added (extended into OPERATIONAL_LABELS) ──────────────────
+node_labels_added:
+  - label: ResearchDocument
+    key_property: document_id
+    indexed_properties: [published_at, tier]
+    description: "Mirror node for VM101 ResearchDocument PK"
+
+  - label: EconomicIndicator
+    key_property: id
+    description: "FRED series id (Phase 83 catalog) mirror"
+
+  - label: Asset
+    key_property: id
+    description: "asset_universe.yaml id mirror (DXY/GOLD/SPX/...)"
+
+  - label: Author
+    key_property: name
+    description: "Phase 40.2-style author entity"
+
+  - label: CentralBankStatement
+    key_property: document_id
+    description: "Subtype tag for FOMC/ECB/BOE/BOJ official communiqués"
+
+  - label: Speech
+    key_property: document_id
+    description: "Subtype tag for central-banker speeches"
+
+  - label: ResearchPaper
+    key_property: document_id
+    description: "Subtype tag for ArXiv/NBER/SSRN papers"
+
+# ── Schema migration artefact (idempotent) ────────────────────────────────
+schema_migration:
+  cypher_file: VM101/backend/knowledge/graph/migrations/0001_phase92_research_schema.cypher
+  applied_via: "python manage.py apply_phase92_neo4j_schema"
+  env_vars_required: [NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]
+  constraints_created:
+    - "research_document_id (ResearchDocument.document_id UNIQUE)"
+    - "economic_indicator_id (EconomicIndicator.id UNIQUE)"
+    - "asset_id (Asset.id UNIQUE)"
+    - "author_name (Author.name UNIQUE)"
+  indexes_created:
+    - "research_document_published_at (ResearchDocument.published_at)"
+    - "research_document_tier (ResearchDocument.tier)"
+
+# ── Performance guarantees ────────────────────────────────────────────────
+performance:
+  graph_traversal_p95_ms: 200
+  benchmark_fixture: "50 ResearchDocuments × 1 indicator × 3 assets"
+  template: "find_research_for_indicator"
+  measured_at: "2026-06-25"
+
+# ── Consumer surfaces ─────────────────────────────────────────────────────
+related_capabilities:
+  - search_macro_research          # Plan 5 — primary consumer
+  - graph_search_tool              # VM107 generic graph tool
+  - macro_investigator             # Phase 89 — pulls citations
+  - macro_relationship_discovery   # Phase 89 — reads doc → indicator edges
+  - research_documents             # Plan 1 data_domain
+
+impact_on_decision: HIGH
+
+deprecated: false
+
+tags:
+  - phase-92
+  - plan-04
+  - neo4j
+  - knowledge-graph
+  - operational-subgraph
+  - phase-41-extension
+  - pitfall-5-mitigation
+  - research-substrate
+  - ld-92-6
