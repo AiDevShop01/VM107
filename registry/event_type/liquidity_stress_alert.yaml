@@ -1,0 +1,62 @@
+id: liquidity_stress_alert
+type: event_type
+status: real
+shipped: 91
+last_changed: "2026-06-25"
+capability_type: event_type
+phase: 91
+schema_version: "1.0"
+
+# Phase 91 Wave 3 — liquidity stress alert routing surface.
+#
+# HIGH impact_on_decision — liquidity collapse is the highest-severity
+# alert type Phase 91 ships; trader losing access to liquidity is a halt-
+# trading event. Direct route to user via Phase 74 P1 priority.
+# (Phase 47.6 _BaseEntrySchema enforces HIGH/MEDIUM/LOW enum — HIGH is the
+# top tier; severity 'Critical' on the envelope itself carries the P1 routing.)
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: liquidity_stress_alert
+description: |
+  Emitted by vm107.macro_liquidity_monitor when global_liquidity_score
+  crosses thresholds (< 30 = warning Important; < 20 = blocking Critical;
+  > 15pt drop vs prev = warning regardless of absolute level). Wraps an
+  alert_candidate_created envelope (alert_type='liquidity') with subject_id
+  = 'global_liquidity_score'. event_id = sha256(producer|subject|score|ts)[:16].
+  Phase 86 substrate dependency: agent emits nothing when substrate is
+  incomplete (compute returns None — status experimental).
+
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  envelope:
+    event_type: "alert_candidate_created"
+    alert_type: "liquidity"
+    severity: "Critical | Important"
+    b13_internal_severity: "blocking | warning"
+  payload:
+    liquidity_score: float (0..100)
+    prev_liquidity_score: float | null
+    stress_components: dict (credit_spreads_widened, funding_stress_index,
+                             dxy_spike_24h)
+
+producers:
+  - vm107.macro_liquidity_monitor
+consumers:
+  - phase91.universal_alert_engine
+
+related_capabilities:
+  - alert_candidate_created
+  - vm107.macro_liquidity_monitor
+
+tags:
+  - event-type
+  - macro
+  - phase-91
+  - wave-3
+  - alert-candidate
+  - liquidity

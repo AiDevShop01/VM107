@@ -1,0 +1,89 @@
+id: vm107.macro_liquidity_monitor
+type: agent_profile
+status: experimental
+shipped: 91
+last_changed: "2026-06-25"
+name: vm107.macro_liquidity_monitor
+
+description: >-
+  Phase 91 Wave 3 NEW agent — computes a 0..100 global_liquidity_score from
+  Phase 86 substrate (credit spread widening, funding stress index, DXY 24h
+  spike) and emits alert_candidate_created envelopes (alert_type='liquidity')
+  via core/alerts/phase91_emit.emit_alert_candidate to the Phase 91 Universal
+  Alert Engine when score crosses 30 (Important) or 20 (Critical) or drops
+  > 15 points vs prev. Status experimental until Phase 86 substrate fully
+  ships — compute_liquidity_score returns None for incomplete substrate
+  and the agent silently emits nothing.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 91
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-25"
+    change: "Phase 91 Plan 3 — initial release as experimental liquidity emitter"
+
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+constitutional_skills: []
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 3000
+
+cot_trail: null
+cot_trail_max_events: 0
+
+brain_absorbed: []
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.85
+expected_freshness_seconds: 300
+is_deterministic: true
+version: "1.0.0"
+
+# Emitted event types — capability registry sweep cross-references this
+emits:
+  - liquidity_stress_alert
+  - alert_candidate_created
+
+# Consumed Phase 86 / VM102 capabilities (forward-declared — Phase 86
+# substrate ships these over time; agent emits nothing while they're absent).
+consumed_capabilities:
+  - phase86.correlation_breakdown_signal
+  - vm102.api.liquidity_primitives
+
+owner: engineering
+profile_path: VM107/agents/macro_liquidity_monitor/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-91
+  - wave-3
+  - emitter
+  - on-demand
+  - liquidity
+  - experimental

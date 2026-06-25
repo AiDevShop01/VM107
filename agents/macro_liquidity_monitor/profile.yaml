@@ -1,0 +1,65 @@
+# Phase 91 Plan 3 — vm107.macro_liquidity_monitor agent runtime profile.
+#
+# NEW agent for Wave 3 — computes global_liquidity_score from Phase 86
+# substrate (correlation breakdown signals + VM102 liquidity primitives)
+# and emits alert_candidate envelopes (alert_type='liquidity') via the
+# shared core/alerts/phase91_emit.py shim when the score crosses
+# thresholds (< 20 = blocking, < 30 = warning, > 15pt drop = warning).
+#
+# Status experimental until Phase 86 substrate fully ships — agent
+# silently emits nothing when substrate is incomplete (compute returns None).
+#
+# Capability Registry agent_profile YAML lives separately at
+# VM107/registry/agent_profile/vm107.macro_liquidity_monitor.yaml.
+
+id: vm107.macro_liquidity_monitor
+name: vm107.macro_liquidity_monitor
+version: "1.0.0"
+phase: 91
+plan: 91-03
+
+description: >-
+  Phase 91 Wave 3 agent — computes a 0..100 global_liquidity_score from
+  Phase 86 substrate (credit spread widening, funding stress index, DXY 24h
+  spike) and emits alert_candidate_created envelopes (alert_type='liquidity')
+  to the Phase 91 UAE intake endpoint via core/alerts/phase91_emit.emit_alert_candidate
+  when score crosses 30 (Important) or 20 (Critical) or drops > 15 points
+  vs prev score. Status experimental until Phase 86 substrate fully ships
+  — compute returns None for incomplete substrate and the agent emits
+  nothing.
+
+trigger: on_demand           # Dagster sensor / operator-triggered invoke
+sibling_service: null        # NOT a docker-compose sibling
+schedule_cron: null
+
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 3000
+
+is_deterministic: true
+typical_confidence: 0.85
+expected_freshness_seconds: 300
+
+owner: engineering
+tags:
+  - agent-profile
+  - macro
+  - phase-91
+  - wave-3
+  - emitter
+  - on-demand
+  - liquidity
+  - experimental

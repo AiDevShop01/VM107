@@ -1,0 +1,67 @@
+id: regime_change_alert
+type: event_type
+status: real
+shipped: 91
+last_changed: "2026-06-25"
+capability_type: event_type
+phase: 91
+schema_version: "1.0"
+
+# Phase 91 Wave 3 — regime change alert routing surface. Specialisation of
+# alert_candidate_created with alert_type='regime'. Producer wraps the
+# existing Phase 87 regime_transition_detected event with an emit hook;
+# Phase 91 UAE evaluates user subscriptions on alert_type='regime' against
+# the regime payload (build_regime_namespace).
+#
+# HIGH impact_on_decision — regime change is a load-bearing intelligence
+# signal (LD-91-5 says regime_change gets its own user-facing severity tier).
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: regime_change_alert
+description: |
+  Emitted by vm107.macro_regime_monitor via alert_emit_hook when a regime
+  transition fires (Phase 87 LOCK-3 0.65 threshold; existing emit path).
+  Wraps an alert_candidate_created envelope (alert_type='regime') with
+  b13_internal_severity='blocking' so the UAE-side translator maps to
+  'Critical' user-facing severity. Subject keys: subject_type='regime',
+  subject_id = regime_dimension (inflation | growth | liquidity).
+  event_id = sha256(producer|subject_id|new_regime|transition_timestamp)[:16]
+  for cross-emit idempotency.
+
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  envelope:
+    event_type: "alert_candidate_created"
+    alert_type: "regime"
+    severity: "Critical | RegimeChange"
+    b13_internal_severity: "blocking"
+  payload:
+    new_regime: str (one of Phase 87 LOCK-2 regimes)
+    prev_regime: str | null
+    confidence: float
+    top_3_indicators: list[str]
+    regime_dimension: str (inflation | growth | liquidity)
+    belief_store_ref: str (optional Phase 71 citation)
+
+producers:
+  - vm107.macro_regime_monitor
+consumers:
+  - phase91.universal_alert_engine
+
+related_capabilities:
+  - alert_candidate_created
+  - regime_transition_detected
+  - vm107.macro_regime_monitor
+
+tags:
+  - event-type
+  - macro
+  - phase-91
+  - wave-3
+  - alert-candidate
+  - regime
