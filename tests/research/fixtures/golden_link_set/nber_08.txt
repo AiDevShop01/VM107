@@ -1,0 +1,5 @@
+NBER Working Paper 32445 — The Neutral Real Interest Rate and the Stance of Monetary Policy
+
+We estimate the neutral real interest rate (r-star) for the United States using a multivariate Kalman filter approach over 1960-2025. Our preferred estimate suggests r-star has edged higher in the post-pandemic period, from around 0.5 percent to roughly 1.0 percent. Substantial uncertainty surrounds these estimates.
+
+We examine implications for the appropriate stance of monetary policy and for the long-run level of the 10-year Treasury yield. The convenience yield on Treasuries and the term premium are nontrivial components of the gap between observed long rates and r-star plus expected inflation. We do not analyze specific employment series directly.

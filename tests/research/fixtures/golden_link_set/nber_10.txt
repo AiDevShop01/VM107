@@ -1,0 +1,5 @@
+NBER Working Paper 32531 — Equity Market Returns, the Yield Curve, and Recession Risk
+
+We study the joint dynamics of equity market returns (proxied by the S&P 500), the 10-year minus 3-month Treasury yield spread, and U.S. recession probabilities. The yield curve inversion that began in mid-2022 has persisted longer than in prior cycles. Equity returns have nonetheless been strong, reflecting earnings resilience and a narrow concentration of returns in mega-cap stocks.
+
+We discuss implications for the recession-forecasting performance of the yield curve and for the broader macroeconomic outlook. Industrial production, payrolls, and the unemployment rate are the key real-side indicators we condition on. The dollar index plays an indirect role through corporate earnings translation.

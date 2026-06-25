@@ -1,0 +1,269 @@
+# Phase 92 Plan 03 — Golden labelled set for the indicator linker harness.
+#
+# expected_indicators: 1-3 FRED EconomicIndicator IDs (Phase 83 catalog of 64).
+# expected_assets:     1-4 asset IDs from VM107/data/asset_universe.yaml.
+# expected_tier:       1 for FOMC + ECB Tier-1; 3 for NBER.
+# expected_status:     'classified' (default) — soft-reject path tested separately.
+# expected_linker_stage: 'synonym' = covered by indicator_synonyms.yaml; 'llm' = LLM fallback only.
+#
+# Distribution: 25/30 synonym-coverable, 5/30 LLM-fallback-only (fomc_06, ecb_08, nber_03,
+# nber_05 [dollar/dxy via synonym + DXY direct], nber_08 — term-premium / convenience-yield /
+# neutral-rate / r-star) to exercise both stages.
+
+docs:
+  # ── FOMC ──────────────────────────────────────────────────────────────
+  - doc_id: fomc_01
+    source: fomc
+    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS]
+    expected_assets: [SPX, UST10Y, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_02
+    source: fomc
+    expected_indicators: [PCEPI, PCEPILFE, PAYEMS, UNRATE, DGS10]
+    expected_assets: [UST10Y, SPX, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_03
+    source: fomc
+    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_04
+    source: fomc
+    expected_indicators: [CPIAUCSL, PAYEMS, UNRATE, INDPRO]
+    expected_assets: [SPX, UST10Y, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_05
+    source: fomc
+    expected_indicators: [CPIAUCSL, UNRATE, RSAFS]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_06
+    source: fomc
+    expected_indicators: [DGS10]
+    expected_assets: [UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    # ONLY covers neutral rate / r-star / term premium / convenience yield —
+    # synonym table CANNOT hit these; LLM fallback should pick DGS10 from "long-end yields".
+    expected_linker_stage: llm
+
+  - doc_id: fomc_07
+    source: fomc
+    expected_indicators: [CPIAUCSL, UNRATE, PAYEMS, INDPRO]
+    expected_assets: [SPX, UST10Y, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_08
+    source: fomc
+    expected_indicators: [DGS10, RSAFS, HOUST]
+    expected_assets: [UST10Y, SPX]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_09
+    source: fomc
+    expected_indicators: [PAYEMS, UNRATE, CPIAUCSL, DTWEXBGS]
+    expected_assets: [SPX, UST10Y, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: fomc_10
+    source: fomc
+    expected_indicators: [INDPRO, RSAFS, HOUST]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  # ── ECB ───────────────────────────────────────────────────────────────
+  - doc_id: ecb_01
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_assets: [EURUSD, UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_02
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, DEXUSEU]
+    expected_assets: [EURUSD, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_03
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST]
+    expected_assets: [EURUSD]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_04
+    source: ecb
+    expected_indicators: [INDPRO, UNRATE]
+    expected_assets: [EURUSD, SPX]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_05
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, RSAFS]
+    expected_assets: [EURUSD]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_06
+    source: ecb
+    expected_indicators: [DGS10, DEXUSEU]
+    expected_assets: [EURUSD, UST10Y]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_07
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_assets: [EURUSD]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_08
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE]
+    expected_assets: [EURUSD]
+    expected_tier: 1
+    expected_status: classified
+    # The doc heavily references neutral rate / natural rate / Beveridge curve.
+    # Synonym table SHOULD pick HICP inflation and unemployment, but the
+    # macro-novelty content (r-star) requires LLM augmentation.
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_09
+    source: ecb
+    expected_indicators: [CP0000EZ19M086NEST, UNRATE, GDP]
+    expected_assets: [EURUSD]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: ecb_10
+    source: ecb
+    expected_indicators: [DEXUSEU, INDPRO]
+    expected_assets: [EURUSD, DXY]
+    expected_tier: 1
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  # ── NBER ──────────────────────────────────────────────────────────────
+  - doc_id: nber_01
+    source: nber
+    expected_indicators: [UNRATE, PAYEMS, CPIAUCSL, INDPRO]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_02
+    source: nber
+    expected_indicators: [CPIAUCSL, CPILFESL, PCEPI, DGS10]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_03
+    source: nber
+    expected_indicators: [DGS10, DTWEXBGS]
+    expected_assets: [UST10Y, DXY]
+    expected_tier: 3
+    expected_status: classified
+    # Real yields + term premium + convenience yield are LLM-fallback-only;
+    # the doc DOES mention 10-year Treasury yields and the dollar index, so
+    # synonym hits are expected — but LLM should add real-yield / term-premium
+    # signal value.
+    expected_linker_stage: llm
+
+  - doc_id: nber_04
+    source: nber
+    expected_indicators: [HOUST, MORTGAGE30US, GDP, INDPRO]
+    expected_assets: [SPX]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_05
+    source: nber
+    expected_indicators: [DTWEXBGS, CPIAUCSL]
+    expected_assets: [DXY, GOLD]
+    expected_tier: 3
+    expected_status: classified
+    # The doc mentions dollar + commodities + gold; synonyms hit dollar+gold,
+    # but commodity-price macro relationships rely on LLM augmentation.
+    expected_linker_stage: llm
+
+  - doc_id: nber_06
+    source: nber
+    expected_indicators: [UMCSENT, RSAFS, PCEPI, UNRATE, CPILFESL]
+    expected_assets: [SPX]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_07
+    source: nber
+    expected_indicators: [UNRATE, PAYEMS, AHETPI]
+    expected_assets: [SPX, UST10Y]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_08
+    source: nber
+    expected_indicators: [DGS10]
+    expected_assets: [UST10Y]
+    expected_tier: 3
+    expected_status: classified
+    # Almost entirely about r-star / neutral rate / term premium / convenience yield;
+    # the doc DOES mention 10-year Treasury yield (synonym hit) but the core
+    # subject is LLM-fallback territory.
+    expected_linker_stage: llm
+
+  - doc_id: nber_09
+    source: nber
+    expected_indicators: [M2SL, CPIAUCSL, PCEPILFE, INDPRO]
+    expected_assets: [SPX]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym
+
+  - doc_id: nber_10
+    source: nber
+    expected_indicators: [SP500, T10Y3M, INDPRO, PAYEMS, UNRATE, DTWEXBGS]
+    expected_assets: [SPX, UST10Y, DXY]
+    expected_tier: 3
+    expected_status: classified
+    expected_linker_stage: synonym

@@ -1,0 +1,5 @@
+NBER Working Paper 32278 — Housing Markets, Mortgage Rates, and the Speed of Monetary Policy Transmission
+
+We study the transmission of higher mortgage rates to housing market activity in the United States during 2022-2025. Housing starts, building permits, and existing home sales all declined sharply as the 30-year mortgage rate rose from below 3 percent to above 7 percent. The pass-through to home prices has been muted, however, due to historically low inventory.
+
+We assess the implications for the broader economy through housing-related consumption and residential investment in GDP. The slow pass-through extends the lags with which monetary policy affects inflation and unemployment. Industrial production responses are also analyzed.

@@ -1,0 +1,5 @@
+NBER Working Paper 32310 — The Dollar, Global Trade, and Commodity Prices
+
+We document the relationship between the U.S. dollar index and global commodity prices, focusing on gold and oil. A 10 percent appreciation of the dollar is associated with a roughly 7 percent decline in dollar-denominated commodity prices, but with substantial heterogeneity across commodity classes. Gold prices exhibit particularly strong inverse co-movement with the dollar.
+
+We extend the analysis to U.S. trade flows and the current account. Real exchange rate movements pass through to import prices and contribute, modestly, to core CPI inflation. Implications for monetary policy transmission via the exchange rate channel are discussed.

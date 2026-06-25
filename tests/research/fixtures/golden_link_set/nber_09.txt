@@ -1,0 +1,5 @@
+NBER Working Paper 32490 — Money Growth and Inflation in a Reserve-Plentiful Regime
+
+This paper revisits the relationship between broad money growth and inflation following the central bank balance sheet expansion of 2020-2022. We document a temporary breakdown of the historical relationship between M2 growth and subsequent CPI inflation, followed by partial reassertion as quantitative tightening proceeded.
+
+We examine implications for monetary aggregates as inflation indicators and find that they retain modest signal value when combined with measures of nominal demand. Industrial production and PMI surveys provide complementary signals. The path of core PCE inflation is the primary policy-relevant measure.

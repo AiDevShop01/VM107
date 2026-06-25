@@ -1,0 +1,5 @@
+NBER Working Paper 32355 — Consumer Sentiment and Retail Sales During the Inflation Episode
+
+This paper documents the unusual divergence between consumer sentiment and consumer spending during 2021-2024. Despite consumer sentiment falling to multi-decade lows, real personal consumption expenditures continued to expand, and retail sales remained strong. We propose explanations rooted in the post-pandemic distribution of liquid wealth and labor market tightness.
+
+We use quasi-experimental variation in stimulus disbursement to identify the propensity to consume out of transitory income. Results have implications for the calibration of demand-side models used in forecasting the unemployment rate and the path of core CPI inflation.

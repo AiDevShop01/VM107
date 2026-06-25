@@ -1,0 +1,5 @@
+NBER Working Paper 32100 — The Phillips Curve in the Post-Pandemic Era
+
+This paper revisits the relationship between unemployment and wage growth in the United States during 2020-2025. Using high-frequency data on payroll employment, the unemployment rate, and average hourly earnings, we document a temporary steepening of the wage Phillips curve associated with extreme labor market tightness. Once vacancies normalize, the curve appears to flatten back toward its pre-pandemic slope.
+
+We assess the implications for the natural rate of unemployment and for the speed of disinflation. Our results suggest that further declines in core inflation will require additional, modest cooling in the labor market. We also examine industrial production and the manufacturing PMI as cross-sector validation.

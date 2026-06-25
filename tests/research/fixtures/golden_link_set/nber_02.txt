@@ -1,0 +1,5 @@
+NBER Working Paper 32156 — Inflation Persistence and the Pricing Decisions of Firms
+
+We examine the determinants of inflation persistence using a novel dataset of firm-level price changes. Core CPI inflation has been notably more persistent than headline CPI in the recent disinflation episode. We document that the frequency of price changes spiked during 2021-2022, then normalized; the size of price changes remained elevated longer.
+
+We link our micro evidence to the time-series behavior of the PCE price index and find that services inflation, particularly housing-related services, accounts for the majority of the remaining gap to the 2 percent target. Implications for the path of policy rates and 10-year Treasury yields are discussed.

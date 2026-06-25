@@ -1,0 +1,348 @@
+# Phase 92 Plan 03 — Synonym table for indicator_linker Stage 1.
+#
+# Schema:
+#   <synonym_key>:
+#     synonyms: [list of phrases — case-insensitive substring match]
+#     indicators: [list of FRED EconomicIndicator IDs from the Phase 83 catalog]
+#
+# Each key represents a CONCEPT (e.g. "inflation"); synonyms are phrasings;
+# indicators are the FRED IDs the concept SHOULD link to. Stage 1 of the linker
+# walks every key; if ANY synonym matches doc.title + doc.text, ALL indicators
+# under that key are added to the hit list with confidence=1.0, via='synonym'.
+#
+# Pitfall 3 mitigation: ≥15 keys, ≥3 synonyms each, covering ≥40 of the Phase 83
+# catalog's 64 EconomicIndicators. See VM107/tests/research/conftest.py for the
+# locked-in subset used by the host-shell precision/recall harness.
+#
+# Build protocol: add a new key when a golden-link-set doc would otherwise
+# require LLM fallback for a CONCEPT we know is well-defined. Keep the table
+# small enough that the LLM fallback retains a meaningful role (~5/30 of the
+# golden set should land in Stage 2).
+
+inflation:
+  synonyms:
+    - "inflation"
+    - "core cpi"
+    - "headline cpi"
+    - "consumer price index"
+    - "core pce"
+    - "pce inflation"
+    - "pce price index"
+    - "disinflation"
+    - "price stability"
+    - "2 percent target"
+    - "2 percent objective"
+    - "hicp"
+  indicators: [CPIAUCSL, CPILFESL, PCEPI, PCEPILFE]
+
+eurozone_inflation:
+  synonyms:
+    - "hicp inflation"
+    - "euro area inflation"
+    - "headline hicp"
+    - "core hicp"
+    - "harmonised index"
+    - "euro area hicp"
+    - "eurostat inflation"
+  indicators: [CP0000EZ19M086NEST]
+
+unemployment:
+  synonyms:
+    - "unemployment rate"
+    - "unemployment"
+    - "joblessness"
+    - "jobless rate"
+    - "u-3"
+    - "u3 rate"
+    - "labor market tight"
+    - "labour market"
+    - "labor market remains"
+  indicators: [UNRATE]
+
+payrolls:
+  synonyms:
+    - "nonfarm payrolls"
+    - "nonfarm payroll"
+    - "payroll employment"
+    - "payroll growth"
+    - "payroll gains"
+    - "job gains"
+    - "employment gains"
+    - "nfp"
+    - "establishment survey"
+  indicators: [PAYEMS]
+
+wages:
+  synonyms:
+    - "average hourly earnings"
+    - "wage growth"
+    - "wage inflation"
+    - "wages have"
+    - "employment cost index"
+    - "compensation per hour"
+  indicators: [AHETPI]
+
+yields_long:
+  synonyms:
+    - "10-year treasury yield"
+    - "10-year yield"
+    - "10-year treasury"
+    - "ten-year yield"
+    - "10y treasury"
+    - "long-term treasury"
+    - "long-end yields"
+    - "long-term yields"
+    - "treasury yield"
+    - "10-year bund yield"
+    - "long-term bond yield"
+  indicators: [DGS10]
+
+yields_short:
+  synonyms:
+    - "3-month treasury"
+    - "3-month yield"
+    - "3-month t-bill"
+    - "two-year treasury"
+    - "2-year treasury"
+    - "2-year yield"
+  indicators: [DGS2]
+
+yield_curve:
+  synonyms:
+    - "yield curve"
+    - "10-year minus 3-month"
+    - "yield spread"
+    - "yield curve inversion"
+    - "10s2s"
+    - "10s3s"
+    - "term spread"
+  indicators: [T10Y3M]
+
+dollar:
+  synonyms:
+    - "dollar index"
+    - "u.s. dollar"
+    - "us dollar"
+    - "dxy"
+    - "trade-weighted dollar"
+    - "broad dollar"
+    - "dollar has appreciated"
+    - "dollar has strengthened"
+    - "dollar has weakened"
+    - "exchange rate channel"
+    - "real exchange rate"
+  indicators: [DTWEXBGS]
+
+euro_exchange:
+  synonyms:
+    - "euro exchange rate"
+    - "euro against the u.s. dollar"
+    - "eur/usd"
+    - "euro/dollar"
+    - "euro has been"
+    - "euro has traded"
+    - "euro versus dollar"
+  indicators: [DEXUSEU]
+
+gdp:
+  synonyms:
+    - "real gdp"
+    - "gdp growth"
+    - "gross domestic product"
+    - "real gdp growth"
+    - "economic growth"
+    - "quarter-on-quarter"
+    - "qoq growth"
+  indicators: [GDP]
+
+industrial:
+  synonyms:
+    - "industrial production"
+    - "manufacturing pmi"
+    - "manufacturing output"
+    - "industrial output"
+    - "factory output"
+    - "ism manufacturing"
+  indicators: [INDPRO]
+
+retail_sales:
+  synonyms:
+    - "retail sales"
+    - "consumer spending"
+    - "real personal consumption"
+    - "personal consumption expenditures"
+    - "retail and food service"
+    - "household spending"
+  indicators: [RSAFS]
+
+housing:
+  synonyms:
+    - "housing starts"
+    - "building permits"
+    - "existing home sales"
+    - "housing market"
+    - "home prices"
+    - "residential investment"
+    - "housing activity"
+  indicators: [HOUST]
+
+mortgages:
+  synonyms:
+    - "mortgage rate"
+    - "30-year mortgage"
+    - "mortgage rates"
+    - "mortgage market"
+    - "fixed mortgage rate"
+  indicators: [MORTGAGE30US]
+
+money:
+  synonyms:
+    - "m2 growth"
+    - "broad money"
+    - "money supply"
+    - "monetary aggregates"
+    - "m2 money stock"
+    - "money growth"
+  indicators: [M2SL]
+
+sentiment:
+  synonyms:
+    - "consumer sentiment"
+    - "michigan sentiment"
+    - "consumer confidence"
+    - "sentiment index"
+    - "umich sentiment"
+  indicators: [UMCSENT]
+
+equities:
+  synonyms:
+    - "s&p 500"
+    - "s&p500"
+    - "equity market"
+    - "stock market"
+    - "equity returns"
+    - "mega-cap stocks"
+    - "earnings resilience"
+    - "equity indices"
+  indicators: [SP500, NASDAQCOM]
+
+policy_rate:
+  synonyms:
+    - "federal funds rate"
+    - "fed funds rate"
+    - "target range for the federal funds rate"
+    - "policy interest rate"
+    - "key ecb interest rates"
+    - "monetary policy stance"
+    - "key interest rates"
+  indicators: [FEDFUNDS, DFEDTARU, DFEDTARL]
+
+inflation_expectations:
+  synonyms:
+    - "inflation expectations"
+    - "5-year breakeven"
+    - "10-year breakeven"
+    - "breakeven inflation"
+    - "5y5y forward"
+    - "long-term inflation expectations"
+  indicators: [T5YIE, T10YIE, T5YIFR]
+
+commodities:
+  synonyms:
+    - "wti crude"
+    - "brent crude"
+    - "oil price"
+    - "oil prices"
+    - "commodity prices"
+    - "gold price"
+    - "gold prices"
+    - "dollar-denominated commodity"
+  indicators: [DCOILWTICO, DCOILBRENTEU, GOLDAMGBD228NLBM]
+
+jobless_claims:
+  synonyms:
+    - "initial jobless claims"
+    - "weekly jobless claims"
+    - "continuing claims"
+    - "unemployment claims"
+  indicators: [ICSA, CCSA]
+
+vacancies:
+  synonyms:
+    - "job openings"
+    - "job vacancies"
+    - "jolts"
+    - "vacancy-to-unemployment"
+    - "hires rate"
+  indicators: [JTSJOL, JTSHIL]
+
+recession_risk:
+  synonyms:
+    - "recession probability"
+    - "recession risk"
+    - "u.s. recession"
+    - "recession indicator"
+    - "nber recession"
+  indicators: [USREC]
+
+permits:
+  synonyms:
+    - "building permits"
+    - "permits issued"
+    - "residential permits"
+    - "housing permits"
+  indicators: [PERMIT]
+
+home_prices:
+  synonyms:
+    - "case-shiller"
+    - "home price index"
+    - "house prices"
+    - "national home price"
+  indicators: [CSUSHPISA]
+
+real_gdp_chained:
+  synonyms:
+    - "real gdp chained"
+    - "real output growth"
+    - "real economic activity"
+    - "real economy"
+    - "chained 2017 dollars"
+  indicators: [GDPC1]
+
+credit_spreads:
+  synonyms:
+    - "high yield spread"
+    - "high-yield spread"
+    - "credit spread"
+    - "baa spread"
+    - "investment grade spread"
+    - "ig spread"
+    - "junk bond spread"
+  indicators: [BAMLH0A0HYM2, BAA10Y, AAA10Y]
+
+capacity_utilization:
+  synonyms:
+    - "capacity utilization"
+    - "capacity utilisation"
+    - "capu"
+    - "total capacity utilization"
+  indicators: [TCU]
+
+real_consumption:
+  synonyms:
+    - "real personal consumption"
+    - "real consumer spending"
+    - "real disposable income"
+    - "personal income"
+  indicators: [PCE, DSPIC96]
+
+labor_force:
+  synonyms:
+    - "labor force participation"
+    - "labour force participation"
+    - "participation rate"
+    - "u6 rate"
+    - "u-6 measure"
+    - "broader unemployment"
+  indicators: [U6RATE, CIVPART]

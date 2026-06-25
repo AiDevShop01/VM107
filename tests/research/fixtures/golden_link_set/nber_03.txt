@@ -1,0 +1,5 @@
+NBER Working Paper 32201 — Real Yields, Term Premium, and the Convenience Yield on Treasuries
+
+We decompose nominal 10-year Treasury yields into a real yield component, expected inflation, term premium, and convenience yield. The convenience yield on Treasury collateral has compressed and rebuilt several times over 2022-2025, with implications for the broader transmission of monetary policy.
+
+The term premium has risen substantially from its 2020 lows. We examine the relationship between term premium estimates and the U.S. dollar index, finding a robust positive co-movement during regime shifts. Our findings have implications for r-star and the calibration of long-term policy stance.

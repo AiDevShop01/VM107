@@ -1,0 +1,5 @@
+Federal Reserve Speech — Vice Chair on the Neutral Rate
+
+In considering the appropriate stance of monetary policy, one must contend with the elusive concept of the neutral interest rate — often denoted r-star — the level at which monetary policy is neither restrictive nor accommodative. Estimates of r-star have shifted materially since 2020, with several models suggesting the neutral rate may have moved higher in the post-pandemic period.
+
+The term premium component of long-term Treasury yields has also rebuilt from compressed levels. Convenience yield estimates on Treasury collateral remain elevated. These dynamics complicate the calibration of policy and require careful attention to long-end yields and the broader transmission mechanism.

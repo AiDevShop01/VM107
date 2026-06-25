@@ -1,0 +1,264 @@
+# Phase 92 Plan 03 — Curated asset universe + indicator drivers for the
+# deterministic asset_linker.
+#
+# The asset_linker joins doc.indicators ∩ assets[N].drivers_via_indicators
+# to populate doc.assets. Each asset entry lists 2-N driver indicators, each
+# carrying a (confidence, direction) tuple representing the macro relationship.
+#
+# Schema:
+#   assets:
+#     - id: <ASSET_ID>             # e.g. DXY / GOLD / SPX / UST10Y
+#       name: <human-readable name>
+#       category: <fx|metal|equity|rates|crypto|etc.>
+#       drivers_via_indicators:
+#         - indicator_id: <FRED ID>
+#           confidence: <0.0..1.0>
+#           direction: <positive|negative|mixed>
+#
+# confidence: how strongly the indicator is believed to drive the asset.
+# direction:  positive = same-sign move; negative = opposite-sign move;
+#             mixed = regime-dependent or non-monotone.
+#
+# This file is hand-curated by the macro team; the linker treats it as the
+# source of truth. Add a new asset when ≥1 indicator in the synonym table
+# meaningfully moves it AND the asset is something the trading desk takes
+# a directional view on.
+
+assets:
+  - id: DXY
+    name: US Dollar Index
+    category: fx
+    drivers_via_indicators:
+      - indicator_id: DGS10
+        confidence: 0.85
+        direction: positive
+      - indicator_id: DTWEXBGS
+        confidence: 0.95
+        direction: positive
+      - indicator_id: CPIAUCSL
+        confidence: 0.50
+        direction: mixed
+      - indicator_id: PAYEMS
+        confidence: 0.70
+        direction: positive
+
+  - id: GOLD
+    name: Spot gold
+    category: metal
+    drivers_via_indicators:
+      - indicator_id: DTWEXBGS
+        confidence: 0.85
+        direction: negative
+      - indicator_id: DGS10
+        confidence: 0.65
+        direction: negative
+      - indicator_id: CPIAUCSL
+        confidence: 0.55
+        direction: positive
+
+  - id: SPX
+    name: S&P 500
+    category: equity
+    drivers_via_indicators:
+      - indicator_id: PAYEMS
+        confidence: 0.65
+        direction: positive
+      - indicator_id: UNRATE
+        confidence: 0.60
+        direction: negative
+      - indicator_id: DGS10
+        confidence: 0.55
+        direction: mixed
+      - indicator_id: CPIAUCSL
+        confidence: 0.50
+        direction: mixed
+      - indicator_id: INDPRO
+        confidence: 0.55
+        direction: positive
+      - indicator_id: RSAFS
+        confidence: 0.55
+        direction: positive
+      - indicator_id: UMCSENT
+        confidence: 0.45
+        direction: positive
+      - indicator_id: SP500
+        confidence: 1.00
+        direction: positive
+      - indicator_id: HOUST
+        confidence: 0.40
+        direction: positive
+      - indicator_id: M2SL
+        confidence: 0.40
+        direction: positive
+      - indicator_id: T10Y3M
+        confidence: 0.35
+        direction: mixed
+      - indicator_id: PCEPI
+        confidence: 0.45
+        direction: mixed
+      - indicator_id: PCEPILFE
+        confidence: 0.45
+        direction: mixed
+      - indicator_id: CPILFESL
+        confidence: 0.45
+        direction: mixed
+      - indicator_id: AHETPI
+        confidence: 0.40
+        direction: mixed
+      - indicator_id: MORTGAGE30US
+        confidence: 0.35
+        direction: negative
+
+  - id: UST10Y
+    name: 10-year US Treasury
+    category: rates
+    drivers_via_indicators:
+      - indicator_id: DGS10
+        confidence: 1.00
+        direction: positive
+      - indicator_id: CPIAUCSL
+        confidence: 0.70
+        direction: positive
+      - indicator_id: PCEPI
+        confidence: 0.70
+        direction: positive
+      - indicator_id: PAYEMS
+        confidence: 0.60
+        direction: positive
+      - indicator_id: UNRATE
+        confidence: 0.55
+        direction: negative
+      - indicator_id: INDPRO
+        confidence: 0.45
+        direction: positive
+      - indicator_id: T10Y3M
+        confidence: 0.65
+        direction: positive
+      - indicator_id: RSAFS
+        confidence: 0.40
+        direction: positive
+      - indicator_id: HOUST
+        confidence: 0.35
+        direction: positive
+      - indicator_id: PCEPILFE
+        confidence: 0.55
+        direction: positive
+      - indicator_id: CPILFESL
+        confidence: 0.55
+        direction: positive
+      - indicator_id: DGS2
+        confidence: 0.60
+        direction: positive
+
+  - id: UST2Y
+    name: 2-year US Treasury
+    category: rates
+    drivers_via_indicators:
+      - indicator_id: DGS2
+        confidence: 1.00
+        direction: positive
+      - indicator_id: CPIAUCSL
+        confidence: 0.75
+        direction: positive
+      - indicator_id: PAYEMS
+        confidence: 0.65
+        direction: positive
+
+  - id: EURUSD
+    name: Euro / US Dollar
+    category: fx
+    drivers_via_indicators:
+      - indicator_id: DEXUSEU
+        confidence: 1.00
+        direction: positive
+      - indicator_id: CP0000EZ19M086NEST
+        confidence: 0.60
+        direction: mixed
+      - indicator_id: DGS10
+        confidence: 0.50
+        direction: negative
+      - indicator_id: GDP
+        confidence: 0.40
+        direction: mixed
+      - indicator_id: INDPRO
+        confidence: 0.30
+        direction: mixed
+      - indicator_id: DTWEXBGS
+        confidence: 0.70
+        direction: negative
+      - indicator_id: RSAFS
+        confidence: 0.30
+        direction: mixed
+
+  - id: USDJPY
+    name: US Dollar / Japanese Yen
+    category: fx
+    drivers_via_indicators:
+      - indicator_id: DGS10
+        confidence: 0.85
+        direction: positive
+      - indicator_id: DTWEXBGS
+        confidence: 0.70
+        direction: positive
+      - indicator_id: CPIAUCSL
+        confidence: 0.40
+        direction: mixed
+
+  - id: BTC
+    name: Bitcoin
+    category: crypto
+    drivers_via_indicators:
+      - indicator_id: M2SL
+        confidence: 0.55
+        direction: positive
+      - indicator_id: DTWEXBGS
+        confidence: 0.50
+        direction: negative
+      - indicator_id: DGS10
+        confidence: 0.40
+        direction: negative
+
+  - id: SLV
+    name: Silver
+    category: metal
+    drivers_via_indicators:
+      - indicator_id: DTWEXBGS
+        confidence: 0.65
+        direction: negative
+      - indicator_id: INDPRO
+        confidence: 0.55
+        direction: positive
+      - indicator_id: CPIAUCSL
+        confidence: 0.45
+        direction: positive
+
+  - id: TIP
+    name: TIPS (Treasury Inflation-Protected)
+    category: rates
+    drivers_via_indicators:
+      - indicator_id: CPIAUCSL
+        confidence: 0.85
+        direction: positive
+      - indicator_id: DGS10
+        confidence: 0.75
+        direction: negative
+      - indicator_id: PCEPI
+        confidence: 0.70
+        direction: positive
+
+  - id: QQQ
+    name: Nasdaq 100 ETF
+    category: equity
+    drivers_via_indicators:
+      - indicator_id: DGS10
+        confidence: 0.65
+        direction: negative
+      - indicator_id: PAYEMS
+        confidence: 0.55
+        direction: positive
+      - indicator_id: SP500
+        confidence: 0.95
+        direction: positive
+      - indicator_id: M2SL
+        confidence: 0.45
+        direction: positive

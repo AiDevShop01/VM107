@@ -1,0 +1,5 @@
+NBER Working Paper 32401 — Labor Market Tightness, Job Vacancies, and Wage Setting
+
+We construct a high-frequency measure of labor market tightness using vacancy-to-unemployment ratios across U.S. metropolitan areas. Tight labor markets in 2021-2023 were associated with elevated wage growth, particularly for low-wage workers. The aggregate nonfarm payrolls series and the unemployment rate are useful but coarse summaries of these underlying dynamics.
+
+We estimate the implications for the natural rate of unemployment (u-star) and find evidence that u-star may have risen modestly. The labor market remains tight relative to historical norms, supporting wage growth and core services inflation. Productivity dynamics are also discussed.
