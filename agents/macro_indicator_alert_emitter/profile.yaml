@@ -1,0 +1,60 @@
+# Phase 91 Plan 2 — vm107.macro_indicator_alert_emitter agent runtime profile.
+#
+# Stateless emitter — called per FRED release ingestion event by the Dagster
+# macro_release_alert_sensor → macro_indicator_alert_dispatch asset chain.
+# No background loop; no schedule of its own. The Dagster asset is the
+# sole invoker.
+#
+# Capability Registry agent_profile YAML lives separately at
+# VM107/registry/agent_profile/vm107.macro_indicator_alert_emitter.yaml.
+
+id: vm107.macro_indicator_alert_emitter
+name: vm107.macro_indicator_alert_emitter
+version: "1.0.0"
+phase: 91
+plan: 91-02
+
+description: >-
+  Phase 91 Wave 2 emitter — receives FRED release ingestion events, evaluates
+  per-indicator default condition tiers locally, emits alert_candidate_created
+  envelopes (alert_type='macro_indicator') to the Phase 91 UAE intake endpoint
+  via core/alerts/phase91_emit.emit_alert_candidate. Always emits at least one
+  info-severity envelope per release so user subscriptions with custom DSL
+  thresholds still get a chance to match.
+
+trigger: on_demand           # Dagster asset invokes via HTTP POST
+sibling_service: null        # NOT a docker-compose sibling (Dagster is the invoker)
+schedule_cron: null
+
+# Tools — emitter does not call any registered VM107 tool; it imports the
+# phase91_emit shim directly. denied list documents the safety surface.
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Memory scope — pure stateless emitter
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 3000
+
+is_deterministic: true       # release values + thresholds are deterministic
+typical_confidence: 1.0      # release values are facts
+expected_freshness_seconds: 60
+
+owner: engineering
+tags:
+  - agent-profile
+  - macro
+  - phase-91
+  - wave-2
+  - emitter
+  - on-demand

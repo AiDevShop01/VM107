@@ -1,0 +1,69 @@
+id: release_alert
+type: event_type
+status: real
+shipped: 91
+last_changed: "2026-06-25"
+capability_type: event_type
+phase: 91
+schema_version: "1.0"
+
+# Economic release events surfaced through UAE — covers the always-on info-tier
+# envelope emitted on every FRED release landing (regardless of whether a
+# default threshold tier fired). Consumers can subscribe to "every CPI release"
+# without specifying a numeric threshold; the always-fire info tier guarantees
+# the event reaches their subscription.
+#
+# MEDIUM impact — these are not direct trader-visible alerts (info severity),
+# they're the substrate over which user-side DSL thresholds (warning / critical)
+# subscribe. Phase 85 §14 widget also consumes these for the release timeline.
+
+impact_on_decision: MEDIUM
+hard_scoped: false
+deprecated: false
+
+name: release_alert
+description: |
+  Emitted by vm107.macro_indicator_alert_emitter on every Tier-1 FRED
+  release landing (CPI / NFP / UNRATE / FEDFUNDS / PPI). Wraps an
+  alert_candidate_created envelope (alert_type='macro_indicator') with
+  severity='Info' so user subscriptions with custom DSL thresholds get a
+  chance to evaluate. The always-on info tier coexists with the explicit
+  threshold tiers (macro_indicator_threshold_alert) — both flow through
+  the same VM100 intake endpoint.
+
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  envelope:
+    event_type: "alert_candidate_created"
+    alert_type: "macro_indicator"
+    severity: "Info"
+    b13_internal_severity: "info"
+  payload:
+    indicator_id: str (FRED series id — CPIAUCSL / PAYEMS / UNRATE / FEDFUNDS / PPIACO)
+    release_date: str (ISO 8601 date)
+    value: number
+    prev_value: number | null
+    consensus: number | null
+    history_30y: list[number] | null
+    condition_id: str (defaults to "release_landed" for info-tier emits)
+
+producers:
+  - vm107.macro_indicator_alert_emitter
+consumers:
+  - phase91.universal_alert_engine
+  - phase85.indicator_page_release_timeline_widget   # planned consumer
+
+related_capabilities:
+  - alert_candidate_created
+  - macro_indicator_threshold_alert
+  - vm107.macro_indicator_alert_emitter
+
+tags:
+  - event-type
+  - macro
+  - phase-91
+  - wave-2
+  - alert-candidate
+  - release

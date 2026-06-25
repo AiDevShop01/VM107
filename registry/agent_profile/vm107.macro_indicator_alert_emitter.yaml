@@ -1,0 +1,93 @@
+id: vm107.macro_indicator_alert_emitter
+type: agent_profile
+status: real
+shipped: 91
+last_changed: "2026-06-25"
+name: vm107.macro_indicator_alert_emitter
+
+description: >-
+  Phase 91 Wave 2 macro indicator alert emitter. Receives FRED release
+  ingestion events (CPI / NFP / UNRATE / FEDFUNDS / PPI Tier-1 indicators)
+  and emits alert_candidate_created envelopes (alert_type='macro_indicator')
+  via core/alerts/phase91_emit.emit_alert_candidate to the Phase 91 Universal
+  Alert Engine intake at PHASE_91_UAE_URL. Locally evaluates per-indicator
+  default condition tiers (threshold / surprise / cross / percentile) so the
+  emitter only fans out notable releases; subscription-side DSL evaluation
+  for custom thresholds runs on VM100. Always emits at least one info-tier
+  envelope per release so subscriptions with custom DSL get a chance to
+  match even when no default tier triggers.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 91
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-25"
+    change: "Phase 91 Plan 2 — initial release as on-demand macro indicator emitter"
+
+# Invocation — Dagster sensor + asset chain is the sole invoker. NOT a
+# docker-compose sibling service (Pitfall 4 — no background loop needed).
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+# Tool allow-list — emitter calls phase91_emit shim directly, registers no tools.
+allowed_tools: []
+
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+constitutional_skills: []
+
+# Memory scope — public-factual, stateless emitter
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# Iteration / cost limits — single-pass emit, no LLM in the path
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 3000
+
+# CoT trail — emitter does not produce reasoning trails
+cot_trail: null
+cot_trail_max_events: 0
+
+# Brain absorption ledger — no brain dependencies (deterministic threshold eval)
+brain_absorbed: []
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 1.0       # release values are facts
+expected_freshness_seconds: 60
+is_deterministic: true
+version: "1.0.0"
+
+# Emitted event types — capability registry sweep cross-references this
+emits:
+  - release_alert
+  - macro_indicator_threshold_alert
+  - alert_candidate_created
+
+owner: engineering
+profile_path: VM107/agents/macro_indicator_alert_emitter/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-91
+  - wave-2
+  - emitter
+  - on-demand
+  - alert-candidate

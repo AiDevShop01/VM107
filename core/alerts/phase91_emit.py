@@ -153,6 +153,7 @@ def emit_alert_candidate(
     subject_type: str = "indicator",
     confidence: float | None = None,
     event_id: str | None = None,
+    extra_payload: dict | None = None,
 ) -> None:
     """Emit an alert_candidate_created event to Phase 91 UAE.
 
@@ -178,6 +179,14 @@ def emit_alert_candidate(
         event_id: 16-char hex idempotency key. If None, synthesised from
             sha256(producer_agent_id|subject_id|created_at)[:16]. Phase 91 Plan 1
             requires this on all envelopes (schema v1.0).
+        extra_payload: Optional sub-dict attached to envelope["payload"] for
+            consumers that need richer release / measurement state on the
+            intake side. Phase 91 Plan 2 (macro indicator emitter) uses this
+            to ship the FRED release fields (value, prev_value, consensus,
+            history_30y) so VM100's macro_release_intake can rebuild the
+            evaluator namespace. The envelope schema sets
+            additionalProperties=true so the field round-trips without
+            schema bumps.
     """
     phase91_severity = _translate_severity(b13_internal_severity, alert_type)
 
@@ -219,6 +228,8 @@ def emit_alert_candidate(
         envelope["contradiction_id"] = str(contradiction_id)
     if proposal_id is not None:
         envelope["proposal_id"] = str(proposal_id)
+    if extra_payload is not None:
+        envelope["payload"] = extra_payload
 
     # Schema validation (fail-fast on mismatch)
     _, validator = _get_schema()

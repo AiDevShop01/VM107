@@ -1,0 +1,68 @@
+id: macro_indicator_threshold_alert
+type: event_type
+status: real
+shipped: 91
+last_changed: "2026-06-25"
+capability_type: event_type
+phase: 91
+schema_version: "1.0"
+
+# Threshold-breach events — emitted when a FRED release crosses a default
+# tier threshold (CPI > 4 → warning, CPI > 5 → blocking, NFP surprise > 0.5
+# → warning, etc). Specialisation of alert_candidate_created with
+# alert_type='macro_indicator'; severity reflects the tier that fired.
+#
+# HIGH impact — these become direct trader-visible alerts (Important /
+# Critical severity → Phase 74 NotificationDispatcher P2 / P1).
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: macro_indicator_threshold_alert
+description: |
+  Emitted by vm107.macro_indicator_alert_emitter when a FRED release matches
+  one of the default per-indicator condition tiers in
+  agents/macro_indicator_alert_emitter/conditions.INDICATOR_DEFAULT_CONDITIONS.
+  Tier severity (warning / blocking) translates to Phase 91 user-facing
+  severity (Important / Critical) via core/alerts/phase91_emit.
+  alert_candidate_created envelope (alert_type='macro_indicator') is POSTed
+  to PHASE_91_UAE_URL /api/mission-control/internal/alert-candidate-created.
+  event_id is sha256(indicator_id|release_date|condition_id)[:16] for
+  per-tier idempotency (replay-safe across Dagster reruns).
+
+owner_vm: vm107
+owner: engineering
+
+payload_schema:
+  envelope:
+    event_type: "alert_candidate_created"
+    alert_type: "macro_indicator"
+    severity: "Important | Critical | Info"
+    b13_internal_severity: "info | warning | blocking"
+  payload:
+    indicator_id: str
+    release_date: str (ISO 8601 date)
+    value: number
+    prev_value: number | null
+    consensus: number | null
+    history_30y: list[number] | null
+    condition_id: str (e.g. cpi_gt_4, nfp_surprise_0_5, unrate_crosses_above_4)
+
+producers:
+  - vm107.macro_indicator_alert_emitter
+consumers:
+  - phase91.universal_alert_engine
+
+related_capabilities:
+  - alert_candidate_created
+  - release_alert
+  - vm107.macro_indicator_alert_emitter
+
+tags:
+  - event-type
+  - macro
+  - phase-91
+  - wave-2
+  - alert-candidate
+  - threshold
