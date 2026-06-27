@@ -1,0 +1,99 @@
+id: vm107.macro_ask_router
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.macro_ask_router
+
+description: >-
+  Phase 94 Wave 3b — MacroAskRouter (PURE CLASSIFIER per §J). The router is
+  a classifier — it NEVER answers and NEVER imports an LLM client (static-
+  grep guard in tests/test_router_never_answers.py). It returns an execution
+  plan describing required_agents / execution_order / expected_latency
+  given a user query and optional dashboard context. The hybrid
+  ConversationPlanner uses heuristic keyword → specialist mapping, falls
+  back to capability-registry discovery (so new specialists are picked up
+  without code change), and finally to an INJECTED llm_classifier callable
+  for free-text queries. The chief_economist_synthesizer (also 94-06)
+  composes the natural-language response from specialist outputs.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release (pure classifier, registry-driven discovery)"
+
+# Invoked on demand by dashboard / synthesizer — no event subscription.
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+trigger_events: []
+event_importance_floor: LOW
+
+# lookup_capability is the sole permitted tool — registry-driven discovery.
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+  - narrative_emit         # §J — router NEVER emits narrative
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 500
+
+constitutional_skills:
+  - citation-discipline
+  - never-answers
+
+typical_confidence: 1.00
+expected_freshness_seconds: 0      # Stateless classifier
+is_deterministic: false            # Heuristic + LLM-classifier fallback
+version: "1.0.0"
+
+emits:
+  - conversation_plan
+
+consumed_capabilities:
+  - lookup_capability
+
+cross_vm_contract: vm107.macro_ask_router.invoke
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/macro_ask_router/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - router
+  - classifier
+  - never-answers
+  - registry-driven
+  - economic-intelligence

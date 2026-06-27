@@ -1,0 +1,99 @@
+id: vm107.chief_economist_synthesizer
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.chief_economist_synthesizer
+
+description: >-
+  Phase 94 Wave 3b — Chief Economist Synthesizer (Router+Synthesizer §J).
+  Composes a natural-language user-facing response from a list of typed
+  SpecialistResponse envelopes following the §I locked response structure:
+  Answer → Evidence → Supporting Indicators → Research → Confidence →
+  Alternative Views → Next Questions. Confidence aggregation is CITATION-
+  WEIGHTED (per §J locked decision), not arithmetic mean — specialists with
+  more grounding citations carry more weight. Degrades gracefully — if a
+  specialist returns confidence <= 0 (error sentinel) the synthesizer still
+  produces an answer with explicit limitation notes. Per-paragraph
+  attribution markers (HTML-comment form) feed the Phase 71 Evidence Drawer.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release (template-based composer)"
+
+# Invoked on demand by dashboard / router — no event subscription.
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+trigger_events: []
+event_importance_floor: LOW
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.05      # Template-based in Wave 3b; future LLM swap-in budgeted here
+latency_budget_ms: 5000
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+  - per-paragraph-attribution
+
+typical_confidence: 0.80
+expected_freshness_seconds: 0      # Computed per-call from specialist responses
+is_deterministic: true             # Template-based in Wave 3b
+version: "1.0.0"
+
+emits:
+  - synthesized_response
+
+consumed_capabilities:
+  - lookup_capability
+  - specialist_response
+
+cross_vm_contract: vm107.chief_economist_synthesizer.synthesize
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/chief_economist_synthesizer/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - synthesizer
+  - narrative-only
+  - weighted-confidence
+  - graceful-degradation
+  - economic-intelligence

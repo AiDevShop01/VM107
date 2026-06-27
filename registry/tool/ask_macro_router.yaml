@@ -1,0 +1,94 @@
+id: ask_macro_router
+type: tool
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+
+short_description: >-
+  Phase 94 §J — pure-classifier router from a user query + dashboard context
+  to a specialist execution plan (NEVER an answer).
+
+long_description: |
+  ask_macro_router invokes :class:`MacroAskRouter.invoke` (94-06) which
+  delegates to the hybrid :class:`ConversationPlanner`. The planner returns
+  a plan dict:
+
+      {
+        "required_agents": list[str],   # specialist agent_ids
+        "execution_order": str,         # "parallel" | "sequential"
+        "expected_latency": float,      # seconds
+        "reasoning": str,               # short trace (<=200 chars)
+      }
+
+  The router NEVER returns an ``answer`` key. The natural-language response
+  is produced downstream by :class:`ChiefEconomistSynthesizer`, which composes
+  the §I locked response structure (Answer → Evidence → Supporting Indicators
+  → Research → Confidence → Alternative Views → Next Questions) from the
+  specialists' SpecialistResponse outputs.
+
+  The planner discovers specialists via :func:`lookup_capability.list_capabilities`
+  (Phase 47.6) — no hardcoded specialist list per §J anti-pattern. Adding a
+  new specialist requires only a new agent_profile YAML with tag
+  ``macro`` + ``specialist`` for the router to pick it up.
+
+  Free-text queries that miss every heuristic keyword fall back to an
+  injected LLM classifier (test-injectable); the router agent module
+  itself imports no LLM client (enforced by static-grep guard test).
+
+location:
+  source: VM107/agents/macro_ask_router/agent.py
+  contracts:
+    request: str        # query
+    response: dict      # {required_agents, execution_order, expected_latency, reasoning}
+  computed_by: VM107/agents/macro_ask_router/conversation_planner.py
+  consumed_by:
+    - vm100.macro_situation_api    # ships in 94-07
+    - frontend.macro_situation_room # ships in 94-08
+
+api_structure: |
+  Args:
+    query (str, required) — user's macro question
+    context (dict, optional) — dashboard context (selected_pillar, country, …)
+
+  Returns: dict with keys
+    required_agents (list[str]) — specialist agent_ids to invoke
+    execution_order (str) — "parallel" or "sequential"
+    expected_latency (float) — total expected latency in seconds
+    reasoning (str) — short trace of which heuristic/path matched
+
+  Raises:
+    No exceptions on path. Empty plan returned when no heuristic match
+    and no LLM-classifier hit.
+
+impact_on_decision: HIGH
+
+allowed_agent_profiles:
+  - vm107.macro_ask_router
+  - vm107.chief_economist_synthesizer
+
+related_capabilities:
+  - lookup_capability
+  - vm107.chief_economist_synthesizer
+  - vm107.growth_analyst
+  - vm107.inflation_analyst
+  - vm107.liquidity_analyst
+  - vm107.risk_analyst
+  - vm107.central_bank_summariser
+  - vm107.macro_forecast_narrator
+  - vm107.theme_monitor
+
+dependencies:
+  - lookup_capability
+
+deprecated: false
+
+tags:
+  - tool
+  - macro
+  - phase-94
+  - wave-3
+  - router
+  - classifier
+  - never-answers
+  - registry-driven
+  - economic-intelligence

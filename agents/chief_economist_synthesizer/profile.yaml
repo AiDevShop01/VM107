@@ -1,0 +1,43 @@
+# Agent-internal profile — referenced from registry/agent_profile/vm107.chief_economist_synthesizer.yaml
+# Phase 94-06 — composes specialist outputs into §I locked response structure.
+agent_id: vm107.chief_economist_synthesizer
+domain: Synthesis
+phase: 94
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+  - per-paragraph-attribution
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.05      # Wave 3b is template-based; future LLM swap-in budgeted here
+latency_budget_ms: 5000
+
+# Invoked on demand by the router/dashboard — no event subscription.
+trigger_events: []
+event_importance_floor: LOW
+
+emits:
+  - synthesized_response   # internal dict; not a contract YAML — schema enforced via tests
+
+consumed_capabilities:
+  - lookup_capability
+  - specialist_response
