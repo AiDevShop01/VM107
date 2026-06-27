@@ -580,6 +580,58 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=94"
 
+  # ── Phase 94 Plan 05 — Theme Engine sibling service ──────────────────────
+  # Long-running listener subscribing to MACRO_RELEASE / CENTRAL_BANK /
+  # REGIME_CHANGE / RESEARCH / FORECAST_UPDATE / DISCOVERY events on the
+  # Event Bus (94-02) and re-evaluating the curated theme catalog
+  # (themes/catalog/*.yaml) on each event. Sibling service per
+  # feedback_mgmt_commands_need_compose_service so the worker survives
+  # backend restarts.
+  theme_engine:
+    container_name: vm107-theme-engine
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m management.commands.run_theme_engine
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # Fail-fast at startup (env-driven-no-fallbacks lock).  EventBus client
+      # re-checks REDIS_HOST/REDIS_PORT at import; missing env raises KeyError.
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 05 — theme_engine EventBus)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 05 — theme_engine EventBus)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      # Bind-mount engine source so host edits propagate without rebuild
+      # (mirrors event_bus layout).
+      - ./management:/a0/management:ro
+      - ./macro_theme_engine.py:/a0/macro_theme_engine.py:ro
+      - ./themes:/a0/themes:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_theme_engine || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-theme-engine"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
 volumes:
   redis_data:
 
