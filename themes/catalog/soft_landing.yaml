@@ -1,0 +1,51 @@
+theme_id: soft_landing
+title: Soft Landing
+category: growth
+description: >-
+  Disinflation continues while unemployment stays low and growth remains
+  positive — the canonical "soft landing" scenario where the central bank
+  brings inflation down without triggering recession.
+countries: [US]
+supporting_indicators:
+  - CPILFESL
+  - UNRATE
+  - PAYEMS
+  - GDPC1
+  - INDPRO
+
+affected_assets:
+  - SPX
+  - HYG
+  - USDJPY
+  - 10Y_YIELD
+
+evidence_rules:
+  - weight: 12
+    indicator: CPILFESL
+    condition: "yoy < 3.0"
+  - weight: 12
+    indicator: UNRATE
+    condition: "level < 4.5"
+  - weight: 10
+    indicator: PAYEMS
+    condition: "mom_chg > 100000"
+  - weight: 12
+    indicator: GDPC1
+    condition: "qoq_saar > 1.5"
+  - weight: 10
+    event_type: forecast_update
+    condition: "recession_prob_falling"
+  - weight: 8
+    event_type: central_bank
+    condition: "dovish_pivot"
+  - weight: 6
+    event_type: research
+    condition: "soft_landing_baseline"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [growth, disinflation, dovish]

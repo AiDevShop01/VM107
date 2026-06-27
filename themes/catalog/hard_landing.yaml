@@ -1,0 +1,56 @@
+theme_id: hard_landing
+title: Hard Landing
+category: growth
+description: >-
+  Aggressive monetary tightening tips the economy into recession. Unemployment
+  rises sharply, manufacturing contracts, credit spreads widen, and growth
+  prints turn negative.
+countries: [US]
+supporting_indicators:
+  - UNRATE
+  - PAYEMS
+  - INDPRO
+  - ICSA
+  - GDPC1
+  - T10Y2Y
+
+affected_assets:
+  - TLT
+  - HYG
+  - VIX
+  - GOLD
+  - USD
+
+evidence_rules:
+  - weight: 14
+    indicator: UNRATE
+    condition: "mom_chg > 0.3"
+  - weight: 12
+    indicator: PAYEMS
+    condition: "mom_chg < 0"
+  - weight: 12
+    indicator: INDPRO
+    condition: "yoy < -1.0"
+  - weight: 10
+    indicator: ICSA
+    condition: "level > 350000"
+  - weight: 12
+    indicator: GDPC1
+    condition: "qoq_saar < 0"
+  - weight: 10
+    indicator: T10Y2Y
+    condition: "level < 0"
+  - weight: 8
+    event_type: regime_change
+    condition: "recession_signal"
+  - weight: 8
+    event_type: research
+    condition: "recession_baseline"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [recession, growth, contraction]

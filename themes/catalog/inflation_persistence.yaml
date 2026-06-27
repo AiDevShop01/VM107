@@ -1,0 +1,51 @@
+theme_id: inflation_persistence
+title: Inflation Persistence
+category: inflation
+description: >-
+  Inflation persistently above central-bank target, driven by sticky services
+  pricing, wage growth, and shelter inflation. Resists return to target despite
+  monetary tightening.
+countries: [US]
+supporting_indicators:
+  - CPILFESL          # Core CPI (BLS)
+  - CPIAUCSL          # Headline CPI
+  - CES0500000003     # Avg hourly earnings
+  - CPISSL            # CPI: Services less energy
+
+affected_assets:
+  - TIPS
+  - GOLD
+  - SPGSCI
+  - USD
+  - 2Y_YIELD
+
+evidence_rules:
+  - weight: 12
+    indicator: CPILFESL
+    condition: "yoy > 3.0"
+  - weight: 11
+    indicator: CPIAUCSL
+    condition: "yoy > 3.0"
+  - weight: 10
+    indicator: CES0500000003
+    condition: "yoy > 4.0"
+  - weight: 8
+    indicator: CPISSL
+    condition: "yoy > 3.5"
+  - weight: 15
+    event_type: central_bank
+    condition: "hawkish_pivot"
+  - weight: 8
+    event_type: forecast_update
+    condition: "core_cpi_revised_up"
+  - weight: 6
+    event_type: research
+    condition: "sticky_services"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [inflation, sticky, services, wages]

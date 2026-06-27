@@ -1,0 +1,52 @@
+theme_id: dollar_weakness
+title: Dollar Weakness
+category: fx
+description: >-
+  Broad-based USD weakness — Fed cuts, twin-deficit concerns, or rest-of-world
+  growth catching up. Tailwind for commodities, EM, gold, and US multinational
+  earnings.
+countries: [US]
+supporting_indicators:
+  - DTWEXBGS
+  - DEXUSEU
+  - DEXJPUS
+  - DGS2
+  - GOLDAMGBD228NLBM
+
+affected_assets:
+  - EEM
+  - GLD
+  - SPGSCI
+  - XLE
+  - XLB
+
+evidence_rules:
+  - weight: 14
+    indicator: DTWEXBGS
+    condition: "yoy < -5"
+  - weight: 10
+    indicator: DEXUSEU
+    condition: "mom_chg < -0.03"
+  - weight: 10
+    indicator: DEXJPUS
+    condition: "mom_chg < -3"
+  - weight: 12
+    indicator: DGS2
+    condition: "spread_narrows_vs_g7"
+  - weight: 8
+    indicator: GOLDAMGBD228NLBM
+    condition: "yoy > 15"
+  - weight: 8
+    event_type: central_bank
+    condition: "fed_dovish_relative"
+  - weight: 6
+    event_type: research
+    condition: "dollar_bear_thesis"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [fx, dollar, em-tailwind]

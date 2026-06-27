@@ -1,0 +1,52 @@
+theme_id: ai_capex_cycle
+title: AI Capex Cycle
+category: tech
+description: >-
+  Sustained capex boom in AI infrastructure (data centers, networking, power)
+  driven by hyperscaler buildout, enterprise AI adoption, and sovereign-AI
+  initiatives. Halo effect for semiconductors, power, and cooling supply chains.
+countries: [US]
+supporting_indicators:
+  - DGORDER            # Durable goods orders
+  - PERMIT             # Construction permits (data centers)
+  - INDPRO
+  - NAPM
+  - CES4000000001      # Tech sector employment
+
+affected_assets:
+  - NVDA
+  - SMH
+  - XLK
+  - PHO
+  - URA
+
+evidence_rules:
+  - weight: 14
+    indicator: DGORDER
+    condition: "yoy > 6.0_tech_subset"
+  - weight: 12
+    indicator: NAPM
+    condition: "level > 53"
+  - weight: 10
+    indicator: PERMIT
+    condition: "yoy > 5_data_center"
+  - weight: 10
+    indicator: INDPRO
+    condition: "yoy > 2_tech_subset"
+  - weight: 8
+    indicator: CES4000000001
+    condition: "mom_chg > 0"
+  - weight: 14
+    event_type: research
+    condition: "hyperscaler_capex_raised"
+  - weight: 10
+    event_type: forecast_update
+    condition: "ai_capex_extended"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [tech, ai, capex, semiconductors]

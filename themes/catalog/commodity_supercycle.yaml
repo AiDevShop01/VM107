@@ -1,0 +1,52 @@
+theme_id: commodity_supercycle
+title: Commodity Supercycle
+category: commodities
+description: >-
+  Multi-year commodity bull market driven by structural underinvestment in
+  capex, energy transition demand for metals, and persistent supply-demand
+  imbalance across the complex.
+countries: [US]
+supporting_indicators:
+  - PPIACO         # PPI all commodities
+  - PCU2122122122  # PPI: copper, nickel ores
+  - DCOILWTICO     # WTI crude
+  - GOLDAMGBD228NLBM
+  - SPGSCI
+
+affected_assets:
+  - XLE
+  - XLB
+  - GLD
+  - GDX
+  - DBC
+
+evidence_rules:
+  - weight: 12
+    indicator: PPIACO
+    condition: "yoy > 5"
+  - weight: 14
+    indicator: SPGSCI
+    condition: "yoy > 10"
+  - weight: 10
+    indicator: DCOILWTICO
+    condition: "yoy > 15"
+  - weight: 10
+    indicator: GOLDAMGBD228NLBM
+    condition: "yoy > 10"
+  - weight: 8
+    indicator: PCU2122122122
+    condition: "yoy > 8"
+  - weight: 10
+    event_type: research
+    condition: "structural_underinvestment"
+  - weight: 8
+    event_type: forecast_update
+    condition: "commodity_bull_extended"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [commodities, supercycle, energy-transition]

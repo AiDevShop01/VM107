@@ -1,0 +1,94 @@
+id: theme_engine
+type: service
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: service
+phase: 94
+
+# Phase 94 Plan 05 — MacroThemeEngine registration.
+#
+# Source module: macro_theme_engine (MacroThemeEngine class) +
+#                core.theme_engine.state_machine (derive_next_state pure fn).
+# Sibling service: VM107/docker-compose.yml ``theme_engine`` running
+#                  ``python -m management.commands.run_theme_engine``
+#                  per the feedback_mgmt_commands_need_compose_service lock.
+#
+# Per §H.2/H.3 the engine is DETERMINISTIC + LLM-FREE. Strength is computed
+# via weighted evidence accumulation across the curated theme catalog
+# (themes/catalog/*.yaml).  Specialist analyst agents (94-05) EXPLAIN
+# themes in natural language — they NEVER recompute the strength.
+
+impact_on_decision: HIGH
+hard_scoped: true
+
+name: MacroThemeEngine (deterministic theme scoring + state machine)
+description: |
+  Phase 94 §H deterministic Theme Engine.  Loads the catalog at
+  themes/catalog/*.yaml (curated ~14 themes for Wave 3a — extensible to
+  30-40 via future PRs), evaluates evidence rules against signals from
+  the Event Bus, computes weighted strength (0-100), and drives the
+  8-state lifecycle (Candidate / Emerging / Strengthening / Dominant /
+  Stable / Weakening / Dormant / Archived) with a 5-point hysteresis
+  band per §H.2.
+
+  NO LLM on the score path per §H.3 + LD-90-1 + Phase 87 Pitfall 5.
+  Source-grep + AST-walk anti-pattern guards in
+  themes/tests/test_theme_evidence_accumulation.py enforce the lock.
+
+  Dashboard ranking uses Strength × Confidence per §H.4 — never Strength
+  alone.  Themes are NEVER deleted — only archived per §H.5.
+
+  Listener subscribes to MACRO_RELEASE / CENTRAL_BANK / REGIME_CHANGE /
+  RESEARCH / FORECAST_UPDATE / DISCOVERY EconomicEvents.  Wave 3a uses
+  in-memory rolling evidence; 94-07 wires Redis-backed persistence via
+  the Snapshot Coordinator.
+
+owner: engineering
+owner_vm: vm107
+
+runtime: python_long_running
+source_module: macro_theme_engine
+sibling_service: theme_engine
+contracts:
+  - theme_monitor_section  # ThemeMonitorSection envelope
+env_vars:
+  - REDIS_HOST
+  - REDIS_PORT
+latency_budget_ms: 200  # per-theme evaluate on a warm process
+
+is_deterministic: true
+version: "1.0.0"
+calculation_version: "ThemeEngine_v1.0"
+
+weights_governance: pr_based_yaml
+weights_repo_path: VM107/themes/catalog/
+
+# Capability registry sweep cross-references this.
+emits:
+  - theme_monitor_section
+consumes:
+  - macro_release
+  - central_bank
+  - regime_change
+  - research
+  - forecast_update
+  - discovery
+
+related_capabilities:
+  - event_bus
+  - snapshot_coordinator
+  - vm107.growth_analyst
+  - vm107.inflation_analyst
+  - vm107.liquidity_analyst
+  - vm107.risk_analyst
+
+tags:
+  - service
+  - macro
+  - themes
+  - phase-94
+  - wave-3
+  - deterministic
+  - economic-intelligence
+  - sibling-service

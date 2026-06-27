@@ -1,0 +1,50 @@
+theme_id: sticky_services_inflation
+title: Sticky Services Inflation
+category: inflation
+description: >-
+  Services inflation excluding shelter remains elevated even as goods
+  inflation cools, signalling that the inflation problem has shifted from
+  supply chains to wages and services. Fed's most-watched signal.
+countries: [US]
+supporting_indicators:
+  - CUSR0000SAS        # CPI: Services
+  - CUUR0000SEHA       # CPI: Rent of primary residence
+  - CES0500000003
+  - PCEPILFE
+  - JTSJOL             # Job openings
+
+affected_assets:
+  - 2Y_YIELD
+  - USD
+  - REIT
+
+evidence_rules:
+  - weight: 14
+    indicator: CUSR0000SAS
+    condition: "yoy > 4.0"
+  - weight: 10
+    indicator: CUUR0000SEHA
+    condition: "yoy > 4.5"
+  - weight: 12
+    indicator: CES0500000003
+    condition: "yoy > 4.0"
+  - weight: 10
+    indicator: PCEPILFE
+    condition: "yoy > 3.0"
+  - weight: 8
+    indicator: JTSJOL
+    condition: "level > 9500000"
+  - weight: 8
+    event_type: research
+    condition: "supercore_persistent"
+  - weight: 8
+    event_type: central_bank
+    condition: "supercore_referenced"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [inflation, services, supercore]

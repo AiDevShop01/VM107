@@ -1,0 +1,52 @@
+theme_id: semiconductor_expansion
+title: Semiconductor Expansion
+category: tech
+description: >-
+  Semiconductor cycle is in upcycle phase — booking strength, lead times
+  extending, equipment orders rising, foundry utilization climbing. AI demand
+  and geopolitical reshoring drive secular layer atop the cyclical recovery.
+countries: [US]
+supporting_indicators:
+  - DGORDER
+  - NAPM
+  - INDPRO
+  - CES4000000001
+  - PCU3344133441      # PPI: semiconductors
+
+affected_assets:
+  - SMH
+  - SOXX
+  - NVDA
+  - AMAT
+  - LRCX
+
+evidence_rules:
+  - weight: 14
+    indicator: DGORDER
+    condition: "yoy > 5_semis"
+  - weight: 12
+    indicator: NAPM
+    condition: "level > 52"
+  - weight: 10
+    indicator: INDPRO
+    condition: "yoy > 3_semis"
+  - weight: 10
+    indicator: PCU3344133441
+    condition: "yoy > 0"
+  - weight: 8
+    indicator: CES4000000001
+    condition: "yoy > 1"
+  - weight: 14
+    event_type: research
+    condition: "wfe_capex_raised"
+  - weight: 10
+    event_type: discovery
+    condition: "fab_groundbreaking"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [tech, semiconductors, cycle]

@@ -1,0 +1,52 @@
+theme_id: energy_shock
+title: Energy Shock
+category: commodities
+description: >-
+  Sharp dislocation in energy markets — geopolitical disruption, OPEC+ cut,
+  refining bottleneck, or natural-gas crisis. Drives headline inflation,
+  squeezes consumer real income, and triggers stagflation concerns.
+countries: [US]
+supporting_indicators:
+  - DCOILWTICO
+  - DCOILBRENTEU
+  - DHHNGSP            # Natural gas Henry Hub
+  - GASREGW            # Retail gasoline
+  - CUSR0000SEHE       # CPI: energy
+
+affected_assets:
+  - XLE
+  - USO
+  - XOP
+  - SPX
+  - XLY
+
+evidence_rules:
+  - weight: 14
+    indicator: DCOILWTICO
+    condition: "mom_chg > 0.15"
+  - weight: 12
+    indicator: DCOILBRENTEU
+    condition: "mom_chg > 0.15"
+  - weight: 10
+    indicator: DHHNGSP
+    condition: "mom_chg > 0.25"
+  - weight: 10
+    indicator: GASREGW
+    condition: "mom_chg > 0.10"
+  - weight: 10
+    indicator: CUSR0000SEHE
+    condition: "yoy > 10"
+  - weight: 12
+    event_type: discovery
+    condition: "opec_cut"
+  - weight: 10
+    event_type: research
+    condition: "supply_disruption"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [energy, oil, stagflation]

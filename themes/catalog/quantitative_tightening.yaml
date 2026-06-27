@@ -1,0 +1,52 @@
+theme_id: quantitative_tightening
+title: Quantitative Tightening
+category: liquidity
+description: >-
+  Central bank actively shrinks its balance sheet via run-off or outright
+  sales. Bank reserves decline, repo rates rise, USD liquidity tightens —
+  headwind for risk assets and EM currencies.
+countries: [US]
+supporting_indicators:
+  - WALCL           # Fed balance sheet
+  - WRESBAL         # Reserves held at Fed
+  - RRPONTSYD       # Reverse repo facility
+  - DGS10
+  - DTWEXBGS
+
+affected_assets:
+  - DXY
+  - GLD
+  - EEM
+  - HYG
+  - SPX
+
+evidence_rules:
+  - weight: 14
+    indicator: WALCL
+    condition: "mom_chg < -50_000_000_000"
+  - weight: 12
+    indicator: WRESBAL
+    condition: "yoy < -10"
+  - weight: 10
+    indicator: RRPONTSYD
+    condition: "mom_chg < -100_000_000_000"
+  - weight: 8
+    indicator: DGS10
+    condition: "mom_chg > 0.25"
+  - weight: 14
+    event_type: central_bank
+    condition: "qt_acceleration"
+  - weight: 8
+    event_type: research
+    condition: "reserve_scarcity"
+  - weight: 6
+    event_type: forecast_update
+    condition: "qt_extended"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [liquidity, qt, balance-sheet]

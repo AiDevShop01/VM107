@@ -1,0 +1,64 @@
+id: theme_monitor_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: ThemeMonitorSection
+schema_ref: fingpt_core.contracts.economic_intelligence.themes.ThemeMonitorSection
+
+description: |
+  Phase 94 §H — ThemeMonitorSection envelope carrying the active list of
+  :class:`Theme` objects.  Each Theme has theme_id / label / strength
+  (0-100) / state (8-state ThemeState) / drivers (indicator IDs +
+  event_type tags) / first_seen / last_changed timestamps.
+
+  Produced by the deterministic vm107.theme_engine service; consumed by
+  the executive_summary synthesizer (94-06), VM100 backend aggregator
+  (94-07), and frontend ThemeMonitor section (94-08).  Themes are NEVER
+  deleted — only archived per §H.5.
+
+  Dashboard ranking is Strength × Confidence per §H.4 (Confidence is
+  threaded through caller-side accounting; the contract carries raw
+  Strength).
+
+inherits: base_section_contract
+worm: false  # snapshot-time output, not append-only
+
+fields:
+  - themes                  # list[Theme]
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - theme_engine
+
+consumed_by:
+  - vm107.executive_summary
+  - vm107.growth_analyst       # via theme cross-reference
+  - vm107.inflation_analyst
+  - vm107.liquidity_analyst
+  - vm107.risk_analyst
+  - vm107.chief_economist_synthesizer  # ships in 94-06
+
+source_module: fingpt_core.contracts.economic_intelligence.themes
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - themes

@@ -1,0 +1,52 @@
+theme_id: mid_cycle_expansion
+title: Mid-Cycle Expansion
+category: growth
+description: >-
+  Economy is in a sustained mid-cycle expansion — broad-based growth, normal
+  unemployment, capex healthy, manufacturing PMI above 50, credit spreads
+  tight. Goldilocks regime for risk assets.
+countries: [US]
+supporting_indicators:
+  - GDPC1
+  - INDPRO
+  - NAPM            # ISM Manufacturing PMI
+  - DGORDER         # Durable goods orders
+  - HOUST
+  - UNRATE
+
+affected_assets:
+  - SPX
+  - IWM
+  - XLI
+  - HYG
+
+evidence_rules:
+  - weight: 12
+    indicator: GDPC1
+    condition: "qoq_saar > 2.0"
+  - weight: 10
+    indicator: INDPRO
+    condition: "yoy > 1.5"
+  - weight: 12
+    indicator: NAPM
+    condition: "level > 52"
+  - weight: 10
+    indicator: DGORDER
+    condition: "yoy > 2.0"
+  - weight: 8
+    indicator: HOUST
+    condition: "level > 1400000"
+  - weight: 8
+    indicator: UNRATE
+    condition: "level < 4.2"
+  - weight: 8
+    event_type: research
+    condition: "mid_cycle_consensus"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [growth, expansion, goldilocks]

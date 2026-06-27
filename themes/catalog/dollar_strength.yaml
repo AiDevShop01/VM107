@@ -1,0 +1,52 @@
+theme_id: dollar_strength
+title: Dollar Strength
+category: fx
+description: >-
+  Broad-based USD strength driven by yield differential, safe-haven flows, or
+  divergence between Fed and other major central banks. Headwind for EM,
+  commodities, and US multinational earnings.
+countries: [US]
+supporting_indicators:
+  - DTWEXBGS         # Broad nominal USD index
+  - DEXUSEU
+  - DEXJPUS
+  - DGS2
+  - VIXCLS
+
+affected_assets:
+  - EEM
+  - GLD
+  - SPGSCI
+  - XLB
+  - USDJPY
+
+evidence_rules:
+  - weight: 14
+    indicator: DTWEXBGS
+    condition: "yoy > 5"
+  - weight: 10
+    indicator: DEXUSEU
+    condition: "mom_chg > 0.03"
+  - weight: 10
+    indicator: DEXJPUS
+    condition: "mom_chg > 3"
+  - weight: 12
+    indicator: DGS2
+    condition: "spread_widens_vs_g7"
+  - weight: 8
+    indicator: VIXCLS
+    condition: "level > 20"
+  - weight: 8
+    event_type: central_bank
+    condition: "fed_hawkish_relative"
+  - weight: 6
+    event_type: research
+    condition: "dollar_bull_thesis"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [fx, dollar, safe-haven]

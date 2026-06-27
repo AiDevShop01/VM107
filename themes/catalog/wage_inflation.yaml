@@ -1,0 +1,50 @@
+theme_id: wage_inflation
+title: Wage Inflation
+category: inflation
+description: >-
+  Wage growth persistently outpaces productivity, embedding inflation through
+  the second-round-effects channel. Average hourly earnings, ECI, and Atlanta
+  Fed wage tracker all confirm.
+countries: [US]
+supporting_indicators:
+  - CES0500000003     # Avg hourly earnings (BLS)
+  - ECIWAG            # Employment Cost Index — wages
+  - ATLWGT            # Atlanta Fed wage tracker
+  - UNRATE
+  - JTSJOL
+
+affected_assets:
+  - 2Y_YIELD
+  - USD
+  - XLF
+
+evidence_rules:
+  - weight: 12
+    indicator: CES0500000003
+    condition: "yoy > 4.0"
+  - weight: 14
+    indicator: ECIWAG
+    condition: "qoq_saar > 4.0"
+  - weight: 12
+    indicator: ATLWGT
+    condition: "yoy > 4.5"
+  - weight: 8
+    indicator: UNRATE
+    condition: "level < 4.0"
+  - weight: 8
+    indicator: JTSJOL
+    condition: "level > 9000000"
+  - weight: 8
+    event_type: research
+    condition: "wage_price_spiral"
+  - weight: 8
+    event_type: central_bank
+    condition: "wage_concerns"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [wages, inflation, second-round]

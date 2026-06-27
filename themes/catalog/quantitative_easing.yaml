@@ -1,0 +1,52 @@
+theme_id: quantitative_easing
+title: Quantitative Easing
+category: liquidity
+description: >-
+  Central bank actively expands its balance sheet via asset purchases. Bank
+  reserves rise, USD weakens, term premium compresses — tailwind for risk
+  assets and long-duration equities.
+countries: [US]
+supporting_indicators:
+  - WALCL
+  - WRESBAL
+  - DGS10
+  - DTWEXBGS
+  - BAMLH0A0HYM2     # HY OAS
+
+affected_assets:
+  - SPX
+  - QQQ
+  - GLD
+  - HYG
+  - EEM
+
+evidence_rules:
+  - weight: 14
+    indicator: WALCL
+    condition: "mom_chg > 50_000_000_000"
+  - weight: 12
+    indicator: WRESBAL
+    condition: "yoy > 10"
+  - weight: 10
+    indicator: DGS10
+    condition: "mom_chg < -0.20"
+  - weight: 8
+    indicator: DTWEXBGS
+    condition: "yoy < -5"
+  - weight: 14
+    event_type: central_bank
+    condition: "qe_announcement"
+  - weight: 8
+    event_type: research
+    condition: "easing_cycle"
+  - weight: 6
+    event_type: forecast_update
+    condition: "qe_extended"
+
+state_thresholds:
+  emerging_min_strength: 25
+  strengthening_min_strength: 50
+  dominant_min_strength: 70
+  hysteresis_band: 5
+
+tags: [liquidity, qe, balance-sheet]
