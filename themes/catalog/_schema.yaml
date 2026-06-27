@@ -1,0 +1,40 @@
+# Phase 94 §H — Theme Catalog YAML schema (documentation only — not loaded).
+#
+# Every theme YAML in this directory MUST satisfy this schema. The
+# test_theme_catalog_validity test suite enforces the contract; new themes
+# added via PR must keep tests GREEN.
+#
+# Required top-level keys:
+#   theme_id            str  — globally-unique slug (matches filename stem).
+#   title               str  — human display name.
+#   category            str  — one of: inflation, growth, liquidity, policy,
+#                              fx, commodities, tech, geopolitics.
+#   description         str  — 1-3 sentence narrative explaining the theme.
+#   countries           list[str]  — ISO-3166-1-alpha-2 codes the theme tracks.
+#   supporting_indicators list[str]  — FRED / source indicator IDs feeding evidence.
+#   affected_assets     list[str]  — Asset tickers / categories sensitive to theme.
+#   evidence_rules      list[dict] — see "evidence_rules" schema below.
+#   state_thresholds    dict       — see "state_thresholds" schema below.
+#
+# evidence_rules schema (per rule):
+#   weight              int >= 1   — strength points contributed when rule fires.
+#   ONE of the following trigger keys:
+#     indicator         str  — FRED/source indicator ID.
+#     event_type        str  — one of {macro_release, central_bank, regime_change,
+#                                       research, forecast_update, discovery}.
+#     forecast          str  — forecast topic / model id.
+#   condition           str  — DSL expression evaluated against evidence
+#                              (e.g., "value > 3.0", "delta < -0.5", "==CUT").
+#                              Engine matching is structural; condition is
+#                              advisory metadata for the evidence provider.
+#
+# state_thresholds schema:
+#   emerging_min_strength       int  — promotion to Emerging at >= this strength.
+#   strengthening_min_strength  int  — promotion to Strengthening at >= this strength.
+#   dominant_min_strength       int  — promotion to Dominant at >= this strength.
+#   hysteresis_band             int  — symmetric band preventing flapping near
+#                                       any threshold (default 5).
+#
+# Optional:
+#   tags                list[str]
+#   references          list[str]
