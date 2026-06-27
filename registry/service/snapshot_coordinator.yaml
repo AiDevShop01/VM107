@@ -1,0 +1,80 @@
+id: snapshot_coordinator
+type: service
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: service
+phase: 94
+
+# Phase 94 Plan 03 — Snapshot Coordinator runtime registration.
+#
+# Source module: VM102/backend/vm102/economic_snapshot/snapshot_coordinator.py
+# (canonical) plus VM102/backend/vm102/economic_snapshot/coordinator.py (back-
+# compat shim consumed by the Wave-0 scaffold's import path).
+#
+# Sibling service: not yet wired — Wave 4 (94-07) introduces the aggregator
+# process that hosts the coordinator alongside the VM100 backend.  Until
+# then, the coordinator is exercised in-process by unit tests + by the
+# VM107 listener (run_event_bus_listener.py) when it eventually mounts the
+# Wave 2 handler set.
+#
+# Capability: orchestrates incremental EconomicSnapshot regeneration in
+# response to EconomicEvent fires.  Owns the CapabilityEngine, the
+# ReadinessEvaluator (PIRF), the ExecutionPlanner (asyncio.gather + retry
+# + timeout), and the SnapshotBuilder (Pydantic-validated merger).
+
+impact_on_decision: HIGH
+hard_scoped: true
+
+name: Snapshot Coordinator
+description: |
+  Phase 94 §B.1 orchestration brain.  Subscribes to all 8 EconomicEvent
+  types on the Phase 94 Event Bus.  On each event, resolves which sections
+  declare that event_type in their per-section depends_on YAML (via
+  CapabilityEngine), debounces correlated events within a 30s window
+  (§B.7), runs the matching agents concurrently via ExecutionPlanner
+  (asyncio.gather + retry + per-agent timeout), validates outputs via the
+  SnapshotBuilder, and publishes the result to SnapshotRepository (in-
+  memory in Wave 2; Postgres+Redis adapter lands in 94-07).  Implements
+  the PIRF readiness contract from CONTEXT.md §C — per-section degradation
+  rather than whole-page placeholder gating.
+
+owner_vm: vm102
+owner: engineering
+
+runtime: python_in_process
+source_module: vm102.economic_snapshot.snapshot_coordinator
+sibling_service: null  # hosted in 94-07's aggregator process
+contracts:
+  - economic_snapshot
+  - economic_event
+env_vars: []           # in-memory in Wave 2 — Redis + Postgres land in 94-07
+latency_budget_ms: 5000  # one debounce window flush + bulk agent fanout
+
+emits:
+  - economic_snapshot
+consumes:
+  - macro_release
+  - central_bank
+  - regime_change
+  - discovery
+  - forecast_update
+  - research
+  - alert
+  - structural_update
+
+related_capabilities:
+  - event_bus
+  - pillar_engine
+  - theme_engine
+
+tags:
+  - service
+  - orchestration
+  - phase-94
+  - wave-2
+  - economic-intelligence
+  - capability-engine
+  - readiness-evaluator
+  - debouncing
+  - pirf
