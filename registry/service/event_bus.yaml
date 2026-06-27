@@ -1,0 +1,68 @@
+id: event_bus
+type: service
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: service
+phase: 94
+
+# Phase 94 Plan 02 — Event Bus runtime registration.
+#
+# Source module: core/event_bus/bus.py (EventBus class)
+# Sibling service: VM107/docker-compose.yml ``event_bus`` (runs
+# listeners/run_event_bus_listener.py per the
+# feedback_mgmt_commands_need_compose_service lock).
+#
+# The bus is the Phase 94 loose-coupling backbone between the Snapshot
+# Coordinator (Wave 2 — 94-03) and the 5 agents (Wave 3 — 94-06).
+# Publishes EconomicEvent objects on Redis pub/sub channels
+# ``economic_event_bus:<event_type>`` with SET-NX-EX idempotency (24h TTL).
+
+impact_on_decision: HIGH
+hard_scoped: true
+
+name: EventBus runtime
+description: |
+  Redis pub/sub backbone for Phase 94 EconomicEvent objects.  Publishers
+  call publish(EconomicEvent) which validates type, dedupes by event_id
+  via SET NX EX 86400s, then publishes to channel
+  ``economic_event_bus:<event_type>``.  Subscribers register handlers per
+  EventType; the listener (sibling service ``event_bus``) drains the
+  pub/sub channels and dispatches to handlers with per-handler try/except
+  so one bad handler cannot kill the bus.
+
+owner_vm: vm107
+owner: engineering
+
+runtime: python_long_running
+source_module: core.event_bus.bus
+sibling_service: event_bus
+contracts:
+  - economic_event  # implicit — EconomicEvent contract in events.py
+env_vars:
+  - REDIS_HOST
+  - REDIS_PORT
+latency_budget_ms: 100  # publish path — single SET NX EX + PUBLISH round-trip
+
+# Capability registry sweep cross-references this.
+emits: []  # bus is infrastructure — emits no events of its own
+consumes: []  # subscribers are registered at runtime by agent modules
+
+related_capabilities:
+  - macro_release
+  - central_bank
+  - regime_change
+  - discovery
+  - forecast_update
+  - research
+  - alert
+  - structural_update
+
+tags:
+  - service
+  - infrastructure
+  - phase-94
+  - wave-1
+  - event-bus
+  - sibling-service
+  - economic-intelligence

@@ -519,6 +519,67 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=87"
 
+  # ---------------------------------------------------------------------------
+  # Phase 94 Plan 02 — event_bus sibling service (Wave 1)
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): any
+  # long-running ``python -m listeners.X`` MUST ship as a docker-compose
+  # sibling service so the worker survives backend restarts.  Phase 74-03
+  # was the canonical cautionary tale (run_observation_listener silently
+  # died on every backend restart until the service block landed).
+  #
+  # The listener (listeners/run_event_bus_listener.py) bootstraps a Phase
+  # 94 EventBus (core/event_bus/bus.py) that publishes EconomicEvent
+  # objects over Redis pub/sub on channels ``economic_event_bus:<type>``.
+  # Wave 3+ agent modules register handlers via import hooks.
+  #
+  # Restart after env changes (NEVER use ``docker restart`` — it ignores
+  # env_file edits):
+  #   docker compose up -d --force-recreate --no-deps event_bus
+  # ---------------------------------------------------------------------------
+  event_bus:
+    container_name: vm107-event-bus
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m listeners.run_event_bus_listener
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Required URLs — fail-fast at startup (env-driven-no-fallbacks lock) ──
+      # ${VAR:?msg} aborts ``docker compose up`` if unset.  The EventBus
+      # module also re-checks these at import time before any pub/sub call.
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 02 — EventBus pub/sub)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 02 — EventBus pub/sub)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      # Bind-mount the modules the listener imports so host edits propagate
+      # without rebuild (mirrors macro_release_event_listener layout).
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_event_bus_listener || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-event-bus"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
 volumes:
   redis_data:
 
