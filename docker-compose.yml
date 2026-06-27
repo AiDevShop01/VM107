@@ -632,6 +632,177 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=94"
 
+  # ── Phase 94 Plan 06 — 4 agent-subscriber sibling services (Wave 3b) ─────
+  #
+  # Each service runs ``management.commands.run_agent_subscriber --agent X``,
+  # which bootstraps an EventBus subscriber for the named agent. The generic
+  # command keeps the docker-compose blocks near-identical; adding a 5th
+  # event-driven agent later requires only a new compose entry + a new row
+  # in _AGENT_REGISTRY in run_agent_subscriber.py.
+  #
+  # Per ``feedback_mgmt_commands_need_compose_service``: long-running
+  # listeners MUST ship as sibling services so workers survive backend
+  # restarts. Per ``env-driven-no-fallbacks``: REDIS_HOST/REDIS_PORT use
+  # ${VAR:?msg} fail-fast.  Per ``feedback_no_docker_restart_after_env_change``:
+  # restart after env edits with
+  # ``docker compose up -d --force-recreate --no-deps <svc>``.
+
+  executive_summary_subscriber:
+    container_name: vm107-executive-summary-subscriber
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m management.commands.run_agent_subscriber --agent executive_summary
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 06 — executive_summary_subscriber)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 06 — executive_summary_subscriber)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./management:/a0/management:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_agent_subscriber || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-executive-summary-subscriber"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
+  theme_monitor_subscriber:
+    container_name: vm107-theme-monitor-subscriber
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m management.commands.run_agent_subscriber --agent theme_monitor
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 06 — theme_monitor_subscriber)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 06 — theme_monitor_subscriber)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./management:/a0/management:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_agent_subscriber || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-theme-monitor-subscriber"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
+  timeline_subscriber:
+    container_name: vm107-timeline-subscriber
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m management.commands.run_agent_subscriber --agent timeline
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 06 — timeline_subscriber)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 06 — timeline_subscriber)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./management:/a0/management:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_agent_subscriber || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-timeline-subscriber"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
+  central_bank_subscriber:
+    container_name: vm107-central-bank-subscriber
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m management.commands.run_agent_subscriber --agent central_bank_summariser
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 94 Plan 06 — central_bank_subscriber)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 94 Plan 06 — central_bank_subscriber)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./management:/a0/management:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_agent_subscriber || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-central-bank-subscriber"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=94"
+
 volumes:
   redis_data:
 
