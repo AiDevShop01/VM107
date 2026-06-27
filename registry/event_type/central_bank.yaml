@@ -1,0 +1,50 @@
+id: central_bank
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Central bank decision/statement/speech event. Carries
+# rate decision, stance change, or guidance update. Consumed by the
+# central_bank_summariser specialist + executive_summary aggregator.
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: central_bank
+description: |
+  Central bank event (rate decision, statement, speech, dot-plot update).
+  Published to ``economic_event_bus:central_bank``. Consumed by the
+  vm107.central_bank_summariser specialist (CONTEXT.md §K.1 row 2) and the
+  executive_summary aggregator. Carries the canonical EconomicEvent envelope
+  with payload fields (cb_id, decision, stance, statement_url, ...) defined
+  by the consumer-side schema.
+schema_ref: contracts.economic_intelligence.events.EventType.CENTRAL_BANK
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: MEDIUM
+emitters:
+  - phase85.central_bank_pipeline
+consumers:
+  - vm107.central_bank_summariser
+  - vm107.executive_summary
+  - vm107.theme_monitor
+
+related_capabilities:
+  - central_bank_section
+  - executive_summary_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - central-bank
+  - economic-intelligence

@@ -68,6 +68,11 @@ class _StubPubSub:
         for ch in channels:
             self._subscribed_channels.append(ch)
             self._parent._subscribers.setdefault(ch, []).append(self)
+            # Replay any messages already published to this channel before
+            # this pubsub instance subscribed — keeps unit tests order-
+            # independent (real Redis would require subscribe-first).
+            for past_msg in self._parent._channel_buffer.get(ch, []):
+                self._enqueue(ch, past_msg)
 
     def listen(self):  # generator-like
         # First yield a subscription confirmation per channel (mirrors redis-py).
@@ -87,6 +92,11 @@ class StubRedis:
     def __init__(self) -> None:
         self._kv: dict[str, str] = {}
         self._subscribers: dict[str, list[_StubPubSub]] = {}
+        # Buffer of all published messages per channel so late-subscribing
+        # pubsubs can replay them — accommodates test order where publish()
+        # happens before pubsub.subscribe(). Real Redis fires-and-forgets;
+        # this stub is intentionally more permissive for unit testing.
+        self._channel_buffer: dict[str, list[str]] = {}
         self.published: list[tuple[str, str]] = []
 
     def set(self, key: str, value: str, nx: bool = False, ex: int | None = None) -> bool:
@@ -97,6 +107,7 @@ class StubRedis:
 
     def publish(self, channel: str, message: str) -> int:
         self.published.append((channel, message))
+        self._channel_buffer.setdefault(channel, []).append(message)
         for ps in self._subscribers.get(channel, []):
             ps._enqueue(channel, message)
         return len(self._subscribers.get(channel, []))

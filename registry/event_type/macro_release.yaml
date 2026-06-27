@@ -1,0 +1,52 @@
+id: macro_release
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — One of 8 canonical EconomicEvent types flowing through the
+# Phase 94 EventBus (core/event_bus/bus.py). Emitted by the Phase 85 release
+# pipeline when a Tier-1 macro indicator (CPI / NFP / GDP / etc.) lands.
+# Subscribed to by the executive_summary, theme_monitor, and timeline agents
+# (CONTEXT.md §K.1 subscription matrix) for incremental snapshot regeneration.
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: macro_release
+description: |
+  Economic data release event (CPI / GDP / Employment / PMI / etc.).
+  Published to Redis channel ``economic_event_bus:macro_release`` when a
+  Tier-1 indicator lands; consumed by executive_summary, theme_monitor,
+  and timeline agents for per-section snapshot regeneration. Carries the
+  canonical EconomicEvent envelope: event_id, country (ISO alpha-2),
+  occurred_at, severity, source, payload (indicator-specific).
+schema_ref: contracts.economic_intelligence.events.EventType.MACRO_RELEASE
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: LOW
+emitters:
+  - phase85.release_pipeline
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+  - vm107.timeline
+
+related_capabilities:
+  - economic_snapshot
+  - executive_summary_section
+  - timeline_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - economic-intelligence

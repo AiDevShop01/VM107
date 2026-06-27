@@ -1,0 +1,53 @@
+id: alert
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Alert event surfacing a user-facing condition (threshold
+# breach, anomaly detection, regime transition warning). Distinct from
+# Phase 91 alert_candidate_created envelope: Phase 94 ``alert`` events feed
+# the macro snapshot's alerts section (in-page), Phase 91 envelopes feed
+# the notification pipeline (cross-page). Same underlying conditions can
+# fire both surfaces independently.
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: alert
+description: |
+  Alert event for the Phase 94 macro snapshot alerts section. Triggered by
+  threshold breach, anomaly detection, or regime warning. Distinct surface
+  from Phase 91 alert_candidate_created (notification pipeline). Published
+  to ``economic_event_bus:alert``. Consumed by alerts_section renderer +
+  executive_summary aggregator (high-severity alerts get top-of-summary
+  treatment per CONTEXT.md §K.1).
+schema_ref: contracts.economic_intelligence.events.EventType.ALERT
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: MEDIUM
+emitters:
+  - phase91.universal_alert_engine
+  - vm107.theme_monitor
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+
+related_capabilities:
+  - alerts_section
+  - executive_summary_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - alert
+  - economic-intelligence

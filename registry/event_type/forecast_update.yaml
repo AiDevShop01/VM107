@@ -1,0 +1,49 @@
+id: forecast_update
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Forecast update event from Phase 90 nightly forecast
+# pipeline (new forecast value, confidence change, scenario shift).
+# Consumed by the forecast section + executive_summary aggregator.
+
+impact_on_decision: MEDIUM
+hard_scoped: false
+deprecated: false
+
+name: forecast_update
+description: |
+  Forecast value/confidence/scenario update from the Phase 90 nightly
+  forecast pipeline. Published to ``economic_event_bus:forecast_update``.
+  Consumed by executive_summary + forecast_section renderers; theme_monitor
+  uses high-magnitude forecast shifts as one of the state-machine
+  transition evidence sources.
+schema_ref: contracts.economic_intelligence.events.EventType.FORECAST_UPDATE
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: LOW
+emitters:
+  - phase90.nightly_forecast_run
+  - phase90.cpd_nightly
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+
+related_capabilities:
+  - forecast_section
+  - executive_summary_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - forecast
+  - economic-intelligence

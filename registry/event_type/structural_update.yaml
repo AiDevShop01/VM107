@@ -1,0 +1,53 @@
+id: structural_update
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Structural-update event: long-horizon shift to relationships,
+# pillar definitions, or theme taxonomy (e.g., new indicator graduates to a
+# pillar, asset reclassification, taxonomy version bump). Triggers full
+# pillar_engine + theme_engine recompute paths.
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: structural_update
+description: |
+  Long-horizon structural change to pillars, relationships, or theme
+  taxonomy (e.g., new indicator graduates to a pillar, asset
+  reclassification, taxonomy version bump). Published to
+  ``economic_event_bus:structural_update``. Consumed by pillar_engine +
+  theme_engine for full recompute (these are heavyweight invalidation
+  events — emitted infrequently, typically nightly).
+schema_ref: contracts.economic_intelligence.events.EventType.STRUCTURAL_UPDATE
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: MEDIUM
+emitters:
+  - phase94.taxonomy_admin
+  - phase90.relationship_recompute
+consumers:
+  - vm107.pillar_engine
+  - vm107.theme_engine
+  - vm107.executive_summary
+
+related_capabilities:
+  - pillars_section
+  - theme_monitor_section
+  - relationship_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - structural
+  - economic-intelligence

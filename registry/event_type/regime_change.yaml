@@ -1,0 +1,55 @@
+id: regime_change
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Regime transition event from Phase 87 macro_regime_monitor
+# (LOCK-3 0.65 threshold) or Phase 90 nightly forecast pipeline. CRITICAL
+# severity floor — triggers full-page invalidation in executive_summary +
+# theme_monitor + every cross_asset section.
+
+impact_on_decision: HIGH
+hard_scoped: false
+deprecated: false
+
+name: regime_change
+description: |
+  Macro regime transition detected (e.g., expansion → late_cycle,
+  risk_on → risk_off, hawkish → dovish). Published to
+  ``economic_event_bus:regime_change``. Consumed by executive_summary,
+  theme_monitor (state-machine transition), timeline (annotation), and
+  pillars (recompute_pillar_health on regime shift). Carries
+  EconomicEvent envelope with payload (regime_from, regime_to,
+  confidence, evidence_indicators).
+schema_ref: contracts.economic_intelligence.events.EventType.REGIME_CHANGE
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: HIGH
+emitters:
+  - phase87.macro_regime_monitor
+  - phase90.nightly_forecast_run
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+  - vm107.timeline
+  - vm107.pillar_engine
+
+related_capabilities:
+  - pillars_section
+  - theme_monitor_section
+  - executive_summary_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - regime
+  - economic-intelligence

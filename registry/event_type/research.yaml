@@ -1,0 +1,50 @@
+id: research
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Research processing event from Phase 92 research pipeline
+# (RSS ingest, classification, graph linkage). Surfaces newly-relevant
+# research items in the research_section + provides citations for
+# executive_summary/theme_monitor narratives.
+
+impact_on_decision: LOW
+hard_scoped: false
+deprecated: false
+
+name: research
+description: |
+  Research item processed/classified/linked by the Phase 92 research
+  pipeline. Published to ``economic_event_bus:research``. Consumed by
+  the research_section renderer + provides citation sources for the
+  executive_summary + theme_monitor agents. Carries EconomicEvent
+  envelope with payload (research_id, title, source, classification,
+  graph_links).
+schema_ref: contracts.economic_intelligence.events.EventType.RESEARCH
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: LOW
+emitters:
+  - phase92.research_classified
+  - phase92.research_graphed
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+
+related_capabilities:
+  - research_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - research
+  - economic-intelligence

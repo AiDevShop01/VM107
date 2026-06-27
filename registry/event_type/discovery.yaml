@@ -1,0 +1,53 @@
+id: discovery
+type: event_type
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: event_type
+phase: 94
+schema_version: "1"
+
+# Phase 94 §B.3 — Discovery event from Phase 92 research-discovery agents
+# (relationship discovery, correlation break, cross-asset divergence). Feeds
+# the alerts section + theme_monitor (new theme proposal pipeline).
+
+impact_on_decision: MEDIUM
+hard_scoped: false
+deprecated: false
+
+name: discovery
+description: |
+  AI discovery event (newly proposed relationship, correlation break,
+  cross-asset divergence). Published to ``economic_event_bus:discovery``.
+  Distinct from the Phase 91 ``discovery_alert`` notification surface:
+  Phase 94 ``discovery`` events feed the macro snapshot's alerts +
+  theme_monitor sections; Phase 91 discovery_alerts feed the Universal
+  Alert Engine notification pipeline. Both can fire for the same edge
+  proposal — they are independent surfaces.
+schema_ref: contracts.economic_intelligence.events.EventType.DISCOVERY
+
+owner_vm: vm107
+owner: engineering
+
+severity_floor: LOW
+emitters:
+  - vm107.macro_relationship_discovery
+  - phase92.research_discovery
+consumers:
+  - vm107.executive_summary
+  - vm107.theme_monitor
+  - vm107.timeline
+
+related_capabilities:
+  - alerts_section
+  - theme_monitor_section
+  - timeline_section
+  - event_bus
+
+tags:
+  - event-type
+  - macro
+  - phase-94
+  - wave-1
+  - discovery
+  - economic-intelligence
