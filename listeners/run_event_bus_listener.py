@@ -68,15 +68,24 @@ def main() -> None:
 
     event_bus = _build_bus()
 
-    # Wave 3+ agent modules register handlers here via import-time hooks.
-    # For Wave 1 we ship the listener with no handlers; it logs a warning
-    # and exits cleanly via EventBus.run() if invoked alone.
+    # Wave 3b chose per-agent subscriber containers (run_agent_subscriber
+    # --agent X), each owning its own Redis pub/sub. This standalone listener
+    # has no handlers in the multi-container topology, so EventBus.run()
+    # returns immediately. Sleep instead of exit so the sibling service
+    # stays up (no restart loop) and remains available as a registration
+    # point for a future single-process deployment if needed.
     logger.info(
         "event_bus_listener: EventBus initialised; waiting for handlers from agent imports."
     )
 
     try:
         event_bus.run()
+        if not event_bus._handlers:
+            logger.info(
+                "event_bus_listener: no handlers registered (multi-container topology). "
+                "Sleeping to avoid restart loop; subscriber containers carry the real work."
+            )
+            signal.pause()
     except KeyboardInterrupt:
         logger.info("event_bus_listener: KeyboardInterrupt — exiting.")
         sys.exit(0)
