@@ -1,0 +1,110 @@
+id: vm107.executive_summary
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.executive_summary
+
+description: >-
+  Phase 94 Wave 3b — Executive Summary composer (Router+Synthesizer §J pattern,
+  event-driven). Subscribes to the Phase 94 EventBus (94-02) and regenerates a
+  30-60 word ExecutiveSummarySection ONLY on HIGH or CRITICAL severity events
+  per §K.3 + REQ-94-5. LOW / MEDIUM events are ignored (cache untouched). The
+  agent caches the most-recent summary keyed by country; invoke() returns the
+  cache when no new HIGH+ event has arrived since last regen. Wave 3b uses
+  deterministic template-based composition; 94-07 may swap in claude-sonnet
+  completion behind the same ExecutiveSummarySection contract.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release (event-driven, cached, HIGH+ only)"
+
+# Event-driven subscriber — ships as docker-compose sibling service per the
+# feedback_mgmt_commands_need_compose_service lock.
+trigger: event_driven
+schedule_cron: null
+sibling_service: executive_summary_subscriber
+
+trigger_events:
+  - macro_release
+  - central_bank
+  - regime_change
+  - forecast_update
+event_importance_floor: HIGH
+
+# Tool allow-list — narrative-only; lookup_capability is the sole permitted tool.
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute        # §F + §J lock — never recompute scores
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+# Memory scope — global narrative; no per-account context.
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0       # Template-based in Wave 3b — LLM swap-in lands in 94-07
+latency_budget_ms: 1500
+
+# Constitutional skills
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.80
+expected_freshness_seconds: 60     # HIGH+ events are rare — section can stay fresh ~1 min
+is_deterministic: true             # Template-based in Wave 3b
+version: "1.0.0"
+
+# Emitted contracts
+emits:
+  - executive_summary_section
+
+# Consumed Phase 94 capabilities
+consumed_capabilities:
+  - event_bus
+  - pillar_engine
+  - pillars_section
+
+# Cross-VM contract
+cross_vm_contract: vm107.executive_summary.on_event
+
+# B-rubric absorption — narrative-only, no proposal authoring.
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/executive_summary/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - executive-summary
+  - event-driven
+  - cached
+  - narrative-only
+  - economic-intelligence

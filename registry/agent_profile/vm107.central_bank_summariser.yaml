@@ -1,0 +1,94 @@
+id: vm107.central_bank_summariser
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.central_bank_summariser
+
+description: >-
+  Phase 94 Wave 3b — Central Bank Summariser. Per §K.1 this agent triggers
+  ONLY on EventType.CENTRAL_BANK events. Any other event family is a no-op
+  (cache untouched, returns None). Reads the event payload (rate decision,
+  stance, balance sheet, statement summary) and emits a CentralBankSection.
+  Wave 3b uses template-based composition; 94-07 may swap in LLM completion
+  behind the same contract surface.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release (CENTRAL_BANK only)"
+
+# Event-driven — ships as docker-compose sibling service.
+trigger: event_driven
+schedule_cron: null
+sibling_service: central_bank_subscriber
+
+# §K.1 — ONLY CENTRAL_BANK events trigger this summariser.
+trigger_events:
+  - central_bank
+event_importance_floor: LOW
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1500
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+typical_confidence: 0.85
+expected_freshness_seconds: 1800   # Central bank events ~ rare; 30-min window
+is_deterministic: true
+version: "1.0.0"
+
+emits:
+  - central_bank_section
+
+consumed_capabilities:
+  - event_bus
+
+cross_vm_contract: vm107.central_bank_summariser.on_event
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/central_bank_summariser/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - central-bank
+  - event-driven
+  - narrative-only
+  - economic-intelligence

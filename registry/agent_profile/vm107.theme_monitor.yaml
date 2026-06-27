@@ -1,0 +1,96 @@
+id: vm107.theme_monitor
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.theme_monitor
+
+description: >-
+  Phase 94 Wave 3b — Theme Monitor agent (Router+Synthesizer §J pattern).
+  Consumes Theme objects produced by the deterministic MacroThemeEngine
+  (94-05), ranks them by Strength × Confidence per §H.4, and emits a
+  ThemeMonitorSection clipped to the 5..7 dashboard window. NEVER mutates
+  theme strength or state — the engine owns scoring. Wave 3b is template-
+  based and deterministic; the contract surface stays immutable across
+  future LLM swap-ins.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: HIGH
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release"
+
+# Event-driven — ships as docker-compose sibling service.
+trigger: event_driven
+schedule_cron: null
+sibling_service: theme_monitor_subscriber
+
+trigger_events:
+  - macro_release
+  - regime_change
+  - research
+event_importance_floor: MEDIUM
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 500
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+typical_confidence: 0.80
+expected_freshness_seconds: 300
+is_deterministic: true
+version: "1.0.0"
+
+emits:
+  - theme_monitor_section
+
+consumed_capabilities:
+  - theme_engine
+
+cross_vm_contract: vm107.theme_monitor.invoke
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/theme_monitor/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - theme-monitor
+  - event-driven
+  - narrative-only
+  - economic-intelligence

@@ -1,0 +1,55 @@
+id: relationship_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: RelationshipSection
+schema_ref: fingpt_core.contracts.economic_intelligence.relationships.RelationshipSection
+
+description: |
+  Phase 94 §G — RelationshipSection envelope carrying directed Relationship
+  edges (from_node / to_node / relationship / strength / evidence_count)
+  drawn from the Phase 87 macro graph + Phase 89 transmission analysis.
+
+  Wired into the snapshot by vm100.macro_situation_aggregator (94-07);
+  consumed by the chief_economist_synthesizer to ground "why" answers in
+  empirical relationships rather than speculation.
+
+inherits: base_section_contract
+worm: false
+
+fields:
+  - edges                         # list[Relationship]
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - vm107.macro_relationship_discovery
+
+consumed_by:
+  - vm100.macro_situation_aggregator   # ships in 94-07
+  - vm107.chief_economist_synthesizer
+
+source_module: fingpt_core.contracts.economic_intelligence.relationships
+contract_version: "1.0"
+
+impact_on_decision: MEDIUM
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - relationships
+  - transmission

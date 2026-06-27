@@ -1,0 +1,56 @@
+id: forecast_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: ForecastSection
+schema_ref: fingpt_core.contracts.economic_intelligence.forecast.ForecastSection
+
+description: |
+  Phase 94 §K — ForecastSection envelope carrying consensus + dispersion
+  + horizon for major indicators. Per ForecastEntry: indicator_id /
+  horizon (e.g., 'Q4-2026', '12m') / consensus / dispersion (std-dev or
+  IQR of forecaster spread) / n_forecasters / as_of timestamp.
+
+  Driven by an external forecast feed (refreshed daily); surfaces an
+  IntelligenceCard when stale > 30 days. Wired into the snapshot by
+  vm100.macro_situation_aggregator (94-07).
+
+inherits: base_section_contract
+worm: false
+
+fields:
+  - entries                       # list[ForecastEntry]
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - vm107.macro_forecast_narrator      # composes narrative; section payload comes from upstream feed
+
+consumed_by:
+  - vm100.macro_situation_aggregator   # ships in 94-07
+  - vm107.executive_summary
+  - vm107.chief_economist_synthesizer
+
+source_module: fingpt_core.contracts.economic_intelligence.forecast
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - forecast

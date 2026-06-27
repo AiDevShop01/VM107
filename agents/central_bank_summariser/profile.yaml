@@ -1,0 +1,41 @@
+# Agent-internal profile — referenced from registry/agent_profile/vm107.central_bank_summariser.yaml
+# Phase 94-06 — fires ONLY on EventType.CENTRAL_BANK per §K.1.
+agent_id: vm107.central_bank_summariser
+domain: CentralBank
+phase: 94
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+allowed_tools:
+  - lookup_capability
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1500
+
+# §K.1 — ONLY CENTRAL_BANK events trigger this summariser.
+trigger_events:
+  - central_bank
+event_importance_floor: LOW
+
+emits:
+  - central_bank_section
+
+consumed_capabilities:
+  - event_bus

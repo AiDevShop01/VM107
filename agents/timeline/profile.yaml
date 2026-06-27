@@ -1,0 +1,47 @@
+# Agent-internal profile — referenced from registry/agent_profile/vm107.timeline.yaml
+# Phase 94-06 — append-only event log per §K.4.
+agent_id: vm107.timeline
+domain: Timeline
+phase: 94
+
+constitutional_skills:
+  - citation-discipline
+  - append-only
+
+allowed_tools:
+  - lookup_capability
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 200
+
+# Append-only on EVERY event family — no severity floor (§K.4).
+trigger_events:
+  - macro_release
+  - central_bank
+  - regime_change
+  - discovery
+  - forecast_update
+  - research
+  - alert
+  - structural_update
+event_importance_floor: LOW
+
+emits:
+  - timeline_section
+
+consumed_capabilities:
+  - event_bus

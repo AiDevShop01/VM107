@@ -1,0 +1,54 @@
+id: timeline_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: TimelineSection
+schema_ref: fingpt_core.contracts.economic_intelligence.timeline.TimelineSection
+
+description: |
+  Phase 94 §I — TimelineSection envelope carrying an ordered list of
+  TimelineEntry objects (event_id / occurred_at / label / severity /
+  deep_link) projected from EconomicEvent fires.
+
+  Produced by vm107.timeline (Wave 3b — 94-06) APPEND-ONLY per §K.4 —
+  never regenerated wholesale. Window filtering (last 24h, 7d) lives in
+  the Wave 4 serializer (94-07); the contract carries the full log.
+
+inherits: base_section_contract
+worm: true                       # Append-only per §K.4
+
+fields:
+  - entries                       # list[TimelineEntry] — arrival order
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - vm107.timeline
+
+consumed_by:
+  - vm100.macro_situation_aggregator   # ships in 94-07
+
+source_module: fingpt_core.contracts.economic_intelligence.timeline
+contract_version: "1.0"
+
+impact_on_decision: MEDIUM
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - timeline
+  - append-only

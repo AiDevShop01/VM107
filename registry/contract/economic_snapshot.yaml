@@ -1,0 +1,56 @@
+id: economic_snapshot
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: EconomicSnapshot
+schema_ref: fingpt_core.contracts.economic_intelligence.snapshot.EconomicSnapshot
+
+description: |
+  Phase 94 aggregate — EconomicSnapshot composite per (country, generated_at).
+  Carries a dict[section_id, BaseSection] of up to 14 sections, a
+  SnapshotHealth composite readiness score, the active regime label,
+  composite confidence, and a Postgres-autoinc data_version.
+
+  Persisted forever per §A to enable replay. Produced by the SnapshotCoordinator
+  (94-03 / runtime wiring lands in 94-07). NOT a per-section emit — this is
+  the aggregate envelope returned by the VM100 backend macro-situation API.
+
+inherits: null                  # Top-level aggregate, not a BaseSection
+worm: true                       # Append-only snapshots — never overwritten in place
+
+fields:
+  - snapshot_id
+  - country
+  - generated_at
+  - sections                     # dict[str, BaseSection]
+  - snapshot_health              # SnapshotHealth composite
+  - regime
+  - confidence
+  - schema_version
+  - data_version
+
+emitted_by:
+  - snapshot_coordinator
+  - vm100.macro_situation_aggregator   # ships in 94-07
+
+consumed_by:
+  - vm100.macro_api                    # ships in 94-07
+  - frontend.macro_situation_room      # ships in 94-08
+
+source_module: fingpt_core.contracts.economic_intelligence.snapshot
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - aggregate
+  - macro
+  - phase-94
+  - economic-intelligence
+  - snapshot

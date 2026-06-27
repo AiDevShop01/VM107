@@ -1,0 +1,57 @@
+id: executive_summary_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: ExecutiveSummarySection
+schema_ref: fingpt_core.contracts.economic_intelligence.executive_summary.ExecutiveSummarySection
+
+description: |
+  Phase 94 §E — ExecutiveSummarySection envelope carrying a 30–60 word
+  narrative summary, word_count guardrail, and 3–5 headline_facts the
+  summary is grounded in.
+
+  Produced by vm107.executive_summary (Wave 3b — 94-06) ONLY on HIGH or
+  CRITICAL severity events per §K.3 (REQ-94-5). Cached between fires;
+  LOW/MEDIUM events do not trigger regeneration. Wave 3b uses template-
+  based deterministic composition; 94-07 may swap to LLM completion
+  behind the same contract surface.
+
+inherits: base_section_contract
+worm: false
+
+fields:
+  - summary                  # str — 30-60 word narrative
+  - word_count               # int — guardrail
+  - headline_facts           # list[str] — 3-5 grounding facts
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - vm107.executive_summary
+
+consumed_by:
+  - vm100.macro_situation_aggregator   # ships in 94-07
+
+source_module: fingpt_core.contracts.economic_intelligence.executive_summary
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - executive-summary

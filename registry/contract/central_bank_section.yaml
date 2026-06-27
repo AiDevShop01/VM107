@@ -1,0 +1,58 @@
+id: central_bank_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: CentralBankSection
+schema_ref: fingpt_core.contracts.economic_intelligence.central_bank.CentralBankSection
+
+description: |
+  Phase 94 §J — CentralBankSection envelope carrying bank identifier,
+  5-bucket stance taxonomy (HAWKISH / HAWKISH_HOLD / NEUTRAL /
+  DOVISH_HOLD / DOVISH), policy rate, balance sheet ($bn), and the
+  latest CentralBankStatement (issued_at / title / summary / citations).
+
+  Produced by vm107.central_bank_summariser (Wave 3b — 94-06) ONLY on
+  EventType.CENTRAL_BANK events per §K.1. Any other event family is a
+  no-op (cache untouched).
+
+inherits: base_section_contract
+worm: false
+
+fields:
+  - bank
+  - stance
+  - policy_rate
+  - balance_sheet_usd_bn
+  - latest_statement
+
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - vm107.central_bank_summariser
+
+consumed_by:
+  - vm100.macro_situation_aggregator   # ships in 94-07
+
+source_module: fingpt_core.contracts.economic_intelligence.central_bank
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - central-bank

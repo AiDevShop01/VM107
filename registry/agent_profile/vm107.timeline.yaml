@@ -1,0 +1,100 @@
+id: vm107.timeline
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.timeline
+
+description: >-
+  Phase 94 Wave 3b — Timeline agent (APPEND-ONLY per §K.4). Subscribes to
+  every EventType on the Phase 94 EventBus and appends an entry to the
+  per-country log on each fire — never regenerated wholesale. Window
+  filtering (last 24h, last 7d) lives in the Wave 4 serializer; the agent
+  itself stores everything. Deterministic, no LLM, no score mutation.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 06 — initial release (append-only)"
+
+# Event-driven — ships as docker-compose sibling service.
+trigger: event_driven
+schedule_cron: null
+sibling_service: timeline_subscriber
+
+# §K.4 — appends on EVERY event family.
+trigger_events:
+  - macro_release
+  - central_bank
+  - regime_change
+  - discovery
+  - forecast_update
+  - research
+  - alert
+  - structural_update
+event_importance_floor: LOW
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 200
+
+constitutional_skills:
+  - citation-discipline
+  - append-only
+
+typical_confidence: 1.00
+expected_freshness_seconds: 30
+is_deterministic: true
+version: "1.0.0"
+
+emits:
+  - timeline_section
+
+consumed_capabilities:
+  - event_bus
+
+cross_vm_contract: vm107.timeline.on_event
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/timeline/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - timeline
+  - event-driven
+  - append-only
+  - economic-intelligence
