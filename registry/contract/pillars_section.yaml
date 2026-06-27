@@ -1,0 +1,65 @@
+id: pillars_section
+type: contract
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: contract
+phase: 94
+
+name: PillarsSection
+schema_ref: fingpt_core.contracts.economic_intelligence.pillars.PillarsSection
+
+description: |
+  Phase 94 §F — PillarsSection envelope carrying exactly 4 Pillar objects
+  (Growth / Inflation / Liquidity / RiskAppetite).  Each Pillar is a
+  full State Vector {level (0-100), momentum (1m/3m/12m), breadth (0-1),
+  confidence (0-1), state (6-state PillarState), contributors (indicator
+  IDs), sparkline_90d, provenance}.
+
+  Produced by the deterministic vm102.pillar_engine service; consumed by
+  the 4 specialist analyst agents (94-05), the executive_summary
+  synthesizer (94-06), the theme_monitor (94-05), and the VM100 backend
+  aggregator (94-07).  READY status requires non-empty contributors on
+  every Pillar (validated at model construction via
+  PillarsSection._ready_requires_non_empty_contributors).
+
+inherits: base_section_contract
+worm: false  # snapshot-time output, not append-only
+
+# Fields per the Pydantic model (mirrored here for human-readable lookup).
+fields:
+  - pillars                  # list[Pillar] — typically 4 in country dashboards
+
+# Section envelope fields (inherited from BaseSection):
+inherited_fields:
+  - section_id
+  - status
+  - country
+  - provenance
+  - generated_at
+  - schema_version
+
+emitted_by:
+  - pillar_engine
+
+consumed_by:
+  - vm107.growth_analyst
+  - vm107.inflation_analyst
+  - vm107.liquidity_analyst
+  - vm107.risk_analyst
+  - vm107.executive_summary
+  - vm107.theme_monitor
+
+source_module: fingpt_core.contracts.economic_intelligence.pillars
+contract_version: "1.0"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - phase-94
+  - economic-intelligence
+  - pillars

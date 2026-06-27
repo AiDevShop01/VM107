@@ -1,0 +1,81 @@
+id: macro_situation
+type: data_domain
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+phase: 94
+name: macro_situation
+capability_type: data_domain
+vm: vm107
+template_version: 1.0.0
+hard_scoped: false
+deprecated: false
+
+# Phase 47.6 Stage-2 schema-required field — HIGH because the entire Phase 94
+# Macro Situation Room dashboard (14 sections + 5 base agents + 4 specialists
+# + theme/pillar/snapshot engines) hangs off this data domain.
+impact_on_decision: HIGH
+
+description: |
+  Phase 94 — Macro Situation Room dashboard data domain.  Aggregates the
+  Phase 83-92 macro substrate (regime, cross-asset, forecast, research,
+  alerts, discovery) plus net-new Phase 94 Pillar Engine + Theme Engine
+  + Snapshot Coordinator output into the canonical EconomicSnapshot per
+  country.  Owned by VM107 (agent runtime); persisted on VM100 backend's
+  ``macro_situation_snapshots`` Postgres table (lands in 94-07) with S3
+  archival after 90 days.
+
+owner: engineering
+owner_vm: vm107
+
+# §A.6 pre-warming tiers — Tier 1 stays warm 24/7, Tier 2 during regional
+# market hours, Tier 3 lazy-default for the long tail of ~240 countries.
+country_tiers:
+  tier_1_always_warm:
+    - US
+    - EU
+    - CN
+    - JP
+    - GB
+    - AU
+  tier_2_market_hours:
+    - CA
+    - IN
+    - BR
+    - KR
+  tier_3_lazy_default_for: "remaining ~240 countries"
+
+# Storage backend per §A locked decision.  94-07 lands the concrete
+# Postgres+S3 adapter; Wave 2 (94-03) ships the InMemorySnapshotRepository.
+snapshot_persistence:
+  backend: postgres+s3_archive
+  postgres_table: macro_situation_snapshots
+  postgres_connection: analytics
+  s3_archive_after_days: 90
+
+# WS topics published when a snapshot regenerates — sync with
+# VM100/backend/mission_control/websockets/topics.py constants landed by
+# 94-02.  Frontend lib/ws/topics.js mirrors these strings exactly.
+ws_topics:
+  - macro.dashboard.banner.updated
+  - macro.dashboard.alert.created
+  - macro.dashboard.discovery.created
+  - macro.dashboard.calendar.updated
+  - macro.dashboard.market_change.updated
+  - macro.dashboard.executive_summary.updated
+  - macro.dashboard.central_bank.updated
+
+# Cross-references to capabilities that consume this domain.
+related_capabilities:
+  - vm102.snapshot_coordinator       # 94-03
+  - vm102.pillar_engine              # 94-04 (this plan)
+  - vm107.theme_engine               # 94-05
+  - vm107.executive_summary          # 94-06
+  - vm107.macro_ask_router           # 94-06
+
+tags:
+  - data-domain
+  - macro
+  - phase-94
+  - dashboard
+  - economic-intelligence

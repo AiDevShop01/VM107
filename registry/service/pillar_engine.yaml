@@ -1,0 +1,80 @@
+id: pillar_engine
+type: service
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+capability_type: service
+phase: 94
+
+# Phase 94 Plan 04 — Deterministic Pillar Engine registration.
+#
+# Source module: VM102/backend/vm102/macro/pillars/pillar_engine.py
+# (compute_pillar entry point + derive_state state machine + load_basket).
+# Score primitives: vm102/macro/pillars/score_models.py (LevelEngine /
+# MomentumEngine / BreadthEngine).
+#
+# Sibling service: hosted in-process by the 94-07 aggregator alongside the
+# Snapshot Coordinator — no separate worker.  Pillar computation is
+# triggered by the SnapshotCoordinator (94-03) on macro_release and
+# regime_change EconomicEvents.
+
+impact_on_decision: HIGH
+hard_scoped: true
+
+name: Pillar Engine (deterministic macro state vector)
+description: |
+  Phase 94 §F deterministic Health Pillar engine (Growth / Inflation /
+  Liquidity / RiskAppetite).  Multi-horizon z-score over YAML basket
+  weights; output is the canonical Pillar State Vector
+  {Level, Momentum, Breadth, Confidence, State, Contributors, Provenance}.
+
+  NO LLM on the score path per §F.3 + LD-90-1 + Phase 87 Pitfall 5.
+  AI narrative on the Pillar object is intentionally None here — the
+  specialist analyst agents in 94-05 (growth_analyst / inflation_analyst /
+  liquidity_analyst / risk_analyst) consume Pillar objects and emit a
+  SpecialistResponse that EXPLAINS the score, never CALCULATES it.
+
+  Weights governance: PR-based YAML at
+  VM102/backend/vm102/macro/pillars/baskets/<COUNTRY>/<pillar>.yaml.
+  Every basket carries a weights_version string baked into
+  ProvenanceObject.weights_version for replay determinism.
+
+owner: engineering
+owner_vm: vm102
+
+runtime: python_in_process
+source_module: vm102.macro.pillars.pillar_engine
+sibling_service: null  # hosted in the 94-07 aggregator process
+contracts:
+  - pillars_section  # PillarsSection envelope
+env_vars: []
+latency_budget_ms: 200  # per-pillar compute on a warm process
+
+is_deterministic: true
+version: "1.0.0"
+calculation_version: "PillarEngine_v1.0"
+
+weights_governance: pr_based_yaml
+weights_repo_path: VM102/backend/vm102/macro/pillars/baskets/
+
+emits:
+  - pillars_section
+consumes:
+  - macro_release
+  - regime_change
+  - structural_update
+
+related_capabilities:
+  - snapshot_coordinator
+  - event_bus
+  - macro_situation
+
+tags:
+  - service
+  - macro
+  - pillars
+  - phase-94
+  - wave-2
+  - deterministic
+  - economic-intelligence
+  - capability-registry

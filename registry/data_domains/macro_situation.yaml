@@ -1,0 +1,69 @@
+# Mirror of registry/data_domain/macro_situation.yaml at the legacy plural
+# directory so existing tooling that walks data_domains/ (e.g. the Phase 92
+# research_documents.yaml precedent) keeps finding the entry.  Source of
+# truth lives at registry/data_domain/macro_situation.yaml — keep in sync
+# manually when editing.
+id: macro_situation
+type: data_domain
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+phase: 94
+name: macro_situation
+capability_type: data_domain
+vm: vm107
+template_version: 1.0.0
+hard_scoped: false
+deprecated: false
+impact_on_decision: HIGH
+
+description: |
+  Phase 94 — Macro Situation Room dashboard data domain (mirror entry; see
+  registry/data_domain/macro_situation.yaml for the canonical definition).
+
+owner: engineering
+owner_vm: vm107
+
+country_tiers:
+  tier_1_always_warm:
+    - US
+    - EU
+    - CN
+    - JP
+    - GB
+    - AU
+  tier_2_market_hours:
+    - CA
+    - IN
+    - BR
+    - KR
+  tier_3_lazy_default_for: "remaining ~240 countries"
+
+snapshot_persistence:
+  backend: postgres+s3_archive
+  postgres_table: macro_situation_snapshots
+  postgres_connection: analytics
+  s3_archive_after_days: 90
+
+ws_topics:
+  - macro.dashboard.banner.updated
+  - macro.dashboard.alert.created
+  - macro.dashboard.discovery.created
+  - macro.dashboard.calendar.updated
+  - macro.dashboard.market_change.updated
+  - macro.dashboard.executive_summary.updated
+  - macro.dashboard.central_bank.updated
+
+related_capabilities:
+  - vm102.snapshot_coordinator
+  - vm102.pillar_engine
+  - vm107.theme_engine
+  - vm107.executive_summary
+  - vm107.macro_ask_router
+
+tags:
+  - data-domain
+  - macro
+  - phase-94
+  - dashboard
+  - economic-intelligence
