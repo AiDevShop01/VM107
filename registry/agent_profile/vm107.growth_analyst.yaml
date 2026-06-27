@@ -1,0 +1,107 @@
+id: vm107.growth_analyst
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.growth_analyst
+
+description: >-
+  Phase 94 Wave 3a — Growth pillar specialist analyst (Router+Synthesizer §J
+  pattern). Consumes a Pillar(name="Growth") + PillarsSection envelope and
+  EMITS a SpecialistResponse explaining Level / Momentum / Breadth /
+  Contributors in natural language. NEVER recomputes the pillar score —
+  static guard via test_never_recomputes_score in
+  agents/growth_analyst/tests/test_growth_analyst.py. Wave 3a ships
+  template-based deterministic narratives; 94-06 swaps in LLM completion
+  while keeping the SpecialistResponse contract immutable. Confidence is
+  carried through from upstream Pillar.confidence; when degraded (<0.5)
+  the analyst surfaces a limitation explaining the uncertainty.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 05 — initial release (narrative-only specialist)"
+
+# On-demand (event-driven) — invoked by 94-06 Chief Economist Synthesizer.
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+trigger_events:
+  - regime_change
+  - macro_release
+
+# Tool allow-list — narrative-only analyst; no compute / no write / no LLM tool calls.
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute        # §F + §J lock — never recompute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+# Memory scope — global narrative; no per-account context.
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1000
+
+# Constitutional skills
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.80
+expected_freshness_seconds: 300
+is_deterministic: true       # Wave 3a template-based; LLM swap-in lands in 94-06
+version: "1.0.0"
+
+# Emitted contracts
+emits:
+  - specialist_response
+
+# Consumed Phase 94 capabilities
+consumed_capabilities:
+  - pillar_engine
+  - pillars_section
+
+# Cross-VM contract
+cross_vm_contract: vm107.growth_analyst.invoke
+
+# B-rubric absorption — narrative-only, no proposal authoring.
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/growth_analyst/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - specialist
+  - growth
+  - narrative-only
+  - explain-not-calculate
+  - economic-intelligence

@@ -1,0 +1,35 @@
+# Agent-internal profile — referenced from registry/agent_profile/vm107.growth_analyst.yaml
+# Phase 94-05 — narrative-only specialist (EXPLAIN, never CALCULATE).
+agent_id: vm107.growth_analyst
+domain: Growth
+phase: 94
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+allowed_tools:
+  - lookup_capability
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0       # Wave 3a is template-based; LLM swap-in lands in 94-06
+latency_budget_ms: 1000
+
+emits:
+  - specialist_response
+
+consumed_capabilities:
+  - pillar_engine
+  - pillars_section

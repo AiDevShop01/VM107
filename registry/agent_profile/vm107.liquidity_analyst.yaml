@@ -1,0 +1,95 @@
+id: vm107.liquidity_analyst
+type: agent_profile
+status: real
+shipped: 94
+last_changed: "2026-06-27"
+name: vm107.liquidity_analyst
+
+description: >-
+  Phase 94 Wave 3a — Liquidity pillar specialist analyst (Router+Synthesizer
+  §J pattern). Consumes Pillar(name="Liquidity") + PillarsSection and EMITS
+  a SpecialistResponse explaining Level / Momentum / Breadth / Contributors.
+  Also reacts to central_bank events so balance-sheet pivots refresh the
+  narrative quickly. NEVER recomputes the score. Carries through upstream
+  confidence; surfaces limitations when degraded.
+
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false
+phase: 94
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-27"
+    change: "Phase 94 Plan 05 — initial release (narrative-only specialist)"
+
+trigger: on_demand
+schedule_cron: null
+sibling_service: null
+
+trigger_events:
+  - regime_change
+  - macro_release
+  - central_bank
+
+allowed_tools:
+  - lookup_capability
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1000
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+typical_confidence: 0.80
+expected_freshness_seconds: 300
+is_deterministic: true
+version: "1.0.0"
+
+emits:
+  - specialist_response
+
+consumed_capabilities:
+  - pillar_engine
+  - pillars_section
+  - event_bus
+
+cross_vm_contract: vm107.liquidity_analyst.invoke
+
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/liquidity_analyst/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-94
+  - wave-3
+  - specialist
+  - liquidity
+  - narrative-only
+  - explain-not-calculate
+  - economic-intelligence

@@ -1,0 +1,34 @@
+agent_id: vm107.risk_analyst
+domain: RiskAppetite
+phase: 94
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+allowed_tools:
+  - lookup_capability
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1000
+
+emits:
+  - specialist_response
+
+consumed_capabilities:
+  - pillar_engine
+  - pillars_section
+  - event_bus
