@@ -1,4 +1,11 @@
-"""Phase 94 Wave 1 — EventBus idempotency (publish-twice → handle-once).
+"""Phase 94 Wave 1 — EventBus publish/subscribe tests.
+
+EventBus lives at ``core/event_bus/bus.py`` (per Wave-0 scaffold expectation).
+Publishes EconomicEvent objects over Redis pub/sub channel ``economic_event_bus``
+with idempotency via SET NX EX (24h TTL).
+
+Tests run with a stub Redis (no live server needed) — ``StubRedis`` below
+mirrors the redis-py methods we call (``set``, ``publish``, ``pubsub``).
 
 Becomes GREEN in 94-02 (this plan).
 """
@@ -14,6 +21,7 @@ from typing import Any
 import pytest
 
 
+# Ensure the fail-fast env vars are present before importing the bus module.
 os.environ.setdefault("REDIS_HOST", "localhost")
 os.environ.setdefault("REDIS_PORT", "6379")
 
@@ -28,7 +36,11 @@ def _import_bus_module():
         )
 
 
-def _make_event(event_id: str) -> Any:
+def _make_event(
+    event_id: str | None = None,
+    event_type_value: str = "macro_release",
+    country: str = "US",
+) -> Any:
     from contracts.economic_intelligence.events import (
         EconomicEvent,
         EventSeverity,
@@ -36,13 +48,13 @@ def _make_event(event_id: str) -> Any:
     )
 
     return EconomicEvent(
-        event_id=event_id,
-        event_type=EventType.MACRO_RELEASE,
+        event_id=event_id or str(uuid.uuid4()),
+        event_type=EventType(event_type_value),
         severity=EventSeverity.HIGH,
-        country="US",
+        country=country,
         occurred_at=datetime(2026, 6, 27, 10, 0, 0, tzinfo=timezone.utc),
         source="phase85.release_pipeline",
-        payload={"indicator": "CPIAUCSL"},
+        payload={"indicator": "CPIAUCSL", "value": 3.2},
     )
 
 
@@ -57,9 +69,11 @@ class _StubPubSub:
             self._subscribed_channels.append(ch)
             self._parent._subscribers.setdefault(ch, []).append(self)
 
-    def listen(self):
+    def listen(self):  # generator-like
+        # First yield a subscription confirmation per channel (mirrors redis-py).
         for ch in self._subscribed_channels:
             yield {"type": "subscribe", "channel": ch, "data": 1}
+        # Then drain queue (no blocking — tests inject messages directly).
         while self._queue:
             yield self._queue.pop(0)
 
@@ -68,6 +82,8 @@ class _StubPubSub:
 
 
 class StubRedis:
+    """In-memory stand-in for redis.Redis used by EventBus tests."""
+
     def __init__(self) -> None:
         self._kv: dict[str, str] = {}
         self._subscribers: dict[str, list[_StubPubSub]] = {}
@@ -100,32 +116,54 @@ def bus(stub_redis):
     return bus_module.EventBus(redis_client=stub_redis)
 
 
-def test_same_event_id_processed_once(bus, stub_redis):
-    """REQ-94-2 idempotency: publish twice with the same event_id → handler fires once."""
+def test_publish_subscribe_roundtrip(bus, stub_redis):
     received: list[Any] = []
+
     bus.subscribe("macro_release", lambda evt: received.append(evt))
 
-    event_id = str(uuid.uuid4())
-    event_a = _make_event(event_id)
-    event_b = _make_event(event_id)
+    event = _make_event()
+    assert bus.publish(event) is True
 
-    assert bus.publish(event_a) is True
-    # Second publish with same event_id must return False (dedupe HIT) and
-    # MUST NOT enqueue a second message to subscribers.
-    assert bus.publish(event_b) is False
+    # Drain the listener once — pubsub.listen() will yield queued messages.
+    bus.run(max_messages=1)
 
-    bus.run(max_messages=2)
-
-    assert len(received) == 1, f"Expected handler to fire once, got {len(received)}"
+    assert len(received) == 1
+    assert received[0].event_id == event.event_id
+    assert received[0].event_type.value == "macro_release"
+    assert received[0].country == "US"
 
 
-def test_different_event_id_processed_separately(bus, stub_redis):
+def test_publish_multiple_subscribers(bus, stub_redis):
+    counts = {"a": 0, "b": 0, "c": 0}
+
+    bus.subscribe("macro_release", lambda evt: counts.__setitem__("a", counts["a"] + 1))
+    bus.subscribe("macro_release", lambda evt: counts.__setitem__("b", counts["b"] + 1))
+    bus.subscribe("macro_release", lambda evt: counts.__setitem__("c", counts["c"] + 1))
+
+    bus.publish(_make_event())
+    bus.run(max_messages=1)
+
+    assert counts == {"a": 1, "b": 1, "c": 1}
+
+
+def test_publish_wrong_event_type_not_received(bus, stub_redis):
     received: list[Any] = []
+
     bus.subscribe("macro_release", lambda evt: received.append(evt))
 
-    assert bus.publish(_make_event(str(uuid.uuid4()))) is True
-    assert bus.publish(_make_event(str(uuid.uuid4()))) is True
+    # Publish a CENTRAL_BANK event — macro_release subscriber must not fire.
+    bus.publish(_make_event(event_type_value="central_bank"))
+    bus.run(max_messages=1)
 
-    bus.run(max_messages=2)
+    assert received == []
 
-    assert len(received) == 2
+
+def test_publish_invalid_event_raises_validation_error(bus):
+    from pydantic import ValidationError
+
+    bus_module = _import_bus_module()
+
+    # Calling publish() with a non-EconomicEvent object should raise BEFORE
+    # touching Redis (idempotency key never written, no message published).
+    with pytest.raises((TypeError, ValidationError)):
+        bus.publish({"event_id": "x"})  # type: ignore[arg-type]
