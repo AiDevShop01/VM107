@@ -1,0 +1,113 @@
+id: vm107.consumer_domain_analyst
+type: agent_profile
+status: real
+shipped: 95
+last_changed: "2026-06-28"
+name: vm107.consumer_domain_analyst
+
+description: >-
+  Phase 95-12 — Consumer Domain specialist analyst (Router+Synthesizer §J
+  pattern). Consumes a Domain(slug="consumer") + domain_engine output and
+  EMITS a SpecialistResponse explaining current_state / drivers /
+  tailwinds / headwinds / constraints / top_indicators in natural
+  language. NEVER recomputes the domain health_score — static guard via
+  test_never_recomputes_score in
+  agents/consumer_domain_analyst/tests/test_consumer_domain_analyst.py.
+  Wave 3a-equivalent ships template-based deterministic narratives; later
+  waves swap in LLM completion while keeping the SpecialistResponse
+  contract immutable. Confidence carries through from upstream
+  Domain.confidence; when degraded (<0.5) the analyst surfaces a
+  limitation explaining the uncertainty.
+
+# Phase 47.6 LD-3 capability registry fields
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM
+hard_scoped: true
+deprecated: false
+phase: 95
+parent_profile: null
+sub_profiles: []
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-28"
+    change: "Phase 95 Plan 12 — initial release (narrative-only specialist)"
+
+# On-demand (event-driven) — invoked by domain_analyst_subscriber on
+# MACRO_RELEASE events whose payload.affected_domains contains "consumer".
+trigger: on_demand
+schedule_cron: null
+sibling_service: domain_analyst_subscriber
+
+trigger_events:
+  - macro_release   # filtered by affected_domains contains "consumer" in subscriber
+
+# Tool allow-list — narrative-only analyst; no compute / no write / no LLM tool calls.
+allowed_tools:
+  - lookup_capability
+  - get_domain_health
+  - search_macro_research
+
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute       # §F + §J lock — never recompute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+# Memory scope — global narrative; no per-account context.
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 1500
+
+# Constitutional skills
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.80
+expected_freshness_seconds: 300
+is_deterministic: true       # template-based; LLM swap-in deferred to later wave
+version: "1.0.0"
+
+# Emitted contracts
+emits:
+  - specialist_response
+
+# Consumed Phase 95 capabilities (Capability Registry — registry-driven dispatch)
+consumed_capabilities:
+  - domain_engine
+  - domain_baskets
+  - pillars_section
+
+# Cross-VM contract
+cross_vm_contract: vm107.consumer_domain_analyst.invoke
+
+# B-rubric absorption — narrative-only, no proposal authoring.
+b5_self_eval: false
+b1_artifact_required: false
+
+owner: engineering
+profile_path: VM107/agents/consumer_domain_analyst/profile.yaml
+
+tags:
+  - agent-profile
+  - macro
+  - phase-95
+  - wave-6
+  - specialist
+  - domain
+  - consumer
+  - narrative-only
+  - explain-not-calculate
+  - economic-intelligence
