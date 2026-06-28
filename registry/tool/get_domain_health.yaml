@@ -1,0 +1,89 @@
+id: vm107.tool.get_domain_health
+type: tool
+status: real
+shipped: 95
+last_changed: 2026-06-28
+name: get_domain_health
+description: |
+  Phase 95 Plan 09 — Domain health lookup tool. Reads the Domain section
+  payload for one of the 12 canonical macro domains
+  (Growth · Inflation · Labour · Housing · Credit · Monetary Policy ·
+  Fiscal · External Sector · Manufacturing · Consumer · Financial Conditions ·
+  Commodities) from VM100's /api/macro-situation/domain/{slug} resolver.
+
+  Returns the typed Domain contract (Pydantic class, see contract/domain.yaml)
+  which extends Phase 94 BaseSection with the Phase 95 domain payload
+  (identity / computed health metrics / narrative / relationships).
+
+  Wave 3 — the resolver itself ships in Plan 11 (DomainEngine + VM100 wiring);
+  this tool YAML registers the capability in advance so the ask_macro_router
+  Capability Registry dispatch (Phase 47.6) discovers it as soon as the
+  endpoint goes live. Resolver requires JWT bearer.
+
+capability_type: tool
+phase: 95
+vm: vm100
+vm100_endpoint_path: /api/macro-situation/domain/{slug}
+http_method: GET
+auth: jwt_bearer
+slug_pattern: "^(growth|inflation|labour|housing|credit|monetary_policy|fiscal|external_sector|manufacturing|consumer|financial_conditions|commodities)$"
+parameters:
+  - name: slug
+    type: str
+    in: path
+    required: true
+    description: |
+      Canonical domain slug. Must match one of the 12 entries in
+      contracts/economic_intelligence/domain_catalog.yaml (Pitfall 5 lock).
+    pattern: "^(growth|inflation|labour|housing|credit|monetary_policy|fiscal|external_sector|manufacturing|consumer|financial_conditions|commodities)$"
+  - name: country
+    type: str
+    in: query
+    required: true
+    description: ISO-3166-1 alpha-2 country code (e.g., 'US', 'EU').
+    pattern: "^[A-Z]{2}$"
+return_type: Domain  # per contract/domain.yaml
+return_on_error:
+  - code: not_found
+    http_status: 404
+    description: Unknown slug or no snapshot yet for (country, slug).
+  - code: validation_error
+    http_status: 400
+    description: slug outside canonical 12 OR country fails ISO-3166-1 alpha-2 pattern.
+  - code: unauthenticated
+    http_status: 401
+    description: Missing or invalid JWT bearer.
+contracts:
+  response: fingpt_core.contracts.economic_intelligence.domain.Domain
+  error: api.macro_situation.serializers.ErrorOut
+capabilities:
+  - macro_domain_health_lookup
+related_capabilities:
+  - contract.domain
+  - vm107.tool.manage_watchlist
+  - vm107.tool.ask_macro_router
+  - vm100.macro_situation_api
+consumed_by:
+  - vm107.macro_investigator
+  - vm107.chief_economist_synthesizer
+  - vm107.macro_ask_router
+tags:
+  - tool
+  - macro
+  - domain
+  - lookup
+  - phase-95
+  - jwt-bearer
+  - registry-driven
+hard_scoped: false
+impact_on_decision: LOW
+allowed_agent_profiles:
+  - vm107.macro_investigator
+  - vm107.chief_economist_synthesizer
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.85   # Reasoning: DomainEngine output reflects fresh snapshot health; confidence carried in payload
+expected_freshness_seconds: 900   # Reasoning: domain snapshots regenerate on event arrival or scheduled tick (~15 min)
+is_deterministic: true   # Reasoning: same (slug, country, snapshot_id) returns same Domain payload (BaseSection envelope)
+version: "1.0.0"   # Reasoning: initial release with Phase 95 Plan 09

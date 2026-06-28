@@ -1,0 +1,119 @@
+id: domain
+type: contract
+status: real
+shipped: 95
+last_changed: "2026-06-28"
+capability_type: contract
+phase: 95
+
+name: Domain
+pydantic_class: Domain
+schema_ref: fingpt_core.contracts.economic_intelligence.domain.Domain
+schema_path: contracts/economic_intelligence/domain.py
+
+description: |
+  Phase 95 §C — Domain section contract for one of the 12 canonical macro
+  domains (Growth · Inflation · Labour · Housing · Credit · Monetary Policy ·
+  Fiscal · External Sector · Manufacturing · Consumer · Financial Conditions ·
+  Commodities).  Inherits the Phase 94 BaseSection envelope (snapshot_id,
+  version, generated_at, status, provenance, …) and adds the typed Domain
+  payload (identity / computed health metrics / narrative / relationships).
+
+  Single source of truth for the canonical 12 lives in
+  contracts/economic_intelligence/domain_catalog.yaml. Frontend route registry
+  (Plan 13), backend domain_payload resolver (Plan 11), Capability Registry,
+  and Neo4j schema seed (Plan 10) all read from that file — Pitfall 5 lock.
+
+  Produced by the 12 vm107.<slug>_domain_analyst specialists (Plan 12) via the
+  vm102.macro.domains.DomainEngine (Plan 11). Consumed by the VM100 macro
+  situation API (Plan 11 wiring) and the frontend Domain card / Domain page
+  (Plan 13).
+
+inherits: base_section_contract
+worm: false  # snapshot-time output, not append-only
+
+# Fields per the Pydantic model (mirrored here for human-readable lookup).
+fields:
+  core:
+    - domain_id
+    - slug
+    - title
+    - summary
+    - importance
+    - primary_pillars
+    - primary_analyst
+  computed:
+    - health_score
+    - trend_score
+    - breadth_score
+    - headline
+    - risk_level
+    - current_state
+  narrative:
+    - drivers
+    - constraints
+    - tailwinds
+    - headwinds
+  relationships:
+    - top_indicators
+    - related_domains
+    - related_themes
+    - latest_releases
+
+# Section envelope fields (inherited from BaseSection):
+inherited_fields:
+  - section_id
+  - schema_version
+  - version
+  - generated_at
+  - snapshot_id
+  - freshness_seconds
+  - confidence
+  - status
+  - agent
+  - execution_time_ms
+  - citations
+  - limitations
+  - depends_on
+  - provenance
+
+emitted_by:
+  - vm102.domain_engine
+  - vm107.growth_domain_analyst
+  - vm107.inflation_domain_analyst
+  - vm107.labour_domain_analyst
+  - vm107.housing_domain_analyst
+  - vm107.credit_domain_analyst
+  - vm107.monetary_policy_domain_analyst
+  - vm107.fiscal_domain_analyst
+  - vm107.external_sector_domain_analyst
+  - vm107.manufacturing_domain_analyst
+  - vm107.consumer_domain_analyst
+  - vm107.financial_conditions_domain_analyst
+  - vm107.commodities_domain_analyst
+
+consumed_by:
+  - vm100.macro_situation_api
+  - vm107.chief_economist_synthesizer
+  - vm107.macro_ask_router
+  - frontend.macro_domain_page
+
+source_module: fingpt_core.contracts.economic_intelligence.domain
+contract_version: "1.0"
+
+version_history:
+  - version: "1.0"
+    phase: 95
+    date: "2026-06-28"
+    changes: "Initial schema — Phase 95 Plan 09 (Domain Contract + Catalog)"
+
+impact_on_decision: HIGH
+deprecated: false
+
+tags:
+  - contract
+  - section
+  - macro
+  - domain
+  - phase-95
+  - economic-intelligence

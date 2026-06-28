@@ -2,7 +2,7 @@ id: ask_macro_router
 type: tool
 status: real
 shipped: 94
-last_changed: "2026-06-27"
+last_changed: "2026-06-28"
 
 short_description: >-
   Phase 94 §J — pure-classifier router from a user query + dashboard context
@@ -77,6 +77,34 @@ related_capabilities:
   - vm107.macro_forecast_narrator
   - vm107.theme_monitor
 
+# Phase 95 Plan 09 — specialist registry for ConversationPlanner dispatch.
+# Capability Registry-driven (Phase 47.6 + feedback_capability_registry):
+# the router code reads this list via lookup_capability; do NOT hardcode
+# the specialist set anywhere in router.py / conversation_planner.py.
+specialist_registry:
+  # Phase 94 — four pillar analysts (Growth / Inflation / Liquidity / Risk).
+  pillar_analysts:
+    - vm107.growth_analyst
+    - vm107.inflation_analyst
+    - vm107.liquidity_analyst
+    - vm107.risk_analyst
+  # Phase 95 — twelve canonical macro domain analysts (CONTEXT §A).
+  # Source of truth for the slug set:
+  # contracts/economic_intelligence/domain_catalog.yaml (Pitfall 5 lock).
+  domain_analysts:
+    - vm107.growth_domain_analyst
+    - vm107.inflation_domain_analyst
+    - vm107.labour_domain_analyst
+    - vm107.housing_domain_analyst
+    - vm107.credit_domain_analyst
+    - vm107.monetary_policy_domain_analyst
+    - vm107.fiscal_domain_analyst
+    - vm107.external_sector_domain_analyst
+    - vm107.manufacturing_domain_analyst
+    - vm107.consumer_domain_analyst
+    - vm107.financial_conditions_domain_analyst
+    - vm107.commodities_domain_analyst
+
 dependencies:
   - lookup_capability
 
@@ -86,6 +114,7 @@ tags:
   - tool
   - macro
   - phase-94
+  - phase-95
   - wave-3
   - router
   - classifier
