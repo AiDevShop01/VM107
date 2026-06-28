@@ -15,6 +15,7 @@ from .central_bank import (
 )
 from .country_card import CountryCardSection
 from .cross_asset import AssetLevel, CrossAssetSection
+from .domain import Domain, DomainEdge, Driver, IndicatorRef
 from .events import EconomicEvent, EventSeverity, EventType
 from .executive_summary import ExecutiveSummarySection
 from .forecast import ForecastEntry, ForecastSection
@@ -43,6 +44,11 @@ __all__ = [
     # Cross-asset
     "AssetLevel",
     "CrossAssetSection",
+    # Domain (Phase 95)
+    "Domain",
+    "DomainEdge",
+    "Driver",
+    "IndicatorRef",
     # Events
     "EconomicEvent",
     "EventSeverity",
