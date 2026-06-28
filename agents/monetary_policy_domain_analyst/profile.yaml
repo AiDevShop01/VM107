@@ -1,0 +1,41 @@
+# Agent-internal profile — referenced from registry/agent_profile/vm107.monetary_policy_domain_analyst.yaml
+# Phase 95-12 — Monetary Policy domain specialist (narrative-only, EXPLAIN-not-CALCULATE).
+agent_id: vm107.monetary_policy_domain_analyst
+domain: Monetary Policy
+domain_slug: monetary_policy
+phase: 95
+
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+
+allowed_tools:
+  - lookup_capability
+  - get_domain_health
+  - search_macro_research
+denied_tools:
+  - belief_store.propose
+  - vm102_forecast_result_emit
+  - vm102_pillar_compute
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+  - call_subordinate
+
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0       # deterministic template; LLM swap-in deferred
+latency_budget_ms: 1500
+
+emits:
+  - specialist_response
+
+consumed_capabilities:
+  - domain_engine
+  - domain_baskets
+  - pillars_section
