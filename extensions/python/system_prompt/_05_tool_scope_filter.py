@@ -51,11 +51,15 @@ class ToolScopeFilter(Extension):
         **kwargs: Any,
     ):
         agent = self.agent
-        if not agent or not isinstance(agent.profile, dict):
+        # Agent.profile is not always present (base AgentConfig declares it but
+        # the Agent instance may not surface it as an attribute on older base
+        # images). Use getattr to match the existing safe pattern in agent.py.
+        profile = getattr(agent, "profile", None) if agent else None
+        if not isinstance(profile, dict):
             return  # legacy string profile or no agent → no scoping
 
-        allowed: list[str] | None = agent.profile.get("allowed_tools")
-        denied: list[str] | None = agent.profile.get("denied_tools")
+        allowed: list[str] | None = profile.get("allowed_tools")
+        denied: list[str] | None = profile.get("denied_tools")
 
         if not allowed and not denied:
             return  # bare dict profile with no scope keys → explicit no-op
@@ -63,7 +67,7 @@ class ToolScopeFilter(Extension):
         # Resolve profile_id for the registry lookup
         profile_id: str = (
             getattr(agent, "profile_id", None)
-            or agent.profile.get("id", "agent_zero")
+            or profile.get("id", "agent_zero")
         )
 
         # Fetch the full registry index for this profile then constrain it
