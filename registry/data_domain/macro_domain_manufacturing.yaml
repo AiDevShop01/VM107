@@ -1,0 +1,63 @@
+id: vm107.data_domain.macro_domain_manufacturing
+type: data_domain
+status: real
+shipped: 95
+last_changed: "2026-06-28"
+phase: 95
+name: macro_domain_manufacturing
+capability_type: data_domain
+vm: vm107
+template_version: 1.0.0
+hard_scoped: false
+deprecated: false
+
+# Phase 47.6 Stage-2 schema-required field. MEDIUM because each Domain page
+# influences the Macro Workbench's per-domain decision view; full Macro
+# Situation Room aggregation depends on macro_situation (HIGH).
+impact_on_decision: MEDIUM
+
+title: "Macro Domain — Manufacturing"
+description: |
+  Phase 95 — Manufacturing macro domain. Goods-producing sector: ISM, factory orders, durable goods.
+  Substrate for the vm107.manufacturing_domain_analyst (Plan 12), the
+  /api/macro-situation/domain/manufacturing resolver (Plan 11),
+  and the Plan 13 /macro/domain/manufacturing frontend route.
+  Constituent indicators declared in
+  contracts/economic_intelligence/domain_baskets/US/manufacturing.yaml
+  (single source of truth — Pitfall 5 lock; never duplicate the indicator
+  list here).
+
+owner: engineering
+owner_vm: vm107
+
+primary_pillars: ['Growth']
+primary_analyst: vm107.manufacturing_domain_analyst
+importance: 9
+
+basket_yaml_path: contracts/economic_intelligence/domain_baskets/US/manufacturing.yaml
+catalog_entry: contracts/economic_intelligence/domain_catalog.yaml#manufacturing
+
+# Phase 87 thin-invalidation topic — frontend lib/ws/topics.js mirrors this
+# at the constant MACRO_DOMAIN_UPDATED. manufacturing substituted at publish time
+# by the snapshot coordinator (Plan 11 mission_control/websockets/topics.py).
+ws_topics:
+  - macro.domain.manufacturing.updated
+
+consumed_by:
+  - vm107.manufacturing_domain_analyst
+  - vm107.chief_economist_synthesizer
+
+upstream_sources:
+  - layer1_fred_series_registry
+  - ref_economic_indicator_vintages
+
+# Refresh tied to the Phase 95 snapshot regeneration loop — DomainEngine
+# recomputes whenever a constituent indicator publishes a release event.
+refresh_frequency: per_snapshot
+
+tags:
+  - data-domain
+  - macro
+  - domain
+  - phase-95
+  - manufacturing

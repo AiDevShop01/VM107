@@ -1,0 +1,63 @@
+id: vm107.data_domain.macro_domain_monetary_policy
+type: data_domain
+status: real
+shipped: 95
+last_changed: "2026-06-28"
+phase: 95
+name: macro_domain_monetary_policy
+capability_type: data_domain
+vm: vm107
+template_version: 1.0.0
+hard_scoped: false
+deprecated: false
+
+# Phase 47.6 Stage-2 schema-required field. MEDIUM because each Domain page
+# influences the Macro Workbench's per-domain decision view; full Macro
+# Situation Room aggregation depends on macro_situation (HIGH).
+impact_on_decision: MEDIUM
+
+title: "Macro Domain — Monetary Policy"
+description: |
+  Phase 95 — Monetary Policy macro domain. Central bank rate-setting and balance sheet operations.
+  Substrate for the vm107.monetary_policy_domain_analyst (Plan 12), the
+  /api/macro-situation/domain/monetary_policy resolver (Plan 11),
+  and the Plan 13 /macro/domain/monetary_policy frontend route.
+  Constituent indicators declared in
+  contracts/economic_intelligence/domain_baskets/US/monetary_policy.yaml
+  (single source of truth — Pitfall 5 lock; never duplicate the indicator
+  list here).
+
+owner: engineering
+owner_vm: vm107
+
+primary_pillars: ['Liquidity']
+primary_analyst: vm107.monetary_policy_domain_analyst
+importance: 3
+
+basket_yaml_path: contracts/economic_intelligence/domain_baskets/US/monetary_policy.yaml
+catalog_entry: contracts/economic_intelligence/domain_catalog.yaml#monetary_policy
+
+# Phase 87 thin-invalidation topic — frontend lib/ws/topics.js mirrors this
+# at the constant MACRO_DOMAIN_UPDATED. monetary_policy substituted at publish time
+# by the snapshot coordinator (Plan 11 mission_control/websockets/topics.py).
+ws_topics:
+  - macro.domain.monetary_policy.updated
+
+consumed_by:
+  - vm107.monetary_policy_domain_analyst
+  - vm107.chief_economist_synthesizer
+
+upstream_sources:
+  - layer1_fred_series_registry
+  - ref_economic_indicator_vintages
+
+# Refresh tied to the Phase 95 snapshot regeneration loop — DomainEngine
+# recomputes whenever a constituent indicator publishes a release event.
+refresh_frequency: per_snapshot
+
+tags:
+  - data-domain
+  - macro
+  - domain
+  - phase-95
+  - monetary_policy
