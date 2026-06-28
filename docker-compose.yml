@@ -803,6 +803,53 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=94"
 
+  # Phase 95 Plan 12 — single sibling service hosting all 12 long-lived
+  # domain analysts (Growth, Inflation, Labour, Housing, Credit, Monetary
+  # Policy, Fiscal, External Sector, Manufacturing, Consumer, Financial
+  # Conditions, Commodities). Subscribes to MACRO_RELEASE filtered per
+  # agent by payload.affected_domains contains <slug>. Keeps container
+  # count flat (1 service for 12 agents) per plan 95-12 §F. Ships as a
+  # docker-compose sibling per feedback_mgmt_commands_need_compose_service.
+  domain_analyst_subscriber:
+    container_name: vm107-domain-analyst-subscriber
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m agents.domain_analyst_subscriber.subscriber
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # Fail-fast — no fallback defaults per feedback_env_driven_no_fallbacks.
+      REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 95 Plan 12 — domain_analyst_subscriber)}"
+      REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 95 Plan 12 — domain_analyst_subscriber)}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      - ./management:/a0/management:ro
+      - ./listeners:/a0/listeners:ro
+      - ./core:/a0/core:ro
+      - ./contracts:/a0/contracts:ro
+      - ./agents:/a0/agents:ro
+      - ./registry:/a0/registry:ro
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f domain_analyst_subscriber || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-domain-analyst-subscriber"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=95"
+
 volumes:
   redis_data:
 
