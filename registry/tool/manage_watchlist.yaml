@@ -1,0 +1,85 @@
+id: vm107.tool.manage_watchlist
+type: tool
+status: real
+shipped: 95
+last_changed: 2026-06-28
+name: manage_watchlist
+description: |
+  Phase 95 Plan 08 — unified watchlist tool. CRUD over the user's macro
+  watchlist via VM100's /api/macro-situation/watchlist endpoints. Backs
+  the shared <PinButton /> component used on Domain pages, IndicatorPage,
+  and future THEME / COUNTRY / RELEASE / CHART / REPORT surfaces.
+
+  entity_type is currently restricted to DOMAIN | INDICATOR (the values
+  Phase 95 ships) but the underlying macro_watchlist_item table accepts
+  arbitrary 20-char identifiers so future enums extend with a one-line
+  Pydantic-Literal widening.
+
+  Auth: JWT bearer via JWTAuth() on every endpoint — cookie auth is not
+  supported (feedback_vm100_jwt_bearer_auth_pattern).
+
+  Methods:
+    POST   /api/macro-situation/watchlist          -> 201 + WatchlistItemOut
+    DELETE /api/macro-situation/watchlist/{id}     -> 204
+    GET    /api/macro-situation/watchlist[?entity_type=]  -> [WatchlistItemOut, ...]
+    PATCH  /api/macro-situation/watchlist/{id}     -> 200 + WatchlistItemOut
+
+capability_type: tool
+phase: 95
+vm: vm100
+vm100_endpoint_path: /api/macro-situation/watchlist
+http_method: POST  # primary; DELETE/GET/PATCH also supported
+auth: jwt_bearer
+entity_types:
+  - DOMAIN
+  - INDICATOR
+schema_path: contracts/economic_intelligence/watchlist.py
+parameters:
+  - name: entity_type
+    type: Literal['DOMAIN','INDICATOR']
+    required: true
+    description: Entity kind being pinned. Restricted via Pydantic Literal.
+  - name: entity_id
+    type: str
+    required: true
+    description: Canonical id (e.g., 'CPIAUCSL' for indicators, 'growth' for domains).
+  - name: metadata
+    type: dict
+    required: false
+    description: Surface-specific config (sparkline range, card variant, etc.)
+return_type: WatchlistItemOut
+return_on_error:
+  - code: validation_error
+    http_status: 400
+    description: entity_type not in Literal set OR entity_id empty.
+  - code: not_found
+    http_status: 404
+    description: DELETE/PATCH with unknown id (or id owned by another user).
+  - code: unauthenticated
+    http_status: 401
+    description: Missing or invalid JWT bearer.
+contracts:
+  response: api.macro_situation.serializers.WatchlistItemOut
+  error: api.macro_situation.serializers.ErrorOut
+capabilities:
+  - user_pin_action
+related_capabilities:
+  - macro_domain_page
+  - indicator_page
+tags:
+  - tool
+  - watchlist
+  - phase-95
+  - user-action
+  - unified
+  - jwt-bearer
+hard_scoped: true
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 1.0   # Reasoning: deterministic CRUD against macro_watchlist_item; no scoring
+expected_freshness_seconds: 0   # Reasoning: row is read-after-write; no freshness window
+is_deterministic: true   # Reasoning: idempotent get_or_create on (user_id, entity_type, entity_id)
+version: "1.0.0"   # Reasoning: initial release with Phase 95 Plan 08
