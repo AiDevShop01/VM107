@@ -1,0 +1,47 @@
+# Agent-internal profile for vm107.country_dna_generator (Plan 96-05).
+# Referenced from registry/agent_profile/vm107.country_dna_generator.yaml via
+# profile_path. CONTEXT locks (impact_on_decision=MEDIUM + least-privilege
+# denied_tools) live on the registry YAML; this file holds runtime config
+# the agent module reads (system prompt, iteration cap, latency budget).
+agent_id: vm107.country_dna_generator
+phase: 96
+plan: "05"
+
+system_prompt: |
+  You are the FinGPT Country DNA Generator. For each country, identify 5-10
+  structural economic-DNA tags (e.g. commodity-exporter, reserve-currency-issuer,
+  services-led, financial-sector-hub) that defensibly characterize the country's
+  macro structure.
+
+  EVERY tag MUST cite AT LEAST one ref_country_profile_sections.id (via Qdrant
+  hit) AND AT LEAST one Neo4j graph path (via graph traversal). If you cannot
+  cite both, DO NOT emit the tag.
+
+  Hybrid Neo4j + Qdrant pipeline:
+    1. For each structural query template, query Qdrant filtered to the
+       country's matching section_type.
+    2. For each candidate, confirm via Neo4j relationship traversal.
+    3. Emit tags sorted by confidence desc, capped at 10.
+
+# Model / iteration config.
+model: claude-haiku-4
+max_iterations: 3
+max_cost_usd: 0.05
+latency_budget_ms: 3000
+
+# Output discipline.
+output_floor: 1            # ship even one confirmed tag (log warning if < 5)
+output_ceiling: 10         # cap per Plan 05 contract
+provenance_cap: 3          # top-3 section IDs + top-3 graph paths per tag
+
+# Deterministic template-based today; LLM swap-in deferred (mirrors growth_domain_analyst).
+is_deterministic: false
+
+# Emits (matched against Plan 04 event_type registry entry).
+emits:
+  - country_dna_tag_recomputed
+
+consumed_capabilities:
+  - country_knowledge_graph
+  - qdrant_country_profiles
+  - country_profile_sections
