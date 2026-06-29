@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Any
 
-from .base_section import BaseSection
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SnapshotHealth(BaseModel):
@@ -49,9 +49,22 @@ class EconomicSnapshot(BaseModel):
         description="ISO 3166-1 alpha-2 (uppercase).",
     )
     generated_at: datetime
-    sections: dict[str, BaseSection] = Field(
+    # Sections are stored as raw dicts (not validated against BaseSection at
+    # round-trip time) so typed subclasses like Phase 95 Plan 11's `Domain`
+    # — which add `primary_pillars`, `primary_analyst`, `related_domains`,
+    # `health_score`, `current_state`, `risk_level`, `drivers`,
+    # `constraints`, `tailwinds`, `headwinds`, `latest_releases`, `headline`,
+    # `next_review_at`, `key_question`, `evidence_refs` on top of the
+    # BaseSection envelope — survive a JSON round trip through
+    # `model_validate_json`. Phase 94's original `dict[str, BaseSection]`
+    # annotation triggered `extra='forbid'` rejection on every typed
+    # subclass because Pydantic instantiated the parent class. Resolvers
+    # already coerce via `.model_dump(mode='json')` (BaseSection-derived)
+    # or `dict(section)` (plain dict) — see `_section_dict` in each
+    # section_resolver module.
+    sections: dict[str, Any] = Field(
         description=(
-            "section_id -> section envelope. May be empty during initial "
+            "section_id -> section envelope dict. May be empty during initial "
             "warming, in which case snapshot_health.score == 0."
         ),
     )

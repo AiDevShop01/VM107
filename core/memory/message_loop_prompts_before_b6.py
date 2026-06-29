@@ -28,7 +28,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from VM107.core.memory.episodic_memory_service import (
+from .episodic_memory_service import (
     EpisodicMemoryService,
     EpisodicQuery,
 )

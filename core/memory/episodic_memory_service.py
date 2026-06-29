@@ -29,7 +29,7 @@ from typing import Literal
 
 from qdrant_client import QdrantClient
 
-from VM107.core.memory.qdrant_macro_episode_collection import (
+from .qdrant_macro_episode_collection import (
     COLLECTION_NAME,
     ensure_macro_episode_collection,
 )
