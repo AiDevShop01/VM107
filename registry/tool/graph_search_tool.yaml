@@ -1,0 +1,144 @@
+id: graph_search_tool
+type: tool
+status: real
+shipped: 92
+last_changed: "2026-06-29"
+name: graph_search_tool
+description: >-
+  Parameterised Cypher templates for Neo4j knowledge-graph traversal.
+  Originally shipped in Phase 92 (find_predecessors / find_successors /
+  find_related / find_path / find_methods_using /
+  find_validated_relationships) and amended by Phase 96 Plan 11 to add
+  find_country_subgraph for the Country Knowledge Graph view tab
+  (REQ-96-9).
+capability_type: tool
+vm: vm107
+phase: 92
+template_version: 1.0.0
+tool_path: VM107/tools/graph/graph_search_tool.py
+request_contract: GraphSearchRequest
+response_contract: GraphSearchResponse
+contracts:
+  request: tools.graph.graph_search_tool.GraphSearchRequest
+  response: tools.graph.graph_search_tool.GraphSearchResponse
+backing_capabilities:
+  - neo4j_knowledge_graph
+consumed_by:
+  - vm107.country_dna_generator
+  - vm100.world.country_subgraph_resolver
+related_capabilities:
+  - country_knowledge_graph
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+  - vm107.country_dna_generator
+  - vm107.macro_review_agent
+  - vm107.macro_historical_analyst
+deprecated: false
+typical_confidence: 0.80
+expected_freshness_seconds: 86400
+is_deterministic: true
+version: "1.0.0"
+owner: engineering
+tags:
+  - tool
+  - neo4j
+  - knowledge-graph
+  - cypher
+  - phase-92
+  - phase-96
+
+# ---------------------------------------------------------------------------
+# Templates — every sub-template the tool exposes through run_template /
+# direct method calls. Phase 47.6 capability-registry lock — sub-templates
+# register via this section (the `tool_template` top-level capability type
+# is intentionally NOT in the gsd-plan-checker parser VALID_TYPES; the
+# parent-tool YAML amendment IS the registration mechanism).
+# ---------------------------------------------------------------------------
+templates:
+  find_predecessors:
+    phase: 92
+    description: >-
+      Validated PRECEDES edges with confidence ≥ min_confidence pointing
+      INTO the concept. Returns predecessor name, entity_type, confidence,
+      sample_size.
+    request_params:
+      concept_name: { type: string, required: true }
+      min_confidence: { type: number, default: 0.0 }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  find_successors:
+    phase: 92
+    description: >-
+      Validated PRECEDES edges with confidence ≥ min_confidence pointing
+      OUT of the concept. Returns successor name, entity_type, confidence,
+      sample_size.
+    request_params:
+      concept_name: { type: string, required: true }
+      min_confidence: { type: number, default: 0.0 }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  find_related:
+    phase: 92
+    description: >-
+      Entities co-occurring with the concept via MENTIONS chunks.
+      Returns related_entity, entity_type, co_occurrence_count.
+    request_params:
+      concept_name: { type: string, required: true }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  find_path:
+    phase: 92
+    description: >-
+      Shortest path between two concepts (≤ 3 hops). Returns the path
+      node names + relationship types.
+    request_params:
+      concept_name: { type: string, required: true }
+      target_name: { type: string, required: true }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  find_methods_using:
+    phase: 92
+    description: >-
+      Methods that co-occur with the concept via MENTIONS chunks.
+      Returns method_name, co_occurrence_count.
+    request_params:
+      concept_name: { type: string, required: true }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  find_validated_relationships:
+    phase: 92
+    description: >-
+      All non-MENTIONS validated edges out of the concept. Returns
+      relationship_type, target_entity, entity_type, validated, confidence.
+    request_params:
+      concept_name: { type: string, required: true }
+      top_k: { type: integer, default: 10 }
+    response_shape: { results: list }
+    added_in_phase: 92
+
+  # ----- Phase 96 Plan 11 amendment ---------------------------------------
+  find_country_subgraph:
+    phase: 96
+    description: >-
+      Returns the subgraph of all edges within depth hops from
+      (Country {iso_alpha2: $iso}). Powers the Country Knowledge Graph
+      view tab (REQ-96-9) and the country_dna_generator agent's
+      structural-tag graph confirmation step.
+    request_params:
+      iso_alpha2: { type: string, pattern: "^[A-Z]{2}$", required: true }
+      depth: { type: integer, minimum: 1, maximum: 3, default: 1 }
+    response_shape: { nodes: list, edges: list }
+    bounds:
+      depth: [1, 3]
+    added_in_phase: 96

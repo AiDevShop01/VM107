@@ -211,6 +211,139 @@ class GraphSearchTool(ContractTool):
             return text
         raise KeyError(f"Unknown template: {name}")
 
+    # ------------------------------------------------------------------
+    # Phase 96 Plan 11 — find_country_subgraph
+    # ------------------------------------------------------------------
+    #
+    # REQ-96-9: returns the union of all edges within ``depth`` hops from
+    # (Country {iso_alpha2: $iso}) as ``{nodes: [...], edges: [...]}``.
+    # Used by the Country Page KNOWLEDGE_GRAPH tab and by the Plan 96-05
+    # country_dna_generator agent for structural-tag confirmation.
+    #
+    # Cypher safety:
+    #   - ``iso_alpha2`` is bound as parameter ``$iso``; NEVER string-format
+    #     it into the query body (Pitfall 5 spirit — even though we only
+    #     read here, the same discipline applies).
+    #   - ``depth`` cannot be parameterised inside a variable-length
+    #     ``[*1..N]`` clause in Cypher; we instead bounds-check it as an
+    #     integer in Python and interpolate the validated value. The bounds
+    #     check is the security boundary.
+    #
+    # Result shape:
+    #   {
+    #     "nodes": [{"id": <int>, "labels": [<str>], "properties": {<dict>}}, ...],
+    #     "edges": [{"from_id": <int>, "to_id": <int>, "type": <str>, "properties": {<dict>}}, ...],
+    #   }
+    #
+    # Origin Country with no neighbours returns ``{nodes: [<origin>], edges: []}``.
+    # Unknown ISO returns ``{nodes: [], edges: []}``.
+
+    _COUNTRY_SUBGRAPH_DEPTH_MIN = 1
+    _COUNTRY_SUBGRAPH_DEPTH_MAX = 3
+
+    def find_country_subgraph(
+        self, iso_alpha2: str, depth: int = 1
+    ) -> dict[str, Any]:
+        """Return the subgraph of all edges within ``depth`` hops from
+        (Country {iso_alpha2: iso_alpha2}).
+
+        Args:
+            iso_alpha2: ISO 3166-1 alpha-2 country code (UPPERCASE).
+            depth: 1..3 hops (inclusive). Out-of-bounds raises ValueError.
+
+        Returns:
+            ``{"nodes": [...], "edges": [...]}`` — empty lists when the
+            country node does not exist or when neo4j_driver is not wired.
+
+        Raises:
+            ValueError: depth is not an int in [1, 3].
+        """
+        # Bounds check is the security boundary for the inlined depth.
+        # ``bool`` is rejected because Python treats ``True is int`` (issubclass)
+        # — we want a strict ``int`` check to avoid surprises like
+        # ``find_country_subgraph('US', depth=True)``.
+        if (
+            isinstance(depth, bool)
+            or not isinstance(depth, int)
+            or depth < self._COUNTRY_SUBGRAPH_DEPTH_MIN
+            or depth > self._COUNTRY_SUBGRAPH_DEPTH_MAX
+        ):
+            raise ValueError(
+                f"depth must be an int in "
+                f"[{self._COUNTRY_SUBGRAPH_DEPTH_MIN}, "
+                f"{self._COUNTRY_SUBGRAPH_DEPTH_MAX}]; got {depth!r}"
+            )
+
+        if self.neo4j_driver is None:
+            return {"nodes": [], "edges": []}
+
+        # Variable-length pattern interpolates the bounds-checked integer.
+        # The ``$iso`` binding is parameterised — Cypher injection in the
+        # ISO value cannot break out of the parameter slot.
+        pattern = f"-[*1..{depth}]-"
+        cypher = (
+            "MATCH (origin:Country {iso_alpha2: $iso}) "
+            f"OPTIONAL MATCH (origin){pattern}(neighbor) "
+            "WITH origin, collect(DISTINCT neighbor) AS neighbors "
+            "WITH [n IN ([origin] + neighbors) WHERE n IS NOT NULL] AS scope "
+            "UNWIND scope AS n "
+            "OPTIONAL MATCH (n)-[r]->(m) WHERE m IN scope "
+            "WITH scope, "
+            "     collect(DISTINCT {"
+            "         from_id: id(startNode(r)), "
+            "         to_id: id(endNode(r)), "
+            "         type: type(r), "
+            "         properties: properties(r)"
+            "     }) AS raw_edges "
+            "RETURN "
+            "  [node IN scope | {id: id(node), labels: labels(node), "
+            "                    properties: properties(node)}] AS nodes, "
+            "  [e IN raw_edges WHERE e.from_id IS NOT NULL] AS edges"
+        )
+
+        with self.neo4j_driver.session() as session:
+            record = session.run(cypher, iso=iso_alpha2).single()
+
+        if record is None:
+            return {"nodes": [], "edges": []}
+
+        raw_nodes = list(record.get("nodes") or [])
+        raw_edges = list(record.get("edges") or [])
+
+        # Dedupe nodes by id, edges by (from_id, to_id, type).
+        seen_nodes: set[int] = set()
+        nodes: list[dict[str, Any]] = []
+        for n in raw_nodes:
+            nid = n.get("id")
+            if nid is None or nid in seen_nodes:
+                continue
+            seen_nodes.add(nid)
+            nodes.append(
+                {
+                    "id": nid,
+                    "labels": list(n.get("labels") or []),
+                    "properties": dict(n.get("properties") or {}),
+                }
+            )
+
+        seen_edges: set[tuple[Any, Any, Any]] = set()
+        edges: list[dict[str, Any]] = []
+        for e in raw_edges:
+            key = (e.get("from_id"), e.get("to_id"), e.get("type"))
+            if None in key or key in seen_edges:
+                continue
+            seen_edges.add(key)
+            edges.append(
+                {
+                    "from_id": e["from_id"],
+                    "to_id": e["to_id"],
+                    "type": e["type"],
+                    "properties": dict(e.get("properties") or {}),
+                }
+            )
+
+        return {"nodes": nodes, "edges": edges}
+
     def run_template(self, name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         """Phase 92 Plan 4 — execute a parameterised template directly.
 

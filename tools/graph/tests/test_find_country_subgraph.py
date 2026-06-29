@@ -38,19 +38,67 @@ def _neo4j_available() -> bool:
         return False
 
 
-pytestmark = [
-    pytest.mark.skipif(
-        not _neo4j_available(),
-        reason=(
-            "Neo4j test instance not running — start with "
-            "`docker compose -f docker-compose.test.yml up neo4j-test`"
-        ),
+_NEO4J_UP = _neo4j_available()
+neo4j_required = pytest.mark.skipif(
+    not _NEO4J_UP,
+    reason=(
+        "Neo4j test instance not running — start with "
+        "`docker compose -f docker-compose.test.yml up neo4j-test`"
     ),
-]
+)
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Unit tests that do NOT need Neo4j (bounds + empty-driver behaviour).
+# These run in every environment so the contract surface is always pinned.
+# ---------------------------------------------------------------------------
+
+
+def _bare_tool(driver=None):
+    """Build a GraphSearchTool instance without invoking the heavy
+    ContractTool / agent_zero base ``__init__`` (which requires 6
+    positional args: agent, name, method, args, message, loop_data).
+    The bounds-check + None-driver paths only need the class methods and
+    the ``neo4j_driver`` attribute.
+    """
+    from tools.graph.graph_search_tool import GraphSearchTool
+
+    tool = GraphSearchTool.__new__(GraphSearchTool)
+    tool.neo4j_driver = driver
+    return tool
+
+
+def test_depth_out_of_bounds_raises_without_driver():
+    """Bounds check fires before any Neo4j call — runs without a live driver."""
+    tool = _bare_tool()
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth=4)
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth=0)
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth=-1)
+
+
+def test_depth_must_be_integer_without_driver():
+    """Non-int depth (float, str, bool) is also a bounds violation."""
+    tool = _bare_tool()
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth=1.5)  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth="1")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        tool.find_country_subgraph("US", depth=True)  # type: ignore[arg-type]
+
+
+def test_no_driver_returns_empty_payload():
+    """Graceful degradation — None driver yields empty payload (NOT raises)."""
+    tool = _bare_tool(driver=None)
+    result = tool.find_country_subgraph("US", depth=1)
+    assert result == {"nodes": [], "edges": []}
+
+
+# ---------------------------------------------------------------------------
+# Integration tests against a live Neo4j fixture.
 # ---------------------------------------------------------------------------
 
 
@@ -114,19 +162,20 @@ def us_subgraph(neo4j_driver):
 
 @pytest.fixture
 def graph_tool(us_subgraph):
-    """GraphSearchTool wired to the live Neo4j driver."""
+    """GraphSearchTool wired to the live Neo4j driver.
+
+    Uses ``__new__`` to bypass the heavy ContractTool ``__init__``
+    (6 positional args). The bounds check + Cypher exec paths only need
+    the instance methods and the ``neo4j_driver`` attribute.
+    """
     from tools.graph.graph_search_tool import GraphSearchTool
 
-    tool = GraphSearchTool()
+    tool = GraphSearchTool.__new__(GraphSearchTool)
     tool.neo4j_driver = us_subgraph
     return tool
 
 
-# ---------------------------------------------------------------------------
-# Behaviour tests
-# ---------------------------------------------------------------------------
-
-
+@neo4j_required
 def test_depth_1_returns_immediate_neighbors(graph_tool):
     result = graph_tool.find_country_subgraph("US", depth=1)
     assert isinstance(result, dict)
@@ -141,6 +190,7 @@ def test_depth_1_returns_immediate_neighbors(graph_tool):
     assert len(result["edges"]) >= 1
 
 
+@neo4j_required
 def test_depth_2_monotonic_with_depth_1(graph_tool):
     r1 = graph_tool.find_country_subgraph("US", depth=1)
     r2 = graph_tool.find_country_subgraph("US", depth=2)
@@ -150,21 +200,14 @@ def test_depth_2_monotonic_with_depth_1(graph_tool):
     )
 
 
-def test_depth_out_of_bounds_raises(graph_tool):
-    with pytest.raises(ValueError):
-        graph_tool.find_country_subgraph("US", depth=4)
-    with pytest.raises(ValueError):
-        graph_tool.find_country_subgraph("US", depth=0)
-    with pytest.raises(ValueError):
-        graph_tool.find_country_subgraph("US", depth=-1)
-
-
+@neo4j_required
 def test_unknown_iso_returns_empty(graph_tool):
     # 'ZZ' is reserved/unused in ISO 3166-1; the seed does not create it.
     result = graph_tool.find_country_subgraph("ZZ", depth=1)
     assert result == {"nodes": [], "edges": []}
 
 
+@neo4j_required
 def test_nodes_deduplicated(graph_tool):
     result = graph_tool.find_country_subgraph("US", depth=2)
     node_ids = [n["id"] for n in result["nodes"]]
@@ -173,6 +216,7 @@ def test_nodes_deduplicated(graph_tool):
     )
 
 
+@neo4j_required
 def test_iso_parameterized_not_string_formatted(graph_tool):
     """Cypher safety smoke check.
 
@@ -184,11 +228,3 @@ def test_iso_parameterized_not_string_formatted(graph_tool):
     payload = "US'} OR true RETURN n {.id} AS x //"
     result = graph_tool.find_country_subgraph(payload, depth=1)
     assert result == {"nodes": [], "edges": []}
-
-
-def test_depth_must_be_integer(graph_tool):
-    """Non-int depth (e.g. float, string) is also a bounds violation."""
-    with pytest.raises(ValueError):
-        graph_tool.find_country_subgraph("US", depth=1.5)  # type: ignore[arg-type]
-    with pytest.raises(ValueError):
-        graph_tool.find_country_subgraph("US", depth="1")  # type: ignore[arg-type]
