@@ -1,0 +1,65 @@
+id: contract.country_knowledge_graph_schema
+type: contract
+status: real
+shipped: 96
+last_changed: "2026-06-29"
+name: country_knowledge_graph_schema
+description: >-
+  Phase 96 REQ-96-5 contract — pins the Phase 96 Neo4j schema additions to
+  RelationshipTypeEnum + OPERATIONAL_LABELS. Bumping schema_version requires
+  apply_phase96_neo4j_schema mgmt command + downstream rebuild. Referenced by
+  data_domain/country_knowledge_graph.yaml via the schema_contract field.
+  Passive data — not surfaced as a REGISTER_CAPABILITY directive (mirrors
+  Plan 11's tool_template precedent — `contract` is intentionally not in
+  the gsd-plan-checker parser VALID_TYPES frozenset; contracts are
+  discovered transitively via data_domain references, not via
+  lookup_capability).
+capability_type: contract
+vm: vm101
+phase: 96
+template_version: 1.0.0
+schema_version: 1
+node_labels:
+  - Country
+  - Currency
+  - Commodity
+  - Industry
+  - Government
+  - CentralBank
+  - EconomicDnaTag
+rel_types:
+  - HAS_GOVERNMENT
+  - HAS_CENTRAL_BANK
+  - ISSUES_CURRENCY
+  - PRODUCES
+  - EXPORTS_TO
+  - IMPORTS_FROM
+  - DEPENDS_ON_COMMODITY
+  - HAS_INDUSTRY
+  - HAS_INDICATOR
+  - STRUCTURAL_TAG
+  - DISCUSSED_IN
+schema_ref: VM101.backend.knowledge.graph.relationship_types.RelationshipTypeEnum
+operational_labels_ref: VM101.backend.knowledge.graph.operational_graph_builder.OPERATIONAL_LABELS
+migration_cypher: VM101/backend/knowledge/graph/migrations/0002_phase96_country_schema.cypher
+mgmt_command: apply_phase96_neo4j_schema
+producers:
+  - apply_phase96_neo4j_schema
+consumers:
+  - country_knowledge_graph                # data_domain.schema_contract reference
+impact_on_decision: HIGH
+deprecated: false
+version_history:
+  - version: "1"
+    phase: 96
+    date: "2026-06-29"
+    changes: "Initial schema — 7 new OPERATIONAL_LABELS + 11 new RelationshipTypeEnum members (Plan 96-02)"
+version: "1.0.0"
+owner: engineering
+tags:
+  - contract
+  - country
+  - phase-96
+  - neo4j
+  - knowledge-graph
+  - economic-intelligence

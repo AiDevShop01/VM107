@@ -1,0 +1,46 @@
+id: vm107.tool.find_countries_by_profile_query
+type: tool
+status: real
+shipped: 96
+last_changed: "2026-06-29"
+name: find_countries_by_profile_query
+description: >-
+  Phase 96 REQ-96-8 — Qdrant cross-country semantic search. Natural-language
+  query → ranked country list with section evidence. Powers AI Ask Macro +
+  WorldMap filter.
+capability_type: tool
+vm: vm107
+phase: 96
+template_version: 1.0.0
+tool_path: VM107/tools/find_countries_by_profile_query.py
+request_contract: FindCountriesByProfileRequest
+response_contract: FindCountriesByProfileResponse
+contracts:
+  request: fingpt_core.contracts.economic_intelligence.country_search.FindCountriesByProfileRequest
+  response: fingpt_core.contracts.economic_intelligence.country_search.FindCountriesByProfileResponse
+backing_capabilities:
+  - qdrant_country_profiles
+consumed_by:
+  - vm107.country_dna_generator
+  - vm107.macro_ask_router
+related_capabilities:
+  - country_knowledge_graph
+  - qdrant_country_profiles
+hard_scoped: false
+impact_on_decision: MEDIUM
+allowed_agent_profiles:
+  - vm107.country_dna_generator
+  - vm107.macro_ask_router
+deprecated: false
+typical_confidence: 0.70
+expected_freshness_seconds: 604800   # weekly — matches Factbook refresh cadence
+is_deterministic: false              # Qdrant ANN search returns nearest-neighbor ordering
+version: "1.0.0"
+owner: engineering
+tags:
+  - tool
+  - country
+  - phase-96
+  - qdrant
+  - semantic-search
+  - economic-intelligence

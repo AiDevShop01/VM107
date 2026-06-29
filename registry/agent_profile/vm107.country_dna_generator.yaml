@@ -1,0 +1,64 @@
+id: vm107.country_dna_generator
+type: agent_profile
+status: real
+shipped: 96
+last_changed: "2026-06-29"
+name: vm107.country_dna_generator
+description: >-
+  Phase 96 REQ-96-4 — Hybrid Neo4j + Qdrant agent. Emits 5-10 structural
+  economic DNA tags per country with provenance (CountryProfileSection IDs +
+  graph paths). impact_on_decision=MEDIUM.
+capability_type: agent
+vm: vm107
+impact_on_decision: MEDIUM           # CONTEXT LOCK — do not change
+hard_scoped: true
+deprecated: false
+phase: 96
+template_version: 1.0.0
+trigger: on_demand
+schedule_cron: null
+sibling_service: null                # Invoked from Dagster country_dna_recompute asset
+trigger_events:
+  - country_profile_refreshed
+event_importance_floor: MEDIUM
+allowed_tools:                       # CONTEXT LOCK — least-privilege
+  - find_countries_by_profile_query
+  - graph_search_tool
+  - lookup_capability
+denied_tools:                        # CONTEXT LOCK — least-privilege
+  - belief_store.propose
+  - trade_execution_tool
+  - code_execution_tool
+  - filesystem_write
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 3
+max_cost_usd: 0.05
+latency_budget_ms: 3000
+constitutional_skills:
+  - citation-discipline
+  - narrative-only-explain
+typical_confidence: 0.75
+expected_freshness_seconds: 604800   # weekly — matches Factbook refresh cadence
+is_deterministic: false
+version: "1.0.0"
+emits:
+  - economic_dna_tag
+consumed_capabilities:
+  - country_knowledge_graph
+  - qdrant_country_profiles
+  - country_profile_sections
+cross_vm_contract: vm107.country_dna_generator.invoke
+owner: engineering
+profile_path: VM107/agents/country_dna_generator_agent/profile.yaml
+tags:
+  - agent-profile
+  - country
+  - phase-96
+  - hybrid-rag
+  - neo4j
+  - qdrant
+  - economic-intelligence

@@ -1,0 +1,41 @@
+id: country_knowledge_graph
+type: data_domain
+status: real
+shipped: 96
+last_changed: "2026-06-29"
+name: country_knowledge_graph
+description: >-
+  Phase 96 REQ-96-5 — Neo4j-backed Country Knowledge Graph. 7 node labels
+  (Country/Currency/Commodity/Industry/Government/CentralBank/EconomicDnaTag)
+  + 11 edges (HAS_GOVERNMENT/HAS_CENTRAL_BANK/ISSUES_CURRENCY/PRODUCES/
+  EXPORTS_TO/IMPORTS_FROM/DEPENDS_ON_COMMODITY/HAS_INDUSTRY/HAS_INDICATOR/
+  STRUCTURAL_TAG/DISCUSSED_IN). Single source of truth: the
+  country_knowledge_graph_schema contract.
+capability_type: data_domain
+vm: vm101                                  # Neo4j lives on VM101
+impact_on_decision: HIGH                   # Underpins Phase 96 country pages + DNA + cross-country search
+hard_scoped: true
+deprecated: false
+phase: 96
+template_version: 1.0.0
+backing_store: neo4j
+schema_contract: country_knowledge_graph_schema
+schema_version: 1
+version: "1.0.0"
+producers:
+  - apply_phase96_neo4j_schema             # initial seed (Plan 96-02)
+  - country_dna_generator                  # writes EconomicDnaTag + STRUCTURAL_TAG (Plan 96-05)
+  - country_trade_partners_extraction      # writes EXPORTS_TO / IMPORTS_FROM (Plan 96-08)
+consumers:
+  - find_countries_by_profile_query
+  - graph_search_tool
+  - country_subgraph_resolver
+owner: engineering
+owner_vm: vm101
+tags:
+  - data-domain
+  - country
+  - phase-96
+  - neo4j
+  - knowledge-graph
+  - economic-intelligence

@@ -1,0 +1,61 @@
+id: country_dna_tag_recomputed
+type: event_type
+status: real
+shipped: 96
+last_changed: "2026-06-29"
+name: country_dna_tag_recomputed
+description: |
+  Phase 96 REQ-96-11 — Emitted by VM107 country_dna_generator after
+  recomputing structural DNA tags for a country. Phase 74 NotificationDispatcher
+  routes downstream consumers (e.g., MissionControl Country Card cache
+  invalidation, Phase 94 country_card refresh).
+capability_type: event_type
+vm: vm107
+phase: 96
+template_version: 1.0.0
+schema_version: "1"
+impact_on_decision: MEDIUM
+hard_scoped: false
+deprecated: false
+severity_floor: LOW
+payload_schema:
+  iso_alpha2:
+    type: string
+    pattern: "^[A-Z]{2}$"
+    required: true
+  tag_count:
+    type: integer
+    minimum: 0
+    maximum: 50
+    required: true
+  recomputed_at:
+    type: string
+    format: date-time
+    required: true
+  trigger_source:
+    type: string
+    enum:
+      - factbook_refresh
+      - manual
+      - schema_diff
+    required: true
+producers:
+  - vm107.country_dna_generator
+consumers:
+  - phase_74_notification_dispatcher
+  - phase_94_country_card_cache_invalidator
+emitters:
+  - vm107.country_dna_generator
+related_capabilities:
+  - vm107.country_dna_generator
+  - country_knowledge_graph
+  - qdrant_country_profiles
+schema_ref: contracts.economic_intelligence.events.CountryDnaTagRecomputedEvent
+version: "1.0.0"
+owner: engineering
+owner_vm: vm107
+tags:
+  - event-type
+  - country
+  - phase-96
+  - economic-intelligence
