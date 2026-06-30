@@ -126,11 +126,27 @@ class CountryDnaGenerator:
 
     @staticmethod
     def _build_graph_tool() -> Any:
-        """Lazy import GraphSearchTool — Plan 11 adds the find_country_subgraph
-        template; until then the agent gracefully degrades (no paths → no tag)."""
-        from tools.graph.graph_search_tool import GraphSearchTool
+        """Lazy import GraphSearchTool and construct it without the parent
+        Tool.__init__ (which needs agent/name/method/args/message/loop_data
+        — Phase 41 agent-side concerns we don't need for one-shot template
+        invokes outside an agent loop). Wires neo4j_driver from env so
+        find_country_subgraph can query the live graph.
 
-        return GraphSearchTool()
+        Plan 11 adds the find_country_subgraph template; until then the
+        agent gracefully degrades (no paths → no tag).
+        """
+        from tools.graph.graph_search_tool import GraphSearchTool
+        from neo4j import GraphDatabase
+
+        tool = GraphSearchTool.__new__(GraphSearchTool)
+        tool.neo4j_driver = GraphDatabase.driver(
+            os.environ["NEO4J_URI"],
+            auth=(
+                os.environ.get("NEO4J_USER", "neo4j"),
+                os.environ["NEO4J_PASSWORD"],
+            ),
+        )
+        return tool
 
     # ------------------------------------------------------------------
     # Public invoke
