@@ -1,0 +1,47 @@
+id: dagster_vm101_ohlc_postgres_to_parquet_backfill
+type: dagster_asset
+phase: 84.1
+asset_key: vm101_ohlc_postgres_to_parquet_backfill
+group_name: market_ohlc_migration
+source: postgres
+compute: vm101
+refresh_frequency: on_demand
+partition_strategy: "none — internal loop over distinct (symbol, timeframe) pairs (per RESEARCH.md §6, avoids StaticPartitionsDefinition cache-corruption bug)"
+owner: phase-84.1
+status: real
+shipped: 84.1
+last_changed: "2026-06-30"
+vm: dagster
+description: >-
+  Phase 84.1 — one-off Postgres→parquet backfill for VM101 market_ohlc.
+  Reconciles every distinct (symbol, timeframe) pair from VM101 Postgres
+  to the S3 parquet lake. Skips pairs already at parity (idempotent);
+  rewrites mismatched pairs in full. Materialized pre-deploy and any
+  time vm101_ohlc_parity_report fires red. Fail-fast on unset env vars
+  (POSTGRES_MIGRATION_URI, MINIO_ENDPOINT_URL).
+location:
+  source: fingpt_orchestration/src/fingpt_orchestration/assets/market/migration/vm101_ohlc_postgres_to_parquet_backfill.py
+  asset_key: vm101_ohlc_postgres_to_parquet_backfill
+  group_name: market_ohlc_migration
+consumed_by:
+  - vm101_ohlc_parity_report
+related_capabilities:
+  - vm101_ohlc_parity_report
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-84.1
+  - market
+  - ohlc
+  - migration
+  - postgres-to-parquet
+  - dagster
+  - one-off
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 1.0
+expected_freshness_seconds: 0
+is_deterministic: true
+version: "1.0.0"

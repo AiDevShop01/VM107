@@ -1,0 +1,47 @@
+id: dagster_vm101_ohlc_parity_report
+type: dagster_asset
+phase: 84.1
+asset_key: vm101_ohlc_parity_report
+group_name: market_ohlc_migration
+source: postgres+parquet
+compute: vm101
+refresh_frequency: "pre-deploy + nightly (30 days post-cutover)"
+partition_strategy: "none — single zero-tolerance assertion across all (symbol, timeframe) pairs"
+owner: phase-84.1
+status: real
+shipped: 84.1
+last_changed: "2026-06-30"
+vm: dagster
+description: >-
+  Phase 84.1 parity gate — zero-tolerance row-count check per (symbol,
+  timeframe) pair. Compares Postgres market_ohlc COUNT(*) to S3 parquet
+  COUNT(*) for every pair present in either source. Raises Exception
+  (Dagster run goes red) on ANY mismatch. Includes the first 10
+  mismatched pairs in the error message for actionable failure mode.
+  Materialized pre-deploy as CI gate before each Wave 1+ cutover and
+  nightly for 30 days post-cutover to catch silent drift.
+location:
+  source: fingpt_orchestration/src/fingpt_orchestration/assets/market/migration/vm101_ohlc_parity_report.py
+  asset_key: vm101_ohlc_parity_report
+  group_name: market_ohlc_migration
+consumed_by: []
+related_capabilities:
+  - vm101_ohlc_postgres_to_parquet_backfill
+hard_scoped: false
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - phase-84.1
+  - market
+  - ohlc
+  - migration
+  - parity-gate
+  - dagster
+  - zero-tolerance
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 1.0
+expected_freshness_seconds: 86400
+is_deterministic: true
+version: "1.0.0"
