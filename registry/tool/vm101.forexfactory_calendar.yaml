@@ -1,0 +1,109 @@
+id: vm101.forexfactory_calendar
+type: tool
+status: real
+shipped: "98"
+last_changed: "2026-07-03"
+name: vm101.forexfactory_calendar
+description: >-
+  VM101 ForexFactory economic calendar sync service. Fetches the free JSON feed at
+  nfs.faireconomy.media/ff_calendar_thisweek.json, archives raw JSON to S3, and
+  upserts EconomicEvent rows + EconomicEventForecastSnapshot rows for 8 major FX
+  currencies. Called by Dagster on a weekly (Sun 22:00 UTC) + weekday hourly
+  schedule. Publishes macro.calendar.actual_released on Redis after each newly-set
+  actual value.
+
+  Phase 98 Decision A1: external_event_hash = SHA256(source+currency+country+title_norm+minute_floor)
+  ensures idempotent upserts across repeated weekly snapshots.
+  Phase 98 Decision C3: insert-on-change snapshot semantics — EconomicEventForecastSnapshot
+  only written when forecast/actual value differs from most recent row (Decimal.normalize()
+  comparison eliminates scale-irrelevant duplication).
+  Phase 98 Decision D1: Redis publish is post-commit fire-and-forget; failure logs WARNING
+  and does not raise, so a Redis outage cannot block the ingestion pipeline.
+capability_type: ingestion_service
+vm: vm101
+http_method: POST
+http_path: /api/v1/forexfactory/sync
+version: "1.0.0"
+inputs:
+  - name: mode
+    type: "enum(weekly|hourly)"
+    required: false
+    default: weekly
+    description: >-
+      weekly = full ISO-week snapshot (upsert all events + all forecast snapshots).
+      hourly = lightweight actuals-only refresh (catches newly-set actual values
+      within 60 minutes of release).
+outputs:
+  - name: mode
+    type: string
+    description: Echo of the input mode for logging
+  - name: iso_year
+    type: integer
+    description: ISO year of the processed calendar week
+  - name: iso_week
+    type: integer
+    description: ISO week number of the processed calendar week
+  - name: events_upserted
+    type: integer
+    description: Number of EconomicEvent rows created or updated
+  - name: snapshots_inserted
+    type: integer
+    description: Number of EconomicEventForecastSnapshot rows inserted (insert-on-change)
+  - name: actuals_written
+    type: integer
+    description: Number of actual_value fields written (newly-released actuals)
+  - name: revisions_written
+    type: integer
+    description: Number of EconomicEventRevision rows inserted (ON CONFLICT DO NOTHING)
+  - name: parse_errors
+    type: "list[str]"
+    description: Structured parse error strings (empty on clean run)
+  - name: s3_path
+    type: string
+    description: S3 URI where the raw JSON payload was archived
+  - name: payload_hash
+    type: string
+    description: SHA256 hex digest of the archived JSON payload
+  - name: payload_size_bytes
+    type: integer
+    description: Byte length of the archived JSON payload
+  - name: duration_ms
+    type: integer
+    description: Total wall-clock time for the sync operation in milliseconds
+publishes:
+  - channel: macro.calendar.actual_released
+    payload_schema: "{event_id, external_event_hash, currency, country, actual_value, previous_forecast_value, surprise_value, event_date, indicator_short_name, impact, source, parser_version}"
+    description: >-
+      Published to Redis after each newly-set actual_value is committed to DB.
+      Fire-and-forget: Redis failures are logged as WARNING and do not abort the run.
+consumed_by:
+  - dagster.forexfactory_weekly_schedule
+  - dagster.forexfactory_hourly_schedule
+related_capabilities:
+  - vm101.fred_calendar
+  - vm100.analytics_calendar
+  - vm107.intelligence_feed.macro
+location:
+  source: VM101/backend/ingestion/services/forexfactory/calendar_service.py
+  endpoint: VM101/backend/api/v1/forexfactory.py
+  contracts:
+    request: "POST /api/v1/forexfactory/sync body: {mode}"
+    response: ForexFactorySyncResult
+tags:
+  - phase-98
+  - ingestion
+  - forexfactory
+  - calendar
+  - economic-events
+  - forecast-snapshot
+  - vm101
+hard_scoped: true
+impact_on_decision: HIGH
+allowed_agent_profiles:
+  - agent_zero
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields ---
+typical_confidence: 0.90  # Reasoning: deterministic FF JSON fetch + SHA256 dedup + insert-on-change; well-defined failure modes
+expected_freshness_seconds: 3600  # Reasoning: weekday hourly schedule; at most 60 min stale during trading hours
+is_deterministic: true  # Reasoning: same FF feed + same registry state → same event rows; pure ingestion

@@ -62,7 +62,11 @@ b5_rubric_id: rubric.macro_investigator_qa
 b1_artifact_required: true
 
 # Iteration / cost limits
-max_iterations: 8
+# Phase 89.1 v6 fix: reduced from 8 to 3 to enforce the max-2-tool-calls
+# efficiency rule at the framework level. Local GPU inference is 30-60s/round;
+# 8 iterations = 4-8 min per question which exceeds dispatcher timeout.
+# With real vm102 data, 2 tool calls + 1 response = 3 iterations is sufficient.
+max_iterations: 3
 max_cost_usd: 0.70
 latency_budget_ms: 7000
 

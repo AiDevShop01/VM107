@@ -1,0 +1,86 @@
+id: get_indicator_series
+type: tool
+status: real
+shipped: 99.1
+last_changed: "2026-07-07"
+version: "1.0"
+description: >-
+  Return time-series measurement values for an economic indicator in a date range.
+  Reads EconomicMeasurement only (Phase 99.1 Wave 5 — intent-based single-model
+  read). Covers FRED and OECD historical time-series data (GDP, CPI, unemployment,
+  etc). Each row is an immutable point-in-time measurement value. For forward-looking
+  scheduled events, use get_upcoming_events. For release history, use get_release_history.
+capabilities:
+  - read
+  - economic_indicators
+  - indicator_series
+endpoint: "${VM100_API_URL}/api/v1/mission-control/macro-data/indicator-series"
+http_method: GET
+auth_type: bearer_jwt
+input_schema:
+  indicator_code:
+    type: string
+    required: true
+    description: EconomicIndicator.indicator_code (e.g. 'CPIAUCSL', 'GDP', 'UNRATE')
+  start_date:
+    type: string
+    format: date
+    required: true
+    description: Inclusive start date (YYYY-MM-DD) for measurement_date range
+  end_date:
+    type: string
+    format: date
+    required: true
+    description: Inclusive end date (YYYY-MM-DD) for measurement_date range
+output_schema:
+  measurements:
+    type: array
+    description: List of measurement values ordered by measurement_date ASC
+    items:
+      type: object
+      properties:
+        measurement_id:
+          type: integer
+          description: EconomicMeasurement PK
+        indicator_code:
+          type: string
+          description: EconomicIndicator.indicator_code
+        measurement_date:
+          type: string
+          format: date
+          description: The period this measurement applies to (YYYY-MM-DD)
+        value:
+          type: number
+          description: The measured value (immutable once recorded)
+        release_date:
+          type: string
+          format: date
+          description: When this value was published
+        data_quality_flag:
+          type: string
+          enum: [PRELIMINARY, REVISED, FINAL, ESTIMATED, ACTUAL]
+        source_provider_code:
+          type: string
+          nullable: true
+          description: SourceProvider.provider_code (e.g. 'fred', 'oecd_stat')
+        source_vintage:
+          type: string
+          description: Source system vintage identifier
+owner: mission_control
+phase: "99.1"
+wave: 5
+model_backing: EconomicMeasurement
+tags:
+  - tool
+  - macro
+  - economic-indicators
+  - indicator-series
+  - time-series
+  - phase-99-1
+  - wave-5
+  - single-model-read
+  - bearer-jwt
+  - fred
+  - oecd
+deprecated: false
+impact_on_decision: HIGH

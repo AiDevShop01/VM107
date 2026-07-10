@@ -36,3 +36,8 @@ description: >
   Phase 88.1 curator-only: base == adjusted for all quadrants.
   Phase 89+ hybrid blend introduces divergence between base and adjusted.
   Used by VM102 RCE endpoint + VM100 RegimeContributionPanel.
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

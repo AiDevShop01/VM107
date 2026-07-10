@@ -35,6 +35,11 @@ services:
     env_file:
       - .env.local
     environment:
+      # Agent Zero web-UI credentials (added 2026-07-10 salvage).
+      # Values live in .env at project root (gitignored).
+      AUTH_LOGIN: ${AUTH_LOGIN}
+      AUTH_PASSWORD: ${AUTH_PASSWORD}
+
       # Make fingpt_core importable from VM107 tools/Tier-1 builder.
       # Mounted from sibling Dagster repo at the path below.
       PYTHONPATH: /a0_extras:/a0

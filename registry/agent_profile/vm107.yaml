@@ -1,0 +1,61 @@
+id: vm107
+type: agent_profile
+status: real
+shipped: "87"
+last_changed: "2026-06-21"
+name: vm107
+description: |
+  Base agent_profile for the VM107 sub-profile namespace. Sub-profiles like
+  ``vm107.macro_regime_analyst`` / ``vm107.macro_release_analyst`` /
+  ``vm107.macro_transmission_analyst`` etc. declare themselves with this
+  ``vm107`` prefix; the stage-5 registry validator extracts the leading
+  segment before the first ``.`` and requires the base prefix to also be
+  registered as an agent_profile.
+
+  Created 2026-06-21 to resolve a startup crashloop where ``belief_store``
+  listed ``allowed_agent_profiles=[..., 'vm107.macro_regime_analyst', ...]``
+  and the validator refused to load because base profile ``vm107`` was
+  unregistered.
+
+  This file is a registration marker for the VM107 sub-profile namespace.
+  All concrete VM107 agent behavior lives in the dotted sub-profile YAMLs.
+version: 1.0.0
+phase: 87
+parent_profile: null
+hard_scoped: false
+sub_profiles:
+  - vm107.executive_summary_writer
+  - vm107.macro_asset_exposure_analyst
+  - vm107.macro_indicator_describer
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+  - vm107.macro_release_analyst
+  - vm107.macro_story_tracker
+  - vm107.macro_transmission_analyst
+allowed_tools: []
+denied_tools: []
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 20
+max_cost_usd: 5.0
+input_contract: null
+output_contract: null
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-06-21"
+    change: Base profile registration for vm107.* sub-profile namespace
+tags:
+  - agent-profile
+  - base-profile
+  - vm107
+  - namespace-registration
+impact_on_decision: HIGH
+allowed_agent_profiles: []
+deprecated: false

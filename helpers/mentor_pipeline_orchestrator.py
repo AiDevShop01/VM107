@@ -260,7 +260,10 @@ class MentorPipelineOrchestrator:
         # Tools whose signal_category is NOT in profile_memory_scope.adaptive_signal_categories
         # are removed from the candidate set here — they are NEVER passed to the LLM planner.
         # This is the primary firewall; individual tools also defend-in-depth (CTX-DEC-14).
-        _effective_candidate_tools: list[dict] = []
+        # BUG-12: initialize to None so `_run_reader`'s "if effective_candidate_tools
+        # is not None: kwargs['candidate_tools']=..." check correctly omits the kwarg
+        # when no candidate_tools were supplied. Empty list != "no tools."
+        _effective_candidate_tools: list[dict] | None = None
         if candidate_tools:
             _scope_for_prune = profile_memory_scope or {}
             _effective_candidate_tools = self._prune_tools_by_adaptive_scope(

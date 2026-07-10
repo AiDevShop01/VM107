@@ -40,3 +40,8 @@ description: >
   Macro Relationship Explorer endpoint. Returns {root, upstream, downstream} relationship
   edges for a focal indicator. Hard limits enforced server-side by the YAML loader.
   Missing curator YAML returns 200 + InsufficientCurator (never 500).
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

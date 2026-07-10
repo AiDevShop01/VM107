@@ -148,11 +148,19 @@ class ModelRouterLogCost(Extension):
             mongo = self.agent.get_data("mongo_client")
             if mongo is not None:
                 import uuid as _uuid
+                # 2026-06-11 — tag the row with the conversation_type so the
+                # /api/v1/telemetry/ai_routing aggregator can roll up per-mode
+                # stats (the MissionTelemetryStrip AI Routing panel's 6 conv
+                # rows). Additive field; readers tolerate its absence on
+                # pre-tag rows.
+                conv_type = self.agent.get_data("conversation_type")
+                extra = {"conversation_type": conv_type} if conv_type else {}
                 mongo.fingpt_agents.agent_runs.insert_one(
                     {
                         "_id": str(_uuid.uuid4()),
                         "schema_version": 1,
                         **record.model_dump(mode="python"),
+                        **extra,
                         "created_at": datetime.now(timezone.utc),
                     }
                 )

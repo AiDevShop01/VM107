@@ -3,7 +3,11 @@ type: contract
 status: real
 shipped: 74
 planned_phase: null
-last_changed: "2026-06-03"
+last_changed: "2026-06-11"
+# Stage 2 schema (core/registry/validation.py:_BaseEntrySchema) requires
+# this field on every capability. Notifications surface ranked attention to
+# the user via the bell — the user acts on them directly. HIGH.
+impact_on_decision: HIGH
 
 name: NotificationContract
 description: |

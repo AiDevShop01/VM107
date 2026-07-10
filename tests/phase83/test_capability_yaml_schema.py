@@ -41,8 +41,7 @@ def test_vm101_fred_calendar_yaml_has_required_fields():
     import yaml
 
     yaml_file = REGISTRY_TOOL_DIR / "vm101.fred_calendar.yaml"
-    if not yaml_file.exists():
-        pytest.fail("RED skeleton — Wave 6 Plan 12 will GREEN this (file doesn't exist yet)")
+    assert yaml_file.exists(), f"REQ-83-6: {yaml_file} must exist"
 
     data = yaml.safe_load(yaml_file.read_text())
     required = ["id", "type", "status", "vm", "capability_type", "version",

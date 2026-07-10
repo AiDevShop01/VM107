@@ -1,0 +1,73 @@
+id: get_forecast_drift
+type: tool
+status: real
+shipped: 99.1
+last_changed: "2026-07-07"
+version: "1.0"
+description: >-
+  Return point-in-time consensus forecast readings for a scheduled economic event.
+  Reads ForecastReading only (Phase 99.1 Wave 5 — intent-based single-model read).
+  Returns the chronological series of forecast snapshots leading up to an event,
+  ordered oldest-first. Use for consensus drift analysis — how the market's
+  forecast expectation evolved before the event released. Hard cutoff enforced:
+  no ForecastReading exists after the event materialized_at (per Phase 99.1 contract).
+capabilities:
+  - read
+  - economic_calendar
+  - forecast_drift
+endpoint: "${VM100_API_URL}/api/v1/mission-control/macro-data/forecast-drift"
+http_method: GET
+auth_type: bearer_jwt
+input_schema:
+  schedule_id:
+    type: integer
+    required: true
+    description: EconomicCalendarSchedule PK — use schedule_id from get_upcoming_events
+output_schema:
+  readings:
+    type: array
+    description: >-
+      Chronological list of forecast readings ordered by snapshot_taken_at ASC.
+      Empty list if no readings exist for this schedule_id.
+    items:
+      type: object
+      properties:
+        reading_id:
+          type: integer
+          description: ForecastReading PK
+        schedule_id:
+          type: integer
+          description: EconomicCalendarSchedule PK (parent)
+        source_provider_code:
+          type: string
+          description: SourceProvider.provider_code that supplied this reading
+        snapshot_taken_at:
+          type: string
+          format: date-time
+          description: When this forecast reading was captured (UTC, ISO 8601)
+        forecast_value:
+          type: number
+          description: Consensus forecast value at snapshot_taken_at
+        previous_value_snapshot:
+          type: number
+          nullable: true
+          description: Previous period value snapshot (denormalized for convenience)
+        consensus_source:
+          type: string
+          description: Consensus aggregation source identifier
+owner: mission_control
+phase: "99.1"
+wave: 5
+model_backing: ForecastReading
+tags:
+  - tool
+  - macro
+  - economic-calendar
+  - forecast-drift
+  - consensus-drift
+  - phase-99-1
+  - wave-5
+  - single-model-read
+  - bearer-jwt
+deprecated: false
+impact_on_decision: HIGH

@@ -30,3 +30,8 @@ method: GET
 auth: jwt_bearer
 contract: asset_sensitivity
 source_module: VM102/backend/api/v2/indicator_sensitivity.py
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

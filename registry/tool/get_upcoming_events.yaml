@@ -1,0 +1,94 @@
+id: get_upcoming_events
+type: tool
+status: real
+shipped: 99.1
+last_changed: "2026-07-07"
+version: "1.0"
+description: >-
+  List upcoming scheduled economic events within a look-ahead window.
+  Reads EconomicCalendarSchedule only (Phase 99.1 Wave 5 — intent-based
+  single-model read). Returns scheduled-event rows with consensus forecast,
+  impact tier, and source provider. Use for forward-looking macro calendar
+  awareness. For historical actual releases, use get_release_history.
+capabilities:
+  - read
+  - economic_calendar
+  - upcoming_events
+endpoint: "${VM100_API_URL}/api/v1/mission-control/macro-data/upcoming-events"
+http_method: GET
+auth_type: bearer_jwt
+input_schema:
+  window_hours:
+    type: integer
+    default: 24
+    min: 1
+    max: 168
+    description: Look-ahead window in hours (default 24h, max 1 week)
+  impacts:
+    type: string
+    default: "CRITICAL,HIGH"
+    description: Comma-separated impact tiers to include (CRITICAL,HIGH,MEDIUM,LOW)
+  provider:
+    type: string
+    optional: true
+    description: Filter by source_provider_code (e.g. 'forexfactory', 'oecd_stat', 'fred')
+output_schema:
+  events:
+    type: array
+    description: List of scheduled economic events ordered by scheduled_at ASC
+    items:
+      type: object
+      properties:
+        schedule_id:
+          type: integer
+          description: EconomicCalendarSchedule PK
+        title:
+          type: string
+          description: Indicator short name or indicator name
+        country:
+          type: string
+          description: ISO alpha-2 or currency code (e.g. 'US', 'USD')
+        impact:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        scheduled_at:
+          type: string
+          format: date-time
+          description: UTC canonical scheduled datetime (ISO 8601)
+        consensus_forecast:
+          type: number
+          nullable: true
+          description: Consensus forecast value at time of query
+        forecast_reading_count:
+          type: integer
+          description: Number of forecast readings aggregated into consensus
+        source_provider_code:
+          type: string
+          description: SourceProvider.provider_code (e.g. 'forexfactory')
+        indicator_code:
+          type: string
+          description: EconomicIndicator.indicator_code
+        scheduled_local:
+          type: string
+          format: date-time
+          nullable: true
+          description: Scheduled time in local timezone (if available)
+        timezone_offset_minutes:
+          type: integer
+          nullable: true
+          description: Offset from UTC in minutes
+owner: mission_control
+phase: "99.1"
+wave: 5
+model_backing: EconomicCalendarSchedule
+tags:
+  - tool
+  - macro
+  - economic-calendar
+  - upcoming-events
+  - phase-99-1
+  - wave-5
+  - single-model-read
+  - bearer-jwt
+deprecated: false
+impact_on_decision: HIGH

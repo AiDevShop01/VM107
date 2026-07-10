@@ -263,7 +263,13 @@ def test_healthz_returns_200_when_all_deps_ok():
         mock_redis_inst.ping.return_value = True
         mock_redis_cls.return_value = mock_redis_inst
 
+        import emitters.macro_emitter_healthz as healthz_mod
         from emitters.macro_emitter_healthz import HealthzHandler
+
+        # Register the closure the handler reads via (commit 0d16ee4 fixes
+        # the __main__ vs imported-module duplication bug). Without this,
+        # _GET_LAST_EMISSION_AT stays None and emission_fresh always trips false.
+        healthz_mod._GET_LAST_EMISSION_AT = lambda: emitter_mod._LAST_EMISSION_AT
 
         handler = HealthzHandler.__new__(HealthzHandler)
         handler.path = "/healthz"
@@ -328,7 +334,13 @@ def test_healthz_returns_503_when_redis_unreachable():
         mock_redis_inst.ping.side_effect = _redis.RedisError("connection refused")
         mock_redis_cls.return_value = mock_redis_inst
 
+        import emitters.macro_emitter_healthz as healthz_mod
         from emitters.macro_emitter_healthz import HealthzHandler
+
+        # Register the closure the handler reads via (commit 0d16ee4 fixes
+        # the __main__ vs imported-module duplication bug). Without this,
+        # _GET_LAST_EMISSION_AT stays None and emission_fresh always trips false.
+        healthz_mod._GET_LAST_EMISSION_AT = lambda: emitter_mod._LAST_EMISSION_AT
 
         handler = HealthzHandler.__new__(HealthzHandler)
         handler.path = "/healthz"
@@ -377,7 +389,13 @@ def test_healthz_returns_503_when_last_emission_stale():
         mock_redis_inst.ping.return_value = True
         mock_redis_cls.return_value = mock_redis_inst
 
+        import emitters.macro_emitter_healthz as healthz_mod
         from emitters.macro_emitter_healthz import HealthzHandler
+
+        # Register the closure the handler reads via (commit 0d16ee4 fixes
+        # the __main__ vs imported-module duplication bug). Without this,
+        # _GET_LAST_EMISSION_AT stays None and emission_fresh always trips false.
+        healthz_mod._GET_LAST_EMISSION_AT = lambda: emitter_mod._LAST_EMISSION_AT
 
         handler = HealthzHandler.__new__(HealthzHandler)
         handler.path = "/healthz"

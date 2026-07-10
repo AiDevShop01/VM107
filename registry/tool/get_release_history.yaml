@@ -1,0 +1,88 @@
+id: get_release_history
+type: tool
+status: real
+shipped: 99.1
+last_changed: "2026-07-07"
+version: "1.0"
+description: >-
+  Return materialized economic event release history for an indicator.
+  Reads EconomicEvent only (Phase 99.1 Wave 5 — intent-based single-model read).
+  Returns rows where actual_value has been published (materialized_at NOT NULL),
+  ordered most-recent-first. Use for historical actual vs forecast comparison,
+  surprise analysis, and regime detection. For forward-looking scheduled events,
+  use get_upcoming_events. For time-series measurement values, use get_indicator_series.
+capabilities:
+  - read
+  - economic_calendar
+  - release_history
+endpoint: "${VM100_API_URL}/api/v1/mission-control/macro-data/release-history"
+http_method: GET
+auth_type: bearer_jwt
+input_schema:
+  indicator_code:
+    type: string
+    required: true
+    description: EconomicIndicator.indicator_code (e.g. 'CPI', 'CPIAUCSL', 'NFP')
+  limit:
+    type: integer
+    default: 20
+    min: 1
+    max: 200
+    description: Maximum number of releases to return (most recent first)
+output_schema:
+  releases:
+    type: array
+    description: List of materialized release events ordered by event_date DESC
+    items:
+      type: object
+      properties:
+        event_id:
+          type: integer
+          description: EconomicEvent PK
+        title:
+          type: string
+          description: Indicator short name or indicator name
+        country:
+          type: string
+          description: ISO alpha-2 country code
+        impact:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        event_date:
+          type: string
+          format: date-time
+          description: When the data was released (UTC, ISO 8601)
+        actual_value:
+          type: number
+          nullable: true
+          description: Actual released value (immutable once set)
+        forecast_at_release:
+          type: number
+          nullable: true
+          description: Consensus forecast at time of release (expected_value)
+        source_provider_code:
+          type: string
+          description: SourceProvider.provider_code
+        indicator_code:
+          type: string
+          description: EconomicIndicator.indicator_code
+        materialized_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the Materializer created this EconomicEvent row
+owner: mission_control
+phase: "99.1"
+wave: 5
+model_backing: EconomicEvent
+tags:
+  - tool
+  - macro
+  - economic-calendar
+  - release-history
+  - phase-99-1
+  - wave-5
+  - single-model-read
+  - bearer-jwt
+deprecated: false
+impact_on_decision: HIGH

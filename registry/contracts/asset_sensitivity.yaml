@@ -31,3 +31,8 @@ description: |
 
 source_file: fingpt_core/src/fingpt_core/contracts/asset_sensitivity.py
 service: asset_sensitivity_engine
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

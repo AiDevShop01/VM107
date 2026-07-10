@@ -42,3 +42,6 @@ riv_requirements:
   - RIV-03
 sibling_agent: gsd-verifier
 closes_feedback: feedback_ui_phase_verify_with_render_chain.md
+# Required by CapabilityRegistry stage-2 schema validator — HIGH because a
+# Critical/Major render-walk failure hard-blocks plan close and deploy.
+impact_on_decision: HIGH

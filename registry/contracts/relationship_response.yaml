@@ -38,3 +38,8 @@ description: >
   Phase 88.1: YAML-only provider with hard caps (5/5/depth-2).
   Phase 89+: Neo4j traversal + drift agent (same schema, live graph source).
   Used by VM102 Macro Relationship Explorer endpoint + VM100 MacroRelationshipExplorer component.
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

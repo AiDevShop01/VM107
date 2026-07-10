@@ -38,3 +38,7 @@ seed_indicators:
   - DGS10
   - VIXCLS
   - OIL
+# Required by CapabilityRegistry stage-2 schema validator. HIGH because
+# indicator enrichment feeds the IndicatorPage that drives macro-analyst
+# decisions — failure to enrich materially changes recommendation quality.
+impact_on_decision: HIGH

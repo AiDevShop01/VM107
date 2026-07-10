@@ -25,3 +25,8 @@ description: >
   Pydantic v2 (write-time) + Zod .strict() (read-time) dual enforcement.
   raw_text is forbidden by both gates per Phase 38 typed-contract lock and CONTEXT.md AI-01.
   Curator YAML (Layer 1) is source of truth; AI only generates fields in this contract.
+# Auto-added 2026-06-21 — required by CapabilityRegistry stage-2 schema validator.
+# MEDIUM default for contracts / api accessors / mgmt commands — these define
+# data shapes / access paths rather than directly making decisions. Adjust to
+# HIGH for capabilities whose absence would materially change agent behaviour.
+impact_on_decision: MEDIUM

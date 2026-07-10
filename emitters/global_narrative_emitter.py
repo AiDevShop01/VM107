@@ -20,7 +20,7 @@ from typing import Any
 
 from emitters.source_health_registry import SourceHealthRegistry, SourceHealth
 from emitters.degradation_policy_engine import DegradationPolicyEngine, DegradationTier
-from emitters.novelty_engine import NoveltyEngine, NoveltyDimensions
+from emitters.novelty_engine import NoveltyEngine, NoveltyDimensions, NoveltyScore
 
 log = logging.getLogger(__name__)
 
@@ -120,8 +120,31 @@ class GlobalNarrativeEmitter:
         base_summary = self._build_base_summary(ctx, state_lower)
 
         # 5. Novelty scoring — uses interrupt dims if provided.
-        dims = interrupt_dims or self._compute_novelty_dims(ctx)
-        novelty = self._novelty.score(dims)
+        # 2026-07-02: guarded because prior implementation constructed
+        # `NoveltyDimensions(macro_novelty=..., regime_novelty=..., ...)`
+        # against a string Enum (raised `TypeError: EnumType.__call__() got
+        # an unexpected keyword argument 'macro_novelty'`), 500-ing every
+        # narrative fetch and forcing VM100's fallback path on every page
+        # load. The engine V1 only has a live MACRO scorer; other dims
+        # raise NotImplementedError. If the picked dimension's scorer
+        # can't process `ctx` (shape mismatch is likely — score_macro
+        # wants indicator_code/severity/event_date, ctx has aggregated
+        # summary fields), degrade to a zero-novelty score so the
+        # template-summary path still emits (no LLM enrichment).
+        try:
+            dims = interrupt_dims or self._compute_novelty_dims(ctx)
+            novelty = self._novelty.score(dims, ctx)
+        except Exception as exc:  # noqa: BLE001 — defensive: never 500 the endpoint
+            log.warning(
+                "global_narrative_emitter.novelty_scoring_degraded",
+                extra={"exc_type": type(exc).__name__, "exc": str(exc)[:200]},
+            )
+            novelty = NoveltyScore(
+                score=0.0,
+                contributing_factors=[],
+                threshold_crossed=False,
+                reason_codes=["NOVELTY_SCORING_DEGRADED"],
+            )
 
         # 6. Confidence vector (compound DEMO-flip rule from CONTEXT.md §2).
         confidence = self._compute_confidence(ctx, tier)
@@ -311,18 +334,19 @@ class GlobalNarrativeEmitter:
             return f"Market is in {regime_label} during the {state} session."
 
     def _compute_novelty_dims(self, ctx: dict) -> NoveltyDimensions:
-        """Map assembled context → NoveltyDimensions deterministically."""
-        return NoveltyDimensions(
-            macro_novelty=float(ctx.get("macro_novelty", 0.0)),
-            regime_novelty=float(ctx.get("regime_novelty", 0.0)),
-            structural_novelty=float(ctx.get("structural_novelty", 0.0)),
-            volatility_novelty=float(ctx.get("volatility_novelty", 0.0)),
-            behavioral_novelty=float(ctx.get("behavioral_novelty", 0.0)),
-            regime_transition=bool(ctx.get("regime_transition", False)),
-            macro_event_arrival=bool(ctx.get("macro_event_arrival", False)),
-            structural_break=bool(ctx.get("structural_break", False)),
-            risk_escalation=bool(ctx.get("risk_escalation", False)),
-        )
+        """Pick the primary novelty dimension to score for narrative gating.
+
+        2026-07-02 — previously tried to construct `NoveltyDimensions` as a
+        dataclass with per-dimension score kwargs, but the type is a string
+        `Enum` listing the 5 dimension names (MACRO/REGIME/STRUCTURAL/
+        VOLATILITY/BEHAVIORAL). Enum members are selected, not constructed
+        with kwargs — the prior code raised `TypeError` on every call.
+
+        V1 (Phase 83) only has a live MACRO scorer; the other 4 dimensions
+        are stubs (`raise NotImplementedError`). Emit MACRO so the caller
+        gets a real NoveltyScore back when the payload shape matches.
+        """
+        return NoveltyDimensions.MACRO
 
     def _compute_confidence(
         self, ctx: dict, tier: DegradationTier

@@ -139,6 +139,11 @@ class UtilModelRouterLogCost(Extension):
                     mongo_client = pymongo.MongoClient(mongo_uri)
 
             if mongo_client is not None:
+                # 2026-06-11 — additive conversation_type tag (chat-side hook
+                # mirrors the same write). Drives the AI Routing telemetry
+                # panel's 6 conv-type rows. Utility-path calls usually lack
+                # an explicit conv_type; the tag is omitted in that case.
+                conv_type = self.agent.get_data("conversation_type")
                 record = {
                     "_id": str(uuid.uuid4()),
                     "schema_version": 1,
@@ -157,6 +162,8 @@ class UtilModelRouterLogCost(Extension):
                     "attempt_count": attempt_count,  # Phase 43.2: total attempts made
                     "created_at": datetime.now(timezone.utc),
                 }
+                if conv_type:
+                    record["conversation_type"] = conv_type
                 # Use dot notation (same as chat-side hook and agent_init pattern)
                 mongo_client.fingpt_agents.agent_runs.insert_one(record)
         except Exception as e:
