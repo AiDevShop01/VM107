@@ -1,8 +1,8 @@
 allow_chat_override: true
 
 chat_model:
-  provider: "openrouter"
-  name: "anthropic/claude-sonnet-4.6"
+  provider: "deepseek"
+  name: "deepseek/deepseek-v4-flash"
   api_base: ""
   ctx_length: 200000
   ctx_history: 0.7
@@ -14,8 +14,8 @@ chat_model:
   kwargs: {}
 
 utility_model:
-  provider: "openrouter"
-  name: "google/gemini-3.1-flash-lite-preview"
+  provider: "deepseek"
+  name: "deepseek/deepseek-v4-flash"
   api_base: ""
   ctx_length: 128000
   ctx_input: 0.7

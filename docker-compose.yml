@@ -89,6 +89,12 @@ services:
       VM107_AGENT_ZERO_URL: "${VM107_AGENT_ZERO_URL:-http://localhost:80}"
     volumes:
       - ./usr:/a0/usr
+      # 2026-07-10 salvage — bind-mount default_config.yaml so the model
+      # provider defaults (chat_model, utility_model) can be updated without
+      # rebuilding the image. Overrides the "openrouter" default which caused
+      # "API key missing (openrouter)" UI warning; changed to "deepseek" to
+      # match A0_SET_utility_model_provider env + our populated API_KEY_DEEPSEEK.
+      - ./plugins/_model_config/default_config.yaml:/a0/plugins/_model_config/default_config.yaml:ro
       # Phase 85.1 — mount the live registry so capability YAML edits propagate
       # to A0 without a rebuild. Required for A0's prompt-building extensions
       # (_11_tools_prompt.py) which read from CapabilityRegistry.
