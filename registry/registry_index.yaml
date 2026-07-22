@@ -187,3 +187,78 @@ phase_92:
       phase: 92
       description: "Phase 91 routing event for novel research patterns; mirrors alert_candidate_created shape; default severity=watch (Plan 5)"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 103.4 — Session Intelligence Workbench AI integration
+# Six SIW AI consumers registered ADDITIVELY as Capability-Registry tools
+# (AI-02, SC#12/#15). Additive-only (D-07-AI): no engine/EventBus/belief-graph
+# change. SIW→VM107 invocation uses the LOCKED sync POST /api/api_message
+# contract (103.4-01). Each entry's read pointer is a VM102 102.1 session surface.
+# ─────────────────────────────────────────────────────────────────────────────
+
+phase_103_4:
+  description: "Phase 103.4 SIW AI integration — 6 consumer tools + 1 least-privilege agent_profile (additive; +7 registry entries, 561→568)"
+  shipped: 103
+  wave_summary:
+    wave1: "session_analyst + probability_agent + data_quality_agent + report_writer (ship-now) + pattern_discovery_agent/research_agent (deferred stubs) + session_analyst_agent profile"
+
+  entries:
+
+    # ── Ship-now consumer tools (4) ───────────────────────────────────────────
+    - id: session_analyst
+      type: tool
+      path: registry/tool/session_analyst.yaml
+      wave: 1
+      status: real
+      phase: 103.4
+      description: "SHIP-NOW SIW consumer — narrates VM102 /api/session/statistics + classification (AI narrative, non-deterministic)"
+
+    - id: probability_agent
+      type: tool
+      path: registry/tool/probability_agent.yaml
+      wave: 1
+      status: real
+      phase: 103.4
+      description: "SHIP-NOW SIW consumer — narrates VM102 /api/session/probability conditional distribution (after 103.3)"
+
+    - id: data_quality_agent
+      type: tool
+      path: registry/tool/data_quality_agent.yaml
+      wave: 1
+      status: real
+      phase: 103.4
+      description: "SHIP-NOW SIW consumer — partition/gap coverage via VM102 /api/session/{id}/structure + /liquidity (honest-empty discipline)"
+
+    - id: report_writer
+      type: tool
+      path: registry/tool/report_writer.yaml
+      wave: 1
+      status: real
+      phase: 103.4
+      description: "SHIP-LIMITED SIW consumer — narrate-only over statistics/compare/related; full reports = Phase 108"
+
+    # ── Deferred consumer tools (2) — registered for SC#12 traceability, honest MockBadge in plan 04 ──
+    - id: pattern_discovery_agent
+      type: tool
+      path: registry/tool/pattern_discovery_agent.yaml
+      wave: 1
+      status: stub
+      phase: 103.4
+      description: "DEFERRED (deferred_phase_105) — needs Phase 105 similarity surface; stub for traceability, UI renders honest MockBadge"
+
+    - id: research_agent
+      type: tool
+      path: registry/tool/research_agent.yaml
+      wave: 1
+      status: stub
+      phase: 103.4
+      description: "DEFERRED (deferred_phase_106, D-07 tension) — needs Phase 106 Research Workbench; stub for traceability, UI renders honest MockBadge"
+
+    # ── Least-privilege agent profile (1) — V5 / T-103.4-02-01 mitigation ──────
+    - id: session_analyst_agent
+      type: agent_profile
+      path: registry/agent_profile/session_analyst_agent.yaml
+      wave: 1
+      status: real
+      phase: 103.4
+      description: "Least-privilege profile scoping SIW consumers to the four ship-now session read tools (hard_scoped; V5 prompt-injection guard)"
+

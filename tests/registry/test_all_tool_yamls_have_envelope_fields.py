@@ -25,7 +25,10 @@ from pathlib import Path
 import yaml
 
 TOOL_YAML_DIR = Path(__file__).resolve().parents[2] / "registry" / "tool"
-EXPECTED_TOOL_COUNT = 55  # Updated by Phase 83 Plan 12: +2 new YAMLs (vm101.fred_calendar, vm107.novelty_engine)
+EXPECTED_TOOL_COUNT = 82  # Phase 103.4 Plan 02: +6 SIW AI consumer YAMLs (additive delta).
+# NOTE: the prior literal (55, Phase 83 Plan 12) was stale — the tool/ dir had already
+# drifted to 76 files via Phases 85-96 (macro/research tools added without updating this
+# constant). This bump reconciles the true baseline (76) + the +6 Phase-103.4 consumers = 82.
 SEMVER_LITE_PATTERN = re.compile(r"^\d+\.\d+(\.\d+)?$")
 
 
