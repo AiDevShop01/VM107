@@ -1,0 +1,44 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI). Mirrors regime_analysis_tool.yaml.
+# DEFERRED consumer: registered for traceability (SC#12); the panel layer
+# (plan 04) keys an honest MockBadge off the deferred_phase_105 tag below.
+
+id: pattern_discovery_agent
+type: tool
+status: stub
+name: pattern_discovery_agent
+description: |
+  Pattern Discovery Agent — DEFERRED SIW AI consumer. Intended to surface
+  recurring cross-session patterns by reading a session-similarity surface that
+  does not yet exist — it depends on the Phase 105 similarity/clustering work.
+  Registered now as a stub for Capability-Registry traceability (SC#12) so the
+  SIW panel renders an honest MockBadge (keyed off deferred_phase_105), never a
+  fabricated result. No functional read wired until Phase 105 ships.
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/{id}/related   # placeholder — Phase 105 similarity surface supersedes
+related_capabilities:
+  - session_analyst
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - deferred
+  - deferred_phase_105
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+last_changed: "2026-07-22"
+impact_on_decision: LOW
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.50   # Reasoning: exploratory pattern discovery; low prior confidence, deferred
+expected_freshness_seconds: 600   # Reasoning: cross-session pattern scan is a slow, batch-cadence read
+is_deterministic: false   # Reasoning: LLM-mediated pattern narrative

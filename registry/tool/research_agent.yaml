@@ -1,0 +1,46 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI). Mirrors regime_analysis_tool.yaml.
+# DEFERRED consumer (D-07 tension): registered for traceability (SC#12); the
+# panel layer (plan 04) keys an honest MockBadge off the deferred_phase_106 tag.
+
+id: research_agent
+type: tool
+status: stub
+name: research_agent
+description: |
+  Research Agent — DEFERRED SIW AI consumer. Intended to link session behaviour
+  to macro/research context via the Phase 106 Research Workbench, which does not
+  yet exist (D-07 tension: registered here for traceability, functionally
+  deferred). Registered now as a stub for Capability-Registry traceability
+  (SC#12) so the SIW panel renders an honest MockBadge (keyed off
+  deferred_phase_106), never a fabricated result. No functional read wired until
+  Phase 106 ships.
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/statistics   # placeholder — Phase 106 Research Workbench surface supersedes
+related_capabilities:
+  - session_analyst
+  - report_writer
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - deferred
+  - deferred_phase_106
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+last_changed: "2026-07-22"
+impact_on_decision: LOW
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.50   # Reasoning: cross-domain research linkage; low prior confidence, deferred
+expected_freshness_seconds: 600   # Reasoning: research-context linkage is a slow, batch-cadence read
+is_deterministic: false   # Reasoning: LLM-mediated research narrative

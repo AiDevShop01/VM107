@@ -1,0 +1,46 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI). Mirrors regime_analysis_tool.yaml.
+# SIW→VM107 invocation uses the LOCKED sync POST /api/api_message contract.
+
+id: report_writer
+type: tool
+status: real
+name: report_writer
+description: |
+  Report Writer — SHIP-LIMITED SIW AI consumer. Narrates the already-shipped
+  102.1/103.x session surfaces (statistics, comparison, related-sessions) into
+  a short readable summary. SHIP-LIMITED: narrate-only over existing endpoints;
+  full multi-section session reports (export/templated) are Phase 108, not this
+  release. Read-only; narrative output (non-deterministic).
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/statistics
+    compare: VM102/api/session/compare
+    related: VM102/api/session/{id}/related
+related_capabilities:
+  - session_analyst
+  - probability_agent
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - ship-limited
+  - full_reports_phase_108
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+  - session_analyst_agent
+last_changed: "2026-07-22"
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.60   # Reasoning: synthesises multiple narrative surfaces; interpretive summary
+expected_freshness_seconds: 300   # Reasoning: bounded by the freshest underlying session surface
+is_deterministic: false   # Reasoning: LLM-authored summary prose

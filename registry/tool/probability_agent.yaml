@@ -1,0 +1,45 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI). Mirrors regime_analysis_tool.yaml.
+# SIW→VM107 invocation uses the LOCKED sync POST /api/api_message contract.
+
+id: probability_agent
+type: tool
+status: real
+name: probability_agent
+description: |
+  Probability Agent — SHIP-NOW SIW AI consumer (available after 103.3). Reads
+  the VM102 /api/session/probability surface and narrates the historical
+  conditional-probability distribution (e.g. likelihood of a directional
+  continuation given the session's opening structure) into a calibrated,
+  hedged plain-language statement. Read-only; probabilistic narrative output
+  (non-deterministic).
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/probability
+related_capabilities:
+  - session_analyst
+  - report_writer
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - ship-now
+  - probability
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+  - session_analyst_agent
+last_changed: "2026-07-22"
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.60   # Reasoning: probabilistic inference over historical priors; inherently uncertain
+expected_freshness_seconds: 300   # Reasoning: probability tables recompute on session-aggregate refresh
+is_deterministic: false   # Reasoning: LLM-mediated probabilistic narrative

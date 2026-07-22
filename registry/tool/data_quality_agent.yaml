@@ -1,0 +1,44 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI). Mirrors regime_analysis_tool.yaml.
+# SIW→VM107 invocation uses the LOCKED sync POST /api/api_message contract.
+
+id: data_quality_agent
+type: tool
+status: real
+name: data_quality_agent
+description: |
+  Data Quality Agent — SHIP-NOW SIW AI consumer. Inspects partition/gap
+  coverage for a session by reading the VM102 /api/session/{id}/structure and
+  /liquidity surfaces, and reports honestly on completeness (missing bars,
+  thin liquidity windows, partial partitions) so downstream narratives are not
+  built on silently incomplete data (honest-empty discipline). Read-only.
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/{id}/structure
+    liquidity: VM102/api/session/{id}/liquidity
+related_capabilities:
+  - session_analyst
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - ship-now
+  - data-quality
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+  - session_analyst_agent
+last_changed: "2026-07-22"
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields
+typical_confidence: 0.75   # Reasoning: coverage assessment reads factual partition/gap data; interpretation is bounded
+expected_freshness_seconds: 300   # Reasoning: structure/liquidity coverage changes on partition ingest
+is_deterministic: false   # Reasoning: LLM-authored coverage narrative over factual inputs

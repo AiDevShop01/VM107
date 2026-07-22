@@ -1,0 +1,48 @@
+# Phase 103.4 Plan 02 — SIW AI consumer tool YAML (SC#12/#15, AI-02).
+# Additive Capability-Registry registration of a Session Intelligence Workbench
+# AI consumer. Additive-only (D-07-AI): no engine/EventBus/belief-graph file
+# touched. Mirrors registry/tool/regime_analysis_tool.yaml. Invocation of VM107
+# from SIW uses the LOCKED synchronous POST /api/api_message contract (103.4-01);
+# location.endpoint.read below is the VM102 102.1 read surface this consumer reads.
+
+id: session_analyst
+type: tool
+status: real
+name: session_analyst
+description: |
+  Session Analyst — SHIP-NOW SIW AI consumer. Narrates the frozen 102.1
+  SessionStatistics projection (range/volatility/participation) plus the
+  SessionClassification verdict into a plain-language read of what a session
+  did and why it matters. Read-only over VM102 session surfaces; produces an
+  AI narrative (non-deterministic). Confidence surfaces via the VM107
+  b5_result envelope (assembled VM102-side per 103.4-01 caveat 1).
+category: session-intelligence
+version: "1.0.0"
+producer: vm107
+phase: "103.4"
+location:
+  endpoint:
+    read: VM102/api/session/statistics
+    classification: VM102/api/session/{id}/classification
+related_capabilities:
+  - probability_agent
+  - data_quality_agent
+  - report_writer
+tags:
+  - session-intelligence
+  - siw
+  - ai-consumer
+  - ship-now
+  - phase-103.4
+hard_scoped: false
+allowed_agent_profiles:
+  - agent_zero
+  - session_analyst_agent
+last_changed: "2026-07-22"
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (honest: AI narrative → non-deterministic)
+typical_confidence: 0.70   # Reasoning: LLM narration over deterministic 102.1 stats; grounded but interpretive
+expected_freshness_seconds: 120   # Reasoning: session statistics refresh on new session-close ingest
+is_deterministic: false   # Reasoning: LLM-authored narrative — same inputs may yield varied prose

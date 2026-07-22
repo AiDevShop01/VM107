@@ -1,0 +1,56 @@
+# Phase 103.4 Plan 02 — least-privilege agent profile for SIW session consumers.
+# V5 prompt-injection mitigation (threat T-103.4-02-01): scopes the SIW session
+# AI consumers to the ship-now session read tools ONLY, so a poisoned session
+# narrative cannot pivot the agent onto unrelated capabilities. Additive-only
+# (D-07-AI): mirrors registry/agent_profile/agent_zero.yaml; no engine change.
+
+id: session_analyst_agent
+type: agent_profile
+status: real
+shipped: 103
+last_changed: "2026-07-22"
+name: session_analyst_agent
+description: |
+  Least-privilege agent profile for the Session Intelligence Workbench AI
+  consumers. Bound narrowly (hard_scoped) to the four ship-now session read
+  tools (session_analyst, probability_agent, data_quality_agent, report_writer)
+  so the SIW read path cannot be pivoted onto unrelated tooling via a poisoned
+  session narrative (V5). The two deferred consumers (pattern_discovery_agent,
+  research_agent) are intentionally excluded until Phases 105/106 ship.
+version: "1.0.0"
+phase: "103.4"
+parent_profile: null
+hard_scoped: true
+sub_profiles: []
+allowed_tools:
+  - session_analyst
+  - probability_agent
+  - data_quality_agent
+  - report_writer
+denied_tools: []
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+max_iterations: 12
+max_cost_usd: 2.0
+input_contract: null
+output_contract: null
+template_version: 1.0.0
+template_version_changelog:
+  - version: 1.0.0
+    date: "2026-07-22"
+    change: Phase 103.4 Plan 02 — least-privilege SIW session-consumer profile
+tags:
+  - agent-profile
+  - session-intelligence
+  - siw
+  - least-privilege
+  - phase-103.4
+impact_on_decision: MEDIUM
+allowed_agent_profiles: []
+deprecated: false
