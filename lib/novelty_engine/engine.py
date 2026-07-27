@@ -125,3 +125,77 @@ class NoveltyEngine:
         patching the module. Prefer sub-classing or dependency injection.
         """
         self._dispatch[dimension] = scorer
+
+    # ── Config-driven thresholds (Phase 66 checker WARNING 2) ────────────────
+    # Restored 2026-07-27: the Phase 83-08 "V1" rewrite dropped these accessors
+    # while the DISCOVERIES composer
+    # (emitters/intelligence_feed_discoveries_composer.py) still calls
+    # get_discoveries_threshold() at __init__ — every /intelligence_feed/
+    # discoveries request was raising AttributeError. Thresholds load from the
+    # shared novelty_config.yaml; NEVER hardcode them at a call site (WARNING 2).
+
+    # Documented defaults — used ONLY if novelty_config.yaml can't be located.
+    _DEFAULT_NARRATIVE_THRESHOLD = 0.7
+    _DEFAULT_DISCOVERIES_THRESHOLD = 0.85
+
+    @staticmethod
+    def _find_novelty_config() -> Optional[Any]:
+        """Locate novelty_config.yaml. engine.py lives at
+        <app_root>/lib/novelty_engine/engine.py, so the canonical config is at
+        <app_root>/emitters/novelty_config.yaml (66-02)."""
+        from pathlib import Path
+
+        here = Path(__file__).resolve()
+        app_root = here.parents[2]
+        candidates = [
+            here.parent / "novelty_config.yaml",             # colocated (future-proof)
+            app_root / "emitters" / "novelty_config.yaml",   # canonical (66-02)
+            app_root / "services" / "novelty_config.yaml",   # services copy
+        ]
+        for c in candidates:
+            if c.is_file():
+                return c
+        return None
+
+    def _load_thresholds(self) -> None:
+        """Lazily load + cache narrative/discoveries thresholds from config.
+
+        Falls back to documented defaults (0.7 / 0.85) only if the config file
+        cannot be found or parsed — a downstream composer must never crash just
+        because config discovery failed."""
+        if getattr(self, "_thresholds_loaded", False):
+            return
+        narrative = self._DEFAULT_NARRATIVE_THRESHOLD
+        discoveries = self._DEFAULT_DISCOVERIES_THRESHOLD
+        cfg_path = self._find_novelty_config()
+        if cfg_path is not None:
+            try:
+                import yaml
+
+                with open(cfg_path) as fh:
+                    cfg = yaml.safe_load(fh) or {}
+                narrative = float(
+                    cfg.get("narrative_threshold", cfg.get("threshold", narrative))
+                )
+                discoveries = float(cfg.get("discoveries_threshold", discoveries))
+            except Exception:  # noqa: BLE001 — defensive; keep defaults on any error
+                pass
+        self._narrative_threshold = narrative
+        self._discoveries_threshold = discoveries
+        self._thresholds_loaded = True
+
+    def get_narrative_threshold(self) -> float:
+        """Narrative novelty gate (config-driven, WARNING 2). Default 0.7."""
+        self._load_thresholds()
+        return self._narrative_threshold
+
+    def get_discoveries_threshold(self) -> float:
+        """Stricter DISCOVERIES novelty gate (config-driven, WARNING 2). Default
+        0.85. MUST be > narrative_threshold (CONTEXT.md §4 lock) so discoveries
+        stay rare and meaningful."""
+        self._load_thresholds()
+        return self._discoveries_threshold
+
+    def get_threshold(self) -> float:
+        """Backward-compat alias for get_narrative_threshold() (Plan 66-01)."""
+        return self.get_narrative_threshold()
