@@ -82,7 +82,7 @@ def _build_tracker():
     persist_repo = _import_macro_story_repo()
     ws_publisher = _import_ws_publisher()
 
-    episodic = EpisodicMemoryService()
+    episodic = EpisodicMemoryService(embedding_service=embedding_service)
     poller = ReleasePoller()
 
     return MacroStoryTracker(

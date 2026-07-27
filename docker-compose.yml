@@ -424,6 +424,7 @@ services:
       - ./scripts:/a0/scripts:ro
       - ./core:/a0/core:ro
       - ./persistence:/a0/persistence:ro
+      - ./persist:/a0/persist:ro
       - ./publishers:/a0/publishers:ro
       - ./services:/a0/services:ro
       - ./profiles:/a0/profiles:ro
@@ -503,6 +504,7 @@ services:
       - ./scripts:/a0/scripts:ro
       - ./core:/a0/core:ro
       - ./persistence:/a0/persistence:ro
+      - ./persist:/a0/persist:ro
       - ./publishers:/a0/publishers:ro
       - ./services:/a0/services:ro
       - ./profiles:/a0/profiles:ro
