@@ -863,6 +863,74 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=95"
 
+  # ---------------------------------------------------------------------------
+  # Notification-pipeline wire-up Phase 1 — vm107-cost-monitor sibling service
+  #
+  # CLAUDE.md lock (feedback_mgmt_commands_need_compose_service.md): every
+  # long-running worker MUST ship as a docker-compose sibling service. This
+  # service runs an APScheduler BlockingScheduler (scripts/run_cost_monitor.py)
+  # that every COST_MONITOR_INTERVAL_SEC (default 300s) aggregates AI-spend from
+  # fingpt_agents.agent_runs and drives the two dormant Phase 74 detectors
+  # (CostAnomalyDetector + BudgetThresholdMonitor), which publish Observations to
+  # the `vm107.observations` Redis channel consumed by VM100's notification bell.
+  # Without this service the detectors have no trigger — their inputs were
+  # populated only by tests (Phase 74-03 cautionary tale: a producer with no
+  # compose service silently never runs).
+  #
+  # Restart after env changes (NEVER `docker restart` — it ignores env_file edits):
+  #   docker compose up -d --force-recreate --no-deps vm107-cost-monitor
+  # ---------------------------------------------------------------------------
+  vm107-cost-monitor:
+    container_name: vm107-cost-monitor
+    build:
+      context: .
+      dockerfile: DockerfileLocal
+    image: vm107-agent-zero:local
+    restart: unless-stopped
+    command: /opt/venv-a0/bin/python -m scripts.run_cost_monitor
+    env_file:
+      - .env.local
+    environment:
+      PYTHONPATH: /a0_extras:/a0
+      # ── Required — fail-fast at startup (env-driven-no-fallbacks lock) ──────
+      # ${VAR:?msg} aborts `docker compose up` if unset. The runner ALSO
+      # re-checks these at process boot before wiring collaborators, and the
+      # detectors + observation_publisher fail-fast on them at import time.
+      MONGODB_URI: "${MONGODB_URI:?MONGODB_URI is required (cost-monitor — fingpt_agents.agent_runs source)}"
+      VM107_SUPERVISORY_REDIS_URL: "${VM107_SUPERVISORY_REDIS_URL:?VM107_SUPERVISORY_REDIS_URL is required (cost-monitor — observation_publisher channel)}"
+      COST_ANOMALY_MULTIPLIER_WARN: "${COST_ANOMALY_MULTIPLIER_WARN:?COST_ANOMALY_MULTIPLIER_WARN is required (cost-monitor — cost_anomaly_detector)}"
+      COST_ANOMALY_MULTIPLIER_CRITICAL: "${COST_ANOMALY_MULTIPLIER_CRITICAL:?COST_ANOMALY_MULTIPLIER_CRITICAL is required (cost-monitor — cost_anomaly_detector)}"
+      DAILY_AI_BUDGET_USD: "${DAILY_AI_BUDGET_USD:?DAILY_AI_BUDGET_USD is required (cost-monitor — budget_threshold_monitor)}"
+      # ── Optional tunable — tick cadence in seconds (default 300) ────────────
+      COST_MONITOR_INTERVAL_SEC: "${COST_MONITOR_INTERVAL_SEC:-300}"
+    volumes:
+      - ./usr:/a0/usr
+      - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
+      # Runner + its transitive imports (aggregator, detectors, publisher,
+      # cost_calculator, budget_tracker). Bind-mounted so host edits propagate
+      # without an image rebuild (mirrors the macro-regime-monitor layout).
+      - ./scripts:/a0/scripts:ro
+      - ./services:/a0/services:ro
+      - ./core:/a0/core:ro
+      # Heartbeat file is written under /app/logs by the runner; the healthcheck
+      # reads it from the same path.
+      - ./logs:/app/logs
+    depends_on:
+      vm107-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/opt/venv-a0/bin/python", "-m", "scripts.cost_monitor_health"]
+      interval: 5m
+      timeout: 30s
+      retries: 3
+      start_period: 2m
+    networks:
+      - vm107_network
+    labels:
+      - "com.tradetracker.service=vm107-cost-monitor"
+      - "com.tradetracker.component=worker"
+      - "com.tradetracker.phase=notification-wireup"
+
 volumes:
   redis_data:
 
