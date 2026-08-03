@@ -140,6 +140,11 @@ class StartupMonitor:
         self.mark("ready", source)
         self._ready.set()
         self._stop.set()
+        # Stand down the whole-boot watchdog armed in run_ui.run() the moment the
+        # internal /api/health probe passes, so a slow-but-healthy boot is never
+        # killed (Pitfall 2). Harmless double-call: cancel is a no-op if no timer
+        # is scheduled, and the _ready guard above keeps mark_ready idempotent.
+        faulthandler.cancel_dump_traceback_later()
 
     def is_ready(self) -> bool:
         return self._ready.is_set()
