@@ -39,6 +39,9 @@ DEFAULT_HEALTH_TIMEOUT_SECONDS = int(
 DEFAULT_HEALTH_POLL_INTERVAL_SECONDS = float(
     os.environ.get("A0_SELF_UPDATE_HEALTH_POLL_INTERVAL_SECONDS", "2")
 )
+NORMAL_BOOT_MAX_ATTEMPTS = int(
+    os.environ.get("A0_NORMAL_BOOT_MAX_ATTEMPTS", "2")
+)
 DEFAULT_BACKUP_DIR = "/root/update-backups"
 DEFAULT_BACKUP_CONFLICT_POLICY = "rename"
 BACKUP_CONFLICT_POLICIES = {"rename", "overwrite", "fail"}
@@ -1194,7 +1197,19 @@ def docker_run_ui() -> int:
         )
         process = launch_ui_process(REPO_DIR, logger)
     else:
-        process = launch_ui_process(REPO_DIR, quiet_logger)
+        for _attempt in range(1, NORMAL_BOOT_MAX_ATTEMPTS + 1):
+            process = launch_ui_process(REPO_DIR, quiet_logger)
+            healthy, _details = wait_for_health(
+                process,
+                health_url=DEFAULT_HEALTH_URL,
+                timeout_seconds=DEFAULT_HEALTH_TIMEOUT_SECONDS,
+                poll_interval_seconds=DEFAULT_HEALTH_POLL_INTERVAL_SECONDS,
+                logger=quiet_logger,
+            )
+            if healthy:
+                return wait_for_process(process)
+            terminate_process(process)
+        return 1
 
     return wait_for_process(process)
 
