@@ -53,6 +53,24 @@ def save_tmp_chats():
 
 def load_tmp_chats():
     """Load all contexts from the chats folder"""
+    # Phase 132 SC-2 — dormant, env-gated fault-injection hook (additive-only).
+    # Simulates a never-completing deferred init so the boot watchdog / normal-path
+    # health-gate can be exercised. Dormant by default: only fires when the operator
+    # sets A0_FAULT_INJECT_INIT_HANG=1 in .env.local. Emits a loud one-line warning so
+    # it can never silently ship enabled (mirrors the CAPABILITY_REGISTRY_PERMISSIVE
+    # convention). Revert by unsetting the env + --force-recreate — no code removal.
+    import os
+    import time
+
+    if os.getenv("A0_FAULT_INJECT_INIT_HANG") == "1":
+        from helpers.print_style import PrintStyle
+
+        PrintStyle.error(
+            "A0_FAULT_INJECT_INIT_HANG=1 — FAULT INJECTION ACTIVE: hanging load_tmp_chats() "
+            "forever to simulate a wedged deferred init. NEVER enable in production "
+            "(.env.local dev verification only)."
+        )
+        time.sleep(10**9)  # simulate a never-completing deferred init
     _convert_v080_chats()
     folders = files.list_files(CHATS_FOLDER, "*")
     json_files = []
