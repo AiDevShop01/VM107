@@ -226,7 +226,7 @@ class MCPServerRemote(BaseModel):
     type: str = Field(default="sse", description="Server connection type")
     url: str = Field(default_factory=str)
     headers: dict[str, Any] | None = Field(default_factory=dict[str, Any])
-    init_timeout: int = Field(default=0)
+    init_timeout: int = Field(default=30)
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
@@ -304,7 +304,7 @@ class MCPServerLocal(BaseModel):
     encoding_error_handler: Literal["strict", "ignore", "replace"] = Field(
         default="strict"
     )
-    init_timeout: int = Field(default=0)
+    init_timeout: int = Field(default=30)
     tool_timeout: int = Field(default=0)
     verify: bool = Field(default=True, description="Verify SSL certificates")
     disabled: bool = Field(default=False)
@@ -919,7 +919,8 @@ class MCPClientBase(ABC):
             await self._execute_with_session(
                 list_tools_op,
                 read_timeout_seconds=self.server.init_timeout
-                or set["mcp_client_init_timeout"],
+                or set["mcp_client_init_timeout"]
+                or 5,
             )
         except Exception as e:
             # e = eg.exceptions[0]
