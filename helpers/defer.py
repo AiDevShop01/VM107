@@ -9,6 +9,16 @@ T = TypeVar("T")
 THREAD_BACKGROUND = "Background"
 
 
+class InitTimeout(TimeoutError):
+    """A boot-critical deferred init exceeded its bounded timeout.
+
+    Subclasses builtin TimeoutError so every existing ``except TimeoutError``
+    caller keeps working (Liskov-safe). Raised by DeferredTask.result_sync /
+    result on Future.result(timeout) expiry so a hung init aborts the boot
+    (run_ui.py:83 wedge) instead of parking the main thread forever.
+    """
+
+
 class EventLoopThread:
     _instances: dict[str, "EventLoopThread"] = {}
     _lock = threading.Lock()
@@ -122,7 +132,7 @@ class DeferredTask:
         try:
             return self._future.result(timeout)
         except TimeoutError:
-            raise TimeoutError(
+            raise InitTimeout(
                 "The task did not complete within the specified timeout."
             )
 
@@ -138,7 +148,7 @@ class DeferredTask:
                 # self.kill()
                 return result
             except TimeoutError:
-                raise TimeoutError(
+                raise InitTimeout(
                     "The task did not complete within the specified timeout."
                 )
 
