@@ -1,26 +1,44 @@
+import faulthandler
+import os
+import sys
+
 import initialize
 from helpers import dotenv, extension, runtime
 from helpers.print_style import PrintStyle
-from helpers.server_startup import run_uvicorn_with_retries
+from helpers.server_startup import _env_int, run_uvicorn_with_retries
 from helpers.ui_server import UiServerRuntime, configure_process_environment
 
 
 configure_process_environment()
 
 
+# Whole-boot self-heal watchdog ceiling. Kept < the 180s SC-2 budget so an
+# os._exit(1) + supervisor autorestart still lands :80 in time. Cancelled on the
+# ready path (StartupMonitor.mark_ready) AND in run()'s finally (Pitfall 2).
+BOOT_WATCHDOG_SECONDS = _env_int("A0_BOOT_WATCHDOG_SECONDS", 150, minimum=30)
+
+
 def run():
-    PrintStyle().print("Initializing Python framework...")
-    PrintStyle().print("Checking for data migration...")
-    run_migration_checks()
+    # Arm the whole-boot watchdog BEFORE any boot work: dumps all-thread
+    # tracebacks then os._exit(1) if the boot wedges past BOOT_WATCHDOG_SECONDS,
+    # so the supervisor can relaunch. Cancelled on the ready path + in finally.
+    faulthandler.dump_traceback_later(BOOT_WATCHDOG_SECONDS, exit=True)
+    try:
+        PrintStyle().print("Initializing Python framework...")
+        PrintStyle().print("Checking for data migration...")
+        run_migration_checks()
 
-    PrintStyle().print("Preparing web server runtime...")
-    server_runtime, host, port = prepare_web_runtime()
+        PrintStyle().print("Preparing web server runtime...")
+        server_runtime, host, port = prepare_web_runtime()
 
-    PrintStyle().print("Initializing Agent Zero components...")
-    init_a0()
+        PrintStyle().print("Initializing Agent Zero components...")
+        init_a0()
 
-    PrintStyle().print("Starting UI/API server...")
-    start_web_server(server_runtime, host, port)
+        PrintStyle().print("Starting UI/API server...")
+        start_web_server(server_runtime, host, port)
+    finally:
+        # Belt-and-suspenders: mark_ready also cancels on the healthy path.
+        faulthandler.cancel_dump_traceback_later()
 
 
 def run_migration_checks() -> None:
@@ -80,7 +98,11 @@ def create_flush_callback():
 @extension.extensible
 def init_a0():
     init_chats = initialize.initialize_chats()
-    init_chats.result_sync()
+    # Bound the one blocking init wait: an expiry raises InitTimeout and aborts
+    # boot (propagating to the watchdog backstop) instead of parking forever.
+    init_chats.result_sync(
+        timeout=_env_int("A0_INIT_CHATS_TIMEOUT_SECONDS", 60, minimum=5)
+    )
 
     initialize.initialize_mcp()
     initialize.initialize_job_loop()
