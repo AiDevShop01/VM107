@@ -59,9 +59,37 @@ def _make_kb_v2_backend(client):
     )
 
 
-async def _recall(backend, query="market liquidity regime"):
-    """One real warm recall against knowledge_base_v2."""
-    return await backend.search(query=query, top_k=5, context=_RecallContext())
+class _V1KnowledgeContext:
+    """Context for the v1 ``knowledge_base`` recall — its docs are ``project='default'``.
+
+    The v1 backend is project-scoped (mirrors memory.py), so the recall context's
+    ``project_id`` must match the docs' project to retrieve them.
+    """
+
+    project_id = "default"
+    memory_subdir = "default"
+    task_id = "d08-v1"
+
+
+def _make_kb_v1_backend(client):
+    """Build a real QdrantBackend over the v1 ``knowledge_base`` collection.
+
+    Mirrors memory.py's ``knowledge_backend`` construction (line ~193): default
+    (unnamed) vector, 768-dim, project-scoped=True (the production default). The v1
+    corpus holds live Agent-Zero operational docs (config/tool-call/MCP reference).
+    """
+    QdrantBackend, BgeEmbeddingAdapter = _import_backends()
+    return QdrantBackend(
+        client=client,
+        embedding_service=BgeEmbeddingAdapter(),
+        collection_name="knowledge_base",
+        vector_size=768,
+    )
+
+
+async def _recall(backend, query="market liquidity regime", context=None):
+    """One real warm recall against the given backend."""
+    return await backend.search(query=query, top_k=5, context=context or _RecallContext())
 
 
 @pytest.mark.asyncio
@@ -140,21 +168,41 @@ async def test_loop_stall_under_concurrency(warm_recall_stack, qdrant_test_clien
 @pytest.mark.asyncio
 @pytest.mark.slow
 async def test_kb_v2_recall_regression(qdrant_test_client):
-    """D-08.4 / SC-4: knowledge_base_v2 hits still returned; v1 confirmed empty (A3).
+    """D-08.4 / SC-4: BOTH knowledge_base v1 AND knowledge_base_v2 return recall hits.
 
-    Regression bar for the recall refactor: querying a term present in
-    ``knowledge_base_v2`` must still return hits (the shipped kb_v2 direct-recall
-    behavior is non-negotiable). Also assert the raw ``knowledge_base`` (v1) point
-    count is 0 — confirming v1 is genuinely empty BEFORE its fan-out drop is
-    declared safe (RESEARCH assumption A3).
+    Regression bar for the recall refactor. The RESEARCH A3/D-07 assumption that v1
+    ``knowledge_base`` was empty/deprecated was **factually wrong** (corrected in Plan
+    133-06): v1 holds 50 live Agent-Zero operational docs, so 133-04's drop of v1 from
+    the recall fan-out was a real regression. The corrected design fans out to BOTH:
 
-    Post-refactor the memory.py layer tags these hits ``area == "knowledge"``;
-    this scaffold queries the backend directly, so v2_hits are the raw results.
+    - **kb_v2** (books/papers/docs corpus, ``general_embedding``) must return hits — the
+      shipped direct-recall behavior is non-negotiable.
+    - **v1 knowledge_base** must be populated AND its docs must actually be returned by a
+      real recall (v1 hits > 0) — proving v1 is genuinely searched, not silently dropped.
+
+    Both backends are queried directly here (the memory.py fan-out that combines them is
+    exercised end-to-end in the container by the live boot/first-message verify).
     """
-    backend = _make_kb_v2_backend(qdrant_test_client)
-    v2_hits = await _recall(backend, query="trading strategy risk management")
+    # kb_v2 direct recall still returns hits.
+    v2_backend = _make_kb_v2_backend(qdrant_test_client)
+    v2_hits = await _recall(v2_backend, query="trading strategy risk management")
     assert len(v2_hits) > 0, "knowledge_base_v2 returned no hits — kb_v2 recall regression"
 
-    # A3 safety: v1 knowledge_base must be empty before it is dropped from fan-out.
+    # Corrected A3: v1 knowledge_base is POPULATED (not empty) ...
     v1_count = qdrant_test_client.count(collection_name="knowledge_base").count
-    assert v1_count == 0, f"knowledge_base (v1) is not empty ({v1_count} points) — A3 drop unsafe"
+    assert v1_count > 0, (
+        "knowledge_base (v1) is empty — the corrected D-07/A3 design expects v1 to hold "
+        "live operational docs that recall must search"
+    )
+    # ... and its docs are ACTUALLY RETURNED by a real recall (v1 is in the fan-out).
+    v1_backend = _make_kb_v1_backend(qdrant_test_client)
+    v1_hits = await _recall(
+        v1_backend,
+        query="Agent Zero configuration reference LLM roles and tool call examples",
+        context=_V1KnowledgeContext(),
+    )
+    print(f"[D-08.4] v1 knowledge_base: {v1_count} pts, {len(v1_hits)} recall hits; kb_v2 {len(v2_hits)} hits")
+    assert len(v1_hits) > 0, (
+        f"knowledge_base (v1) has {v1_count} docs but recall returned 0 hits — v1 not "
+        "searched (133-04 fan-out drop must be reversed)"
+    )
