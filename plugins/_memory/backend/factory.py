@@ -63,6 +63,14 @@ def create_backend(
                 port=qdrant_port,
                 timeout=int(os.getenv("A0_QDRANT_TIMEOUT", "5")),
             )
+            # Bounded liveness probe. QdrantClient construction is lazy — against a
+            # down host the version check only *warns*, so a broken backend would be
+            # handed back and fail (silently swallowed) on first real use with NO
+            # degrade signal. Probe an actual op here so a down Qdrant fast-fails
+            # WITHIN the client timeout and emits its `qdrant` degrade signal
+            # (SC-2 observability), instead of deferring an unobserved failure.
+            # Healthy path cost: one bounded round-trip. Fail-fast idiom (D-07).
+            client.get_collections()
         except Exception as exc:
             SourceHealthRegistry.get_shared_instance().report(
                 "qdrant", available=False, failure_reason=str(exc)
