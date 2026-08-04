@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
+import json
 import logging
 import os
 from typing import (
@@ -507,18 +508,26 @@ class LiteLLMChatWrapper(SimpleChatModel):
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
         max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
+        # Phase 134-03 (D-03) — drive cross-provider failover at the wrapper level so a
+        # primary setup outage (ServiceUnavailableError) is OBSERVABLE here: we emit a
+        # SourceHealthRegistry primary-down signal and fail over to the secondary carrying
+        # its own api_key. Pop ``fallbacks`` out of the primary call so the primary attempt
+        # surfaces the outage instead of being silently absorbed by litellm-native failover.
+        wrapper_fallbacks = call_kwargs.pop("fallbacks", None)
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
         # results
         result = ChatGenerationResult()
 
+        active_model = self.model_name
+        failed_over = False
         attempt = 0
         while True:
             got_any_chunk = False
             try:
                 # call model
                 _completion = await acompletion(
-                    model=self.model_name,
+                    model=active_model,
                     messages=msgs_conv,
                     stream=stream,
                     **call_kwargs,
@@ -582,6 +591,41 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
             except Exception as e:
                 import asyncio
+
+                # Phase 134-03 (D-03) — cross-provider failover: a primary setup/transient
+                # failure BEFORE any chunk is the live-hang incident. Emit the primary-down
+                # health signal (never logging the api_key, T-134-INFO) and fail over ONCE to
+                # the secondary provider using its own dict-form api_key. A different model is
+                # a failover, not a same-model retry, so it never compounds (D-04).
+                if (
+                    not failed_over
+                    and not got_any_chunk
+                    and _is_transient_litellm_error(e)
+                    and wrapper_fallbacks
+                ):
+                    fb = wrapper_fallbacks[0]
+                    if isinstance(fb, dict) and fb.get("model"):
+                        failed_over = True
+                        try:
+                            from emitters.source_health_registry import (
+                                SourceHealthRegistry,
+                            )
+
+                            SourceHealthRegistry.get_shared_instance().report(
+                                "llm_primary",
+                                available=False,
+                                failure_reason=type(e).__name__,
+                            )
+                        except Exception:  # noqa: BLE001 — health signalling must never break the call
+                            logging.getLogger(__name__).debug(
+                                "could not record llm_primary health signal", exc_info=True
+                            )
+                        active_model = fb["model"]
+                        if fb.get("api_key"):
+                            call_kwargs["api_key"] = fb["api_key"]
+                        result = ChatGenerationResult()
+                        attempt = 0
+                        continue
 
                 # Retry only if no chunks received and error is transient
                 if got_any_chunk or not _is_transient_litellm_error(e) or attempt >= max_retries:
@@ -770,6 +814,44 @@ def _adjust_call_args(provider_name: str, model_name: str, kwargs: dict):
     return provider_name, model_name, kwargs
 
 
+def _build_llm_fallbacks() -> list[dict]:
+    """Build LiteLLM native dict-form fallbacks for the LLM path (Phase 134-03, D-03).
+
+    Cross-provider failover MUST be dict-form carrying its own api_key (GOTCHA 2): a
+    string fallback reuses the primary key and fails cross-provider auth. Reads dedicated
+    env vars directly (immune to the ``usr/settings.json`` ``litellm_global_kwargs`` shadow).
+    An explicit ``A0_LLM_FALLBACKS`` JSON list overrides the derived entry. When the resolved
+    secondary key is empty (GOTCHA 3) the fallback is skipped with a one-line warning — the
+    api_key value is NEVER logged (T-134-INFO) — so we never ship a broken-auth fallback.
+    """
+    log = logging.getLogger(__name__)
+
+    override = os.getenv("A0_LLM_FALLBACKS")
+    if override:
+        try:
+            parsed = json.loads(override)
+        except (ValueError, TypeError):
+            log.warning("A0_LLM_FALLBACKS is not valid JSON; ignoring override")
+        else:
+            if isinstance(parsed, list):
+                return [fb for fb in parsed if isinstance(fb, dict) and fb.get("model")]
+            log.warning("A0_LLM_FALLBACKS is not a JSON list; ignoring override")
+
+    secondary_model = os.getenv("A0_LLM_SECONDARY_MODEL", "gemini/gemini-2.0-flash")
+    secondary_provider = os.getenv("A0_LLM_SECONDARY_PROVIDER", "google")
+    key = get_api_key(secondary_provider)
+    if not key or key in ("None", "NA"):
+        log.warning(
+            "LLM secondary fallback '%s' (provider '%s') has no API key; skipping "
+            "cross-provider fallback (set API_KEY_%s to enable).",
+            secondary_model,
+            secondary_provider,
+            secondary_provider.upper(),
+        )
+        return []
+    return [{"model": secondary_model, "api_key": key}]
+
+
 def _merge_provider_defaults(
     provider_type: ProviderModelType, original_provider: str, kwargs: dict
 ) -> tuple[str, dict]:
@@ -814,6 +896,18 @@ def _merge_provider_defaults(
     if isinstance(global_kwargs, dict):
         for k, v in _normalize_values(global_kwargs).items():
             kwargs.setdefault(k, v)
+
+    # Phase 134-03 (D-02/D-03) — bound the LLM path + give it a real cross-provider
+    # fallback. Read DEDICATED env vars directly, NOT via the settings channel above:
+    # a stale ``litellm_global_kwargs={}`` in usr/settings.json would otherwise shadow
+    # any timeout default (GOTCHA 1). This single merge feeds ``self.kwargs`` so it covers
+    # every acompletion site (stream + unified_call) AND the embedding path.
+    kwargs.setdefault("timeout", float(os.getenv("A0_LLM_TIMEOUT", "30")))
+    kwargs.setdefault("num_retries", int(os.getenv("A0_LLM_NUM_RETRIES", "1")))
+    if "fallbacks" not in kwargs:
+        fallbacks = _build_llm_fallbacks()
+        if fallbacks:
+            kwargs["fallbacks"] = fallbacks
 
     return provider_name, kwargs
 
