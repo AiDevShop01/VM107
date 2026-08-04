@@ -506,7 +506,13 @@ class LiteLLMChatWrapper(SimpleChatModel):
 
         # Prepare call kwargs and retry config (strip A0-only params before calling LiteLLM)
         call_kwargs: dict[str, Any] = {**self.kwargs, **kwargs}
-        max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 2))
+        # Phase 134-03 (D-04) — default 0 so the custom loop runs EXACTLY ONCE and
+        # re-raises immediately: LiteLLM owns retry (num_retries) + native fallback, and
+        # the wrapper drives cross-provider failover. This kills the
+        # timeout x num_retries x fallbacks x custom_retries compounding. The loop body
+        # is retained: it still drives streaming chunk parsing + reasoning/response/token
+        # callbacks and the single terminal re-raise path.
+        max_retries: int = int(call_kwargs.pop("a0_retry_attempts", 0))
         retry_delay_s: float = float(call_kwargs.pop("a0_retry_delay_seconds", 1.5))
         # Phase 134-03 (D-03) — drive cross-provider failover at the wrapper level so a
         # primary setup outage (ServiceUnavailableError) is OBSERVABLE here: we emit a
