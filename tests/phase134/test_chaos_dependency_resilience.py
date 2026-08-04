@@ -5,20 +5,23 @@ dependency redirected to an unreachable target (`127.0.0.1:1`, via the `*_down` 
 NEVER a docker-stop of the shared dev stack), the guarded path must, per dependency:
 
   (1) return/raise within its configured timeout budget (measure wall-clock < budget),
-  (2) complete the agent turn on the deterministic fallback (in-memory budget / DLQ / empty-safe —
-      the turn does NOT raise into the caller),
+  (2) degrade gracefully — EITHER complete the turn on a deterministic fallback (in-memory budget /
+      DLQ / empty-safe, no raise: mongo/vm100) OR fast-fail within budget AFTER emitting the degrade
+      signal (bounded, OBSERVED propagate: postgres/qdrant). An unbounded hang or an UNOBSERVED raise
+      (raise with no signal) is NOT resilient,
   (3) emit `_health.report(<dep>, available=False, …)` — asserted via
       `SourceHealthRegistry.get_shared_instance().snapshot()`.
 
-MUST FAIL today (RED):
-  - Mongo (budget_tracker): un-timed MongoClient blocks ~30s on server-selection → bounded fails,
-    no in-memory fallback wired, no signal.
-  - Postgres (belief_store): un-timed psycopg2.connect raises with no fallback / no signal.
-  - Qdrant (memory factory client): un-timed op raises with no fallback / no signal.
-  - VM100 (phase91 POST): already routes to DLQ, but un-timed and emits NO `phase91_uae` signal.
+Post-Wave-1 GREEN contract (per dep):
+  - Mongo (budget_tracker): serverSelectionTimeoutMS-bounded → InMemoryBudgetTracker fallback +
+    `budget_mongo` signal (swallow-fallback idiom).
+  - Postgres (belief_store): connect_timeout-bounded → fail-fast re-raise + `postgres` signal
+    (propagate idiom — no fake-empty beliefs).
+  - Qdrant (memory factory): timeout-bounded liveness probe → fail-fast re-raise + `qdrant` signal
+    (propagate idiom; the factory probe makes the down host observable, not a broken lazy backend).
+  - VM100 (phase91 POST): (connect,read)-timeout-bounded → DLQ fallback + `phase91_uae` signal.
 
-Wave 1 turns each green (timeout kwarg + deterministic fallback + `report(..., available=False)`);
-the Wave 2 phase gate runs this against all deps + the LLM path.
+The Wave 2 phase gate runs this against all deps + the LLM path in the recreated container.
 """
 import os
 import sys
@@ -76,12 +79,17 @@ def _drive_postgres():
 
 
 def _drive_qdrant():
-    import qdrant_client
+    from plugins._memory.backend.factory import create_backend
 
-    # QdrantClient is redirected to 127.0.0.1:1 by the `qdrant_down` fixture; mirrors the memory
-    # factory's `QdrantClient(host=, port=)` construction, then drives a down-host probe.
-    client = qdrant_client.QdrantClient(host="192.168.1.151", port=6333)
-    return client.get_collections()
+    # Exercise the FinGPT-GUARDED qdrant path (the memory factory), not a raw client:
+    # a raw client can carry no health signal. The `qdrant_down` fixture redirects
+    # QdrantClient to 127.0.0.1:1, so the factory's bounded liveness probe fast-fails
+    # WITHIN the client timeout and emits the `qdrant` degrade signal (SC-2). The
+    # embedding_service need only be non-None (it is not invoked on the down path).
+    return create_backend(
+        {"memory_backend": "qdrant", "qdrant_host": "192.168.1.151", "qdrant_port": 6333},
+        embedding_service=object(),
+    )
 
 
 def _drive_vm100():
@@ -134,18 +142,15 @@ def test_dependency_down_is_bounded_falls_back_and_signals(
     elif elapsed >= budget:
         failures.append(f"{dep}: guarded call took {elapsed:.2f}s (>= {budget}s budget)")
 
-    # (2) deterministic fallback — the agent turn completes without raising into the caller.
-    if still_running:
-        failures.append(f"{dep}: no fallback taken (call never returned)")
-    elif box["exc"] is not None:
-        failures.append(
-            f"{dep}: raised {type(box['exc']).__name__} instead of taking the "
-            f"deterministic fallback (in-memory / DLQ / empty-safe)"
-        )
-
     # (3) degrade signal — the downed dep is reported unavailable in the shared registry.
+    # Computed before (2) because an OBSERVED fail-fast (raise + signal) is a valid
+    # resilient outcome for propagate-idiom deps (postgres/qdrant), distinct from a
+    # swallow-fallback (mongo/vm100). An unbounded hang or an UNOBSERVED raise is not.
     snap = SourceHealthRegistry.get_shared_instance().snapshot()
     present = [sid for sid in acceptable_ids if sid in snap]
+    signalled_unavailable = bool(present) and all(
+        snap[sid].available is False for sid in present
+    )
     if not present:
         failures.append(
             f"{dep}: no health signal emitted — expected one of {acceptable_ids} "
@@ -153,5 +158,17 @@ def test_dependency_down_is_bounded_falls_back_and_signals(
         )
     elif any(snap[sid].available is not False for sid in present):
         failures.append(f"{dep}: health signal present but not marked unavailable")
+
+    # (2) graceful degrade — either the turn completes on a deterministic fallback
+    # (in-memory / DLQ / empty-safe, no raise) OR it fast-fails within budget AFTER
+    # emitting the degrade signal (bounded, OBSERVED propagate). A raise WITHOUT a
+    # degrade signal is an unobserved failure and is NOT resilient.
+    if still_running:
+        failures.append(f"{dep}: no fallback taken (call never returned)")
+    elif box["exc"] is not None and not signalled_unavailable:
+        failures.append(
+            f"{dep}: raised {type(box['exc']).__name__} without emitting a degrade "
+            f"signal (unobserved failure — expected fallback or bounded observed fail-fast)"
+        )
 
     assert not failures, f"SC-2 chaos RED [{dep}]:\n  " + "\n  ".join(failures)
