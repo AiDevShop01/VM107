@@ -22,6 +22,7 @@ from langchain_community.vectorstores.utils import (
 )
 from langchain_core.embeddings import Embeddings
 
+import asyncio
 import os, json
 
 import numpy as np
@@ -618,10 +619,10 @@ class Memory:
         # Collect results from all backends
         all_results = []
 
-        # Search agent_memory and knowledge_base collections
+        # Search agent_memory only. The empty knowledge_base v1 is DROPPED from the search
+        # list (A3/D-07) — but the knowledge_backend OBJECT stays built/cached so kb_v2
+        # (below) can still borrow its client+embedder via _get_knowledge_v2_backend (D-08.4).
         backends_to_search = [self.backend]
-        if self.knowledge_backend:
-            backends_to_search.append(self.knowledge_backend)
 
         query_preview = query[:120] + "..." if len(query) > 120 else query
         PrintStyle.info(
@@ -631,21 +632,20 @@ class Memory:
             f"backends={len(backends_to_search)}"
         )
 
+        # Build the fan-out task list, then run all searches concurrently. Each entry is
+        # (is_kb_v2, coroutine); is_kb_v2 flags the results needing the knowledge_base_v2
+        # title/content/area post-processing (applied to v2 results only).
+        tasks: list = []
         for be in backends_to_search:
-            try:
-                if areas_to_search:
-                    for a in areas_to_search:
-                        hits = await be.search(
-                            query=query, top_k=limit, context=context, area=a,
-                        )
-                        all_results.extend(hits)
-                else:
-                    hits = await be.search(
-                        query=query, top_k=limit, context=context, area=area,
-                    )
-                    all_results.extend(hits)
-            except Exception as e:
-                PrintStyle.error(f"Qdrant backend search error: {e}")
+            if areas_to_search:
+                for a in areas_to_search:
+                    tasks.append((False, be.search(
+                        query=query, top_k=limit, context=context, area=a,
+                    )))
+            else:
+                tasks.append((False, be.search(
+                    query=query, top_k=limit, context=context, area=area,
+                )))
 
         # Additive: also search the knowledge_base_v2 corpus (books/papers/docs) DIRECTLY
         # via its general_embedding named vector. Direct Qdrant (no VM101 hop) — same
@@ -654,19 +654,31 @@ class Memory:
         if _kb_v2_recall_enabled():
             v2 = self._get_knowledge_v2_backend()
             if v2 is not None:
-                try:
-                    v2_hits = await v2.search(
-                        query=query, top_k=_kb_v2_top_k(), context=context, area=None,
-                    )
-                    for h in v2_hits:
-                        title = h.get("book_title") or h.get("source_file") or "knowledge"
-                        text = h.get("text", "") or h.get("content", "")
-                        h["content"] = f"[{title}] {text}"
-                        h["area"] = "knowledge"
-                    all_results.extend(v2_hits)
-                    PrintStyle.info(f"knowledge_base_v2 direct search: {len(v2_hits)} hits")
-                except Exception as e:
-                    PrintStyle.error(f"knowledge_base_v2 direct search error: {e}")
+                tasks.append((True, v2.search(
+                    query=query, top_k=_kb_v2_top_k(), context=context, area=None,
+                )))
+
+        # Fan out concurrently. return_exceptions=True preserves today's per-backend
+        # graceful degradation: one backend error degrades (logged + skipped), never
+        # aborts the whole recall.
+        gathered = await asyncio.gather(
+            *[coro for _, coro in tasks], return_exceptions=True
+        )
+        for (is_kb_v2, _coro), result in zip(tasks, gathered):
+            if isinstance(result, Exception):
+                if is_kb_v2:
+                    PrintStyle.error(f"knowledge_base_v2 direct search error: {result}")
+                else:
+                    PrintStyle.error(f"Qdrant backend search error: {result}")
+                continue
+            if is_kb_v2:
+                for h in result:
+                    title = h.get("book_title") or h.get("source_file") or "knowledge"
+                    text = h.get("text", "") or h.get("content", "")
+                    h["content"] = f"[{title}] {text}"
+                    h["area"] = "knowledge"
+                PrintStyle.info(f"knowledge_base_v2 direct search: {len(result)} hits")
+            all_results.extend(result)
 
         # Deduplicate by id and sort by score descending
         seen = set()
