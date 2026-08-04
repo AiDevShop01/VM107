@@ -129,20 +129,21 @@ class RecallMemories(Extension):
         # get memory database
         db = await Memory.get(self.agent)
 
-        # search for general memories and fragments
-        memories = await db.search_similarity_threshold(
-            query=query,
-            limit=set["memory_recall_memories_max_search"],
-            threshold=set["memory_recall_similarity_threshold"],
-            filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",  # exclude solutions
-        )
-
-        # search for solutions
-        solutions = await db.search_similarity_threshold(
-            query=query,
-            limit=set["memory_recall_solutions_max_search"],
-            threshold=set["memory_recall_similarity_threshold"],
-            filter=f"area == '{Memory.Area.SOLUTIONS.value}'",  # exclude solutions
+        # search for general memories/fragments and solutions concurrently — independent
+        # queries (different areas, same db) fanned out via asyncio.gather; both remain lists.
+        memories, solutions = await asyncio.gather(
+            db.search_similarity_threshold(
+                query=query,
+                limit=set["memory_recall_memories_max_search"],
+                threshold=set["memory_recall_similarity_threshold"],
+                filter=f"area == '{Memory.Area.MAIN.value}' or area == '{Memory.Area.FRAGMENTS.value}'",  # exclude solutions
+            ),
+            db.search_similarity_threshold(
+                query=query,
+                limit=set["memory_recall_solutions_max_search"],
+                threshold=set["memory_recall_similarity_threshold"],
+                filter=f"area == '{Memory.Area.SOLUTIONS.value}'",  # solutions only
+            ),
         )
 
         if not memories and not solutions:
