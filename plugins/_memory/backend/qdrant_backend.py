@@ -6,6 +6,7 @@ Dual-model architecture:
 - trading_context: 768-dim (bge-base-en-v1.5) for strategy rules
 """
 
+import asyncio
 import logging
 import json
 import uuid
@@ -43,6 +44,8 @@ class QdrantBackend:
         embedding_service: Any,  # EmbeddingService for text-to-vector conversion
         collection_name: str = "agent_memory",
         vector_size: int = 384,
+        vector_name: str | None = None,
+        project_scoped: bool = True,
     ):
         """Initialize QdrantBackend with client and embedding service.
 
@@ -51,14 +54,25 @@ class QdrantBackend:
             embedding_service: EmbeddingService for text-to-vector conversion
             collection_name: Collection to use
             vector_size: Vector dimensions (384 for agent_memory, 768 for knowledge/trading)
+            vector_name: Named vector to query with (``using=``). None → default/unnamed
+                vector (agent_memory, knowledge_base). Set e.g. "general_embedding" for
+                multi-named-vector collections like knowledge_base_v2.
+            project_scoped: When True (default) every search is filtered to the caller's
+                project_id. Set False for globally-shared corpora (books/papers) whose
+                points carry no "project" field — otherwise the filter matches nothing.
         """
         self.client = client
         self.embedding_service = embedding_service
         self.collection_name = collection_name
         self.vector_size = vector_size
+        self.vector_name = vector_name
+        self.project_scoped = project_scoped
 
-        # Create this backend's collection if it doesn't exist
-        self._ensure_collection()
+        # Only auto-create single-vector collections we own. Named-vector collections
+        # (vector_name set, e.g. knowledge_base_v2) are provisioned/owned externally
+        # (VM101 ingest) — never create them here (would make a wrong-schema collection).
+        if self.vector_name is None:
+            self._ensure_collection()
 
     def _ensure_collection(self) -> None:
         """Create this backend's Qdrant collection if it doesn't exist.
@@ -155,10 +169,12 @@ class QdrantBackend:
                     )
                 )
 
-            # Upsert to collection
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=points,
+            # Upsert to collection (offloaded off the event loop — A1/D-03)
+            await asyncio.to_thread(
+                lambda: self.client.upsert(
+                    collection_name=self.collection_name,
+                    points=points,
+                )
             )
 
             self._log_structured(
@@ -219,13 +235,16 @@ class QdrantBackend:
             )
             query_vector = embed_response.embeddings[0]
 
-            # Build mandatory project filter
-            filter_conditions = [
-                FieldCondition(
-                    key="project",
-                    match=MatchValue(value=project_id),
+            # Build project filter (mandatory for project-scoped collections; skipped
+            # for globally-shared corpora whose points carry no "project" field).
+            filter_conditions = []
+            if self.project_scoped:
+                filter_conditions.append(
+                    FieldCondition(
+                        key="project",
+                        match=MatchValue(value=project_id),
+                    )
                 )
-            ]
 
             # Add optional area filter
             if area is not None:
@@ -236,15 +255,21 @@ class QdrantBackend:
                     )
                 )
 
-            query_filter = Filter(must=filter_conditions)
+            query_filter = Filter(must=filter_conditions) if filter_conditions else None
 
-            # Search using query_points (qdrant-client >= 1.12)
-            search_response = self.client.query_points(
-                collection_name=self.collection_name,
-                query=query_vector,
-                query_filter=query_filter,
-                limit=top_k,
-            )
+            # Search using query_points (qdrant-client >= 1.12). For named-vector
+            # collections, `using` selects which vector space to search.
+            qp_kwargs = {
+                "collection_name": self.collection_name,
+                "query": query_vector,
+                "limit": top_k,
+            }
+            if query_filter is not None:
+                qp_kwargs["query_filter"] = query_filter
+            if self.vector_name is not None:
+                qp_kwargs["using"] = self.vector_name
+            # Offloaded off the event loop — A1/D-03 (network vector I/O)
+            search_response = await asyncio.to_thread(lambda: self.client.query_points(**qp_kwargs))
 
             # Convert to dict format
             results = []
