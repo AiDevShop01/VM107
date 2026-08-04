@@ -113,9 +113,18 @@ class StartupMonitor:
         @asynccontextmanager
         async def _lifespan(_app):
             self.mark("starlette.lifespan.startup")
+            # D-01: fire-and-forget post-boot warm-up on the serving loop AFTER the
+            # startup mark. NEVER awaited here -> the model load stays off the boot
+            # critical path (Phase 132 boot-wedge boundary preserved). The shared
+            # _get_model guard makes a mid-preload recall reuse the in-flight load
+            # (D-02 single-flight).
+            from preload import _preload_recall_stack
+
+            preload_task = asyncio.create_task(_preload_recall_stack())
             try:
                 yield
             finally:
+                preload_task.cancel()
                 self.mark("starlette.lifespan.shutdown")
 
         return _lifespan
