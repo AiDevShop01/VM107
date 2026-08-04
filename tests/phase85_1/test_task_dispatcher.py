@@ -92,6 +92,7 @@ def test_dispatcher_transitions_completed_on_success(
 def test_dispatcher_calls_on_task_completed_after_terminal(
     mock_goal_service,
     fixture_macro_release_task_docs,
+    mock_dispatch_agent_sync,
 ):
     """After task reaches COMPLETED, dispatcher calls goal_service.on_task_completed.
 

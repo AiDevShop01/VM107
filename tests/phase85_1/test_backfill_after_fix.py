@@ -50,6 +50,11 @@ def test_backfill_loops_over_indicators_without_attributeerror(
     """
     from unittest.mock import MagicMock, patch
 
+    # Default routing (BACKFILL_USE_AGENT_ZERO unset -> "0") goes through
+    # _dispatch_describer_direct since Phase 86-10; force the agent-sync path
+    # so the patched _dispatch_agent_sync is actually the callsite under test.
+    monkeypatch.setenv("BACKFILL_USE_AGENT_ZERO", "1")
+
     mock_upsert = MagicMock()
 
     try:
@@ -103,6 +108,10 @@ def test_backfill_skips_manual_override_rows(
         4. Assert upsert_description called 7 times.
     """
     from unittest.mock import MagicMock, call, patch
+
+    # Force the agent-sync routing path (default -> _dispatch_describer_direct
+    # since Phase 86-10) so the patched _dispatch_agent_sync is exercised.
+    monkeypatch.setenv("BACKFILL_USE_AGENT_ZERO", "1")
 
     mock_upsert = MagicMock()
 
