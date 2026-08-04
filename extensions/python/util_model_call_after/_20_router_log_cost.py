@@ -26,6 +26,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from helpers.extension import Extension
+from emitters.source_health_registry import SourceHealthRegistry
 
 
 def _estimate_tokens(text: str) -> int:
@@ -136,7 +137,13 @@ class UtilModelRouterLogCost(Extension):
                 mongo_uri = os.environ.get("MONGODB_URI")
                 if mongo_uri:
                     import pymongo
-                    mongo_client = pymongo.MongoClient(mongo_uri)
+                    # serverSelectionTimeoutMS bounds the (lazy) first op so a
+                    # down Mongo cannot stall a per-utility-model-call (A3;
+                    # mirrors the timed chat sibling _router_decide.py:54).
+                    mongo_client = pymongo.MongoClient(
+                        mongo_uri,
+                        serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+                    )
 
             if mongo_client is not None:
                 # 2026-06-11 — additive conversation_type tag (chat-side hook
@@ -165,8 +172,15 @@ class UtilModelRouterLogCost(Extension):
                 if conv_type:
                     record["conversation_type"] = conv_type
                 # Use dot notation (same as chat-side hook and agent_init pattern)
+                # insert_one is the first real Mongo op — bounded by
+                # serverSelectionTimeoutMS above.
                 mongo_client.fingpt_agents.agent_runs.insert_one(record)
+                SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
         except Exception as e:
+            # Emit the health signal alongside the existing swallow-and-log (D-07).
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=str(e)
+            )
             if hasattr(self.agent, "log") and hasattr(self.agent.log, "log"):
                 self.agent.log.log(type="warning", heading=f"util_cost_record_failed: {e}")
 

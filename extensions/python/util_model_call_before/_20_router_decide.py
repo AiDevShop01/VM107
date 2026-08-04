@@ -24,6 +24,7 @@ import time
 import uuid
 from helpers.extension import Extension
 from core.routing.schemas import RouterContext
+from emitters.source_health_registry import SourceHealthRegistry
 
 
 def _get_or_init_router(agent):
@@ -57,7 +58,13 @@ def _get_or_init_router(agent):
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
             "conf", "model_routing.yaml",
         )
-        mongo_client = pymongo.MongoClient(mongo_uri)
+        # serverSelectionTimeoutMS bounds the (lazy) first op so a down Mongo
+        # cannot stall a per-utility-model-call (A3; mirrors the already-timed
+        # chat sibling extensions/python/before_main_llm_call/_router_decide.py:54).
+        mongo_client = pymongo.MongoClient(
+            mongo_uri,
+            serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+        )
         redis_client = redis.Redis.from_url(redis_url, decode_responses=True)
         affinity = AffinityMap.from_yaml(yaml_path)
 
@@ -82,9 +89,14 @@ def _get_or_init_router(agent):
             mongo_client=mongo_client,
         )
         agent.set_data("model_router", router)
+        SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
         return router
     except Exception as e:
         # Degrade silently — no-op if any dep missing (Redis/Mongo unavailable in dev, etc.)
+        # Emit the health signal alongside the existing swallow-and-log (D-07).
+        SourceHealthRegistry.get_shared_instance().report(
+            "mongo", available=False, failure_reason=str(e)
+        )
         if hasattr(agent, "log") and hasattr(agent.log, "log"):
             agent.log.log(type="warning", heading=f"util_router_init_skipped: {e}")
         return None
