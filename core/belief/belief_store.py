@@ -16,6 +16,8 @@ from datetime import datetime, timedelta, timezone
 import psycopg2
 import pymongo
 
+from emitters.source_health_registry import SourceHealthRegistry
+
 from .bayesian import BeliefSnapshot, apply_weekly_decay, bayesian_update
 from .phase53_lifecycle import retire_belief
 from .proposal_authorization import authorize_proposer
@@ -46,13 +48,40 @@ class BeliefStore:
             raise RuntimeError(
                 "BELIEF_STORE_MONGO_URL required — env-driven, no default"
             )
-        self._pg = psycopg2.connect(pg_url)
-        self._mongo = pymongo.MongoClient(mongo).get_default_database()
+        # connect_timeout bounds the eager psycopg2 connect so a down Postgres
+        # fast-fails instead of hanging construction (SC-1). This plan owns the
+        # whole belief_store file (no cross-plan conflict with 134-06).
+        try:
+            self._pg = psycopg2.connect(
+                pg_url,
+                connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "postgres", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
+
+        # serverSelectionTimeoutMS bounds the first Mongo op (create_index below)
+        # so a down Mongo fast-fails instead of hanging (SC-1).
+        self._mongo = pymongo.MongoClient(
+            mongo,
+            serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+        ).get_default_database()
         self._cache = self._mongo.get_collection("belief_query_cache")
-        # TTL index — recreate idempotently
-        self._cache.create_index(
-            "expires_at", expireAfterSeconds=0, background=True,
-        )
+        # TTL index — recreate idempotently. First Mongo op; guard it matching
+        # this module's fail-fast (re-raise) idiom (D-07).
+        try:
+            self._cache.create_index(
+                "expires_at", expireAfterSeconds=0, background=True,
+            )
+        except Exception as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
 
     # ── Reads ────────────────────────────────────────────────────────────
     def query(self, *, subject_type: str, subject_id: str) -> dict | None:

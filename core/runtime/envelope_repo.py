@@ -55,6 +55,7 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
 
     from core.agents.envelope_writer import build_envelope, write_envelope
     from core.registry.capability_registry import CapabilityRegistry
+    from emitters.source_health_registry import SourceHealthRegistry
 
     # build_envelope stamps registry provenance via CapabilityRegistry.get();
     # ensure the registry is initialized in this (runner) process first.
@@ -72,7 +73,13 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
             "BELIEF_STORE_MONGO_URL required for envelope_repo.persist — "
             "env-driven, no default"
         )
-    db = pymongo.MongoClient(mongo_url).get_default_database()
+    # serverSelectionTimeoutMS bounds the (lazy) first op so a down Mongo
+    # fast-fails instead of hanging the tracker tick (SC-1; canonical shape:
+    # core/scheduling/orchestrator_factory.py:69, minus the boot ping).
+    db = pymongo.MongoClient(
+        mongo_url,
+        serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+    ).get_default_database()
 
     envelope = build_envelope(
         task_id=f"macro-story-{uuid.uuid4()}",
@@ -83,4 +90,14 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
         telemetry={},
         status="success",
     )
-    return write_envelope(db, envelope)
+    # Guard the first Mongo op (write_envelope) matching this module's
+    # re-raise idiom (D-07): report health, then propagate as before.
+    try:
+        envelope_id = write_envelope(db, envelope)
+    except Exception as exc:
+        SourceHealthRegistry.get_shared_instance().report(
+            "mongo", available=False, failure_reason=str(exc)
+        )
+        raise
+    SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
+    return envelope_id

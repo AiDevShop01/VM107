@@ -6,12 +6,14 @@ Defines protocol for tracking execution progress and determining next actions.
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import deque
 from datetime import datetime, timezone
 from typing import Protocol, runtime_checkable
 
 from core.execution_context import ExecutionContext, StepResult
+from emitters.source_health_registry import SourceHealthRegistry
 
 # Import pymongo at module level for mockability
 try:
@@ -99,12 +101,25 @@ class MongoProgressLedger:
             return
 
         try:
-            self._client = MongoClient(mongo_uri, retryWrites=True, w="majority")
+            # serverSelectionTimeoutMS bounds the (lazy) first op so a down
+            # Mongo fast-fails instead of hanging (SC-1).
+            self._client = MongoClient(
+                mongo_uri,
+                retryWrites=True,
+                w="majority",
+                serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+            )
             self._db = self._client[database]
             self._progress = self._db["agent_progress"]
             self._mongodb_available = True
+            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             logger.info(f"MongoProgressLedger initialized with database: {database}")
         except Exception as e:
+            # Match this module's existing degrade-to-NoOp idiom; emit the
+            # health signal alongside the warning (D-07).
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=str(e)
+            )
             logger.warning(
                 f"MongoDB connection failed: {e}. "
                 "MongoProgressLedger will behave like NoOpProgressLedger."
