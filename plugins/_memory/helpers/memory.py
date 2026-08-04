@@ -55,6 +55,24 @@ class MyFaiss(FAISS):
         return self.docstore._dict  # type: ignore
 
 
+def _kb_v2_recall_enabled() -> bool:
+    """Whether "Searching memories..." also searches the knowledge_base_v2 corpus.
+
+    Enabled by default; set MEMORY_KB_V2_RECALL_ENABLED=0 to disable.
+    """
+    return os.environ.get("MEMORY_KB_V2_RECALL_ENABLED", "1").strip().lower() not in (
+        "0", "false", "no", "off",
+    )
+
+
+def _kb_v2_top_k() -> int:
+    """How many knowledge_base_v2 chunks to pull per recall (conservative default)."""
+    try:
+        return max(1, int(os.environ.get("MEMORY_KB_V2_TOP_K", "3")))
+    except (TypeError, ValueError):
+        return 3
+
+
 class Memory:
 
     class Area(Enum):
@@ -531,6 +549,40 @@ class Memory:
             filter=comparator,
         )
 
+    def _get_knowledge_v2_backend(self):
+        """Lazily build (and cache) a direct reader for the knowledge_base_v2 corpus.
+
+        Reuses the existing knowledge_backend's Qdrant client + bge embedding service
+        (knowledge_base and knowledge_base_v2 share BAAI/bge-base-en-v1.5, 768-dim), so
+        no new client/model is created. Queries the general_embedding named vector with
+        project scoping disabled (the corpus is global). Returns None if there is no
+        knowledge_backend to borrow the client/embedder from.
+        """
+        if getattr(self, "_kb_v2_backend_cached", False):
+            return self._kb_v2_backend
+        self._kb_v2_backend_cached = True
+        self._kb_v2_backend = None
+        kb = getattr(self, "knowledge_backend", None)
+        if kb is None:
+            return None
+        try:
+            from plugins._memory.backend.qdrant_backend import QdrantBackend
+            self._kb_v2_backend = QdrantBackend(
+                client=kb.client,
+                embedding_service=kb.embedding_service,
+                collection_name="knowledge_base_v2",
+                vector_size=768,
+                vector_name="general_embedding",
+                project_scoped=False,
+            )
+            PrintStyle.standard(
+                "knowledge_base_v2 recall backend ready (general_embedding, 768-dim)"
+            )
+        except Exception as e:
+            PrintStyle.error(f"knowledge_base_v2 backend init failed: {e}")
+            self._kb_v2_backend = None
+        return self._kb_v2_backend
+
     async def _qdrant_search(
         self, query: str, limit: int, threshold: float, filter: str = ""
     ) -> list[Document]:
@@ -586,6 +638,27 @@ class Memory:
                     all_results.extend(hits)
             except Exception as e:
                 PrintStyle.error(f"Qdrant backend search error: {e}")
+
+        # Additive: also search the knowledge_base_v2 corpus (books/papers/docs) DIRECTLY
+        # via its general_embedding named vector. Direct Qdrant (no VM101 hop) — same
+        # latency profile as agent_memory. Every point carries general_embedding, so this
+        # one space gives full-corpus coverage. Globally shared (no project scoping).
+        if _kb_v2_recall_enabled():
+            v2 = self._get_knowledge_v2_backend()
+            if v2 is not None:
+                try:
+                    v2_hits = await v2.search(
+                        query=query, top_k=_kb_v2_top_k(), context=context, area=None,
+                    )
+                    for h in v2_hits:
+                        title = h.get("book_title") or h.get("source_file") or "knowledge"
+                        text = h.get("text", "") or h.get("content", "")
+                        h["content"] = f"[{title}] {text}"
+                        h["area"] = "knowledge"
+                    all_results.extend(v2_hits)
+                    PrintStyle.info(f"knowledge_base_v2 direct search: {len(v2_hits)} hits")
+                except Exception as e:
+                    PrintStyle.error(f"knowledge_base_v2 direct search error: {e}")
 
         # Deduplicate by id and sort by score descending
         seen = set()
