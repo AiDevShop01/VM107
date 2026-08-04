@@ -82,6 +82,7 @@ class Memory:
 
     index: dict[str, "MyFaiss"] = {}
     backends: dict[str, MemoryBackend] = {}  # Backend instances per memory_subdir
+    knowledge_backends: dict[str, MemoryBackend] = {}  # knowledge_base backend per memory_subdir (D-06: built once, process-lifetime)
     _redis_cache = None  # Singleton RedisEmbeddingCache (shared across all subdirs)
 
     @staticmethod
@@ -167,9 +168,12 @@ class Memory:
                     backend = None
 
             # Create a separate knowledge backend with bge-base-en-v1.5 (768-dim)
-            # for higher quality embeddings on books, papers, and technical docs
-            knowledge_backend = None
-            if backend:
+            # for higher quality embeddings on books, papers, and technical docs.
+            # Cached on the Memory class (D-06): built once per subdir, reused across get()s
+            # so no BgeEmbeddingAdapter / QdrantBackend churn (and no SentenceTransformer reload)
+            # on subsequent recalls. The object stays alive for kb_v2 to borrow (D-08.4).
+            knowledge_backend = Memory.knowledge_backends.get(memory_subdir)
+            if knowledge_backend is None and backend:
                 try:
                     from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
                     bge_adapter = BgeEmbeddingAdapter()
@@ -191,6 +195,7 @@ class Memory:
                         collection_name="knowledge_base",
                         vector_size=BgeEmbeddingAdapter.VECTOR_DIM,  # 768
                     )
+                    Memory.knowledge_backends[memory_subdir] = knowledge_backend
                     PrintStyle.standard(
                         f"Knowledge backend: bge-base-en-v1.5 ({BgeEmbeddingAdapter.VECTOR_DIM}-dim)"
                     )
@@ -217,9 +222,11 @@ class Memory:
             return wrap
         else:
             backend = Memory.backends.get(memory_subdir)
-            # Rebuild knowledge_backend with bge-base-en-v1.5 (768-dim)
-            knowledge_backend = None
-            if backend:
+            # Reuse the cached knowledge_backend (bge-base-en-v1.5, 768-dim); build once
+            # per subdir and store on the Memory class (D-06) so this else/cached branch no
+            # longer reconstructs a fresh BgeEmbeddingAdapter+QdrantBackend on every get().
+            knowledge_backend = Memory.knowledge_backends.get(memory_subdir)
+            if knowledge_backend is None and backend:
                 try:
                     from plugins._memory.backend.qdrant_backend import QdrantBackend
                     from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
@@ -241,6 +248,7 @@ class Memory:
                         collection_name="knowledge_base",
                         vector_size=BgeEmbeddingAdapter.VECTOR_DIM,  # 768
                     )
+                    Memory.knowledge_backends[memory_subdir] = knowledge_backend
                 except Exception:
                     pass
             return Memory(
