@@ -60,6 +60,7 @@ exchangelib>=5.4.3
 pywinpty==3.0.2; sys_platform == "win32"
 python-socketio>=5.14.2
 uvicorn>=0.38.0
+httptools>=0.6,<0.7  # active HTTP parser for uvicorn http="auto"; without it uvicorn falls back to strict h11, which intermittently rejects the WebUI's parallel keep-alive requests with 400 "Invalid HTTP request received" (blank screen). h11 stays installed as the hardened fallback (see security floor below).
 watchdog==6.0.0
 wsproto>=1.2.0
 # Security floor pins for transitive dependencies
