@@ -1,5 +1,7 @@
 """Adapters to bridge embedding models to QdrantBackend's expected interface."""
 
+import asyncio
+import threading
 from dataclasses import dataclass
 
 
@@ -33,13 +35,17 @@ class EmbeddingAdapter:
 
         Accepts and ignores kwargs (project_id, model, normalize) for interface compat.
         """
-        vectors = self.embedder.embed_documents(texts)
+        # Offload the CPU-bound embed off the event loop (A1/D-03)
+        vectors = await asyncio.to_thread(self._embed_documents_sync, texts)
         return EmbedResponse(
             embeddings=vectors,
             model=kwargs.get("model", "langchain-wrapped"),
             token_count=0,
             cache_hits=0,
         )
+
+    def _embed_documents_sync(self, texts: list[str]):
+        return self.embedder.embed_documents(texts)
 
 
 class BgeEmbeddingAdapter:
@@ -54,25 +60,47 @@ class BgeEmbeddingAdapter:
     MODEL_NAME = "BAAI/bge-base-en-v1.5"
     VECTOR_DIM = 768
 
-    def __init__(self):
-        self._model = None
+    # Class-level → process-wide singleton (D-06). The model is loaded exactly
+    # once and shared across every instance and every to_thread worker thread.
+    _model = None
+    _model_lock = threading.Lock()   # single-flight across to_thread worker threads (D-02)
+    _load_count = 0                  # D-08.2 counter (incremented inside the lock)
 
-    def _get_model(self):
-        if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self.MODEL_NAME)
-        return self._model
+    def __init__(self):
+        # Model is a class singleton — no per-instance model state.
+        pass
+
+    @classmethod
+    def _get_model(cls):
+        """Double-checked lazy load of the process-wide SentenceTransformer.
+
+        Uses a threading lock, not an async lock: the load runs inside to_thread
+        worker threads, which an async lock cannot serialize (RESEARCH Pitfall 3). This
+        same lock is the D-02 single-flight guard — a recall arriving mid-preload
+        blocks on the in-flight load and reuses it.
+        """
+        if cls._model is None:                     # fast path, no lock
+            with cls._model_lock:
+                if cls._model is None:             # double-checked
+                    from sentence_transformers import SentenceTransformer
+                    cls._model = SentenceTransformer(cls.MODEL_NAME)
+                    cls._load_count += 1
+        return cls._model
 
     async def embed(self, texts: list[str], **kwargs) -> EmbedResponse:
         """Embed texts using bge-base-en-v1.5 (768-dim).
 
         Accepts and ignores kwargs (project_id, model, normalize) for interface compat.
         """
-        model = self._get_model()
-        vectors = model.encode(texts, normalize_embeddings=True).tolist()
+        # load + encode both run in the worker thread (A1/D-03)
+        vectors = await asyncio.to_thread(self._embed_sync, texts)
         return EmbedResponse(
             embeddings=vectors,
             model=self.MODEL_NAME,
             token_count=0,
             cache_hits=0,
         )
+
+    def _embed_sync(self, texts: list[str]):
+        model = self._get_model()   # class-singleton load happens in the worker thread
+        return model.encode(texts, normalize_embeddings=True).tolist()
