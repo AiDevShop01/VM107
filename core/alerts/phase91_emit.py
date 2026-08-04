@@ -34,6 +34,8 @@ from uuid import UUID
 import jsonschema
 import requests
 
+from emitters.source_health_registry import SourceHealthRegistry
+
 logger = logging.getLogger(__name__)
 
 # ── Schema ───────────────────────────────────────────────────────────────────
@@ -251,8 +253,21 @@ def emit_alert_candidate(
         return
 
     try:
-        response = requests.post(phase91_url, json=envelope)
+        # timeout=(connect, read) bounds the external POST so a down Phase 91
+        # UAE fast-fails within budget instead of hanging (SC-1/D2). Env-driven
+        # resilience defaults, not a target/credential fallback (D-05/D-06).
+        response = requests.post(
+            phase91_url,
+            json=envelope,
+            timeout=(
+                float(os.getenv("A0_PHASE91_CONNECT_TIMEOUT", "3.05")),
+                float(os.getenv("A0_PHASE91_READ_TIMEOUT", "15")),
+            ),
+        )
         response.raise_for_status()
+        SourceHealthRegistry.get_shared_instance().report(
+            "phase91_uae", available=True
+        )
         logger.info({
             "event": "phase91_alert_candidate_emitted",
             "alert_type": alert_type,
@@ -261,6 +276,11 @@ def emit_alert_candidate(
             "subject_id": subject_id,
         })
     except Exception as exc:  # noqa: BLE001
+        # Report guard added to the EXISTING DLQ fallback (D-07) — no new
+        # failure path. failure_reason carries exception text only (no secrets).
+        SourceHealthRegistry.get_shared_instance().report(
+            "phase91_uae", available=False, failure_reason=str(exc)
+        )
         logger.error({
             "event": "phase91_emit_failed",
             "error": str(exc),

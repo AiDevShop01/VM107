@@ -46,11 +46,29 @@ def create_backend(
 
         from qdrant_client import QdrantClient
 
+        from emitters.source_health_registry import SourceHealthRegistry
+
         # Create QdrantClient from config
         qdrant_host = config.get("qdrant_host") or os.environ["QDRANT_HOST"]
         qdrant_port = config.get("qdrant_port", 6333)
 
-        client = QdrantClient(host=qdrant_host, port=qdrant_port)
+        # timeout bounds the sync Qdrant client's requests so a down Qdrant
+        # fast-fails within budget instead of hanging (SC-1/B5). Sync client,
+        # in place ONLY — the async swap is Phase 138 / P6. Env-driven
+        # resilience default, not a target/credential fallback (D-05/D-06).
+        # Report guard matches this module's fail-fast idiom (D-07).
+        try:
+            client = QdrantClient(
+                host=qdrant_host,
+                port=qdrant_port,
+                timeout=int(os.getenv("A0_QDRANT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "qdrant", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("qdrant", available=True)
 
         return QdrantBackend(
             client=client,
