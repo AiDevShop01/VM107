@@ -8,6 +8,14 @@ from fnmatch import fnmatch
 
 T = TypeVar("T")  # Define a generic type variable
 
+# A4 (Phase 133 P1) — process-lifetime memo for load_classes_from_file so the
+# expensive import_module -> spec.loader.exec_module re-execution (which fires on
+# every agent.get_tool() dispatch) happens once per (absolute path, base class).
+# Mirrors the Memory.backends class-dict idiom (helpers/memory.py:83-85): plain
+# dict, no eviction. D-05 accepts no-invalidation (restart-to-refresh); the dev
+# hot-reload path clears it via purge_namespace() below.
+_TOOL_CLASS_CACHE: dict[tuple[str, int], list[type]] = {}
+
 
 def import_module(file_path: str) -> ModuleType:
     # Handle file paths with periods in the name using importlib.util
@@ -62,6 +70,14 @@ def load_classes_from_folder(
 def load_classes_from_file(
     file: str, base_class: type[T], one_per_file: bool = True
 ) -> list[type[T]]:
+    # A4: memoize by (absolute path, base class identity). On a hit, return the
+    # cached list before re-executing the module (import_module re-runs
+    # spec.loader.exec_module every call). get_abs_path already imported at :5.
+    key = (get_abs_path(file), id(base_class))
+    cached = _TOOL_CLASS_CACHE.get(key)
+    if cached is not None:
+        return cached
+
     classes = []
     # Use the new import_module function
     module = import_module(file)
@@ -77,6 +93,7 @@ def load_classes_from_file(
             if one_per_file:
                 break
 
+    _TOOL_CLASS_CACHE[key] = classes
     return classes
 
 
@@ -92,6 +109,10 @@ def purge_namespace(namespace: str):
 
     for name in to_delete:
         del sys.modules[name]
+
+    # A4: the dev hot-reload path must yield fresh classes — drop the tool-class
+    # memo so the next load re-imports (D-05 hot-reload caveat).
+    _TOOL_CLASS_CACHE.clear()
 
     importlib.invalidate_caches()
     return to_delete
