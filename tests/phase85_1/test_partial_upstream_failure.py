@@ -18,7 +18,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 05 — partial upstream failure handling not yet implemented", strict=False)
 def test_exec_summary_cancelled_when_release_analyst_failed(
     mock_goal_service,
     mock_dispatch_agent_sync,
@@ -64,7 +63,6 @@ def test_exec_summary_cancelled_when_release_analyst_failed(
     )
 
 
-@pytest.mark.xfail(reason="Plan 05 — partial upstream failure handling not yet implemented", strict=False)
 def test_publish_not_fired_when_exec_summary_cancelled(
     mock_goal_service,
     mock_orchestrator,

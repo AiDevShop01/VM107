@@ -18,7 +18,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 05 — idempotency guard not yet implemented", strict=False)
 def test_redispatching_same_task_id_does_not_corrupt_status(
     mock_bulk_writer,
     fixture_macro_release_task_docs,

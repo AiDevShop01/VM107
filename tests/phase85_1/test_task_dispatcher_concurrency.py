@@ -14,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 05 — concurrency cap not yet implemented", strict=False)
 def test_dispatcher_honours_max_concurrent_cap(
     monkeypatch,
     mock_dispatch_agent_sync,

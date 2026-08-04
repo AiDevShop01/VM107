@@ -13,7 +13,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 05 — retry semantics not yet implemented", strict=False)
 def test_failed_task_retries_up_to_max_retries(
     mock_dispatch_agent_sync,
     fixture_macro_release_task_docs,
@@ -59,7 +58,6 @@ def test_failed_task_retries_up_to_max_retries(
     )
 
 
-@pytest.mark.xfail(reason="Plan 05 — retry semantics not yet implemented", strict=False)
 def test_failed_task_writes_failure_reason(
     mock_dispatch_agent_sync,
     fixture_macro_release_task_docs,

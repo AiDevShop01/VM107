@@ -22,10 +22,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(
-    reason="Plan 04 — backfill _dispatch_agent_sync fix not yet implemented",
-    strict=False,
-)
 def test_backfill_loops_over_indicators_without_attributeerror(
     monkeypatch,
     mock_dispatch_agent_sync,
@@ -86,10 +82,6 @@ def test_backfill_loops_over_indicators_without_attributeerror(
     )
 
 
-@pytest.mark.xfail(
-    reason="Plan 04 — backfill --skip-manual-override flag not yet implemented",
-    strict=False,
-)
 def test_backfill_skips_manual_override_rows(
     monkeypatch,
     mock_dispatch_agent_sync,

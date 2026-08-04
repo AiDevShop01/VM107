@@ -26,7 +26,6 @@ import pytest
 # Happy-path status-transition tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Plan 02 — task dispatcher not yet implemented", strict=False)
 def test_dispatcher_picks_pending_task_and_marks_running(
     mock_brain_state_collection,
     mock_bulk_writer,
@@ -61,7 +60,6 @@ def test_dispatcher_picks_pending_task_and_marks_running(
     assert call_kwargs.get("status") == "running"
 
 
-@pytest.mark.xfail(reason="Plan 02 — task dispatcher not yet implemented", strict=False)
 def test_dispatcher_transitions_completed_on_success(
     mock_goal_service,
     mock_dispatch_agent_sync,
@@ -88,7 +86,6 @@ def test_dispatcher_transitions_completed_on_success(
     assert len(completed_writes) >= 1
 
 
-@pytest.mark.xfail(reason="Plan 02 — task dispatcher not yet implemented", strict=False)
 def test_dispatcher_calls_on_task_completed_after_terminal(
     mock_goal_service,
     fixture_macro_release_task_docs,
@@ -114,7 +111,6 @@ def test_dispatcher_calls_on_task_completed_after_terminal(
 # Routing tests — output parsed and written to correct Mongo collection/column
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Plan 02 — parse_and_persist routing not yet implemented", strict=False)
 def test_dispatcher_routes_release_analyst_to_economic_event_analysis_table(
     monkeypatch,
     mock_dispatch_agent_sync,
@@ -152,7 +148,6 @@ def test_dispatcher_routes_release_analyst_to_economic_event_analysis_table(
     assert goal_payload["event_id"] in str(call_args) + str(call_kwargs)
 
 
-@pytest.mark.xfail(reason="Plan 02 — parse_and_persist routing not yet implemented", strict=False)
 def test_dispatcher_routes_asset_exposure_to_correct_table(
     monkeypatch,
     mock_dispatch_agent_sync,
@@ -189,7 +184,6 @@ def test_dispatcher_routes_asset_exposure_to_correct_table(
     assert goal_payload["event_id"] in call_args_str or "exposures" in call_args_str
 
 
-@pytest.mark.xfail(reason="Plan 02 — parse_and_persist routing not yet implemented", strict=False)
 def test_dispatcher_routes_exec_summary_to_correct_column(
     monkeypatch,
     mock_dispatch_agent_sync,
@@ -273,7 +267,6 @@ def test_dispatch_agent_sync_sets_profile_id_before_monologue(monkeypatch):
 # DAG safety guard — blocked tasks must never run
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="Plan 02 — task dispatcher not yet implemented", strict=False)
 def test_dispatcher_skips_tasks_with_nonempty_blocked_by(
     mock_brain_state_collection,
     fixture_macro_release_task_docs,

@@ -23,7 +23,6 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.xfail(reason="Plan 02 — WS chain dispatcher not yet implemented", strict=False)
 def test_three_tasks_completed_fires_publish_indicator_updated_once(
     monkeypatch,
     mock_goal_service,
@@ -76,7 +75,6 @@ def test_three_tasks_completed_fires_publish_indicator_updated_once(
     )
 
 
-@pytest.mark.xfail(reason="Plan 02 — WS chain dispatcher not yet implemented", strict=False)
 def test_publish_not_fired_when_any_task_failed(
     monkeypatch,
     mock_goal_service,
