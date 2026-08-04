@@ -619,10 +619,16 @@ class Memory:
         # Collect results from all backends
         all_results = []
 
-        # Search agent_memory only. The empty knowledge_base v1 is DROPPED from the search
-        # list (A3/D-07) — but the knowledge_backend OBJECT stays built/cached so kb_v2
-        # (below) can still borrow its client+embedder via _get_knowledge_v2_backend (D-08.4).
+        # Search agent_memory AND knowledge_base v1. The D-07/A3 assumption that v1 is
+        # empty/deprecated was FALSE (corrected in Plan 133-06): the v1 knowledge_base
+        # holds 50 live Agent-Zero operational docs (area='main': config/tool-call/MCP
+        # reference), so 133-04's drop was a real recall regression — now REVERSED. v1 is
+        # re-added to the concurrent fan-out below (still off-loop, gathered with
+        # return_exceptions=True — NOT serialized back onto the loop). The knowledge_backend
+        # OBJECT is also borrowed by kb_v2 via _get_knowledge_v2_backend (D-08.4).
         backends_to_search = [self.backend]
+        if self.knowledge_backend:
+            backends_to_search.append(self.knowledge_backend)
 
         query_preview = query[:120] + "..." if len(query) > 120 else query
         PrintStyle.info(
