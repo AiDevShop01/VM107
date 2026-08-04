@@ -11,9 +11,17 @@
 # and ALWAYS `up -d --force-recreate` — never restart the container (env_file is
 # read only at CREATE; the image is build-on-host). --env-file .env.local always.
 #
+# Between iterations the harness SETTLES for SOAK_SETTLE_SECONDS (default 45s) so
+# the host reclaims memory (macOS compressor / Linux page cache) before the next
+# recreate. Without this, 20 back-to-back recreates on a loaded multi-VM dev box
+# accumulate memory pressure that balloons a normally ~50s cold boot past the poll
+# window — a host-resource artifact, not a boot-logic failure. Set
+# SOAK_SETTLE_SECONDS=0 to reproduce the harsh rapid-fire behavior.
+#
 # Usage:
 #   COMPOSE_PROJECT_DIR=/path/to/VM107 bash scripts/soak_boot_recreate.sh [N]
-#   (N defaults to 20)
+#   SOAK_SETTLE_SECONDS=45 bash scripts/soak_boot_recreate.sh 20
+#   (N defaults to 20; SOAK_SETTLE_SECONDS defaults to 45)
 #
 # Exit codes:
 #   0 — all N recreates reached /api/health 200 (P == N)
@@ -24,6 +32,7 @@
 set -euo pipefail
 
 N="${1:-20}"
+SOAK_SETTLE_SECONDS="${SOAK_SETTLE_SECONDS:-45}"
 
 COMPOSE_PROJECT_DIR="${COMPOSE_PROJECT_DIR:-/Volumes/ HardDrive/FinGPT/VM107}"
 HEALTH_URL="http://localhost:50081/api/health"
@@ -76,6 +85,13 @@ for i in $(seq 1 "${N}"); do
     echo "  OK    iter ${i}: /api/health 200 after ${boot_seconds}s"
   else
     echo "  FAIL  iter ${i}: /api/health never returned 200 within ${boot_seconds}s"
+  fi
+
+  # Settle between iterations so the host reclaims memory before the next
+  # recreate (skip after the final iteration).
+  if [[ "${i}" -lt "${N}" && "${SOAK_SETTLE_SECONDS}" -gt 0 ]]; then
+    echo "  ..... settling ${SOAK_SETTLE_SECONDS}s (memory reclaim) before next recreate"
+    sleep "${SOAK_SETTLE_SECONDS}"
   fi
 done
 
