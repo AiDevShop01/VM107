@@ -25,6 +25,8 @@ from uuid import UUID, uuid4
 import psycopg2
 from pydantic import BaseModel, ConfigDict, Field
 
+from emitters.source_health_registry import SourceHealthRegistry
+
 from .severity_grader import SeverityResult, grade_severity
 
 logger = logging.getLogger(__name__)
@@ -84,7 +86,21 @@ class ContradictionEngine:
                 "Set CONTRADICTION_POSTGRES_URL in your environment before starting."
             )
         self._pg_url = pg_url
-        self._conn = psycopg2.connect(pg_url)
+        # connect_timeout bounds the eager psycopg2 connect so a down Postgres
+        # fast-fails within budget instead of hanging construction (SC-1).
+        # Env-driven resilience default, not a target/credential fallback
+        # (D-05/D-06). Report guard matches this module's fail-fast idiom (D-07).
+        try:
+            self._conn = psycopg2.connect(
+                pg_url,
+                connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "postgres", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
         self._belief_store = belief_store
         self._contract: dict | None = contract
 

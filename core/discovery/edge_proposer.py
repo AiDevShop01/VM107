@@ -28,6 +28,7 @@ import psycopg2
 
 # SHARED Phase 89↔Phase 91 helper — Plan 03 ships this (never redefine locally)
 from core.alerts.phase91_emit import emit_alert_candidate
+from emitters.source_health_registry import SourceHealthRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -320,11 +321,20 @@ class EdgeProposer:
         last_exc: Exception | None = None
         for attempt in range(1, self._max_pg_retries + 1):
             try:
-                conn = psycopg2.connect(pg_url)
+                # connect_timeout bounds the psycopg2 connect so a down Postgres
+                # fast-fails within budget instead of hanging (SC-1). Env-driven
+                # resilience default, not a target/credential fallback (D-05/D-06).
+                conn = psycopg2.connect(
+                    pg_url,
+                    connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+                )
                 with conn.cursor() as cur:
                     cur.execute(sql, params)
                 conn.commit()
                 conn.close()
+                SourceHealthRegistry.get_shared_instance().report(
+                    "postgres", available=True
+                )
                 logger.info({
                     "event": "phase89_proposal_postgres_written",
                     "proposal_id": str(proposal_id),
@@ -333,6 +343,11 @@ class EdgeProposer:
                 return
             except Exception as exc:
                 last_exc = exc
+                # Report guard matches this module's existing swallow-and-retry
+                # idiom (D-07) — no secrets in failure_reason.
+                SourceHealthRegistry.get_shared_instance().report(
+                    "postgres", available=False, failure_reason=str(exc)
+                )
                 logger.warning({
                     "event": "phase89_proposal_postgres_reconciliation_warning",
                     "proposal_id": str(proposal_id),

@@ -17,6 +17,8 @@ from datetime import date, datetime, timezone
 
 import psycopg2
 
+from emitters.source_health_registry import SourceHealthRegistry
+
 logger = logging.getLogger(__name__)
 
 # Decision 4 throughput targets
@@ -88,7 +90,21 @@ class ThroughputGovernor:
             SET proposal_count = macro_discovery_throughput.proposal_count + 1
             RETURNING proposal_count
         """
-        conn = psycopg2.connect(pg_url)
+        # connect_timeout bounds the psycopg2 connect so a down Postgres
+        # fast-fails within budget instead of hanging (SC-1). Env-driven
+        # resilience default, not a target/credential fallback (D-05/D-06).
+        try:
+            conn = psycopg2.connect(
+                pg_url,
+                connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            # Match this module's fail-fast idiom (D-07): report + re-raise.
+            SourceHealthRegistry.get_shared_instance().report(
+                "postgres", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, (week_start,))
@@ -149,7 +165,21 @@ class ThroughputGovernor:
                 threshold_action_at = EXCLUDED.threshold_action_at,
                 r_min_applied = EXCLUDED.r_min_applied
         """
-        conn = psycopg2.connect(pg_url)
+        # connect_timeout bounds the psycopg2 connect so a down Postgres
+        # fast-fails within budget instead of hanging (SC-1). Env-driven
+        # resilience default, not a target/credential fallback (D-05/D-06).
+        try:
+            conn = psycopg2.connect(
+                pg_url,
+                connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            # Match this module's fail-fast idiom (D-07): report + re-raise.
+            SourceHealthRegistry.get_shared_instance().report(
+                "postgres", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -245,7 +275,21 @@ class ThroughputGovernor:
                 r_min_applied = EXCLUDED.r_min_applied,
                 r_min_previous = EXCLUDED.r_min_previous
         """
-        conn = psycopg2.connect(pg_url)
+        # connect_timeout bounds the psycopg2 connect so a down Postgres
+        # fast-fails within budget instead of hanging (SC-1). Env-driven
+        # resilience default, not a target/credential fallback (D-05/D-06).
+        try:
+            conn = psycopg2.connect(
+                pg_url,
+                connect_timeout=int(os.getenv("A0_PG_CONNECT_TIMEOUT", "5")),
+            )
+        except Exception as exc:
+            # Match this module's fail-fast idiom (D-07): report + re-raise.
+            SourceHealthRegistry.get_shared_instance().report(
+                "postgres", available=False, failure_reason=str(exc)
+            )
+            raise
+        SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, (week_start, "tightened", now, new_r_min, self._base_r_min))
