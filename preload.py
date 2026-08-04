@@ -62,6 +62,27 @@ async def preload():
         PrintStyle().error(f"Error in preload: {e}")
 
 
+async def _preload_recall_stack():
+    """D-01 post-boot warm-up (fire-and-forget; never awaited on the boot path).
+
+    Warms the process-singleton bge embedding model via the SAME
+    ``BgeEmbeddingAdapter._get_model`` guard the recall path uses, so a user
+    recall arriving mid-load blocks on ``_model_lock`` and reuses the in-flight
+    load (D-02 single-flight). The load runs in a worker thread
+    (``asyncio.to_thread``) so it never blocks the serving event loop. Warming
+    is best-effort: any failure (e.g. a Qdrant hiccup) is logged, not raised, so
+    it can never crash the serving loop.
+    """
+    try:
+        from plugins._memory.backend.embedding_adapter import BgeEmbeddingAdapter
+
+        # Same guard as the recall path -> single-flight (D-02); off the loop.
+        await asyncio.to_thread(BgeEmbeddingAdapter._get_model)
+        PrintStyle().print("Recall stack preload completed (embedding singleton warm).")
+    except Exception as e:
+        PrintStyle().error(f"Error in _preload_recall_stack: {e}")
+
+
 # preload transcription model
 if __name__ == "__main__":
     PrintStyle().print("Running preload...")
