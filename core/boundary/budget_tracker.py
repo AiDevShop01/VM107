@@ -7,13 +7,18 @@ Provides BudgetTrackerInterface protocol with two implementations:
 """
 from typing import Protocol, runtime_checkable
 from datetime import datetime, timezone
+import os
 import threading
+
+from emitters.source_health_registry import SourceHealthRegistry
 
 # Import pymongo at module level for mockability
 try:
     from pymongo import MongoClient
+    from pymongo.errors import PyMongoError
 except ImportError:
     MongoClient = None
+    PyMongoError = Exception
 
 
 @runtime_checkable
@@ -96,13 +101,33 @@ class MongoBudgetTracker:
                 "Install with: pip install pymongo"
             )
 
-        self._client = MongoClient(mongo_uri, retryWrites=True, w="majority")
+        # serverSelectionTimeoutMS bounds the FIRST op so a down Mongo fast-fails
+        # (mirrors orchestrator_factory.py:69; env-driven resilience default per
+        # D-05/D-06). MongoClient is lazy — no connect/ping here (D-08 wants
+        # fast-fail-then-degrade on first op, not a boot abort).
+        self._client = MongoClient(
+            mongo_uri,
+            retryWrites=True,
+            w="majority",
+            serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+        )
         self._db = self._client[database]
         self._collection = self._db["budget_usage"]
 
         # Thread-local cache for daily total (reduce MongoDB reads)
         self._local = threading.local()
         self._cache_ttl_seconds = 60  # Refresh every 60s
+
+        # Lazily-held in-memory fallback — the per-LLM-call budget path must
+        # NEVER block/raise on a down Mongo (D-08). On a PyMongoError each op
+        # degrades to this tracker and emits a `budget_mongo` health signal.
+        self._fallback_tracker: "InMemoryBudgetTracker | None" = None
+
+    def _fallback(self) -> "InMemoryBudgetTracker":
+        """Return the lazily-created in-memory fallback tracker."""
+        if self._fallback_tracker is None:
+            self._fallback_tracker = InMemoryBudgetTracker()
+        return self._fallback_tracker
 
     def add_spend(self, agent_name: str, cost_usd: float) -> None:
         """
@@ -112,18 +137,30 @@ class MongoBudgetTracker:
         """
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-        # Atomic increment (safe for concurrent updates)
-        self._collection.update_one(
-            {"_id": today},
-            {
-                "$inc": {
-                    "total_spend": cost_usd,
-                    f"agents.{agent_name}": cost_usd
+        # Atomic increment (safe for concurrent updates). A down Mongo fast-fails
+        # (serverSelectionTimeoutMS) -> degrade to the in-memory fallback + signal;
+        # never raise into the per-LLM-call caller.
+        try:
+            self._collection.update_one(
+                {"_id": today},
+                {
+                    "$inc": {
+                        "total_spend": cost_usd,
+                        f"agents.{agent_name}": cost_usd
+                    },
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
                 },
-                "$set": {"updated_at": datetime.now(timezone.utc)}
-            },
-            upsert=True  # Create document if first spend of the day
-        )
+                upsert=True  # Create document if first spend of the day
+            )
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=True
+            )
+        except PyMongoError as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=False, failure_reason=str(exc)
+            )
+            self._fallback().add_spend(agent_name, cost_usd)
+            return
 
         # Invalidate cache
         if hasattr(self._local, "cached_total"):
@@ -141,9 +178,19 @@ class MongoBudgetTracker:
             if cache_age < self._cache_ttl_seconds:
                 return self._local.cached_total
 
-        # Fetch from MongoDB
+        # Fetch from MongoDB. A down Mongo fast-fails (serverSelectionTimeoutMS)
+        # -> return the in-memory fallback value + signal; never block/raise.
         today = now.strftime("%Y-%m-%d")
-        doc = self._collection.find_one({"_id": today})
+        try:
+            doc = self._collection.find_one({"_id": today})
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=True
+            )
+        except PyMongoError as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=False, failure_reason=str(exc)
+            )
+            return self._fallback().get_daily_total()
         total = doc["total_spend"] if doc else 0.0
 
         # Update cache
@@ -155,7 +202,18 @@ class MongoBudgetTracker:
     def get_agent_spend(self, agent_name: str) -> float:
         """Get daily spend for a specific agent."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        doc = self._collection.find_one({"_id": today})
+        # A down Mongo fast-fails (serverSelectionTimeoutMS) -> return the
+        # in-memory fallback value + signal; never block/raise into the caller.
+        try:
+            doc = self._collection.find_one({"_id": today})
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=True
+            )
+        except PyMongoError as exc:
+            SourceHealthRegistry.get_shared_instance().report(
+                "budget_mongo", available=False, failure_reason=str(exc)
+            )
+            return self._fallback().get_agent_spend(agent_name)
 
         if not doc:
             return 0.0
