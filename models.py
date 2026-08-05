@@ -520,6 +520,16 @@ class LiteLLMChatWrapper(SimpleChatModel):
         # its own api_key. Pop ``fallbacks`` out of the primary call so the primary attempt
         # surfaces the outage instead of being silently absorbed by litellm-native failover.
         wrapper_fallbacks = call_kwargs.pop("fallbacks", None)
+        # Phase 134-09 (WR-07) — when the wrapper drives cross-provider failover, pop
+        # ``num_retries`` off the primary acompletion call so litellm does NOT also do
+        # num_retries x timeout on the primary AND then again on the secondary. Without
+        # this the real worst case compounds to ~timeout x (1+num_retries) x 2 (~120s).
+        # The wrapper's single failover IS the retry mechanism on this path, so the
+        # bounded worst case becomes ~2 x timeout. When there are NO wrapper fallbacks
+        # there is no failover path, so litellm-native num_retries stays intact as the
+        # caller's resilience mechanism (env-driven A0_LLM_NUM_RETRIES default preserved).
+        if wrapper_fallbacks:
+            call_kwargs.pop("num_retries", None)
         stream = reasoning_callback is not None or response_callback is not None or tokens_callback is not None
 
         # results
@@ -579,8 +589,16 @@ class LiteLLMChatWrapper(SimpleChatModel):
                                 result.response = stop_response
                                 break
                     finally:
-                        if stop_response is not None and hasattr(_completion, "aclose"):
-                            await _completion.aclose()  # type: ignore[attr-defined]
+                        # WR-03: ALWAYS close the streaming generator, not only on
+                        # early-stop. On the transient-error/failover branch the old
+                        # generator is abandoned (result/active_model get reassigned),
+                        # so without an unconditional aclose the underlying
+                        # aiohttp/httpx connection is orphaned.
+                        if hasattr(_completion, "aclose"):
+                            try:
+                                await _completion.aclose()  # type: ignore[attr-defined]
+                            except Exception:  # noqa: BLE001 — cleanup must never mask the real error
+                                pass
 
                 # non-stream response
                 else:
@@ -910,7 +928,12 @@ def _merge_provider_defaults(
     # every acompletion site (stream + unified_call) AND the embedding path.
     kwargs.setdefault("timeout", float(os.getenv("A0_LLM_TIMEOUT", "30")))
     kwargs.setdefault("num_retries", int(os.getenv("A0_LLM_NUM_RETRIES", "1")))
-    if "fallbacks" not in kwargs:
+    # Phase 134-09 (WR-01) — gate ``fallbacks`` to the CHAT path only. Timeout and
+    # num_retries are intentional on both paths, but ``_build_llm_fallbacks()`` returns
+    # the CHAT secondary (A0_LLM_SECONDARY_MODEL, e.g. gemini/gemini-2.0-flash). Injecting
+    # that into the embedding path would wire a chat model as an embedding fallback and
+    # spread an unsupported kwarg into ``embedding(model=..., **self.kwargs)``.
+    if provider_type == "chat" and "fallbacks" not in kwargs:
         fallbacks = _build_llm_fallbacks()
         if fallbacks:
             kwargs["fallbacks"] = fallbacks
