@@ -24,6 +24,11 @@ class Tool:
         self.loop_data = loop_data
         self.message = message
         self.progress: str = ""
+        # D4-01 (phase 135): safe additive default. self.log is otherwise only set in
+        # before_execution(); a denied/misinvoked tool whose execute() runs without it
+        # must see None here rather than AttributeError. The normal
+        # before_execution -> after_execution path overwrites this and is unaffected.
+        self.log = None
 
     @abstractmethod
     async def execute(self,**kwargs) -> Response:
