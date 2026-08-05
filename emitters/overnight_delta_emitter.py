@@ -193,11 +193,10 @@ class OvernightDeltaEmitter:
         invalidation_reason: str = "SCHEDULED",
     ) -> None:
         """Snapshot-before-publish (REQ-66-5 lock) — same wiring as MorningBrief."""
-        try:
-            from django.db import transaction
-        except ImportError:
-            return
-
+        # Phase 136 / SC-2 / D-01: the historic Django-import early-return guard that
+        # silently no-op'd this path in the Django-less VM107 runtime is removed. The
+        # publish attempt is resolved directly against the VM107-local Django-free
+        # publisher and fired immediately (no transaction.atomic()).
         try:
             from mission_control.services.snapshot_invalidation_publisher import (
                 SnapshotInvalidationPublisher,
@@ -215,13 +214,13 @@ class OvernightDeltaEmitter:
                 return
 
         publisher = SnapshotInvalidationPublisher()
-        with transaction.atomic():
-            publisher.publish_after_commit(
-                topic="mission_control.pre.overnight_delta",
-                snapshot_id=delta.delta_id,
-                account_id=delta.account_id,
-                invalidation_reason=invalidation_reason,
-            )
+        # VM107 has no Django DB transaction — publish IMMEDIATELY (fire-and-forget).
+        publisher.publish_after_commit(
+            topic="mission_control.pre.overnight_delta",
+            snapshot_id=delta.delta_id,
+            account_id=delta.account_id,
+            invalidation_reason=invalidation_reason,
+        )
 
     # ── Internal helpers ───────────────────────────────────────────────────
 

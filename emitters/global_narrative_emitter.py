@@ -214,19 +214,20 @@ class GlobalNarrativeEmitter:
         This method is a no-op if the NarrativeSnapshot model is unavailable
         (graceful degradation for test/offline mode).
         """
+        # NOTE (Phase 136 / SC-2 / D-01): the historic `try: from django.db import
+        # transaction / except ImportError: return` guard used to run FIRST and
+        # silently no-op the whole invalidation in the Django-less VM107 runtime —
+        # BEFORE ever reaching the publisher import. That silent-swallow is removed.
+        # The publish attempt is no longer gated behind Django; the VM107-local
+        # Django-free publisher is resolved and fired directly (no transaction.atomic).
         try:
-            from django.db import transaction
-        except ImportError:
-            # Django not available in this runtime (VM107 local process) — skip
-            return
-
-        try:
-            # Import publisher here to avoid circular import at module load
+            # Import publisher here to avoid circular import at module load.
+            # VM100 mission_control first, then the VM107-local Django-free mirror.
             from mission_control.services.snapshot_invalidation_publisher import (
                 SnapshotInvalidationPublisher,
             )
         except ImportError:
-            # VM100 mission_control not importable from VM107 — use local mirror if available
+            # VM100 mission_control not importable from VM107 — use local mirror.
             try:
                 from services.snapshot_invalidation_publisher import (  # type: ignore[import]
                     SnapshotInvalidationPublisher,
@@ -241,16 +242,14 @@ class GlobalNarrativeEmitter:
         narrative_id = narrative_dict.get("narrative_id", f"narr-{int(datetime.now(timezone.utc).timestamp())}")
         publisher = SnapshotInvalidationPublisher()
 
-        with transaction.atomic():
-            # NOTE: NarrativeSnapshot model will be added in a later plan.
-            # For now this block establishes the transaction.atomic() + publish_after_commit
-            # wiring pattern so the ordering guarantee is in place when the model lands.
-            publisher.publish_after_commit(
-                topic="homepage.global",
-                snapshot_id=narrative_id,
-                account_id=account_id,
-                invalidation_reason=invalidation_reason,
-            )
+        # VM107 has no Django DB transaction — publish IMMEDIATELY (fire-and-forget).
+        # The publisher fires a decoupled Redis invalidation; no transaction.atomic().
+        publisher.publish_after_commit(
+            topic="homepage.global",
+            snapshot_id=narrative_id,
+            account_id=account_id,
+            invalidation_reason=invalidation_reason,
+        )
 
     # ── Context assembly ────────────────────────────────────────────────────
 

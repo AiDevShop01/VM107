@@ -123,11 +123,10 @@ class ReflectionPromptEmitter:
 
         No-op when Django / publisher unavailable (test / offline mode).
         """
-        try:
-            from django.db import transaction
-        except ImportError:
-            return
-
+        # Phase 136 / SC-2 / D-01: the historic Django-import early-return guard that
+        # silently no-op'd this path in the Django-less VM107 runtime is removed. The
+        # publish attempt is resolved directly against the VM107-local Django-free
+        # publisher and fired immediately (no transaction.atomic()).
         try:
             from mission_control.services.snapshot_invalidation_publisher import (
                 SnapshotInvalidationPublisher,
@@ -145,12 +144,10 @@ class ReflectionPromptEmitter:
                 return
 
         publisher = SnapshotInvalidationPublisher()
-        with transaction.atomic():
-            # ReflectionPromptSnapshot.create(...) lands here in Plan 13
-            # BEFORE publish_after_commit fires.
-            publisher.publish_after_commit(
-                topic=RFLP_PUBLISH_TOPIC,
-                snapshot_id=set_contract.set_id,
-                account_id=set_contract.account_id,
-                invalidation_reason=invalidation_reason,
-            )
+        # VM107 has no Django DB transaction — publish IMMEDIATELY (fire-and-forget).
+        publisher.publish_after_commit(
+            topic=RFLP_PUBLISH_TOPIC,
+            snapshot_id=set_contract.set_id,
+            account_id=set_contract.account_id,
+            invalidation_reason=invalidation_reason,
+        )

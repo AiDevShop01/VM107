@@ -333,36 +333,40 @@ class OpportunityRanker:
         is registered inside the atomic block. This guarantees snapshot row exists in
         Postgres BEFORE Redis invalidation publish fires (REQ-66-5 ordering lock).
         """
+        # Phase 136 / SC-2 / D-01: the invalidation publish is SPLIT OUT of the ORM
+        # try-block. Previously the entire ORM-create + publish sat inside one broad
+        # `try: from django.db ... except Exception` — so in the Django-less VM107
+        # runtime the ImportError was caught and MISLABELED as "DB write failed", and
+        # the Redis invalidation never fired. Now the ORM persist is Django-only (an
+        # explicit intentional no-op when Django is absent) and the publish is resolved
+        # against the VM107-local Django-free mirror and fires independently.
+        snapshot_id = snapshot.get("snapshot_id") or uuid.uuid4()
+        account_id = snapshot.get("account_id", 0)
+        invalidation_reason = snapshot.get("refresh_reason", "SCHEDULED")
+
+        # Phase 73 follow-up emit-shape fix: rank_opportunities now emits
+        # the canonical key `rankings` (was `opportunities`, which violated
+        # the OpportunityRankingSnapshotContract). Read `rankings` first;
+        # fall back to legacy `opportunities` with a warning so any caller
+        # still on the v1 shape surfaces loudly rather than silently
+        # losing data.
+        rankings_payload = snapshot.get("rankings")
+        if rankings_payload is None:
+            legacy_payload = snapshot.get("opportunities")
+            if legacy_payload is not None:
+                log.warning(
+                    "OpportunityRanker._persist_snapshot: legacy 'opportunities' "
+                    "key seen — update caller to emit canonical 'rankings' "
+                    "(OpportunityRankingSnapshotContract)."
+                )
+                rankings_payload = legacy_payload
+            else:
+                rankings_payload = []
+
+        # ── ORM persist (Django-only; intentional no-op in the VM107 local runtime) ──
         try:
             from django.db import transaction
             from mission_control.models import OpportunityRankingSnapshot  # type: ignore[import]
-            from mission_control.services.snapshot_invalidation_publisher import (  # type: ignore[import]
-                SnapshotInvalidationPublisher,
-            )
-
-            snapshot_id = snapshot.get("snapshot_id") or uuid.uuid4()
-            account_id = snapshot.get("account_id", 0)
-            invalidation_reason = snapshot.get("refresh_reason", "SCHEDULED")
-            publisher = SnapshotInvalidationPublisher()
-
-            # Phase 73 follow-up emit-shape fix: rank_opportunities now emits
-            # the canonical key `rankings` (was `opportunities`, which violated
-            # the OpportunityRankingSnapshotContract). Read `rankings` first;
-            # fall back to legacy `opportunities` with a warning so any caller
-            # still on the v1 shape surfaces loudly rather than silently
-            # losing data.
-            rankings_payload = snapshot.get("rankings")
-            if rankings_payload is None:
-                legacy_payload = snapshot.get("opportunities")
-                if legacy_payload is not None:
-                    log.warning(
-                        "OpportunityRanker._persist_snapshot: legacy 'opportunities' "
-                        "key seen — update caller to emit canonical 'rankings' "
-                        "(OpportunityRankingSnapshotContract)."
-                    )
-                    rankings_payload = legacy_payload
-                else:
-                    rankings_payload = []
 
             with transaction.atomic():
                 OpportunityRankingSnapshot.objects.create(
@@ -376,19 +380,47 @@ class OpportunityRanker:
                     degraded_mode=snapshot.get("degraded_mode", False),
                     snapshot_metadata=snapshot.get("metadata", {}),
                 )
-                # publish_after_commit fires ONLY after DB commit succeeds (REQ-66-5)
-                publisher.publish_after_commit(
-                    topic="mission_control.opportunities",
-                    snapshot_id=snapshot_id,
-                    account_id=account_id,
-                    invalidation_reason=invalidation_reason,
-                )
-        except Exception as exc:
-            log.error(
-                "OpportunityRanker._persist_snapshot: DB write failed: %s — "
-                "snapshot not persisted (degraded mode).",
-                exc,
+        except ImportError:
+            # Django not present in the VM107 local runtime — the ORM persist is an
+            # INTENTIONAL no-op here (NOT a DB failure). The Redis invalidation below
+            # still fires via the VM107-local publisher.
+            log.info(
+                "OpportunityRanker._persist_snapshot: Django ORM unavailable in the "
+                "VM107 local runtime — snapshot ORM persist intentionally skipped; "
+                "invalidation publish proceeds."
             )
+        except Exception as exc:  # noqa: BLE001 — genuine DB write failure (Django present)
+            log.error(
+                "OpportunityRanker._persist_snapshot: DB write failed (%s) — "
+                "snapshot not persisted (degraded mode).",
+                type(exc).__name__,
+            )
+
+        # ── Decoupled invalidation publish (fires regardless of the ORM persist) ─────
+        try:
+            from mission_control.services.snapshot_invalidation_publisher import (  # type: ignore[import]
+                SnapshotInvalidationPublisher,
+            )
+        except ImportError:
+            try:
+                from services.snapshot_invalidation_publisher import (  # type: ignore[import]
+                    SnapshotInvalidationPublisher,
+                )
+            except ImportError:
+                log.warning(
+                    "OpportunityRanker._persist_snapshot: "
+                    "SnapshotInvalidationPublisher not available — invalidation publish skipped"
+                )
+                return
+
+        publisher = SnapshotInvalidationPublisher()
+        # VM107 has no Django DB transaction — publish IMMEDIATELY (fire-and-forget).
+        publisher.publish_after_commit(
+            topic="mission_control.opportunities",
+            snapshot_id=snapshot_id,
+            account_id=account_id,
+            invalidation_reason=invalidation_reason,
+        )
 
     # ─────────────────────────────────────────────────────────────────────
     # Core ranking logic
