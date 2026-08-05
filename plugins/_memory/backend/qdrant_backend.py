@@ -222,13 +222,20 @@ class QdrantBackend:
             Project filter is ALWAYS applied (callers cannot bypass)
             Returns empty list if Qdrant unavailable (graceful degradation)
         """
-        try:
-            # Get project_id from context
-            project_id = getattr(context, "project_id", None) or getattr(
-                context, "memory_subdir", "default"
-            )
+        # Object-carried per-context id (135-06): context-scope the health report so a
+        # concurrent context's success cannot clobber this context's outage on the shared
+        # process-wide SourceHealthRegistry. Empty -> bare-only report (C floor / today's behavior).
+        ctxid = getattr(context, "context_id", None) or ""
 
-            # Embed query
+        # Get project_id from context
+        project_id = getattr(context, "project_id", None) or getattr(
+            context, "memory_subdir", "default"
+        )
+
+        # Embed query — its own try so an embedding-service fault surfaces as the EMBEDDING
+        # subsystem, never mislabeled "qdrant unreachable" (WR-01 / T-135-06-02). Returns []
+        # (contract unchanged); no re-raise. type(e).__name__ ONLY — never str(e) (T-135-01).
+        try:
             embed_response = await self.embedding_service.embed(
                 texts=[query],
                 project_id=project_id,
@@ -236,7 +243,25 @@ class QdrantBackend:
                 normalize=True,
             )
             query_vector = embed_response.embeddings[0]
+        except Exception as e:
+            self._log_structured(
+                "warning",
+                "embedding_failed_graceful_degradation",
+                {
+                    "collection": self.collection_name,
+                    "error": str(e),
+                },
+            )
+            SourceHealthRegistry.get_shared_instance().report(
+                "embedding", available=False, failure_reason=type(e).__name__
+            )
+            if ctxid:
+                SourceHealthRegistry.get_shared_instance().report(
+                    f"embedding:{ctxid}", available=False, failure_reason=type(e).__name__
+                )
+            return []
 
+        try:
             # Build project filter (mandatory for project-scoped collections; skipped
             # for globally-shared corpora whose points carry no "project" field).
             filter_conditions = []
@@ -300,6 +325,10 @@ class QdrantBackend:
             # (factory.py) only marks qdrant healthy once; a mid-session recovery/outage
             # must refresh so the recall extension reads current truth. Contract unchanged.
             SourceHealthRegistry.get_shared_instance().report("qdrant", available=True)
+            if ctxid:
+                # Context-scoped success (135-06): isolates this context's health so a
+                # concurrent context's outage cannot be masked by (or mask) this success.
+                SourceHealthRegistry.get_shared_instance().report(f"qdrant:{ctxid}", available=True)
 
             return results
 
@@ -316,6 +345,12 @@ class QdrantBackend:
             # empty corpus (D3-02). WR-04 / T-135-01: type(e).__name__ ONLY — never str(e)
             # (which can leak qdrant host:port). Backend STILL returns [] (no contract change).
             SourceHealthRegistry.get_shared_instance().report("qdrant", available=False, failure_reason=type(e).__name__)
+            if ctxid:
+                # Context-scoped outage (135-06): the reader keys off qdrant:{ctxid} so a
+                # concurrent success on the bare key cannot clobber this context's outage.
+                SourceHealthRegistry.get_shared_instance().report(
+                    f"qdrant:{ctxid}", available=False, failure_reason=type(e).__name__
+                )
             return []
 
     async def delete(self, ids: list[str], context) -> None:
