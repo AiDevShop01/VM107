@@ -23,6 +23,8 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from pymongo.errors import PyMongoError  # noqa: E402
+
 # Deliberately NO serverSelectionTimeoutMS in the URI — the timeout must come from the CODE
 # (the fix), not the connection string, so today's un-timed client is provably RED.
 UNREACHABLE_URI = "mongodb://127.0.0.1:1"
@@ -106,3 +108,82 @@ def test_budget_tracker_down_mongo_bounded_fallback_and_signal():
         failures.append("'budget_mongo' health is not marked unavailable")
 
     assert not failures, "D-08 RED:\n  " + "\n  ".join(failures)
+
+
+class _SlowRaisingCollection:
+    """Fake collection: each op simulates the ~serverSelectionTimeoutMS cost, then raises.
+
+    Counts calls so the test can prove the WR-02 sticky latch routes the vast majority of
+    ops to the in-memory fallback WITHOUT re-issuing the (expensive) Mongo op.
+    """
+
+    SINGLE_OP_COST_S = 0.3
+
+    def __init__(self):
+        self.calls = 0
+
+    def _op(self):
+        self.calls += 1
+        time.sleep(self.SINGLE_OP_COST_S)
+        raise PyMongoError("injected op-time mongo outage")
+
+    def update_one(self, *_a, **_k):
+        self._op()
+
+    def find_one(self, *_a, **_k):
+        self._op()
+
+
+def test_budget_tracker_degrade_is_sticky_aggregate_bounded():
+    """WR-02: a down Mongo must cost ~0 per op in steady state, not the full timeout each call.
+
+    Loops N budget ops during an outage; only the FIRST op probes Mongo (paying the timeout),
+    the sticky latch absorbs the rest in ~0 for the cooldown window. Proves D-08 holds in
+    AGGREGATE across the hot path, not just for a single op.
+    """
+    from core.boundary.budget_tracker import MongoBudgetTracker
+    from emitters.source_health_registry import SourceHealthRegistry
+
+    SourceHealthRegistry.get_shared_instance().clear()
+    tracker = MongoBudgetTracker(UNREACHABLE_URI)
+    fake = _SlowRaisingCollection()
+    tracker._collection = fake
+
+    N = 20
+    start = time.monotonic()
+    for _ in range(N):
+        tracker.add_spend("agent-x", 0.01)   # arms the latch on the first call
+        tracker.get_daily_total()
+        tracker.get_agent_spend("agent-x")
+    elapsed = time.monotonic() - start
+
+    failures: list[str] = []
+
+    # The latch means exactly ONE op reaches Mongo; the other (3*N - 1) are absorbed.
+    if fake.calls != 1:
+        failures.append(
+            f"expected exactly 1 Mongo probe across {3 * N} ops (sticky latch), got {fake.calls}"
+        )
+
+    # Aggregate wall-clock ~ one op's cost, NOT (3*N) x the per-op timeout.
+    aggregate_bound = _SlowRaisingCollection.SINGLE_OP_COST_S * 3
+    if elapsed >= aggregate_bound:
+        failures.append(
+            f"{3 * N} ops during outage took {elapsed:.2f}s (>= {aggregate_bound:.2f}s); "
+            f"latch is not sticky (every op paid the Mongo cost)"
+        )
+
+    # In-memory fallback still tracks spend correctly during the outage.
+    if tracker.get_agent_spend("agent-x") <= 0.0:
+        failures.append("in-memory fallback did not accumulate add_spend during the outage")
+
+    # Degrade signal recorded (sanitized reason).
+    snap = SourceHealthRegistry.get_shared_instance().snapshot()
+    if "budget_mongo" not in snap or snap["budget_mongo"].available is not False:
+        failures.append("'budget_mongo' not marked unavailable")
+    elif snap["budget_mongo"].failure_reason != "PyMongoError":
+        failures.append(
+            f"failure_reason={snap['budget_mongo'].failure_reason!r}; expected sanitized 'PyMongoError'"
+        )
+
+    assert not failures, "WR-02 sticky-latch:\n  " + "\n  ".join(failures)
