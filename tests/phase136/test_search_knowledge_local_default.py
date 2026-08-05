@@ -165,3 +165,86 @@ def test_degraded_signal_has_no_host_port_or_ip_leak(monkeypatch):
     assert not _DOTTED_QUAD.search(msg), (
         f"DEGRADED signal leaked a dotted-quad IP (T-135-01 violation): {msg!r}"
     )
+
+
+def _run_tool_with_local_hits(monkeypatch, query, agent, hits):
+    """Run ``execute()`` with the LOCAL v2.search path forced to return ``hits``.
+
+    Monkeypatches ``plugins._memory.helpers.memory`` so the tool's in-execute
+    ``Memory.get(self.agent) -> db._get_knowledge_v2_backend().search(...)`` chain
+    yields a genuine NON-EMPTY local result WITHOUT touching a real Qdrant. This is
+    the missing coverage that lets a stale, failure-only ``embedding:{ctxid}=False``
+    interact with a genuinely-successful local call (CR-01).
+    """
+    import plugins._memory.helpers.memory as mem_mod
+
+    class _FakeV2Backend:
+        async def search(self, query, top_k, context, area=None):  # QdrantBackend.search shape
+            return list(hits)
+
+    class _FakeDb:
+        memory_subdir = "default"
+        context_id = getattr(getattr(agent, "context", None), "id", "") or ""
+
+        def _get_knowledge_v2_backend(self):
+            return _FakeV2Backend()
+
+    async def _fake_get(agent_arg):  # Memory.get is a staticmethod(agent) — bind-free
+        return _FakeDb()
+
+    monkeypatch.setattr(mem_mod.Memory, "get", staticmethod(_fake_get), raising=True)
+    # Neutralise the real context constructor — the fake backend ignores context.
+    monkeypatch.setattr(mem_mod, "_QdrantContext", lambda *a, **k: object(), raising=False)
+
+    return _run_tool(monkeypatch, query, agent=agent)
+
+
+def test_stale_embedding_health_does_not_discard_real_hits(monkeypatch):
+    """CR-01 (RED at d518663): a stale ``embedding:{ctxid}=False`` health record must
+    NOT discard a genuine NON-EMPTY local result behind a false DEGRADED.
+
+    ``report("embedding", available=True)`` is never called (embedding health is
+    failure-only and sticky until an emitter ``clear()``), so one transient
+    embedding hiccup permanently taints a context. The tool must be hits-first:
+    a non-empty local result is returned unconditionally and the health bus is
+    consulted ONLY to explain a genuinely-empty result (mirroring
+    ``_50_recall_memories.py``). RED before the fix: the tool reads the bus first
+    and returns a false DEGRADED, discarding the real hit.
+    """
+    from emitters.source_health_registry import SourceHealthRegistry
+
+    agent = _fake_agent("phase136-stale-embed-ctx")
+    ctxid = agent.context.id
+    real_hit_text = "liquidity is the depth available in the order book"
+
+    # (2) Seed a STALE embedding=False for this ctxid (an earlier transient failure
+    #     that was never re-marked healthy — the failure-only, sticky bus entry).
+    SourceHealthRegistry.get_shared_instance().report(
+        f"embedding:{ctxid}", available=False, failure_reason="RuntimeError"
+    )
+
+    # Fallback OFF so any DEGRADED comes PURELY from the (buggy) bus-first ordering.
+    monkeypatch.delenv("SEARCH_KNOWLEDGE_VM101_FALLBACK", raising=False)
+
+    # (1) Force the local path to return a genuine non-empty hit.
+    response, fake_httpx = _run_tool_with_local_hits(
+        monkeypatch,
+        "what is liquidity",
+        agent,
+        hits=[{"text": real_hit_text, "score": 0.75}],
+    )
+    msg = response.message or ""
+
+    # (3) The real hit must be returned; NO false DEGRADED.
+    assert "DEGRADED" not in msg.upper(), (
+        "CR-01: a stale embedding=False health record discarded a genuine non-empty "
+        f"local result behind a false DEGRADED. Got: {msg!r}"
+    )
+    assert real_hit_text in msg, (
+        f"expected the genuine local hit in the response, got: {msg!r}"
+    )
+
+    # (4) Non-empty local hits must NEVER trigger the VM101 fallback.
+    assert fake_httpx.calls == [], (
+        f"VM101 was called despite a non-empty local result: {fake_httpx.calls}"
+    )
