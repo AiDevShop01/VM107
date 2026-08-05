@@ -153,8 +153,28 @@ class RecallMemories(Extension):
             # degraded line names the failure CLASS, never a host:port.
             from emitters.source_health_registry import SourceHealthRegistry
 
-            qh = SourceHealthRegistry.get_shared_instance().snapshot().get("qdrant")
-            if qh is not None and qh.available is False:
+            # Context-scope the health read by this agent's immutable context id (135-06),
+            # with a bare-key fallback (C floor): read qdrant:{ctxid}/embedding:{ctxid} first,
+            # then fall back to the bare "qdrant"/"embedding" record so a key miss for a real
+            # ctxid degrades to today's working single-context signal, never plain-empty.
+            ctxid = getattr(getattr(self.agent, "context", None), "id", "") or ""
+            snap = SourceHealthRegistry.get_shared_instance().snapshot()
+            qh = (snap.get(f"qdrant:{ctxid}") if ctxid else None) or snap.get("qdrant")
+            eh = (snap.get(f"embedding:{ctxid}") if ctxid else None) or snap.get("embedding")
+
+            # Name the REAL failing subsystem (WR-01). T-135-01: name the failure CLASS/
+            # subsystem only — never a host:port.
+            if eh is not None and eh.available is False:
+                log_item.update(
+                    heading="Memory recall DEGRADED (embedding service unavailable)",
+                    content=(
+                        "Long-term memory is currently unavailable (embedding service "
+                        "unavailable); recall is impaired, not empty — do not claim you have "
+                        "no relevant memories. Proceed cautiously and note that memory could "
+                        "not be consulted."
+                    ),
+                )
+            elif qh is not None and qh.available is False:
                 log_item.update(
                     heading="Memory recall DEGRADED (qdrant unreachable)",
                     content=(
