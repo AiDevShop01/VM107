@@ -31,6 +31,29 @@ import uuid
 
 log = logging.getLogger(__name__)
 
+# WR-08: pymongo clients are meant to be long-lived and reused. persist() runs per
+# macro_story_tracker CREATE tick; constructing (and never closing) a fresh MongoClient
+# each call leaked a connection pool per tick. Cache one client per URI at module scope.
+_MONGO_CLIENTS: dict = {}
+
+
+def _get_client(mongo_url: str):
+    """Return a cached long-lived MongoClient for the URI, creating it if absent.
+
+    serverSelectionTimeoutMS bounds the (lazy) first op so a down Mongo fast-fails
+    instead of hanging the tracker tick (SC-1).
+    """
+    client = _MONGO_CLIENTS.get(mongo_url)
+    if client is None:
+        import pymongo
+
+        client = pymongo.MongoClient(
+            mongo_url,
+            serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
+        )
+        _MONGO_CLIENTS[mongo_url] = client
+    return client
+
 
 def persist(*, analysis_kind: str, payload: dict) -> str:
     """Persist an analysis envelope and return its envelope_id.
@@ -50,8 +73,6 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
     """
     # Deferred imports — see module docstring.
     from pathlib import Path
-
-    import pymongo
 
     from core.agents.envelope_writer import build_envelope, write_envelope
     from core.registry.capability_registry import CapabilityRegistry
@@ -73,13 +94,9 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
             "BELIEF_STORE_MONGO_URL required for envelope_repo.persist — "
             "env-driven, no default"
         )
-    # serverSelectionTimeoutMS bounds the (lazy) first op so a down Mongo
-    # fast-fails instead of hanging the tracker tick (SC-1; canonical shape:
+    # WR-08: reuse a cached long-lived client (canonical shape:
     # core/scheduling/orchestrator_factory.py:69, minus the boot ping).
-    db = pymongo.MongoClient(
-        mongo_url,
-        serverSelectionTimeoutMS=int(os.getenv("A0_MONGO_TIMEOUT_MS", "5000")),
-    ).get_default_database()
+    db = _get_client(mongo_url).get_default_database()
 
     envelope = build_envelope(
         task_id=f"macro-story-{uuid.uuid4()}",
@@ -96,7 +113,7 @@ def persist(*, analysis_kind: str, payload: dict) -> str:
         envelope_id = write_envelope(db, envelope)
     except Exception as exc:
         SourceHealthRegistry.get_shared_instance().report(
-            "mongo", available=False, failure_reason=str(exc)
+            "mongo", available=False, failure_reason=type(exc).__name__
         )
         raise
     SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
