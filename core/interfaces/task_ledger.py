@@ -107,14 +107,19 @@ class MongoTaskLedger:
             self._db = self._client[database]
             self._tasks = self._db["agent_tasks"]
             self._goals = self._db["agent_goals"]
+            # Capability flag only (pymongo importable + client constructed).
+            # NOT a health claim: MongoClient() is lazy and never contacts the
+            # server here, so we must NOT report("mongo", available=True) off
+            # this constructor — that would clobber a correct op-time
+            # available=False under the shared last-writer-wins source_id
+            # (CR-01). Health is reported at op time only.
             self._mongodb_available = True
-            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             logger.info(f"MongoTaskLedger initialized with database: {database}")
         except Exception as e:
             # Match this module's existing degrade-to-NoOp idiom; emit the
             # health signal alongside the warning (D-07).
             SourceHealthRegistry.get_shared_instance().report(
-                "mongo", available=False, failure_reason=str(e)
+                "mongo", available=False, failure_reason=type(e).__name__
             )
             logger.warning(
                 f"MongoDB connection failed: {e}. "
@@ -141,6 +146,8 @@ class MongoTaskLedger:
         try:
             # Fetch task document
             task_doc = self._tasks.find_one({"_id": task_id})
+            # A real op reached Mongo and returned — report health at op time.
+            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             if not task_doc:
                 logger.warning(f"Task not found: {task_id}")
                 return {}
@@ -186,6 +193,9 @@ class MongoTaskLedger:
             return result
 
         except Exception as e:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=type(e).__name__
+            )
             logger.error(f"Failed to get plan for task {task_id}: {e}")
             return {}
 
@@ -205,6 +215,8 @@ class MongoTaskLedger:
         try:
             # First attempt
             success = self._attempt_update(task_id, data)
+            # A real op reached Mongo — report health at op time.
+            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             if success:
                 return
 
@@ -215,6 +227,9 @@ class MongoTaskLedger:
                 logger.error(f"Failed to update task {task_id} after retry (version conflict)")
 
         except Exception as e:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=type(e).__name__
+            )
             logger.error(f"Failed to update task {task_id}: {e}")
 
     def _attempt_update(self, task_id: str, data: dict) -> bool:

@@ -111,14 +111,19 @@ class MongoProgressLedger:
             )
             self._db = self._client[database]
             self._progress = self._db["agent_progress"]
+            # Capability flag only (pymongo importable + client constructed).
+            # NOT a health claim: MongoClient() is lazy and never contacts the
+            # server here, so we must NOT report("mongo", available=True) off
+            # this constructor — that would clobber a correct op-time
+            # available=False under the shared last-writer-wins source_id
+            # (CR-01). Health is reported at op time only.
             self._mongodb_available = True
-            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             logger.info(f"MongoProgressLedger initialized with database: {database}")
         except Exception as e:
             # Match this module's existing degrade-to-NoOp idiom; emit the
             # health signal alongside the warning (D-07).
             SourceHealthRegistry.get_shared_instance().report(
-                "mongo", available=False, failure_reason=str(e)
+                "mongo", available=False, failure_reason=type(e).__name__
             )
             logger.warning(
                 f"MongoDB connection failed: {e}. "
@@ -141,6 +146,8 @@ class MongoProgressLedger:
         try:
             # Fetch progress document
             progress_doc = self._progress.find_one({"_id": context.task_id})
+            # A real op reached Mongo and returned — report health at op time.
+            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
             if not progress_doc:
                 # No progress yet, return None (task should start from beginning)
                 return None
@@ -164,6 +171,9 @@ class MongoProgressLedger:
             return None
 
         except Exception as e:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=type(e).__name__
+            )
             logger.error(f"Failed to get next action for task {context.task_id}: {e}")
             return None
 
@@ -204,6 +214,9 @@ class MongoProgressLedger:
                 self._flush_buffer()
 
         except Exception as e:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=type(e).__name__
+            )
             logger.error(f"Failed to record step {result.step_id}: {e}")
 
     def _flush_buffer(self) -> None:
@@ -252,7 +265,13 @@ class MongoProgressLedger:
                     upsert=True
                 )
 
+            # All writes reached Mongo and returned — report health at op time.
+            SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
+
         except Exception as e:
+            SourceHealthRegistry.get_shared_instance().report(
+                "mongo", available=False, failure_reason=type(e).__name__
+            )
             logger.error(f"Failed to flush progress buffer: {e}")
 
     def flush_all(self) -> None:
