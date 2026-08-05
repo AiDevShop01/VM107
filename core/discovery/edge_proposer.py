@@ -320,6 +320,11 @@ class EdgeProposer:
 
         last_exc: Exception | None = None
         for attempt in range(1, self._max_pg_retries + 1):
+            # WR-05: init before the try so the finally can close it even when the
+            # statement (not the connect) fails — otherwise a cur.execute/commit error
+            # orphans the open connection and the next iteration rebinds conn, leaking
+            # up to _max_pg_retries connections per call. Mirrors throughput_governor.
+            conn = None
             try:
                 # connect_timeout bounds the psycopg2 connect so a down Postgres
                 # fast-fails within budget instead of hanging (SC-1). Env-driven
@@ -331,7 +336,6 @@ class EdgeProposer:
                 with conn.cursor() as cur:
                     cur.execute(sql, params)
                 conn.commit()
-                conn.close()
                 SourceHealthRegistry.get_shared_instance().report(
                     "postgres", available=True
                 )
@@ -346,7 +350,7 @@ class EdgeProposer:
                 # Report guard matches this module's existing swallow-and-retry
                 # idiom (D-07) — no secrets in failure_reason.
                 SourceHealthRegistry.get_shared_instance().report(
-                    "postgres", available=False, failure_reason=str(exc)
+                    "postgres", available=False, failure_reason=type(exc).__name__
                 )
                 logger.warning({
                     "event": "phase89_proposal_postgres_reconciliation_warning",
@@ -358,6 +362,14 @@ class EdgeProposer:
                         "Postgres write will be retried or picked up by reconciliation job."
                     ),
                 })
+            finally:
+                # WR-05: always close the connection (success, statement failure, or
+                # connect failure where conn stays None).
+                if conn is not None:
+                    try:
+                        conn.close()
+                    except Exception:  # noqa: BLE001 — close must never mask the real error
+                        pass
 
         # Exhausted retries — surface to DLQ / monitoring
         logger.error({
