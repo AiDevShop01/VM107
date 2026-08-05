@@ -25,6 +25,8 @@ from qdrant_client.models import (
     FilterSelector,
 )
 
+from emitters.source_health_registry import SourceHealthRegistry
+
 logger = logging.getLogger(__name__)
 
 
@@ -294,6 +296,11 @@ class QdrantBackend:
                 },
             )
 
+            # Freshen the health bus at search time (D3-02). Construction-time probe
+            # (factory.py) only marks qdrant healthy once; a mid-session recovery/outage
+            # must refresh so the recall extension reads current truth. Contract unchanged.
+            SourceHealthRegistry.get_shared_instance().report("qdrant", available=True)
+
             return results
 
         except Exception as e:
@@ -305,6 +312,10 @@ class QdrantBackend:
                     "error": str(e),
                 },
             )
+            # Freshen the health bus so a mid-session outage is distinguishable from an
+            # empty corpus (D3-02). WR-04 / T-135-01: type(e).__name__ ONLY — never str(e)
+            # (which can leak qdrant host:port). Backend STILL returns [] (no contract change).
+            SourceHealthRegistry.get_shared_instance().report("qdrant", available=False, failure_reason=type(e).__name__)
             return []
 
     async def delete(self, ids: list[str], context) -> None:
