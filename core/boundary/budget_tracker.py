@@ -9,6 +9,7 @@ from typing import Protocol, runtime_checkable
 from datetime import datetime, timezone
 import os
 import threading
+import time
 
 from emitters.source_health_registry import SourceHealthRegistry
 
@@ -123,6 +124,15 @@ class MongoBudgetTracker:
         # degrades to this tracker and emits a `budget_mongo` health signal.
         self._fallback_tracker: "InMemoryBudgetTracker | None" = None
 
+        # WR-02: sticky degrade latch. Without it, a down Mongo costs the full
+        # serverSelectionTimeoutMS (~5s) on EVERY per-LLM-call budget op because
+        # each op re-issues the Mongo call before degrading. The latch routes ops
+        # straight to the in-memory fallback for a cooldown window after the first
+        # PyMongoError, so steady-state outage cost is ~0 per call (D-08 in
+        # aggregate). Exactly one op re-probes Mongo once the cooldown elapses.
+        self._degraded_until: float = 0.0
+        self._degrade_cooldown_s = int(os.getenv("A0_BUDGET_DEGRADE_COOLDOWN_S", "60"))
+
     def _fallback(self) -> "InMemoryBudgetTracker":
         """Return the lazily-created in-memory fallback tracker."""
         if self._fallback_tracker is None:
@@ -136,6 +146,11 @@ class MongoBudgetTracker:
         Safe for concurrent multi-agent updates.
         """
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # WR-02: while the degrade latch is armed, skip the ~5s Mongo op entirely.
+        if time.monotonic() < self._degraded_until:
+            self._fallback().add_spend(agent_name, cost_usd)
+            return
 
         # Atomic increment (safe for concurrent updates). A down Mongo fast-fails
         # (serverSelectionTimeoutMS) -> degrade to the in-memory fallback + signal;
@@ -152,12 +167,14 @@ class MongoBudgetTracker:
                 },
                 upsert=True  # Create document if first spend of the day
             )
+            self._degraded_until = 0.0  # op succeeded — clear the latch
             SourceHealthRegistry.get_shared_instance().report(
                 "budget_mongo", available=True
             )
         except PyMongoError as exc:
+            self._degraded_until = time.monotonic() + self._degrade_cooldown_s
             SourceHealthRegistry.get_shared_instance().report(
-                "budget_mongo", available=False, failure_reason=str(exc)
+                "budget_mongo", available=False, failure_reason=type(exc).__name__
             )
             self._fallback().add_spend(agent_name, cost_usd)
             return
@@ -178,17 +195,23 @@ class MongoBudgetTracker:
             if cache_age < self._cache_ttl_seconds:
                 return self._local.cached_total
 
+        # WR-02: while the degrade latch is armed, skip the ~5s Mongo op entirely.
+        if time.monotonic() < self._degraded_until:
+            return self._fallback().get_daily_total()
+
         # Fetch from MongoDB. A down Mongo fast-fails (serverSelectionTimeoutMS)
         # -> return the in-memory fallback value + signal; never block/raise.
         today = now.strftime("%Y-%m-%d")
         try:
             doc = self._collection.find_one({"_id": today})
+            self._degraded_until = 0.0  # op succeeded — clear the latch
             SourceHealthRegistry.get_shared_instance().report(
                 "budget_mongo", available=True
             )
         except PyMongoError as exc:
+            self._degraded_until = time.monotonic() + self._degrade_cooldown_s
             SourceHealthRegistry.get_shared_instance().report(
-                "budget_mongo", available=False, failure_reason=str(exc)
+                "budget_mongo", available=False, failure_reason=type(exc).__name__
             )
             return self._fallback().get_daily_total()
         total = doc["total_spend"] if doc else 0.0
@@ -202,16 +225,22 @@ class MongoBudgetTracker:
     def get_agent_spend(self, agent_name: str) -> float:
         """Get daily spend for a specific agent."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        # WR-02: while the degrade latch is armed, skip the ~5s Mongo op entirely.
+        if time.monotonic() < self._degraded_until:
+            return self._fallback().get_agent_spend(agent_name)
+
         # A down Mongo fast-fails (serverSelectionTimeoutMS) -> return the
         # in-memory fallback value + signal; never block/raise into the caller.
         try:
             doc = self._collection.find_one({"_id": today})
+            self._degraded_until = 0.0  # op succeeded — clear the latch
             SourceHealthRegistry.get_shared_instance().report(
                 "budget_mongo", available=True
             )
         except PyMongoError as exc:
+            self._degraded_until = time.monotonic() + self._degrade_cooldown_s
             SourceHealthRegistry.get_shared_instance().report(
-                "budget_mongo", available=False, failure_reason=str(exc)
+                "budget_mongo", available=False, failure_reason=type(exc).__name__
             )
             return self._fallback().get_agent_spend(agent_name)
 
