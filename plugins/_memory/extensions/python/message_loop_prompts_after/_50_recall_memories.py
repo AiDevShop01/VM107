@@ -147,9 +147,26 @@ class RecallMemories(Extension):
         )
 
         if not memories and not solutions:
-            log_item.update(
-                heading="No memories or solutions found",
-            )
+            # Empty results are ambiguous: a genuinely-empty corpus vs a Qdrant outage
+            # (D3-01/03). Read the fresh health bus (freshened at search time by
+            # qdrant_backend.search, D3-02) to distinguish them. WR-04 / T-135-01: the
+            # degraded line names the failure CLASS, never a host:port.
+            from emitters.source_health_registry import SourceHealthRegistry
+
+            qh = SourceHealthRegistry.get_shared_instance().snapshot().get("qdrant")
+            if qh is not None and qh.available is False:
+                log_item.update(
+                    heading="Memory recall DEGRADED (qdrant unreachable)",
+                    content=(
+                        "Long-term memory is currently unavailable (qdrant unreachable); "
+                        "recall is impaired, not empty — do not claim you have no relevant "
+                        "memories. Proceed cautiously and note that memory could not be consulted."
+                    ),
+                )
+            else:
+                log_item.update(
+                    heading="No memories or solutions found",
+                )
             return
 
         # if post filtering is enabled
