@@ -5,10 +5,9 @@ Requirement mapping:
                      transitions COMPLETED, calls on_task_completed, fires
                      notify_goal_completed on goal terminal.
 
-All tests are marked xfail(strict=False) — Plan 02 flips them GREEN by
-implementing VM107.workers.task_dispatcher and the parse_and_persist routing
-layer.  Test names are FIXED — do not rename; Plan 02 verify-block references
-them verbatim.
+Status: GREEN — VM107.workers.task_dispatcher and the parse_and_persist routing
+layer are implemented (Plan 02); these tests pass against the real code.  Test
+names are FIXED — do not rename; the Plan 02 verify-block references them verbatim.
 
 Pitfall 2 guard (test_dispatch_agent_sync_sets_profile_id_before_monologue):
     Slot-30 router (fail-fast) + slot-20 B1 write both filter on profile_id,
@@ -18,8 +17,6 @@ Pitfall 2 guard (test_dispatch_agent_sync_sets_profile_id_before_monologue):
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 # ---------------------------------------------------------------------------

@@ -13,8 +13,9 @@ This test replaces it with a correct end-to-end approach that:
     3. Runs the backfill CLI directly via importlib or subprocess.
     4. Asserts no AttributeError and upsert_description called exactly --limit times.
 
-All tests are xfail until Plan 04 fixes the backfill callsite and wires it to
-_dispatch_agent_sync instead of the broken agent.run_agent reference.
+Status: GREEN — Plan 04 fixed the backfill callsite and wired it to
+_dispatch_agent_sync instead of the broken agent.run_agent reference; these
+tests pass against the real code.
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ def test_backfill_loops_over_indicators_without_attributeerror(
         5. Assert upsert_description called exactly 10 times.
 
     If the backfill still references agent.run_agent, this test catches it as
-    an ImportError / AttributeError (which xfail-strict=False allows during Wave 0).
+    an ImportError / AttributeError and fails loudly (the callsite is now fixed).
     """
     from unittest.mock import MagicMock, patch
 

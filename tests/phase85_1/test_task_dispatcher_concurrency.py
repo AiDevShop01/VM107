@@ -5,13 +5,11 @@ Requirement mapping:
     VM107_TASK_DISPATCHER_MAX_CONCURRENT=2, at most 2 tasks are RUNNING at any
     given point during dispatch.
 
-All tests are xfail until Plan 05 implements concurrency gating in
-VM107.workers.task_dispatcher.
+Status: GREEN — concurrency gating is implemented in VM107.workers.task_dispatcher
+(Plan 05); these tests pass against the real code.
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 def test_dispatcher_honours_max_concurrent_cap(

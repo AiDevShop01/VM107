@@ -4,13 +4,11 @@ Requirement mapping:
     PHASE85.1-REQ-4: Failed task retried up to max_retries then transitions FAILED.
     Retry must increment retry_count and write failure_reason on final failure.
 
-All tests are xfail until Plan 05 implements retry logic in
-VM107.workers.task_dispatcher.
+Status: GREEN — retry logic is implemented in VM107.workers.task_dispatcher
+(Plan 05); these tests pass against the real code.
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 def test_failed_task_retries_up_to_max_retries(

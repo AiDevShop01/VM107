@@ -9,13 +9,11 @@ This guard prevents double-execution bugs where a task gets dispatched twice
 (e.g., due to a Redis queue duplicate, a sensor re-fire after a crash, or
 a concurrency race during the PENDING→RUNNING transition).
 
-All tests are xfail until Plan 05 implements idempotency checks in
-VM107.workers.task_dispatcher.
+Status: GREEN — idempotency checks are implemented in VM107.workers.task_dispatcher
+(Plan 05); these tests pass against the real code.
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 def test_redispatching_same_task_id_does_not_corrupt_status(

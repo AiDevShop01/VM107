@@ -4,10 +4,10 @@ Requirement mapping:
     PHASE85.1-REQ-1 (WS chain): All-3-tasks-COMPLETED →
         publish_indicator_updated(indicator_id) fires exactly ONCE.
 
-Both tests are xfail until Plan 02 implements:
+Status: GREEN — both tests pass against the real implementation (Plan 02):
     - VM107.workers.task_dispatcher (runs all 3 tasks in sequence via the goal)
     - VM107.publishers.macro_ws_invalidation.publish_indicator_updated (already exists)
-    - Deduplication guard (W5 contract): in-loop dedup MUST suppress duplicate calls.
+    - Deduplication guard (W5 contract): in-loop dedup suppresses duplicate calls.
 
 W5 dedup contract:
     The listener's lambda hook AND the dispatcher's defence-in-depth call site
@@ -19,8 +19,6 @@ W5 dedup contract:
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 def test_three_tasks_completed_fires_publish_indicator_updated_once(

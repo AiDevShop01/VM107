@@ -10,12 +10,11 @@ If either upstream reaches terminal FAILED state, there is no point running
 the summary writer (its inputs are incomplete). Cancelling the downstream
 task prevents a misleading summary from being published to WS consumers.
 
-All tests are xfail until Plan 05 implements partial-failure handling.
+Status: GREEN — partial-failure handling is implemented (Plan 05); these tests
+pass against the real code.
 """
 
 from __future__ import annotations
-
-import pytest
 
 
 def test_exec_summary_cancelled_when_release_analyst_failed(
