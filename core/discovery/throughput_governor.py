@@ -101,7 +101,7 @@ class ThroughputGovernor:
         except Exception as exc:
             # Match this module's fail-fast idiom (D-07): report + re-raise.
             SourceHealthRegistry.get_shared_instance().report(
-                "postgres", available=False, failure_reason=str(exc)
+                "postgres", available=False, failure_reason=type(exc).__name__
             )
             raise
         SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
@@ -176,7 +176,7 @@ class ThroughputGovernor:
         except Exception as exc:
             # Match this module's fail-fast idiom (D-07): report + re-raise.
             SourceHealthRegistry.get_shared_instance().report(
-                "postgres", available=False, failure_reason=str(exc)
+                "postgres", available=False, failure_reason=type(exc).__name__
             )
             raise
         SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
@@ -286,7 +286,7 @@ class ThroughputGovernor:
         except Exception as exc:
             # Match this module's fail-fast idiom (D-07): report + re-raise.
             SourceHealthRegistry.get_shared_instance().report(
-                "postgres", available=False, failure_reason=str(exc)
+                "postgres", available=False, failure_reason=type(exc).__name__
             )
             raise
         SourceHealthRegistry.get_shared_instance().report("postgres", available=True)

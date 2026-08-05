@@ -179,7 +179,7 @@ class UtilModelRouterLogCost(Extension):
         except Exception as e:
             # Emit the health signal alongside the existing swallow-and-log (D-07).
             SourceHealthRegistry.get_shared_instance().report(
-                "mongo", available=False, failure_reason=str(e)
+                "mongo", available=False, failure_reason=type(e).__name__
             )
             if hasattr(self.agent, "log") and hasattr(self.agent.log, "log"):
                 self.agent.log.log(type="warning", heading=f"util_cost_record_failed: {e}")

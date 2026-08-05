@@ -97,7 +97,7 @@ class ContradictionEngine:
             )
         except Exception as exc:
             SourceHealthRegistry.get_shared_instance().report(
-                "postgres", available=False, failure_reason=str(exc)
+                "postgres", available=False, failure_reason=type(exc).__name__
             )
             raise
         SourceHealthRegistry.get_shared_instance().report("postgres", available=True)

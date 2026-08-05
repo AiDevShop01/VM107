@@ -95,7 +95,7 @@ def _get_or_init_router(agent):
         # Degrade silently — no-op if any dep missing (Redis/Mongo unavailable in dev, etc.)
         # Emit the health signal alongside the existing swallow-and-log (D-07).
         SourceHealthRegistry.get_shared_instance().report(
-            "mongo", available=False, failure_reason=str(e)
+            "mongo", available=False, failure_reason=type(e).__name__
         )
         if hasattr(agent, "log") and hasattr(agent.log, "log"):
             agent.log.log(type="warning", heading=f"util_router_init_skipped: {e}")

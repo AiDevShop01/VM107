@@ -279,7 +279,7 @@ def emit_alert_candidate(
         # Report guard added to the EXISTING DLQ fallback (D-07) — no new
         # failure path. failure_reason carries exception text only (no secrets).
         SourceHealthRegistry.get_shared_instance().report(
-            "phase91_uae", available=False, failure_reason=str(exc)
+            "phase91_uae", available=False, failure_reason=type(exc).__name__
         )
         logger.error({
             "event": "phase91_emit_failed",
