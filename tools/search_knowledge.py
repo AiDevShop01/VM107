@@ -10,7 +10,19 @@ the ``SEARCH_KNOWLEDGE_VM101_FALLBACK`` flag (default OFF).
 Honest degradation (D-03, carried from Phase 135): ``QdrantBackend.search`` never
 raises — it returns ``[]`` for BOTH a genuine empty corpus AND a local outage, and
 reports the outage to ``SourceHealthRegistry`` instead. So the return value alone
-cannot tell an outage from an empty result. We DISCRIMINATE by reading the health
+cannot tell an outage from an empty result.
+
+Ordering (HITS-FIRST — CR-01, 136-05): a genuine NON-EMPTY local result is ALWAYS
+returned unconditionally; the health bus is consulted ONLY to explain a genuinely
+EMPTY result, mirroring ``_50_recall_memories.py:149-190`` exactly (the bus read
+lives INSIDE the empty branch). This is load-bearing: embedding health is
+FAILURE-ONLY and STICKY (``report("embedding", available=True)`` is never called),
+so reading the bus BEFORE checking ``hits`` let one transient embedding hiccup leave
+``embedding:{ctxid}=False`` on the bus forever and permanently discard every later
+successful non-empty result in that context behind a FALSE DEGRADED — the exact
+inverse of SC-1's honest-degradation goal.
+
+When (and only when) the local result is empty we DISCRIMINATE by reading the health
 bus, keyed by this agent's immutable ``context.id`` (the 135-06 object-carried
 per-context key — NEVER the shared-mutable per-request ContextVar, whose race was
 the 135-D3 defect). A local error surfaces a typed DEGRADED signal
@@ -24,10 +36,24 @@ Endpoint contract (VM101 fallback only, from 42.1-CONTEXT.md):
   Request:  {"query": str, "top_k": int = 5, "filters": dict | None}
   Response: {"results": [{"text": str, "score": float, "metadata": dict}, ...]}
 """
+import logging
 import os
 import httpx
 
 from helpers.tool import Tool, Response
+
+
+log = logging.getLogger(__name__)
+
+# WR-01: the LOCAL QdrantBackend.search honors only `area`, not an arbitrary
+# `filters` dict. When a caller supplies `filters` and only the local path runs, we
+# do NOT silently drop it — we append this leak-safe note (and log a warning) so the
+# caller knows the local results are unfiltered (`filters` still applies to the
+# VM101 fallback payload). The note names no filter VALUES (leak-safe).
+_LOCAL_FILTERS_NOTE = (
+    "\n\n(Note: 'filters' is not applied on the local knowledge_base_v2 path — it is "
+    "honored only by the VM101 fallback; these local results are unfiltered.)"
+)
 
 
 # Fail-fast env read (D-04): a missing VM101 fallback URL raises at import, never a
@@ -62,6 +88,14 @@ class SearchKnowledgeTool(Tool):
             top_k = 5
 
         filters = kwargs.get("filters") or None
+        if filters:
+            # WR-01: surface an unsupportable local-path `filters` honestly (see
+            # _LOCAL_FILTERS_NOTE) — never a silent drop. Leak-safe: no filter values.
+            log.warning(
+                "search_knowledge: 'filters' is not supported on the local "
+                "knowledge_base_v2 path (only the VM101 fallback honors it); "
+                "local results are returned unfiltered."
+            )
 
         # --- Local Qdrant read (the default path, D-02) ---
         # QdrantBackend.search NEVER raises; it returns [] on both error and empty and
@@ -83,14 +117,40 @@ class SearchKnowledgeTool(Tool):
                     db.memory_subdir, context_id=getattr(db, "context_id", None)
                 )
                 hits = await v2.search(query=query, top_k=top_k, context=ctx, area=None) or []
-        except Exception:
-            # Do NOT leak type/str of the exception into the tool response; do NOT
-            # self-report to the bus. Fall through to the health-bus discriminator.
+        except Exception as e:
+            # Do NOT leak type/str of the exception into the tool RESPONSE, and do NOT
+            # self-report to the bus. But DO leave a leak-safe operational breadcrumb
+            # (WR-02): log the exception CLASS only (never str(e)/host:port/6333/IP) so a
+            # masked setup bug — e.g. an AttributeError from a future refactor, not a
+            # real outage — is observable instead of silently degrading to empty.
+            log.debug(
+                "search_knowledge: local setup failed (%s); falling through to the "
+                "health-bus discriminator",
+                type(e).__name__,
+            )
             hits = []
 
+        # --- Hits-first (CR-01) ------------------------------------------------ #
+        # A genuine NON-EMPTY local result is ALWAYS returned; the health bus is read
+        # ONLY to explain a genuinely EMPTY result. This mirrors
+        # _50_recall_memories.py:149-190 EXACTLY (the bus read lives INSIDE the empty
+        # branch). Reading the bus BEFORE checking `hits` was the CR-01 defect: because
+        # embedding health is failure-only and STICKY (report("embedding", available=True)
+        # is NEVER called), one transient embedding hiccup left embedding:{ctxid}=False on
+        # the bus forever, so every later SUCCESSFUL non-empty call in that context was
+        # overridden with a false DEGRADED and its real hits discarded. Non-empty hits
+        # now short-circuit and never touch the bus.
+        if hits:
+            message = self._format_local_hits(hits, query)
+            if filters:
+                message += _LOCAL_FILTERS_NOTE  # WR-01: honest local-filter surfacing
+            return Response(message=message, break_loop=False)
+
         # --- Error-vs-empty discrimination via the health bus (D-02 + D-03) ---
-        # Object-carried per-context key (agent.context.id) — NEVER the shared-mutable
-        # per-request ContextVar (135-D3 race). Ctxid key first, then bare-key (C floor).
+        # Reached ONLY when the local result is empty (genuine empty, local error, or
+        # backend_missing). Object-carried per-context key (agent.context.id) — NEVER the
+        # shared-mutable per-request ContextVar (135-D3 race). Ctxid key first, then
+        # bare-key (C floor). A stale bus entry can no longer suppress a real result.
         from emitters.source_health_registry import SourceHealthRegistry
 
         ctxid = getattr(getattr(self.agent, "context", None), "id", "") or ""
@@ -98,9 +158,9 @@ class SearchKnowledgeTool(Tool):
         qh = (snap.get(f"qdrant:{ctxid}") if ctxid else None) or snap.get("qdrant")
         eh = (snap.get(f"embedding:{ctxid}") if ctxid else None) or snap.get("embedding")
 
-        # Check embedding BEFORE qdrant (report("embedding", available=True) is never
-        # called, so eh is None means embedding succeeded this call — do NOT infer
-        # embedding success from the bus, only failure).
+        # Only FAILURE is inferred from the bus (available is False). eh/qh being None
+        # means "no failure reported", NOT "confirmed healthy" — so we never claim
+        # health from the bus, only degradation. Check embedding before qdrant.
         degraded_subsystem = None
         if eh is not None and eh.available is False:
             degraded_subsystem = "embedding"
@@ -113,14 +173,11 @@ class SearchKnowledgeTool(Tool):
         if degraded_subsystem is not None:
             return await self._degraded_response(degraded_subsystem, query, top_k, filters)
 
-        # Local path healthy. Empty is a GENUINE empty — NO VM101 fallback (Pitfall 2).
-        if not hits:
-            return Response(
-                message=f"No results found for query: {query!r}",
-                break_loop=False,
-            )
-
-        return Response(message=self._format_local_hits(hits, query), break_loop=False)
+        # Genuine empty (bus reports no outage) — NO VM101 fallback (Pitfall 2 / D-02).
+        message = f"No results found for query: {query!r}"
+        if filters:
+            message += _LOCAL_FILTERS_NOTE  # WR-01: honest local-filter surfacing
+        return Response(message=message, break_loop=False)
 
     # ------------------------------------------------------------------ #
     # DEGRADED signal (D-03) + flag-gated VM101 fallback (D-02)          #
