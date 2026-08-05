@@ -215,6 +215,10 @@ class Memory:
 
             wrap = Memory(db, memory_subdir=memory_subdir, backend=backend,
                           knowledge_backend=knowledge_backend)
+            # Stamp the fresh per-invocation wrapper with this agent's immutable context id
+            # (135-06): reliable per-context health key that survives the worker-thread hop,
+            # unlike the shared-mutable-dict `agent_context_id` ContextVar (helpers/context.py).
+            wrap.context_id = getattr(getattr(agent, "context", None), "id", None)
             knowledge_subdirs = get_knowledge_subdirs_by_memory_subdir(
                 memory_subdir, agent.config.knowledge_subdirs or []
             )
@@ -252,12 +256,16 @@ class Memory:
                     Memory.knowledge_backends[memory_subdir] = knowledge_backend
                 except Exception:
                     pass
-            return Memory(
+            wrap = Memory(
                 db=Memory.index[memory_subdir],
                 memory_subdir=memory_subdir,
                 backend=backend,
                 knowledge_backend=knowledge_backend,
             )
+            # Stamp the fresh per-invocation wrapper with this agent's immutable context id
+            # (135-06): same reliable per-context health key as the first return site above.
+            wrap.context_id = getattr(getattr(agent, "context", None), "id", None)
+            return wrap
 
     @staticmethod
     async def get_by_subdir(
@@ -609,7 +617,9 @@ class Memory:
             if m:
                 area = m.group(1)
 
-        context = _QdrantContext(self.memory_subdir)
+        # Carry this wrapper's object-stamped context id into the fresh per-invocation
+        # context so QdrantBackend.search can context-scope its health report (135-06).
+        context = _QdrantContext(self.memory_subdir, context_id=getattr(self, "context_id", None))
 
         # Determine which areas to search
         areas_to_search = None
@@ -901,10 +911,15 @@ class _QdrantContext:
         getattr(context, "project_id", None) or getattr(context, "memory_subdir", "default")
     """
 
-    def __init__(self, memory_subdir: str):
+    def __init__(self, memory_subdir: str, context_id: str | None = None):
         self.memory_subdir = memory_subdir
         self.project_id = memory_subdir
         self.task_id = None
+        # Object-carried per-agent-context id (immutable AgentContext.id), used by
+        # QdrantBackend.search to context-scope its health report so a concurrent
+        # context's success cannot clobber this context's outage (SC-2 / 135-06).
+        # Optional: delete/insert paths keep it None -> bare "qdrant" report (C floor).
+        self.context_id = context_id
 
 
 def get_custom_knowledge_subdir_abs(agent: Agent) -> str:
