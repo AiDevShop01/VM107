@@ -58,7 +58,7 @@ class BeliefStore:
             )
         except Exception as exc:
             SourceHealthRegistry.get_shared_instance().report(
-                "postgres", available=False, failure_reason=str(exc)
+                "postgres", available=False, failure_reason=type(exc).__name__
             )
             raise
         SourceHealthRegistry.get_shared_instance().report("postgres", available=True)
@@ -77,9 +77,15 @@ class BeliefStore:
                 "expires_at", expireAfterSeconds=0, background=True,
             )
         except Exception as exc:
-            SourceHealthRegistry.get_shared_instance().report(
-                "mongo", available=False, failure_reason=str(exc)
-            )
+            # WR-06: close the eagerly-opened Postgres connection before re-raising
+            # so a down-Mongo __init__ does not leak a PG connection. contradiction_engine
+            # lazily builds a fresh BeliefStore per call, so leaks accumulate otherwise.
+            try:
+                self._pg.close()
+            finally:
+                SourceHealthRegistry.get_shared_instance().report(
+                    "mongo", available=False, failure_reason=type(exc).__name__
+                )
             raise
         SourceHealthRegistry.get_shared_instance().report("mongo", available=True)
 
