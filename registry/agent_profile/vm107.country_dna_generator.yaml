@@ -22,7 +22,7 @@ trigger_events:
   - country_profile_refreshed
 event_importance_floor: MEDIUM
 allowed_tools:                       # CONTEXT LOCK — least-privilege
-  - find_countries_by_profile_query
+  - vm107.tool.find_countries_by_profile_query
   - graph_search_tool
   - lookup_capability
 denied_tools:                        # CONTEXT LOCK — least-privilege

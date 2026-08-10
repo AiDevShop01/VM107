@@ -46,7 +46,7 @@ trigger_events:
 # Tool allow-list — narrative-only analyst; no compute / no write / no LLM tool calls.
 allowed_tools:
   - lookup_capability
-  - get_domain_health
+  - vm107.tool.get_domain_health
   - search_macro_research
 
 denied_tools:

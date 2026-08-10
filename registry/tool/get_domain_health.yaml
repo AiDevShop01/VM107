@@ -80,6 +80,21 @@ impact_on_decision: LOW
 allowed_agent_profiles:
   - vm107.macro_investigator
   - vm107.chief_economist_synthesizer
+  # Phase 137-02 (E-CRIT2 GROUP A): advertising surface for the 12 domain analysts
+  # whose allowed_tools grant vm107.tool.get_domain_health (both surfaces must agree,
+  # else the normalized grant is authorized-but-hidden — RESEARCH Pitfall 2).
+  - vm107.commodities_domain_analyst
+  - vm107.consumer_domain_analyst
+  - vm107.credit_domain_analyst
+  - vm107.external_sector_domain_analyst
+  - vm107.financial_conditions_domain_analyst
+  - vm107.fiscal_domain_analyst
+  - vm107.growth_domain_analyst
+  - vm107.housing_domain_analyst
+  - vm107.inflation_domain_analyst
+  - vm107.labour_domain_analyst
+  - vm107.manufacturing_domain_analyst
+  - vm107.monetary_policy_domain_analyst
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---
