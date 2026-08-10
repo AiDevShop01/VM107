@@ -1,0 +1,39 @@
+# Phase 137 P5 Plan 05 (§E-CRIT2.B RESTORE) — register document_query. The module
+# (tools/document_query.py, class DocumentQueryTool) is baked into the running image
+# but had no registry/tool/*.yaml, so its 4 profile grants were advertising-invisible.
+# Registration-only (D-07 RESTORE); the module is NOT edited.
+
+id: document_query
+name: document_query
+type: tool
+status: real
+description: >-
+  Reads and answers questions over one or more documents (accepts document /
+  documents / path / paths / file_path / file_paths argument aliases). Backs
+  default, idea_agent, strategy_agent and strategy_refinement_critic.
+category: knowledge-retrieval
+version: "1.0.0"
+producer: vm107
+phase: 137
+location:
+  source: VM107/tools/document_query.py
+tags:
+  - document
+  - knowledge
+  - retrieval
+  - restore
+hard_scoped: false
+# §E-CRIT2.B RESTORE grantees (the 4 profiles that grant document_query).
+allowed_agent_profiles:
+  - default
+  - idea_agent
+  - strategy_agent
+  - strategy_refinement_critic
+last_changed: 2026-08-10
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.70   # document extraction quality varies by source
+expected_freshness_seconds: 300   # reads live document contents on demand
+is_deterministic: false   # LLM-mediated document Q&A is not bit-deterministic

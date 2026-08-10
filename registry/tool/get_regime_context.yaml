@@ -1,0 +1,42 @@
+# Phase 137 P5 Plan 05 (§E-CRIT2.B RESTORE) — register get_regime_context.
+# The module (tools/get_regime_context.py, class GetRegimeContext) is a baked Tier-3
+# stub (returns the locked NotAvailableResponse, impact MEDIUM) but had no
+# registry/tool/*.yaml, so its grant was advertising-invisible.
+# Registration-only (D-07 RESTORE); the module is NOT edited.
+
+id: get_regime_context
+name: get_regime_context
+type: tool
+status: real
+description: >-
+  Tier-3 stub (Phase 34 unbuilt) — returns the locked NotAvailableResponse for
+  trend_regime / volatility_regime / correlation_regime. Honest degradation: never
+  fabricates values. Granted to weekly_review_agent analyzer/reader/writer.
+category: analytics
+version: "1.0.0"
+producer: vm107
+phase: 137
+location:
+  source: VM107/tools/get_regime_context.py
+  contracts:
+    request: tools.get_regime_context.GetRegimeContextRequest
+tags:
+  - regime
+  - context
+  - analytics
+  - tier-3-stub
+  - restore
+hard_scoped: false
+# §E-CRIT2.B RESTORE grantees (the profiles that grant get_regime_context).
+allowed_agent_profiles:
+  - weekly_review_agent._analyzer
+  - weekly_review_agent._reader
+  - weekly_review_agent._writer
+last_changed: 2026-08-10
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.50   # Tier-3 stub — locked NotAvailableResponse, no real signal yet
+expected_freshness_seconds: 60   # regime classifier would refresh intraday
+is_deterministic: true   # pure constant NotAvailableResponse; zero IO, zero LLM

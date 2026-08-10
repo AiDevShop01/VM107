@@ -1,0 +1,45 @@
+# Phase 137 P5 Plan 05 (§E-CRIT2.B RESTORE) — register skills_tool. The module
+# (tools/skills_tool.py, class SkillsTool) is baked into the running image but had
+# no registry/tool/*.yaml, so its 10 profile grants were advertising-invisible.
+# Registration-only (D-07 RESTORE); the module is NOT edited.
+
+id: skills_tool
+name: skills_tool
+type: tool
+status: real
+description: >-
+  Loads and manages agent skills at runtime (list, load, unload) from the
+  filesystem skills registry. Backs the *_analyzer/_reader/_writer behavioral,
+  trade-auditor and weekly-review sub-profiles plus strategy_refinement_critic.
+category: system
+version: "1.0.0"
+producer: vm107
+phase: 137
+location:
+  source: VM107/tools/skills_tool.py
+tags:
+  - skills
+  - system
+  - runtime
+  - restore
+hard_scoped: false
+# §E-CRIT2.B RESTORE grantees (the 10 profiles that grant skills_tool).
+allowed_agent_profiles:
+  - behavioral_mentor_agent._analyzer
+  - behavioral_mentor_agent._reader
+  - behavioral_mentor_agent._writer
+  - trade_auditor_agent._analyzer
+  - trade_auditor_agent._reader
+  - trade_auditor_agent._writer
+  - weekly_review_agent._analyzer
+  - weekly_review_agent._reader
+  - weekly_review_agent._writer
+  - strategy_refinement_critic
+last_changed: 2026-08-10
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.80   # deterministic skill-registry read/load
+expected_freshness_seconds: 300   # skill registry changes are infrequent
+is_deterministic: true   # same skills registry state yields same load result; no LLM in path

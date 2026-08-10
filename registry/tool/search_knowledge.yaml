@@ -1,0 +1,58 @@
+# Phase 137 P5 Plan 05 (§E-CRIT2.B RESTORE) — register the P4-rewritten
+# search_knowledge tool. The module (tools/search_knowledge.py) is baked into the
+# running image (shipped Phase 136 / P4, local-Qdrant self-acquiring backend) but
+# had no registry/tool/*.yaml, so its 9 profile grants were advertising-invisible.
+# Registration-only (D-07 RESTORE); the module is NOT edited. Shape mirrors
+# registry/tool/behavioral_analysis_tool.yaml (local-source tool).
+
+id: search_knowledge
+name: search_knowledge
+type: tool
+status: real
+description: >-
+  Semantic search over the local knowledge_base_v2/general_embedding Qdrant
+  corpus (Phase 136 / P4 rewrite). Reads DIRECTLY via
+  Memory._get_knowledge_v2_backend() on the happy path; VM101
+  POST /api/v1/knowledge/search is a flag-gated fallback fired only on a local
+  error (SEARCH_KNOWLEDGE_VM101_FALLBACK, default OFF). Honest degradation
+  (D-03): returns [] for both an empty corpus and a local outage, reporting the
+  outage to SourceHealthRegistry.
+category: knowledge-retrieval
+version: "1.0.0"
+producer: vm107
+phase: 136
+location:
+  source: VM107/tools/search_knowledge.py
+related_capabilities:
+  - search_macro_research
+  - combined_rag
+tags:
+  - knowledge
+  - rag
+  - qdrant
+  - knowledge_base_v2
+  - phase-136
+  - restore
+hard_scoped: false
+# §E-CRIT2.B RESTORE grantees (the 9 profiles that grant search_knowledge) +
+# research_chat_agent (E-HIGH3 advertising surface — paired with its new
+# allowed_tools grant in Task 2).
+allowed_agent_profiles:
+  - default
+  - idea_agent
+  - strategy_agent
+  - strategy_refinement_critic
+  - vm107.research_discovery_agent
+  - vm107.research_summarisation_agent
+  - vm107.research_citation_agent
+  - vm107.research_contrarian_agent
+  - vm107.research_classification_agent
+  - research_chat_agent
+last_changed: 2026-08-10
+impact_on_decision: HIGH
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.75   # local-Qdrant ANN retrieval; confidence reduced by corpus coverage
+expected_freshness_seconds: 3600   # knowledge_base_v2 re-embed cadence is the freshness floor
+is_deterministic: false   # ANN retrieval + embedding are not bit-deterministic

@@ -1,0 +1,47 @@
+# Phase 137 P5 Plan 05 (§E-CRIT2.B RESTORE) — register get_performance_history.
+# The module (tools/get_performance_history.py, class GetPerformanceHistory) is a
+# baked Tier-3 stub (returns the locked NotAvailableResponse, impact MEDIUM) but had
+# no registry/tool/*.yaml, so its profile grants were advertising-invisible.
+# Registration-only (D-07 RESTORE); the module is NOT edited. Registering the stub
+# lets grantees see it and receive the honest NotAvailable (Tier-3 stub contract).
+
+id: get_performance_history
+name: get_performance_history
+type: tool
+status: real
+description: >-
+  Tier-3 stub (Phase 47.4 unbuilt) — returns the locked NotAvailableResponse for
+  strategy_win_rate / recent_drawdown / similar_setup_outcomes given a trade_id.
+  Honest degradation: never fabricates values. Backs the behavioral_mentor and
+  weekly_review *_analyzer/_reader/_writer sub-profiles.
+category: analytics
+version: "1.0.0"
+producer: vm107
+phase: 137
+location:
+  source: VM107/tools/get_performance_history.py
+  contracts:
+    request: tools.get_performance_history.GetPerformanceHistoryRequest
+tags:
+  - performance
+  - history
+  - analytics
+  - tier-3-stub
+  - restore
+hard_scoped: false
+# §E-CRIT2.B RESTORE grantees (the profiles that grant get_performance_history).
+allowed_agent_profiles:
+  - behavioral_mentor_agent._analyzer
+  - behavioral_mentor_agent._reader
+  - behavioral_mentor_agent._writer
+  - weekly_review_agent._analyzer
+  - weekly_review_agent._reader
+  - weekly_review_agent._writer
+last_changed: 2026-08-10
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.50   # Tier-3 stub — locked NotAvailableResponse, no real signal yet
+expected_freshness_seconds: 60   # trade-evaluation history refreshes each trade close
+is_deterministic: true   # pure constant NotAvailableResponse; zero IO, zero LLM
