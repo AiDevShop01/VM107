@@ -37,6 +37,7 @@ tags:
 hard_scoped: true
 allowed_agent_profiles:
 - behavioral_mentor_agent._analyzer
+- research_chat_agent   # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
 impact_on_decision: HIGH
 deprecated: false
 

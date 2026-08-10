@@ -81,6 +81,7 @@ hard_scoped: true
 impact_on_decision: HIGH
 allowed_agent_profiles:
 - agent_zero
+- macro_agent   # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---

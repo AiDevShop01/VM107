@@ -45,6 +45,20 @@ allowed_agent_profiles:
   # E-HIGH4 (P5 137-05): classification was the only research sibling missing this
   # grant; add the advertising surface to pair with its allowed_tools grant.
   - vm107.research_classification_agent
+  # Phase 137-07 SC-3: reciprocal-advertisement of the 12 domain analysts that already
+  # grant search_macro_research in their allowed_tools (Pitfall 2). Additive only.
+  - vm107.commodities_domain_analyst
+  - vm107.consumer_domain_analyst
+  - vm107.credit_domain_analyst
+  - vm107.external_sector_domain_analyst
+  - vm107.financial_conditions_domain_analyst
+  - vm107.fiscal_domain_analyst
+  - vm107.growth_domain_analyst
+  - vm107.housing_domain_analyst
+  - vm107.inflation_domain_analyst
+  - vm107.labour_domain_analyst
+  - vm107.manufacturing_domain_analyst
+  - vm107.monetary_policy_domain_analyst
 last_changed: "2026-06-26"
 
 # Phase 47.6 LD-3 capability registry fields (Stage 2 schema required)

@@ -7,6 +7,9 @@ impact_on_decision: HIGH
 hard_scoped: true
 allowed_agent_profiles:
   - vm107.macro_transmission_analyst
+  - vm107.counterfactual_engine            # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
+  - vm107.macro_contradiction_detector     # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
+  - vm107.macro_relationship_discovery     # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
 
 name: Macro Graph Walker
 short_description: |

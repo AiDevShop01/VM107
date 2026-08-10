@@ -45,6 +45,7 @@ tags:
 hard_scoped: false
 allowed_agent_profiles:
 - agent_zero
+- trade_auditor_agent._analyzer   # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false

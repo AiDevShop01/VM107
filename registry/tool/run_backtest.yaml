@@ -53,6 +53,7 @@ impact_on_decision: HIGH
 hard_scoped: false
 allowed_agent_profiles:
   - agent_zero
+  - research_chat_agent   # Phase 137-07 SC-3: reciprocal-advertisement of existing authorized grant (Pitfall 2)
 related_capabilities:
   - run_build
   - run_critic

@@ -41,6 +41,58 @@ allowed_agent_profiles:
   - weekly_review_agent._reader
   - weekly_review_agent._analyzer
   - weekly_review_agent._writer
+  # --- Phase 137-07 SC-3: reciprocal-advertisement of the universal discovery meta-tool.
+  # Each profile below already grants lookup_capability in its allowed_tools; this closes the
+  # advertised==authorized gap (Pitfall 2). Additive only — no existing grantee removed.
+  # Includes narrative-only pillar analysts (growth/inflation/liquidity/risk) — this advertises
+  # discovery ONLY; it grants them NO data/compute tools (E-HIGH2 reading (a) preserved).
+  - default
+  - macro_agent
+  - research_chat_agent
+  - strategy_refinement_critic
+  - vm107.counterfactual_engine
+  - vm107.macro_contradiction_detector
+  - vm107.macro_relationship_discovery
+  - vm107.central_bank_summariser
+  - vm107.chief_economist_synthesizer
+  - vm107.commodities_domain_analyst
+  - vm107.consumer_domain_analyst
+  - vm107.country_dna_generator
+  - vm107.credit_domain_analyst
+  - vm107.executive_summary
+  - vm107.executive_summary_writer
+  - vm107.external_sector_domain_analyst
+  - vm107.financial_conditions_domain_analyst
+  - vm107.fiscal_domain_analyst
+  - vm107.growth_analyst
+  - vm107.growth_domain_analyst
+  - vm107.housing_domain_analyst
+  - vm107.inflation_analyst
+  - vm107.inflation_domain_analyst
+  - vm107.labour_domain_analyst
+  - vm107.liquidity_analyst
+  - vm107.macro_ask_router
+  - vm107.macro_asset_exposure_analyst
+  - vm107.macro_forecast_narrator
+  - vm107.macro_indicator_describer
+  - vm107.macro_investigator
+  - vm107.macro_regime_analyst
+  - vm107.macro_regime_monitor
+  - vm107.macro_release_analyst
+  - vm107.macro_review_agent
+  - vm107.macro_story_tracker
+  - vm107.macro_surprise_forecaster
+  - vm107.macro_transmission_analyst
+  - vm107.manufacturing_domain_analyst
+  - vm107.monetary_policy_domain_analyst
+  - vm107.research_citation_agent
+  - vm107.research_classification_agent
+  - vm107.research_contrarian_agent
+  - vm107.research_discovery_agent
+  - vm107.research_summarisation_agent
+  - vm107.risk_analyst
+  - vm107.theme_monitor
+  - vm107.timeline
 
 related_capabilities: []
 dependencies: []
