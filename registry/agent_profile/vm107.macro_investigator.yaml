@@ -59,6 +59,8 @@ allowed_tools:
   - get_release_history
   - get_upcoming_events
   - get_forecast_drift
+  # D-06 (P5 137-06): unified memory+knowledge RAG — paired aap in registry/tool/combined_rag.yaml
+  - vm107.tool.combined_rag
 # episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write
 # removed from allowed_tools — not callable tools in this runtime. Moved to denied_tools.
 # search_macro_research flipped denied → allowed in Phase 92 Plan 05 (LD-92-8

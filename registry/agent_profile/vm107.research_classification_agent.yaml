@@ -47,6 +47,8 @@ allowed_tools:
   - search_macro_research   # E-HIGH4 (137-05): match its 4 siblings; paired aap grant in search_macro_research.yaml
   - lookup_capability
   - response
+  # D-06 (P5 137-06): unified memory+knowledge RAG — paired aap in registry/tool/combined_rag.yaml
+  - vm107.tool.combined_rag
 
 optional_tools:
   - lookup_reasoning_artifact

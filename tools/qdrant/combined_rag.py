@@ -8,9 +8,8 @@ Uses multi-vector search with QueryRouter for knowledge retrieval.
 import hashlib
 import json
 import logging
-import math
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fingpt_core.contracts import (
     CombinedRAGRequest,
@@ -20,7 +19,6 @@ from fingpt_core.contracts import (
     RetrievalMetadata,
 )
 from helpers.tool import Response
-from qdrant_client.models import FieldCondition, Filter, MatchValue
 from tools.graph.graph_search_tool import GraphSearchRequest
 from tools.qdrant.query_router import QueryRouter
 from tools.vm_contracts.base import ContractTool
@@ -41,17 +39,38 @@ class CombinedRAGTool(ContractTool):
 
     Uses QueryRouter for intent-driven multi-vector knowledge search.
 
-    Dependencies (set via class attributes before agent calls tool):
-        qdrant_client: QdrantClient instance
-        embedding_service: EmbeddingService instance
-        ranking_config: Ranking configuration dict from config/ranking.yaml
+    E-HIGH1 (Phase 137): the tool SELF-ACQUIRES its per-collection backends at call
+    time via ``Memory.get(self.agent)`` (mirror the P4 tools/search_knowledge.py
+    pattern) — it no longer relies on the qdrant_client/embedding_service/ranking_config
+    class attributes the runtime never injected (the activation gap that made every
+    live call degrade to "No relevant context found."). agent_memory (384-dim MiniLM)
+    and knowledge_base_v2 (768-dim BGE, named vector) need DIFFERENT embedders, so each
+    search is routed through its OWN backend (which self-embeds correctly) rather than a
+    single shared query vector. The class attributes below are retained ONLY for the
+    legacy DI-mock harness (tests/tools/test_combined_rag.py); they are NOT read on the
+    happy path.
     """
 
-    # Class-level dependencies (set during agent initialization)
+    # Legacy DI class attributes — retained for the old DI-mock test harness only.
+    # NOT used on the self-acquire happy path (E-HIGH1, Phase 137).
     qdrant_client = None
     embedding_service = None
     ranking_config = None
     neo4j_driver = None  # For graph expansion (Phase 40.2)
+
+    # Embedding provenance surfaced in RetrievalMetadata. knowledge_base_v2 is the
+    # dominant (global) corpus and drives the reported model/dimension.
+    _EMBEDDING_MODEL = "BAAI/bge-base-en-v1.5"
+    _EMBEDDING_DIM = 768
+
+    # Contract-enum guards for payload normalization (MemoryItem / KnowledgeItem).
+    _MEMORY_TYPES = frozenset(
+        {"trade_decision", "analysis", "mistake", "insight", "task_summary", "other"}
+    )
+    _MEMORY_AREAS = frozenset({"main", "fragments", "solutions"})
+    _KNOWLEDGE_SOURCE_TYPES = frozenset(
+        {"book", "paper", "article", "markdown", "internal_doc", "transcript", "other"}
+    )
 
     # Outcome weights for memory ranking
     outcome_weights = {
@@ -103,31 +122,47 @@ class CombinedRAGTool(ContractTool):
         timestamp = datetime.utcnow().isoformat() + "Z"
 
         try:
-            # Embed query once (shared between both searches)
-            # Handle both single-text and batch embedding interfaces
-            if hasattr(self.embedding_service, 'embed'):
-                # BgeEmbeddingAdapter interface (returns EmbedResponse)
-                embed_response = await self.embedding_service.embed([request.query])
-                query_vector = embed_response.embeddings[0]
-            else:
-                # Fallback for other embedding service interfaces
-                query_vector = await self.embedding_service.embed(request.query)
+            # E-HIGH1 (Phase 137) self-acquire: obtain the per-collection backends from
+            # Memory at call time (mirror tools/search_knowledge.py:106-119). Each backend
+            # self-embeds with the CORRECT model for its collection (agent_memory=384-dim
+            # MiniLM, knowledge_base_v2=768-dim BGE named-vector) — a single shared query
+            # vector could not serve both, which was the original activation gap.
+            from plugins._memory.helpers.memory import Memory, _QdrantContext
 
-            # Search agent_memory
-            memory_results = await self._search_memory(
-                query_vector,
-                request.project_id,
-                request.memory_top_k
+            db = await Memory.get(self.agent)  # stamps db.context_id = agent.context.id (135-06)
+            ctx = _QdrantContext(
+                db.memory_subdir, context_id=getattr(db, "context_id", None)
             )
+            memory_backend = getattr(db, "backend", None)        # agent_memory collection
+            knowledge_backend = db._get_knowledge_v2_backend()   # knowledge_base_v2 (global)
 
-            # Search knowledge_base
-            knowledge_results = await self._search_knowledge(
-                query_vector,
-                request.project_id,
-                request.knowledge_top_k
-            )
+            # Search agent_memory (backend applies the mandatory project filter + embeds).
+            memory_results: list[dict] = []
+            if memory_backend is not None:
+                raw_memory = await memory_backend.search(
+                    query=request.query,
+                    top_k=request.memory_top_k,
+                    context=ctx,
+                    area=None,
+                ) or []
+                memory_results = [
+                    self._to_memory_item(r, request.project_id) for r in raw_memory
+                ]
 
-            # Graph expansion (if relationship query detected)
+            # Search knowledge_base_v2 (global corpus, BGE general_embedding named vector).
+            knowledge_results: list[dict] = []
+            if knowledge_backend is not None:
+                raw_knowledge = await knowledge_backend.search(
+                    query=request.query,
+                    top_k=request.knowledge_top_k,
+                    context=ctx,
+                    area=None,
+                ) or []
+                knowledge_results = [
+                    self._to_knowledge_item(r, request.project_id) for r in raw_knowledge
+                ]
+
+            # Graph expansion (if relationship query detected; neo4j_driver None -> [])
             graph_results = await self._expand_graph(request.query)
 
             # Build combined context
@@ -142,17 +177,6 @@ class CombinedRAGTool(ContractTool):
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
 
-            # Get embedding model info
-            if hasattr(self.embedding_service, 'MODEL_NAME'):
-                model_name = self.embedding_service.MODEL_NAME
-                dimension = self.embedding_service.VECTOR_DIM
-            elif hasattr(self.embedding_service, 'model_name'):
-                model_name = self.embedding_service.model_name
-                dimension = self.embedding_service.dimension
-            else:
-                model_name = "unknown"
-                dimension = 768
-
             metadata = {
                 "query_hash": query_hash,
                 "project_id": request.project_id,
@@ -160,8 +184,8 @@ class CombinedRAGTool(ContractTool):
                 "total_hits": len(memory_results) + len(knowledge_results),
                 "result_count": len(memory_results) + len(knowledge_results),
                 "latency_ms": latency_ms,
-                "embedding_model": model_name,
-                "embedding_dimension": dimension
+                "embedding_model": self._EMBEDDING_MODEL,
+                "embedding_dimension": self._EMBEDDING_DIM,
             }
 
             # Emit structured log
@@ -182,28 +206,18 @@ class CombinedRAGTool(ContractTool):
             }
 
         except Exception as e:
-            # Graceful degradation - return empty results
+            # Graceful degradation — the REAL-outage path, not the default. Leak-safe:
+            # the exception CLASS only goes to the log; the RESPONSE carries a generic
+            # empty context (never str(e) / host:port / IP), mirroring the P4 discipline.
             logger.error(json.dumps({
                 "event": "combined_rag_search",
                 "status": "error",
-                "error": str(e),
+                "error_type": type(e).__name__,
                 "timestamp": timestamp
             }))
 
-            # Return empty results with metadata
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
             latency_ms = int((time.time() - start_time) * 1000)
-
-            # Get embedding model info
-            if hasattr(self.embedding_service, 'MODEL_NAME'):
-                model_name = self.embedding_service.MODEL_NAME
-                dimension = self.embedding_service.VECTOR_DIM
-            elif hasattr(self.embedding_service, 'model_name'):
-                model_name = self.embedding_service.model_name
-                dimension = self.embedding_service.dimension
-            else:
-                model_name = "unknown"
-                dimension = 768
 
             return {
                 "memory_results": [],
@@ -217,167 +231,58 @@ class CombinedRAGTool(ContractTool):
                     "total_hits": 0,
                     "result_count": 0,
                     "latency_ms": latency_ms,
-                    "embedding_model": model_name,
-                    "embedding_dimension": dimension
+                    "embedding_model": self._EMBEDDING_MODEL,
+                    "embedding_dimension": self._EMBEDDING_DIM,
                 }
             }
 
-    async def _search_memory(self, query_vector: list[float], project_id: str, top_k: int) -> list[dict]:
+    def _to_memory_item(self, r: dict, project_id: str) -> dict:
+        """Normalize an agent_memory backend hit into a MemoryItem-shaped dict.
+
+        QdrantBackend.search returns ``{"id", "score", **payload}``. agent_memory payloads
+        carry summary/area/project/timestamp/task_id but NOT the required ``type`` enum, so
+        we default it (and coerce area/task_id) to satisfy the CombinedRAGResponse contract.
         """
-        Search agent_memory collection with recency-weighted ranking.
+        area = r.get("area")
+        if area not in self._MEMORY_AREAS:
+            area = None
+        mem_type = r.get("type")
+        if mem_type not in self._MEMORY_TYPES:
+            mem_type = "other"
+        task_id = r.get("task_id")
+        if task_id in (None, "None", ""):
+            task_id = None
+        return {
+            "id": str(r.get("id") or r.get("original_id") or ""),
+            "summary": r.get("summary") or "",
+            "area": area,
+            "project": r.get("project") or project_id,
+            "task_id": task_id,
+            "type": mem_type,
+            "timestamp": r.get("timestamp") or (datetime.utcnow().isoformat() + "Z"),
+            "score": r.get("score"),
+        }
 
-        Args:
-            query_vector: Embedded query vector
-            project_id: Project identifier
-            top_k: Maximum results to return
+    def _to_knowledge_item(self, r: dict, project_id: str) -> dict:
+        """Normalize a knowledge_base_v2 backend hit into a KnowledgeItem-shaped dict.
 
-        Returns:
-            List of memory result dicts with scores
+        knowledge_base_v2 payloads carry text/book_title/category/document_id but NOT the
+        required ``source_type``/``project`` fields (it is a global corpus), so we default
+        them to satisfy the CombinedRAGResponse contract.
         """
-        # Build mandatory project filter
-        query_filter = Filter(
-            must=[
-                FieldCondition(
-                    key="project",
-                    match=MatchValue(value=project_id)
-                )
-            ]
-        )
-
-        # Search Qdrant
-        search_results = self.qdrant_client.search(
-            collection_name="agent_memory",
-            query_vector=query_vector,
-            query_filter=query_filter,
-            limit=top_k * 2  # Fetch extra for re-ranking
-        )
-
-        # Apply recency-weighted ranking
-        semantic_weight = self.ranking_config["memory"]["semantic_weight"]
-        recency_weight = self.ranking_config["memory"]["recency_weight"]
-        outcome_weight = self.ranking_config["memory"]["outcome_weight"]
-        recency_decay_hours = self.ranking_config["memory"]["recency_decay_hours"]
-
-        now = datetime.now(timezone.utc)
-        ranked_results = []
-
-        for hit in search_results:
-            # Calculate recency score
-            memory_timestamp = datetime.fromisoformat(
-                hit.payload.get("timestamp", "").replace("Z", "+00:00")
-            )
-            hours_since = (now - memory_timestamp).total_seconds() / 3600
-            recency_score = math.exp(-hours_since / recency_decay_hours)
-
-            # Calculate outcome boost
-            outcome = hit.payload.get("outcome")
-            outcome_boost = self.outcome_weights.get(outcome, 0.0) if outcome else 0.0
-
-            # Calculate final score
-            final_score = (
-                hit.score * semantic_weight +
-                recency_score * recency_weight +
-                outcome_boost * outcome_weight
-            )
-
-            result_dict = {
-                **hit.payload,
-                "score": final_score
-            }
-            ranked_results.append((final_score, result_dict))
-
-        # Re-sort by final score and take top_k
-        ranked_results.sort(key=lambda x: x[0], reverse=True)
-        return [r[1] for r in ranked_results[:top_k]]
-
-    async def _search_knowledge(self, query_vector: list[float], project_id: str, top_k: int) -> list[dict]:
-        """
-        Search knowledge_base_v2 collection with multi-vector diversity-weighted ranking.
-
-        Uses QueryRouter to determine which embedding space(s) to search based on
-        query intent (extracted from CombinedRAGRequest.query). Performs multi-space
-        search with weighted deduplication.
-
-        Args:
-            query_vector: Embedded query vector
-            project_id: Project identifier
-            top_k: Maximum results to return
-
-        Returns:
-            List of knowledge result dicts with scores
-        """
-        # Get query from args for intent classification
-        query_text = self.args.get("query", "")
-        search_spaces = self.query_router.get_search_spaces(query_text)
-
-        # Get ranking config (try knowledge_v2 first, fallback to knowledge)
-        ranking_cfg = self.ranking_config.get("knowledge_v2", self.ranking_config.get("knowledge", {}))
-        semantic_weight = ranking_cfg.get("semantic_weight", 0.7)
-        diversity_weight = ranking_cfg.get("diversity_weight", 0.15)
-        max_results_per_space = ranking_cfg.get("max_results_per_space", 10)
-
-        # Build OR filter: (project == current_project OR project == "global")
-        query_filter = Filter(
-            should=[
-                FieldCondition(
-                    key="project",
-                    match=MatchValue(value=project_id)
-                ),
-                FieldCondition(
-                    key="project",
-                    match=MatchValue(value="global")
-                )
-            ]
-        )
-
-        # Multi-space search: search each space and merge results
-        all_results = {}  # {point_id: (score, hit)}
-
-        for space_info in search_spaces:
-            space_name = space_info["space"]
-            space_weight = space_info["weight"]
-
-            # Search Qdrant with named vector
-            search_results = self.qdrant_client.search(
-                collection_name="knowledge_base_v2",
-                query_vector=(space_name, query_vector),  # Named vector tuple
-                query_filter=query_filter,
-                limit=max_results_per_space
-            )
-
-            # Process results with space weight
-            for hit in search_results:
-                point_id = hit.id
-                weighted_score = hit.score * space_weight
-
-                # Keep highest weighted score for each point ID (deduplication)
-                if point_id not in all_results or weighted_score > all_results[point_id][0]:
-                    all_results[point_id] = (weighted_score, hit)
-
-        # Convert to list and sort by weighted score descending
-        sorted_results = sorted(
-            all_results.values(),
-            key=lambda x: x[0],
-            reverse=True
-        )
-
-        # Apply diversity-weighted ranking and take top_k
-        final_results = []
-        for idx, (weighted_score, hit) in enumerate(sorted_results[:top_k]):
-            # Diversity boost decreases with rank
-            diversity_boost = 1.0 - (idx * 0.1)  # 1.0, 0.9, 0.8, etc.
-            final_score = (
-                weighted_score * semantic_weight +
-                diversity_boost * diversity_weight
-            )
-
-            result_dict = {
-                **hit.payload,
-                "score": final_score
-            }
-            final_results.append(result_dict)
-
-        return final_results
+        source_type = r.get("source_type")
+        if source_type not in self._KNOWLEDGE_SOURCE_TYPES:
+            source_type = "other"
+        doc_id = r.get("document_id")
+        return {
+            "text": r.get("text") or "",
+            "title": r.get("title") or r.get("book_title"),
+            "topic": r.get("topic") or r.get("category"),
+            "source_type": source_type,
+            "project": r.get("project") or "global",
+            "document_id": str(doc_id) if doc_id is not None else None,
+            "score": r.get("score"),
+        }
 
     async def _expand_graph(self, query: str) -> list[dict]:
         """

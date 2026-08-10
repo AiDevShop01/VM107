@@ -1,0 +1,46 @@
+id: vm107.tool.combined_rag
+name: combined_rag
+type: tool
+status: real
+description: >-
+  Unified memory + knowledge RAG. Searches agent_memory (task-specific recall) and
+  knowledge_base_v2 (global reference corpus), self-acquiring each collection's backend
+  at call time (E-HIGH1, Phase 137), and merges the hits into a single token-bounded
+  combined context for LLM insertion. Optional Neo4j graph expansion for relationship
+  queries. Read-only; graceful degradation to an empty context on backend outage.
+category: retrieval
+producer: vm107
+phase: 137
+location:
+  source: VM107/tools/qdrant/combined_rag.py
+  contracts:
+    request: fingpt_core.contracts.rag.combined.CombinedRAGRequest
+    response: fingpt_core.contracts.rag.combined.CombinedRAGResponse
+tags:
+  - rag
+  - memory
+  - knowledge
+  - retrieval
+  - vm107
+hard_scoped: false
+allowed_agent_profiles:
+  # D-06 narrow grant — purpose-fit unified memory+knowledge RAG profiles only.
+  # NOT granted to pillar/domain analysts (narrative-only) or agent_zero (already
+  # holds scoped memory/knowledge tools). Set on BOTH surfaces (this aap + each
+  # profile's allowed_tools).
+  - research_chat_agent
+  - vm107.chief_economist_synthesizer
+  - vm107.macro_investigator
+  - vm107.research_discovery_agent
+  - vm107.research_summarisation_agent
+  - vm107.research_citation_agent
+  - vm107.research_contrarian_agent
+  - vm107.research_classification_agent
+impact_on_decision: HIGH
+deprecated: false
+
+# --- Phase 70.5 envelope-provenance fields (Stage-2 loader schema) ---
+typical_confidence: 0.70   # Reasoning: retrieval quality depends on corpus coverage for the query; combined memory+knowledge recall with semantic ranking
+expected_freshness_seconds: 60   # Reasoning: Qdrant collections updated continuously; 60s covers indexing propagation
+is_deterministic: false   # Reasoning: semantic vector search + LLM-facing context assembly are not bit-identical across calls
+version: "1.0.0"   # Reasoning: initial registration (E-HIGH1, Phase 137 activation)

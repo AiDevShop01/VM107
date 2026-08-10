@@ -7,7 +7,6 @@ and recency-weighted ranking.
 import hashlib
 import json
 import logging
-import math
 import time
 from datetime import datetime
 
@@ -18,7 +17,6 @@ from fingpt_core.contracts import (
     SearchMemoryResponse,
 )
 from helpers.tool import Response
-from qdrant_client.models import FieldCondition, Filter, MatchValue
 from tools.vm_contracts.base import ContractTool
 
 logger = logging.getLogger("fingpt.tools")
@@ -31,19 +29,33 @@ class SearchMemoryTool(ContractTool):
     """
     Search agent memory with semantic search.
 
-    Retrieves project-scoped memory with recency-weighted ranking.
+    Retrieves project-scoped memory with semantic ranking.
     Follows ContractTool pattern with validate-request -> call -> validate-response.
 
-    Dependencies (set via class attributes before agent calls tool):
-        qdrant_client: QdrantClient instance
-        embedding_service: EmbeddingService instance
-        ranking_config: Ranking configuration dict from config/ranking.yaml
+    E-HIGH1 (Phase 137): SELF-ACQUIRES its agent_memory backend at call time via
+    ``Memory.get(self.agent)`` (mirror tools/search_knowledge.py) — it no longer relies
+    on the qdrant_client/embedding_service/ranking_config class attributes the runtime
+    never injected (the same dead injected-attr pattern that made combined_rag.py return
+    empty). The backend self-embeds (384-dim MiniLM) and applies the mandatory project
+    filter internally. The class attributes below are retained ONLY for the legacy
+    DI-mock harness; they are NOT read on the happy path.
     """
 
-    # Class-level dependencies (set during agent initialization)
+    # Legacy DI class attributes — retained for the old DI-mock harness only; NOT used
+    # on the self-acquire happy path (E-HIGH1, Phase 137).
     qdrant_client = None
     embedding_service = None
     ranking_config = None
+
+    # Embedding provenance for RetrievalMetadata (agent_memory = all-MiniLM-L6-v2, 384-dim).
+    _EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+    _EMBEDDING_DIM = 384
+
+    # Contract-enum guards for MemoryItem payload normalization.
+    _MEMORY_TYPES = frozenset(
+        {"trade_decision", "analysis", "mistake", "insight", "task_summary", "other"}
+    )
+    _MEMORY_AREAS = frozenset({"main", "fragments", "solutions"})
 
     # Outcome weights for ranking
     outcome_weights = {
@@ -95,74 +107,29 @@ class SearchMemoryTool(ContractTool):
         timestamp = datetime.utcnow().isoformat() + "Z"
 
         try:
-            # Embed query
-            query_vector = await self.embedding_service.embed(request.query)
+            # E-HIGH1 (Phase 137) self-acquire: obtain the agent_memory backend from Memory
+            # at call time (mirror tools/search_knowledge.py:106-119). The backend embeds
+            # the query with the correct model and applies the mandatory project + optional
+            # area filter internally — the class-attr qdrant_client/embedding_service the
+            # runtime never injected are gone.
+            from plugins._memory.helpers.memory import Memory, _QdrantContext
 
-            # Build filter: MANDATORY project filter
-            must_conditions = [
-                FieldCondition(
-                    key="project",
-                    match=MatchValue(value=request.project_id)
-                )
-            ]
-
-            # Add area filter if provided
-            if request.area:
-                must_conditions.append(
-                    FieldCondition(
-                        key="area",
-                        match=MatchValue(value=request.area)
-                    )
-                )
-
-            query_filter = Filter(must=must_conditions)
-
-            # Search Qdrant
-            search_results = self.qdrant_client.search(
-                collection_name="agent_memory",
-                query_vector=query_vector,
-                query_filter=query_filter,
-                limit=request.top_k * 2  # Fetch extra for re-ranking
+            db = await Memory.get(self.agent)  # stamps db.context_id = agent.context.id (135-06)
+            backend = getattr(db, "backend", None)
+            ctx = _QdrantContext(
+                db.memory_subdir, context_id=getattr(db, "context_id", None)
             )
 
-            # Apply recency-weighted ranking
-            semantic_weight = self.ranking_config["memory"]["semantic_weight"]
-            recency_weight = self.ranking_config["memory"]["recency_weight"]
-            outcome_weight = self.ranking_config["memory"]["outcome_weight"]
-            recency_decay_hours = self.ranking_config["memory"]["recency_decay_hours"]
+            raw_hits = []
+            if backend is not None:
+                raw_hits = await backend.search(
+                    query=request.query,
+                    top_k=request.top_k,
+                    context=ctx,
+                    area=request.area,
+                ) or []
 
-            from datetime import timezone
-            now = datetime.now(timezone.utc)
-            ranked_results = []
-
-            for hit in search_results:
-                # Calculate recency score
-                memory_timestamp = datetime.fromisoformat(
-                    hit.payload.get("timestamp", "").replace("Z", "+00:00")
-                )
-                hours_since = (now - memory_timestamp).total_seconds() / 3600
-                recency_score = math.exp(-hours_since / recency_decay_hours)
-
-                # Calculate outcome boost
-                outcome = hit.payload.get("outcome")
-                outcome_boost = self.outcome_weights.get(outcome, 0.0) if outcome else 0.0
-
-                # Calculate final score
-                final_score = (
-                    hit.score * semantic_weight +
-                    recency_score * recency_weight +
-                    outcome_boost * outcome_weight
-                )
-
-                result_dict = {
-                    **hit.payload,
-                    "score": final_score
-                }
-                ranked_results.append((final_score, result_dict))
-
-            # Re-sort by final score and take top_k
-            ranked_results.sort(key=lambda x: x[0], reverse=True)
-            results = [r[1] for r in ranked_results[:request.top_k]]
+            results = [self._to_memory_item(r, request.project_id) for r in raw_hits]
 
             # Build RetrievalMetadata
             query_hash = hashlib.sha256(request.query.encode()).hexdigest()[:16]
@@ -172,11 +139,11 @@ class SearchMemoryTool(ContractTool):
                 "query_hash": query_hash,
                 "project_id": request.project_id,
                 "collections": ["agent_memory"],
-                "total_hits": len(search_results),
+                "total_hits": len(raw_hits),
                 "result_count": len(results),
                 "latency_ms": latency_ms,
-                "embedding_model": self.embedding_service.model_name,
-                "embedding_dimension": self.embedding_service.dimension
+                "embedding_model": self._EMBEDDING_MODEL,
+                "embedding_dimension": self._EMBEDDING_DIM,
             }
 
             # Emit structured log
@@ -193,12 +160,13 @@ class SearchMemoryTool(ContractTool):
             return {"results": results, "metadata": metadata}
 
         except Exception as e:
-            # Graceful degradation - return empty results
+            # Graceful degradation — leak-safe: the exception CLASS only goes to the log
+            # (never str(e)/host:port), and empty results are returned.
             logger.error(json.dumps({
                 "event": "qdrant_search",
                 "collection": "agent_memory",
                 "status": "error",
-                "error": str(e),
+                "error_type": type(e).__name__,
                 "timestamp": timestamp
             }))
 
@@ -215,10 +183,37 @@ class SearchMemoryTool(ContractTool):
                     "total_hits": 0,
                     "result_count": 0,
                     "latency_ms": latency_ms,
-                    "embedding_model": self.embedding_service.model_name,
-                    "embedding_dimension": self.embedding_service.dimension
+                    "embedding_model": self._EMBEDDING_MODEL,
+                    "embedding_dimension": self._EMBEDDING_DIM,
                 }
             }
+
+    def _to_memory_item(self, r: dict, project_id: str) -> dict:
+        """Normalize an agent_memory backend hit into a MemoryItem-shaped dict.
+
+        QdrantBackend.search returns ``{"id", "score", **payload}``. agent_memory payloads
+        carry summary/area/project/timestamp/task_id but NOT the required ``type`` enum, so
+        we default it (and coerce area/task_id) to satisfy the SearchMemoryResponse contract.
+        """
+        area = r.get("area")
+        if area not in self._MEMORY_AREAS:
+            area = None
+        mem_type = r.get("type")
+        if mem_type not in self._MEMORY_TYPES:
+            mem_type = "other"
+        task_id = r.get("task_id")
+        if task_id in (None, "None", ""):
+            task_id = None
+        return {
+            "id": str(r.get("id") or r.get("original_id") or ""),
+            "summary": r.get("summary") or "",
+            "area": area,
+            "project": r.get("project") or project_id,
+            "task_id": task_id,
+            "type": mem_type,
+            "timestamp": r.get("timestamp") or (datetime.utcnow().isoformat() + "Z"),
+            "score": r.get("score"),
+        }
 
     def _validate_response(self, data: dict) -> SearchMemoryResponse:
         """
