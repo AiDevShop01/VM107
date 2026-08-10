@@ -44,6 +44,7 @@ trigger: dagster_sensor
 # as a tie-breaker for borderline confidences.
 allowed_tools:
   - search_knowledge
+  - search_macro_research   # E-HIGH4 (137-05): match its 4 siblings; paired aap grant in search_macro_research.yaml
   - lookup_capability
   - response
 

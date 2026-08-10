@@ -18,6 +18,15 @@ parent_profile: null
 hard_scoped: true
 sub_profiles: []
 allowed_tools:
+  # E-HIGH3 (P5 137-05): core research tooling — advertised==authorized on both
+  # surfaces (search_knowledge registered in 137-05 Task 1; response aap grant below).
+  - search_knowledge
+  - response
+  # Legacy grants (restore-vs-prune recorded in 137-05-SUMMARY; NOT widened here —
+  # additive-only D-07). run_backtest/lookup_capability are domain-appropriate;
+  # get_cross_trade_behavioral_patterns (behavioral_mentor-only) and
+  # similarity_analysis_tool (agent_zero-only) are wrong-domain → P6 prune candidates,
+  # left as profile grants but their tool aap is deliberately NOT widened.
   - get_cross_trade_behavioral_patterns
   - similarity_analysis_tool
   - run_backtest

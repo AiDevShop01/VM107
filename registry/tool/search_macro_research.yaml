@@ -42,6 +42,9 @@ allowed_agent_profiles:
   - vm107.research_citation_agent
   - vm107.research_contrarian_agent
   - vm107.research_discovery_agent
+  # E-HIGH4 (P5 137-05): classification was the only research sibling missing this
+  # grant; add the advertising surface to pair with its allowed_tools grant.
+  - vm107.research_classification_agent
 last_changed: "2026-06-26"
 
 # Phase 47.6 LD-3 capability registry fields (Stage 2 schema required)

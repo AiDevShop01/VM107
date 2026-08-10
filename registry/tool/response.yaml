@@ -58,6 +58,9 @@ allowed_agent_profiles:
   - vm107.research_citation_agent
   - vm107.research_contrarian_agent
   - vm107.research_classification_agent
+  # E-HIGH3 (P5 137-05): research_chat_agent needs response advertised==authorized
+  # (paired with the response grant added to its allowed_tools in 137-05 Task 2).
+  - research_chat_agent
 deprecated: false
 tags:
   - a0-built-in
