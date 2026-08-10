@@ -37,9 +37,12 @@ related_capabilities:
   - vm102.regime_current
 hard_scoped: false
 impact_on_decision: HIGH
-# allowed_agent_profiles: [] — unrestricted; vm107.macro_release_analyst uses this tool.
-# See vm102.indicator_history for rationale on empty list.
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02): explicit grant to the profile that already lists this tool in
+# its allowed_tools (both surfaces agree) — survives the 137-06 empty-aap deny flip.
+# NOTE: the only allowed_tools lister of this regime tool is vm107.macro_release_analyst
+# (no dedicated "regime analyst" profile lists it by id) — single-owner, not broadcast.
+allowed_agent_profiles:
+  - vm107.macro_release_analyst
 deprecated: false
 tags:
   - phase-85

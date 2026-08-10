@@ -37,12 +37,14 @@ related_capabilities:
   - vm102.indicator_distribution
 hard_scoped: false
 impact_on_decision: HIGH
-# allowed_agent_profiles: [] — unrestricted; all vm107.macro_* agents can use this tool.
-# Not scoping to specific Phase 85 profiles because the Stage 5 validator requires
-# allowed_agent_profiles entries to resolve via base-id against registered agent_profile ids.
-# vm107.macro_* agent profiles are registered as dotted ids (e.g. vm107.macro_release_analyst)
-# whose base id 'vm107' is not a standalone agent_profile entry.
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02): explicit grant to the profiles that already list this tool in
+# their allowed_tools (both surfaces now agree) — so it does not go dark under the 137-06
+# empty-aap deny flip. Dotted agent_profile ids resolve correctly (proven live in 137-02/03);
+# the earlier "base-id 'vm107' not standalone" caveat no longer blocks dotted-id grants.
+allowed_agent_profiles:
+  - vm107.macro_investigator
+  - vm107.macro_asset_exposure_analyst
+  - vm107.macro_release_analyst
 deprecated: false
 tags:
   - phase-85

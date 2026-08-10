@@ -71,3 +71,10 @@ tags:
   - bearer-jwt
 deprecated: false
 impact_on_decision: HIGH
+# P5 137-04 (E-CRIT1/D-02): explicit grant so this data tool does not ride the allow-all
+# default into darkness under the 137-06 deny flip. Pillar analysts (growth/inflation/
+# liquidity/risk) are DEFERRED to the E-HIGH2 human-verify gate (137-07) — do NOT add here.
+allowed_agent_profiles:
+  - vm107.macro_investigator
+  - vm107.chief_economist_synthesizer
+  - agent_zero

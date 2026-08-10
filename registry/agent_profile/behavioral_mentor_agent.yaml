@@ -20,6 +20,14 @@ sub_profiles:
 - behavioral_mentor_agent._reader
 - behavioral_mentor_agent._analyzer
 - behavioral_mentor_agent._writer
+# E-MED1 / D-03 tool-scope contract (schema doc — representative profile):
+#   allowed_tools: []  (present-but-empty)  +  non-empty denied_tools  ==  ZERO tools.
+# A present-but-empty allowed_tools is an explicit empty whitelist: apply_tool_scope keeps
+# ONLY ids in `allowed`, so an empty allowed advertises nothing regardless of denied_tools.
+# (Contrast: allowed_tools ABSENT/null == "no whitelist — keep all".) This host is a
+# router/orchestrator that dispatches to its ._reader/._analyzer/._writer sub-profiles and
+# holds no tools of its own. Asserted by tests/phase137/test_scope_reconciliation.py
+# (test_empty_allowed_with_denied_advertises_nothing_contract + _real_profiles_...).
 allowed_tools: []
 denied_tools:
 - call_subordinate

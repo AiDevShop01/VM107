@@ -51,6 +51,14 @@ allowed_tools:
   - vm107.lookup_reasoning_artifact
   - search_macro_research                  # Phase 92 Plan 05 LD-92-8 flip — moved from denied → allowed (2026-06-26)
   - response
+  # P5 137-04 (E-CRIT1/D-02): the four Phase 99.1 read-only economic-data tools. The tool-side
+  # allowed_agent_profiles grant alone was insufficient — apply_tool_scope filters the index by
+  # this profile's allowed_tools, so both surfaces must list them. macro_investigator is the
+  # central macro analyst and the RESEARCH §4 intended grantee; read-only, no compute/write.
+  - get_indicator_series
+  - get_release_history
+  - get_upcoming_events
+  - get_forecast_drift
 # episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write
 # removed from allowed_tools — not callable tools in this runtime. Moved to denied_tools.
 # search_macro_research flipped denied → allowed in Phase 92 Plan 05 (LD-92-8

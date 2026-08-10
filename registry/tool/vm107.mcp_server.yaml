@@ -71,9 +71,12 @@ tags:
   - external-client-surface
 hard_scoped: true
 impact_on_decision: HIGH
-# Soft profile reference (Phase 67-12 follow-up — `external_mcp_client`
-# agent_profile not yet registered). Re-add once profile YAML ships.
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02): the intended `external_mcp_client` agent_profile was never
+# registered, and consumed_by lists external MCP clients (claude_desktop/cursor) that are
+# NOT agent_profiles. Granting the single most-defensible internal owner — `agent_zero`,
+# the general A0 host that represents/invokes the MCP surface — rather than broadcasting.
+allowed_agent_profiles:
+  - agent_zero
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---

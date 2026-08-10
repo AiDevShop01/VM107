@@ -39,7 +39,25 @@ consumed_by:
 related_capabilities: []
 hard_scoped: false
 impact_on_decision: HIGH
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02, Pitfall 1): explicit grant of the universal reply tool to
+# EVERY profile that lists `response` in allowed_tools, so it does NOT go dark for any
+# agent under the 137-06 empty-aap deny flip. Derived from a scripted allowed_tools audit
+# (10 listers) + agent_zero added defensively (the base A0 agent currently sees `response`
+# via its no-op scope filter — Pitfall 1 exhaustiveness; over-granting the reply tool is safe).
+# consumed_by above is STALE (macro_release_analyst / macro_indicator_describer do NOT list
+# `response` in allowed_tools) — allowed_tools is the authoritative surface.
+allowed_agent_profiles:
+  - default
+  - idea_agent
+  - strategy_agent
+  - strategy_refinement_critic
+  - agent_zero
+  - vm107.macro_investigator
+  - vm107.research_discovery_agent
+  - vm107.research_summarisation_agent
+  - vm107.research_citation_agent
+  - vm107.research_contrarian_agent
+  - vm107.research_classification_agent
 deprecated: false
 tags:
   - a0-built-in

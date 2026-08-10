@@ -75,7 +75,12 @@ tags:
   - jwt-bearer
 hard_scoped: true
 impact_on_decision: LOW
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02): NO agent_profile currently lists this tool (id
+# `vm107.tool.manage_watchlist`, file manage_watchlist.yaml) in allowed_tools — ownership
+# was ambiguous. Granting the single most-defensible owner: `agent_zero`, the user-facing A0
+# host that manages the user's macro watchlist (PinButton CRUD). Single-owner, not broadcast.
+allowed_agent_profiles:
+  - agent_zero
 deprecated: false
 
 # --- Phase 70.5 envelope-provenance fields ---

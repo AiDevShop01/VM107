@@ -35,9 +35,12 @@ related_capabilities:
   - vm102.indicator_history
 hard_scoped: false
 impact_on_decision: MEDIUM
-# allowed_agent_profiles: [] — unrestricted; vm107.macro_release_analyst uses this tool.
-# See vm102.indicator_history for rationale on empty list.
-allowed_agent_profiles: []
+# P5 137-04 (E-CRIT1/D-02): explicit grant to the profiles that already list this tool in
+# their allowed_tools (both surfaces agree) — survives the 137-06 empty-aap deny flip.
+allowed_agent_profiles:
+  - vm107.macro_investigator
+  - vm107.counterfactual_engine
+  - vm107.macro_release_analyst
 deprecated: false
 tags:
   - phase-85
