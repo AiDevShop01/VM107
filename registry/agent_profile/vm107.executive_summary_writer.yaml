@@ -14,7 +14,7 @@ description: >-
   REQ-85-5 (citations), REQ-85-7 (router fail-fast).
 profile_path: VM107/profiles/executive_summary_writer.yaml
 allowed_tools:
-  - lookup_reasoning_artifact
+  - vm107.lookup_reasoning_artifact
   - lookup_capability
 denied_tools:
   - call_subordinate

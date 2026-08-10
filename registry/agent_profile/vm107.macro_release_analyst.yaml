@@ -16,7 +16,7 @@ allowed_tools:
   - vm102.indicator_releases
   - vm102.indicator_distribution
   - vm102.indicator_regime
-  - lookup_reasoning_artifact
+  - vm107.lookup_reasoning_artifact
   - lookup_capability
 denied_tools:
   - call_subordinate

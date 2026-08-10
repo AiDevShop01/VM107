@@ -42,7 +42,7 @@ sibling_service: vm107-macro-story-tracker
 allowed_tools:
   - episodic_memory_service.query   # Plan 87-07 real B6
   - lookup_capability               # standard discovery tool
-  - lookup_reasoning_artifact       # B1 artifact retrieval
+  - vm107.lookup_reasoning_artifact       # B1 artifact retrieval
 
 denied_tools:
   - call_subordinate

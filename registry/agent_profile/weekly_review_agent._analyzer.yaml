@@ -17,7 +17,7 @@ phase: 60
 parent_profile: weekly_review_agent
 hard_scoped: true
 allowed_tools:
-- behavioral_analysis
+- behavioral_analysis_tool
 - get_performance_history
 - get_regime_context
 - get_weekly_execution_summary

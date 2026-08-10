@@ -15,8 +15,8 @@ phase: 60
 parent_profile: trade_auditor_agent
 hard_scoped: true
 allowed_tools:
-- lookup_replay_artifact
-- fetch_replay_frame
+- lookup_replay_artifact_tool
+- fetch_replay_frame_tool
 - get_trade_context
 - skills_tool
 denied_tools:

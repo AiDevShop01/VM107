@@ -48,7 +48,7 @@ allowed_tools:
   - vm102.indicator_correlations
   - vm102.indicator_distribution
   - lookup_capability
-  - lookup_reasoning_artifact
+  - vm107.lookup_reasoning_artifact
   - search_macro_research                  # Phase 92 Plan 05 LD-92-8 flip — moved from denied → allowed (2026-06-26)
   - response
 # episodic_memory_service.query, belief_store.query, phase71.evidence_drawer.write

@@ -51,7 +51,7 @@ allowed_tools:
   - vm105.neo4j_macro_graph_walker        # Phase 87 — analogue retrieval by indicator + surprise range
   - belief_store.query                    # Decision 7 — check blocking contradictions before emit
   - lookup_capability
-  - lookup_reasoning_artifact
+  - vm107.lookup_reasoning_artifact
   - phase71.evidence_drawer.write
   - phase90.forecast_market_impact        # OPTIONAL — Decision 12; stub-fallback when 90 not shipped
 

@@ -41,6 +41,11 @@ tags:
 hard_scoped: false
 allowed_agent_profiles:
 - agent_zero
+# P5 137-03 (E-CRIT2): paired advertising surface for the 3 analyzer sub-profiles
+# whose normalized behavioral_analysis_tool grant would otherwise be authorized-but-hidden.
+- behavioral_mentor_agent._analyzer
+- trade_auditor_agent._analyzer
+- weekly_review_agent._analyzer
 last_changed: 2026-05-10
 impact_on_decision: HIGH
 deprecated: false

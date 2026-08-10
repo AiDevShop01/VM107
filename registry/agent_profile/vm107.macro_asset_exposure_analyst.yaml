@@ -15,7 +15,7 @@ profile_path: VM107/profiles/macro_asset_exposure_analyst.yaml
 allowed_tools:
   - vm102.indicator_asset_exposure
   - vm102.indicator_history
-  - lookup_reasoning_artifact
+  - vm107.lookup_reasoning_artifact
   - lookup_capability
 denied_tools:
   - call_subordinate

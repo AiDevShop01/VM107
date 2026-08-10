@@ -35,9 +35,17 @@ related_capabilities:
   - agent_reasoning_artifact
 hard_scoped: false
 impact_on_decision: MEDIUM
-# allowed_agent_profiles: [] — unrestricted; all vm107.macro_* agents can use this tool.
-# See vm102.indicator_history for rationale on empty list.
-allowed_agent_profiles: []
+# P5 137-03 (E-CRIT2): populated with the 7 reasoning-profile consumers so the
+# normalized name->id grant advertises on BOTH surfaces (pairs the profile-side
+# grant). An empty aap would flip to deny-all under the 137-06 index parity fix.
+allowed_agent_profiles:
+- vm107.counterfactual_engine
+- vm107.executive_summary_writer
+- vm107.macro_asset_exposure_analyst
+- vm107.macro_investigator
+- vm107.macro_release_analyst
+- vm107.macro_story_tracker
+- vm107.macro_transmission_analyst
 deprecated: false
 tags:
   - phase-85

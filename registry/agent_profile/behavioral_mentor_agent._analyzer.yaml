@@ -16,7 +16,7 @@ phase: 60
 parent_profile: behavioral_mentor_agent
 hard_scoped: true
 allowed_tools:
-- behavioral_analysis
+- behavioral_analysis_tool
 - get_performance_history
 - get_cross_trade_behavioral_patterns
 - skills_tool

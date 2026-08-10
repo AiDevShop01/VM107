@@ -43,7 +43,7 @@ allowed_tools:
   - vm105.neo4j_macro_graph_walker     # Plan 87-03 walker tool YAML
   - episodic_memory_service.query      # Wave-2 stub, Wave-4 real B6
   - lookup_capability                  # standard discovery tool
-  - lookup_reasoning_artifact          # B1 artifact retrieval
+  - vm107.lookup_reasoning_artifact          # B1 artifact retrieval
 
 denied_tools:
   - call_subordinate
