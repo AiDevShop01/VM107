@@ -38,13 +38,23 @@ def _empty_aap_real_tool_ids(reg) -> list[str]:
     return ids
 
 
-def test_response_has_empty_aap(reg):
-    """Anchor the fixture: ``response`` is the #1 empty-aap regression risk (Pitfall 1)."""
+def test_response_now_explicitly_granted(reg):
+    """``response`` is the #1 empty-aap regression risk (Pitfall 1). At 137-01 HEAD it
+    rode the allow-all default with an EMPTY aap; the D-02 mitigation (137-04/137-05)
+    then populated its allowed_agent_profiles so it survives the D-01 deny flip landed
+    here in 137-06. This asserts that mitigation is in place — response now carries an
+    EXPLICIT non-empty grant, which is exactly why the deny flip does not dark it.
+
+    (Updated from the original ``test_response_has_empty_aap`` red-at-HEAD anchor, which
+    became factually obsolete once 137-04/137-05 correctly granted response. The live
+    no-regression guard is test_no_capability_regression::
+    test_response_stays_advertised_to_every_grantee.)
+    """
     entry = reg._by_id.get("response")
     assert entry is not None, "response tool must be registered"
-    assert not entry.allowed_agent_profiles, (
-        "response is expected to have EMPTY allowed_agent_profiles at HEAD "
-        "(rides the allow-all default until D-02 grants + D-01 flip)"
+    assert entry.allowed_agent_profiles, (
+        "response must carry an EXPLICIT non-empty allowed_agent_profiles (the D-02 "
+        "mitigation from 137-04/137-05) so it survives the D-01 fail-closed deny flip"
     )
 
 
