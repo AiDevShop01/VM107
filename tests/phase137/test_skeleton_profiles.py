@@ -27,10 +27,23 @@ import yaml
 _PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "registry" / "agent_profile"
 
 # ── OVERRIDABLE by 137-07 after the per-profile dispatch-reachability human-verify ──
-SKELETON_SET_CONFIRMED = False
-# Finalized skeleton ids (RESEARCH §7 heuristic seed; 137-07 confirms per-profile that
-# each is genuinely un-dispatched before flipping it to status: planned — Pitfall 3).
-SKELETON_CANDIDATES: tuple[str, ...] = ()
+#
+# 137-07 OPERATOR DECISION (B-01, D-08 RETARGET): D-08 originally proposed `status: planned`.
+# `planned` is NOT a valid CapabilityStatus enum member — the enum is exactly
+# {STUB, EXPERIMENTAL, REAL, DEPRECATED} (fingpt_core/contracts/capability_registry/enums.py),
+# and `status` is a required validated field, so `planned` would fail boot validation. The
+# confirmed-skeleton semantics ("excluded from the REAL dispatch set", index.py:44 filters
+# `status != REAL`) are ALREADY satisfied by the existing `status: stub`. So the confirmed
+# skeleton is asserted against the real, valid enum value `stub` — NOT `planned`. No yaml
+# status flip is performed: vm107.macro_surprise_forecaster is already `status: stub`.
+SKELETON_SET_CONFIRMED = True
+# Confirmed skeleton ids — genuinely module-less / dispatch-unreachable and already
+# non-REAL (status: stub, so excluded from the REAL set at index.py:44).
+SKELETON_CANDIDATES: tuple[str, ...] = ("vm107.macro_surprise_forecaster",)
+# Accepted confirmed-skeleton status: a confirmed skeleton is one whose status is non-REAL.
+# D-08's `planned` retargeted to the existing valid enum value `stub` per operator decision
+# (no enum change, reconciliation scope).
+CONFIRMED_SKELETON_STATUSES: frozenset[str] = frozenset({"stub"})
 
 
 def _profile_status(profile_id: str) -> str | None:
@@ -55,16 +68,27 @@ def test_skeleton_set_confirmed():
     )
 
 
-def test_confirmed_skeletons_are_planned():
-    """Each confirmed skeleton profile carries ``status: planned`` (D-08)."""
+def test_confirmed_skeletons_are_non_real_stub():
+    """Each confirmed skeleton profile carries a non-REAL status (D-08 retargeted to `stub`).
+
+    D-08 originally said `status: planned`, but `planned` is not a valid CapabilityStatus
+    enum member ({STUB, EXPERIMENTAL, REAL, DEPRECATED}). The confirmed-skeleton semantics —
+    excluded from the REAL dispatch set (index.py:44 filters `status != REAL`) — are already
+    satisfied by the existing `status: stub`. Assert against the real, valid enum value.
+    """
     if not SKELETON_SET_CONFIRMED:
         pytest.skip("skeleton set pending 137-07 confirmation")
     assert SKELETON_CANDIDATES, "SKELETON_SET_CONFIRMED but SKELETON_CANDIDATES is empty"
     for profile_id in SKELETON_CANDIDATES:
         status = _profile_status(profile_id)
         assert status is not None, f"skeleton candidate {profile_id!r} has no profile yaml"
-        assert status == "planned", (
-            f"{profile_id}: skeleton profile must carry status: planned (D-08), got {status!r}"
+        assert status in CONFIRMED_SKELETON_STATUSES, (
+            f"{profile_id}: confirmed skeleton must carry a non-REAL status "
+            f"{set(CONFIRMED_SKELETON_STATUSES)!r} (D-08 `planned` retargeted to valid enum "
+            f"`stub`), got {status!r}"
+        )
+        assert status != "real", (
+            f"{profile_id}: a confirmed skeleton must not be REAL (would enter dispatch set)"
         )
 
 

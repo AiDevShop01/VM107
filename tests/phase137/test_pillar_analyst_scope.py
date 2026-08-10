@@ -32,7 +32,11 @@ _PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "registry" / "age
 #   "unconfirmed" -> RED gate (pending checkpoint)
 #   "a"           -> grant nothing (narrative-only preserved; recommended default)
 #   "b"           -> grant read-only data tools + relax narrative-only guards
-PILLAR_GRANT_DECISION = "unconfirmed"
+#
+# 137-07 OPERATOR DECISION (E-HIGH2): reading "a" — grant-nothing. The four pillar
+# analysts are narrative-only BY DESIGN (max_cost_usd 0.0, is_deterministic, guarded by
+# test_never_recomputes_score); E-HIGH2 is a false positive. No pillar yaml changed.
+PILLAR_GRANT_DECISION = "a"
 
 PILLAR_ANALYSTS: tuple[str, ...] = (
     "vm107.growth_analyst",
