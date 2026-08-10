@@ -49,15 +49,17 @@ def get_index_for_profile(
         # hard_scoped=True: exact match only (no base-profile fallback).
         # hard_scoped=False: exact match OR base-id match for sub-profiles.
         #
-        # Empty allowed_agent_profiles (()) means "unrestricted — available to
-        # all profiles" (see vm102.indicator_history.yaml comment). This is the
-        # inverse of hard_scoped=True with an empty list.
+        # D-01 (Phase 137, E-CRIT1): empty allowed_agent_profiles = ZERO grantees
+        # (fail-closed). A tool must be EXPLICITLY granted to a profile to be
+        # advertised. This is now at PARITY with
+        # capability_registry.is_capability_in_scope (lines 292-297), which already
+        # returns False on an empty list. Previously an empty list meant allow-all
+        # here — the E-CRIT1 advertising-vs-authorization divergence bug.
         allowed = False
         if not e.allowed_agent_profiles:
-            # Empty list = unrestricted (available to all profiles).
-            # This is the documented intent for cross-VM facade tools (vm102.*,
-            # vm105.*) that deliberately omit profile restrictions.
-            allowed = True
+            # Fail-closed: an empty allowed_agent_profiles advertises to nobody.
+            # Mirror is_capability_in_scope's deny — skip this entry entirely.
+            continue
         elif e.hard_scoped:
             # Exact match only — base profile cannot inherit a hard-scoped capability.
             allowed = profile_id in e.allowed_agent_profiles
