@@ -1,296 +1,64 @@
-"""Tests for SearchKnowledgeTool."""
-import json
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+"""Discoverability + surface tests for the LIVE P4 SearchKnowledgeTool.
 
-import pytest
+Phase 138 (P6 / Wave 0) REPOINT: this test previously imported the superseded
+pre-P4 duplicate under ``tools/qdrant/`` that Wave A deletes (RESEARCH §1: that
+duplicate is shadowed at ``get_tool`` by the flat ``tools/search_knowledge.py``
+lookup, and this test was its only non-runtime reference). The old assertions exercised
+that dead module's private helpers (``_validate_request`` / ``_call_vm`` /
+``_validate_response`` / ``_format_response``), which do NOT exist on the P4 successor
+(whose surface is ``execute`` + ``_degraded_response`` / ``_vm101_search`` /
+``_format_local_hits``), so they cannot be honestly mapped.
 
-from tools.qdrant.search_knowledge import SearchKnowledgeTool
+Per the plan, they are replaced with a minimal import-and-resolve assertion proving
+the LIVE ``tools/search_knowledge.py`` (Phase 136 / P4, D-02/D-03) imports and its Tool
+class is discoverable via the exact mechanism ``Agent.get_tool`` uses
+(``helpers.extract_tools.load_classes_from_file``). This keeps coverage on the P4
+successor and decouples the suite from the Wave-A delete target — the deletion becomes
+coupling-free.
+"""
+from __future__ import annotations
 
+import os
+from pathlib import Path
 
-@pytest.fixture
-def mock_agent():
-    """Create mock agent with context."""
-    agent = Mock()
-    agent.context = Mock()
-    agent.context.project_id = "test-project"
-    return agent
+# The P4 tool fail-fast-reads VM101_KB_SEARCH_URL at import (D-04). The VM101 HTTP
+# fallback is OFF by default, so this dummy is never dialed — it only lets the
+# discoverability import succeed outside a fully-env'd container (mirrors the
+# tests/tools/test_phase60_*.py os.environ.setdefault idiom). Leak-safe: no real host.
+os.environ.setdefault("VM101_KB_SEARCH_URL", "http://test-vm101:8000/api/v1/knowledge/search")
 
+from helpers.extract_tools import load_classes_from_file
+from helpers.tool import Tool
 
-@pytest.fixture
-def mock_qdrant_client():
-    """Create mock QdrantClient."""
-    client = Mock()
-    client.search = Mock(return_value=[])
-    return client
-
-
-@pytest.fixture
-def mock_embedding_service():
-    """Create mock EmbeddingService."""
-    service = Mock()
-    service.embed = AsyncMock(return_value=[0.1] * 768)
-    service.model_name = "BAAI/bge-base-en-v1.5"
-    service.dimension = 768
-    return service
-
-
-@pytest.fixture
-def ranking_config():
-    """Create ranking config."""
-    return {
-        "knowledge": {
-            "semantic_weight": 0.8,
-            "diversity_weight": 0.2,
-            "default_top_k": 5
-        }
-    }
+# tests/tools/ -> two levels up == VM107 root (== /a0 in-container).
+_VM107_ROOT = Path(__file__).resolve().parent.parent.parent
+_P4_TOOL_PATH = _VM107_ROOT / "tools" / "search_knowledge.py"
 
 
-@pytest.fixture
-def search_knowledge_tool(mock_agent, mock_qdrant_client, mock_embedding_service, ranking_config):
-    """Create SearchKnowledgeTool instance."""
-    # Set class-level dependencies
-    SearchKnowledgeTool.qdrant_client = mock_qdrant_client
-    SearchKnowledgeTool.embedding_service = mock_embedding_service
-    SearchKnowledgeTool.ranking_config = ranking_config
+def test_p4_search_knowledge_module_imports():
+    """The LIVE P4 tools/search_knowledge.py imports and exposes a Tool subclass."""
+    from tools.search_knowledge import SearchKnowledgeTool
 
-    # Create tool instance with required Tool params
-    tool = SearchKnowledgeTool(
-        agent=mock_agent,
-        name="search_knowledge",
-        method=None,
-        args={"query": "test query", "top_k": 5, "project_id": "test-project"},
-        message="",
-        loop_data=None
-    )
-    return tool
+    assert issubclass(SearchKnowledgeTool, Tool), "SearchKnowledgeTool must be a Tool subclass"
 
 
-class TestSearchKnowledgeTool:
-    """Test SearchKnowledgeTool functionality."""
+def test_p4_search_knowledge_discoverable_by_get_tool_mechanism():
+    """load_classes_from_file (the get_tool loader) discovers SearchKnowledgeTool.
 
-    @pytest.mark.asyncio
-    async def test_validate_request_creates_contract(self, search_knowledge_tool):
-        """Test request validation creates SearchKnowledgeRequest."""
-        request = search_knowledge_tool._validate_request({
-            "query": "test query",
-            "top_k": 5,
-            "project_id": "test-project"
-        })
-        assert request.query == "test query"
-        assert request.top_k == 5
-        assert request.project_id == "test-project"
+    This is the exact primitive ``Agent.get_tool`` invokes at agent.py:1234 to resolve
+    the flat ``tools/search_knowledge.py`` name — proving the P4 tool is the one that
+    wins the lookup (shadowing the deleted duplicate under tools/qdrant/).
+    """
+    assert _P4_TOOL_PATH.exists(), "tools/search_knowledge.py (P4 successor) must exist"
+    classes = load_classes_from_file(str(_P4_TOOL_PATH), Tool)
+    names = [c.__name__ for c in classes]
+    assert "SearchKnowledgeTool" in names, f"expected SearchKnowledgeTool, found {names}"
+    for c in classes:
+        assert issubclass(c, Tool)
 
-    @pytest.mark.asyncio
-    async def test_validate_request_with_filters(self, search_knowledge_tool):
-        """Test request validation with topic and source_type filters."""
-        request = search_knowledge_tool._validate_request({
-            "query": "test query",
-            "top_k": 3,
-            "topic": "trading",
-            "source_type": "book",
-            "project_id": "test-project"
-        })
-        assert request.topic == "trading"
-        assert request.source_type == "book"
 
-    @pytest.mark.asyncio
-    async def test_call_vm_embeds_query(self, search_knowledge_tool, mock_embedding_service):
-        """Test that _call_vm embeds the query."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
+def test_p4_search_knowledge_has_execute_surface():
+    """The P4 tool carries the live async ``execute`` surface (its public entry point)."""
+    from tools.search_knowledge import SearchKnowledgeTool
 
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            project_id="test-project"
-        )
-
-        await search_knowledge_tool._call_vm(request)
-        mock_embedding_service.embed.assert_called_once_with("test query")
-
-    @pytest.mark.asyncio
-    async def test_call_vm_builds_project_or_global_filter(self, search_knowledge_tool, mock_qdrant_client):
-        """Test that _call_vm builds OR filter for project+global."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            project_id="test-project"
-        )
-
-        await search_knowledge_tool._call_vm(request)
-
-        # Verify search was called with filter
-        assert mock_qdrant_client.search.called
-        call_kwargs = mock_qdrant_client.search.call_args.kwargs
-        assert "query_filter" in call_kwargs
-        # Filter should have should clause with project conditions
-
-    @pytest.mark.asyncio
-    async def test_call_vm_applies_topic_filter(self, search_knowledge_tool, mock_qdrant_client):
-        """Test that _call_vm applies topic filter when provided."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            topic="trading",
-            project_id="test-project"
-        )
-
-        await search_knowledge_tool._call_vm(request)
-
-        # Verify filter includes topic condition
-        assert mock_qdrant_client.search.called
-
-    @pytest.mark.asyncio
-    async def test_call_vm_applies_source_type_filter(self, search_knowledge_tool, mock_qdrant_client):
-        """Test that _call_vm applies source_type filter when provided."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            source_type="book",
-            project_id="test-project"
-        )
-
-        await search_knowledge_tool._call_vm(request)
-
-        # Verify filter includes source_type condition
-        assert mock_qdrant_client.search.called
-
-    @pytest.mark.asyncio
-    async def test_call_vm_includes_retrieval_metadata(self, search_knowledge_tool, mock_qdrant_client):
-        """Test that _call_vm includes RetrievalMetadata in response."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-
-        # Mock Qdrant result
-        mock_result = Mock()
-        mock_result.id = "test-id"
-        mock_result.score = 0.85
-        mock_result.payload = {
-            "text": "Test knowledge text",
-            "title": "Test Title",
-            "source_type": "book",
-            "project": "test-project"
-        }
-        mock_qdrant_client.search.return_value = [mock_result]
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            project_id="test-project"
-        )
-
-        response_data = await search_knowledge_tool._call_vm(request)
-
-        assert "metadata" in response_data
-        assert "query_hash" in response_data["metadata"]
-        assert "latency_ms" in response_data["metadata"]
-        assert "result_count" in response_data["metadata"]
-        assert response_data["metadata"]["collections"] == ["knowledge_base"]
-
-    @pytest.mark.asyncio
-    async def test_validate_response_creates_contract(self, search_knowledge_tool):
-        """Test response validation creates SearchKnowledgeResponse."""
-        response_data = {
-            "results": [
-                {
-                    "text": "Test knowledge",
-                    "title": "Test Title",
-                    "source_type": "book",
-                    "project": "test-project",
-                    "score": 0.85
-                }
-            ],
-            "metadata": {
-                "query_hash": "abcd1234",
-                "project_id": "test-project",
-                "collections": ["knowledge_base"],
-                "total_hits": 1,
-                "result_count": 1,
-                "latency_ms": 50,
-                "embedding_model": "BAAI/bge-base-en-v1.5",
-                "embedding_dimension": 768
-            }
-        }
-
-        response = search_knowledge_tool._validate_response(response_data)
-        assert len(response.results) == 1
-        assert response.results[0].text == "Test knowledge"
-        assert response.metadata.result_count == 1
-
-    @pytest.mark.asyncio
-    async def test_format_response_builds_readable_context(self, search_knowledge_tool):
-        """Test that _format_response builds readable context with source attribution."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeResponse, KnowledgeItem
-        from fingpt_core.contracts.rag.combined import RetrievalMetadata
-
-        items = [
-            KnowledgeItem(
-                text="This is a long piece of knowledge text that should be truncated" * 10,
-                title="Test Title",
-                source_type="book",
-                project="test-project",
-                score=0.85
-            )
-        ]
-
-        metadata = RetrievalMetadata(
-            query_hash="abcd1234",
-            project_id="test-project",
-            collections=["knowledge_base"],
-            total_hits=1,
-            result_count=1,
-            latency_ms=50,
-            embedding_model="BAAI/bge-base-en-v1.5",
-            embedding_dimension=768
-        )
-
-        response = SearchKnowledgeResponse(results=items, metadata=metadata)
-        formatted = search_knowledge_tool._format_response(response)
-
-        assert "[1]" in formatted.message
-        assert "Source:" in formatted.message
-        assert "Score:" in formatted.message
-
-    @pytest.mark.asyncio
-    async def test_graceful_degradation_on_qdrant_unavailable(self, search_knowledge_tool, mock_qdrant_client):
-        """Test that Qdrant unavailable returns empty results (not crash)."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-
-        # Simulate Qdrant connection error
-        mock_qdrant_client.search.side_effect = Exception("Connection refused")
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            project_id="test-project"
-        )
-
-        response_data = await search_knowledge_tool._call_vm(request)
-
-        # Should return empty results, not crash
-        assert response_data["results"] == []
-        assert response_data["metadata"]["result_count"] == 0
-
-    @pytest.mark.asyncio
-    async def test_structured_log_emission(self, search_knowledge_tool, caplog):
-        """Test that tool emits structured JSON log."""
-        from fingpt_core.contracts.knowledge.items import SearchKnowledgeRequest
-
-        request = SearchKnowledgeRequest(
-            query="test query",
-            top_k=5,
-            project_id="test-project"
-        )
-
-        with caplog.at_level("INFO"):
-            await search_knowledge_tool._call_vm(request)
-
-        # Should have logged structured JSON
-        # Check that at least one log message was emitted
-        assert len(caplog.records) > 0
+    assert hasattr(SearchKnowledgeTool, "execute"), "P4 SearchKnowledgeTool must expose execute()"
