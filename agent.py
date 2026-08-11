@@ -1196,70 +1196,9 @@ class Agent:
         loop_data: LoopData | None,
         **kwargs,
     ):
-        from tools.unknown import Unknown
-        from tools.failed_to_load import FailedToLoad
-        from helpers.tool import Tool
+        # Phase 138 (P6 / F3 Seam 1): body extracted to core/agents/tool_dispatch.py.
+        # Thin @extension.extensible delegator — public surface + single caller
+        # (process_tools @ agent.py:1020) unchanged; behavior identical (D-03).
+        from core.agents.tool_dispatch import get_tool as _dispatch
 
-        classes = []
-
-        # search for tools in agent's folder hierarchy
-        paths = subagents.get_paths(self, "tools", name + ".py")
-
-        # BUG-17 (Phase 62.1): Tools in subdirs (tools/replay/, tools/adaptive/, etc.) are
-        # invisible to flat name lookup. Fall back to recursive glob across all hierarchical
-        # tools roots. Flat lookup still wins when both match — no behavior change for the
-        # 100+ top-level tools that work today.
-        if not paths:
-            import glob as _glob
-            import logging as _logging
-            import os as _os
-            _tools_roots = subagents.get_paths(self, "tools", must_exist_completely=False)
-            for _root in _tools_roots:
-                if not _root or not _os.path.isdir(_root):
-                    continue
-                _matches = _glob.glob(_os.path.join(_root, "**", name + ".py"), recursive=True)
-                if _matches:
-                    _logging.getLogger("fingpt.agent.get_tool").debug(
-                        "BUG-17 subdir fallback: resolved '%s' to %s", name, _matches[0]
-                    )
-                    paths = [_matches[0]]
-                    break
-
-        # D1 (Phase 135): capture the last load error so a file that EXISTS on the
-        # resolution path but fails to load is distinguishable from a missing name.
-        # (Python clears the `as` target at the end of the except clause, so persist it.)
-        _last_load_err: Exception | None = None
-        for path in paths:
-            try:
-                classes = extract_tools.load_classes_from_file(path, Tool)  # type: ignore[arg-type]
-                break
-            except Exception as _load_err:
-                _last_load_err = _load_err
-                continue  # preserve BUG-17 multi-path fallback — try the next resolved path
-
-        # D1 tri-state selection:
-        #   no path anywhere        -> Unknown       (unchanged: tool genuinely not found)
-        #   path(s) found, all fail -> FailedToLoad  (exists-but-failed; log the real cause)
-        #   a path loaded           -> that class
-        if not paths:
-            tool_class = Unknown
-        elif not classes:
-            import logging as _logging
-            _logging.getLogger("fingpt.agent.get_tool").warning(
-                "Tool '%s' found at %s but failed to load; returning FailedToLoad sentinel",
-                name,
-                paths[0],
-                exc_info=_last_load_err,
-            )
-            tool_class = FailedToLoad
-        else:
-            tool_class = classes[0]
-        return tool_class(
-            agent=self,
-            name=name,
-            method=method,
-            args=args,
-            message=message,
-            loop_data=loop_data,
-            **kwargs,
-        )
+        return _dispatch(self, name, method, args, message, loop_data, **kwargs)
