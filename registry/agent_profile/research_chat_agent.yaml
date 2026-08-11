@@ -23,12 +23,11 @@ allowed_tools:
   - search_knowledge
   - response
   # Legacy grants (restore-vs-prune recorded in 137-05-SUMMARY; NOT widened here —
-  # additive-only D-07). run_backtest/lookup_capability are domain-appropriate;
-  # get_cross_trade_behavioral_patterns (behavioral_mentor-only) and
-  # similarity_analysis_tool (agent_zero-only) are wrong-domain → P6 prune candidates,
-  # left as profile grants but their tool aap is deliberately NOT widened.
-  - get_cross_trade_behavioral_patterns
-  - similarity_analysis_tool
+  # additive-only D-07). run_backtest/lookup_capability are domain-appropriate.
+  # P6 (138-03): the 2 wrong-domain grants get_cross_trade_behavioral_patterns
+  # (behavioral_mentor-only) and similarity_analysis_tool (agent_zero-only) were
+  # PRUNED for least-privilege — the underlying tool files stay LIVE for their
+  # real domains; only these grant lines were removed.
   - run_backtest
   - lookup_capability
   # D-06 (P5 137-06): unified memory+knowledge RAG — paired aap in registry/tool/combined_rag.yaml
