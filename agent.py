@@ -777,39 +777,12 @@ class Agent:
         callback: Callable[[str], Awaitable[None]] | None = None,
         background: bool = False,
     ):
-        model = self.get_utility_model()
+        # Phase 138 (P6 / F3 Seam 2): body extracted to core/agents/model_calls.py.
+        # Thin async @extension.extensible delegator — B5 getattr probe surface +
+        # *_model_call_before/after hooks (fired with the agent) unchanged (D-03).
+        from core.agents.model_calls import call_utility_model as _cu
 
-        # call extensions
-        call_data = {
-            "model": model,
-            "system": system,
-            "message": message,
-            "callback": callback,
-            "background": background,
-        }
-        await extension.call_extensions_async(
-            "util_model_call_before", self, call_data=call_data
-        )
-
-        # propagate stream to callback if set
-        async def stream_callback(chunk: str, total: str):
-            if call_data["callback"]:
-                await call_data["callback"](chunk)
-
-        response, _reasoning = await call_data["model"].unified_call(
-            system_message=call_data["system"],
-            user_message=call_data["message"],
-            response_callback=stream_callback if call_data["callback"] else None,
-            rate_limiter_callback=(
-                self.rate_limiter_callback if not call_data["background"] else None
-            ),
-        )
-
-        await extension.call_extensions_async(
-            "util_model_call_after", self, call_data=call_data, response=response
-        )
-
-        return response
+        return await _cu(self, system, message, callback, background)
 
     @extension.extensible
     async def call_chat_model(
@@ -820,40 +793,14 @@ class Agent:
         background: bool = False,
         explicit_caching: bool = True,
     ):
-        response = ""
+        # Phase 138 (P6 / F3 Seam 2): body extracted to core/agents/model_calls.py.
+        # Thin async delegator — internal caller (agent.py:480) + @extension.extensible
+        # surface unchanged; hooks still receive the agent instance (D-03).
+        from core.agents.model_calls import call_chat_model as _cc
 
-        # model class
-        model = self.get_chat_model()
-
-        # call extensions before
-        call_data = {
-            "model": model,
-            "messages": messages,
-            "response_callback": response_callback,
-            "reasoning_callback": reasoning_callback,
-            "background": background,
-            "explicit_caching": explicit_caching,
-        }
-        await extension.call_extensions_async(
-            "chat_model_call_before", self, call_data=call_data
+        return await _cc(
+            self, messages, response_callback, reasoning_callback, background, explicit_caching
         )
-
-        # call model
-        response, reasoning = await call_data["model"].unified_call(
-            messages=call_data["messages"],
-            reasoning_callback=call_data["reasoning_callback"],
-            response_callback=call_data["response_callback"],
-            rate_limiter_callback=(
-                self.rate_limiter_callback if not call_data["background"] else None
-            ),
-            explicit_caching=call_data["explicit_caching"],
-        )
-
-        await extension.call_extensions_async(
-            "chat_model_call_after", self, call_data=call_data, response=response, reasoning=reasoning
-        )
-
-        return response, reasoning
 
     @extension.extensible
     async def rate_limiter_callback(
