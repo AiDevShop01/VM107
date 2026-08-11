@@ -27,7 +27,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Literal
 
-from qdrant_client import QdrantClient
 
 from .qdrant_macro_episode_collection import (
     COLLECTION_NAME,
@@ -121,9 +120,15 @@ class EpisodicMemoryService:
                 "QDRANT_URL required — env-driven config, no default fallback "
                 "(CLAUDE.md no-fallback-defaults lock)"
             )
-        # check_compatibility=False — testcontainers ship Qdrant 1.7 while
-        # the client library is 1.18; the API surface used here is stable.
-        self._client = QdrantClient(url=url, check_compatibility=False)
+        # Route through the single sanctioned factory (D-04 / SC-2) — gains the
+        # P1 timeout (A0_QDRANT_TIMEOUT) it lacked. check_compatibility=False —
+        # testcontainers ship Qdrant 1.7 while the client library is 1.18; the API
+        # surface used here is stable. Lazy import avoids any load-time cycle.
+        from plugins._memory.backend.factory import create_qdrant_client
+
+        self._client = create_qdrant_client(
+            {"qdrant_url": url, "check_compatibility": False}
+        )
         ensure_macro_episode_collection(self._client)
         self._embedding = embedding_service
         self._collection = collection_name

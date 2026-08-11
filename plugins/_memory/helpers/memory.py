@@ -112,7 +112,7 @@ class Memory:
             if backend_type == "qdrant":
                 try:
                     from plugins._memory.backend.embedding_adapter import EmbeddingAdapter
-                    from qdrant_client import QdrantClient
+                    from plugins._memory.backend.factory import create_qdrant_client
 
                     # Build langchain embedder (same one FAISS uses)
                     em_dir = files.get_abs_path("tmp/memory/embeddings")
@@ -151,10 +151,12 @@ class Memory:
                         )
                         PrintStyle.standard(f"Redis embedding cache enabled for agent_memory")
 
-                    # Create QdrantClient
-                    qdrant_host = config_dict.get("qdrant_host") or os.environ["QDRANT_HOST"]
-                    qdrant_port = config_dict.get("qdrant_port", 6333)
-                    client = QdrantClient(host=qdrant_host, port=qdrant_port, timeout=10)
+                    # Route through the single sanctioned factory (D-04 / SC-2).
+                    # host/port resolved inside create_qdrant_client from config_dict
+                    # (else QDRANT_HOST). Lazy (probe=False) preserves the FAISS
+                    # fallback in the surrounding except; timeout unified to the P1
+                    # A0_QDRANT_TIMEOUT bound (was a hardcoded 10s).
+                    client = create_qdrant_client(config_dict)
 
                     from plugins._memory.backend.qdrant_backend import QdrantBackend
                     backend = QdrantBackend(

@@ -116,7 +116,14 @@ class FindCountriesByProfileQueryTool(ContractTool):
         # Fail-fast env read (Phase 47.6 lock — feedback_env_driven_no_fallbacks).
         qdrant_url = os.environ["QDRANT_URL"]
         qdrant_api_key = os.environ.get("QDRANT_API_KEY") or None
-        self.qdrant = qdrant_client or QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        # Route the default (non-injected) construction through the single
+        # sanctioned factory (D-04 / SC-2) — gains the P1 timeout it lacked; the
+        # injected-client path (tests) is preserved. Lazy import avoids any cycle.
+        from plugins._memory.backend.factory import create_qdrant_client
+
+        self.qdrant = qdrant_client or create_qdrant_client(
+            {"qdrant_url": qdrant_url, "api_key": qdrant_api_key}
+        )
         self.embedder = embedder if embedder is not None else self._default_embedder()
 
     # ------------------------------------------------------------------
