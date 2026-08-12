@@ -583,19 +583,32 @@ class Memory:
     async def search_similarity_threshold(
         self, query: str, limit: int, threshold: float, filter: str = ""
     ):
-        # Delegate to Qdrant backend when available
-        if self.backend:
-            return await self._qdrant_search(query, limit, threshold, filter)
+        # SC-2 (P7): time the single public recall entry into SLORegistry('recall').
+        # This seam covers BOTH the Qdrant and FAISS branches AND the error path
+        # (finally). Additive timing ONLY — the signature, return value, and control
+        # flow are unchanged, and the finally never swallows an exception raised by
+        # the recall body. Imported lazily to avoid any import-time coupling.
+        import time as _time
+        from core.observability.slo_registry import SLORegistry
 
-        comparator = Memory._get_comparator(filter) if filter else None
+        _slo_start = _time.perf_counter()
+        try:
+            # Delegate to Qdrant backend when available
+            if self.backend:
+                return await self._qdrant_search(query, limit, threshold, filter)
 
-        return await self.db.asearch(
-            query,
-            search_type="similarity_score_threshold",
-            k=limit,
-            score_threshold=threshold,
-            filter=comparator,
-        )
+            comparator = Memory._get_comparator(filter) if filter else None
+
+            return await self.db.asearch(
+                query,
+                search_type="similarity_score_threshold",
+                k=limit,
+                score_threshold=threshold,
+                filter=comparator,
+            )
+        finally:
+            _elapsed_ms = (_time.perf_counter() - _slo_start) * 1000.0
+            SLORegistry.get_shared_instance().record("recall", _elapsed_ms)
 
     def _get_knowledge_v2_backend(self):
         """Lazily build (and cache) a direct reader for the knowledge_base_v2 corpus.
