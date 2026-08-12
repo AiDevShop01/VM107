@@ -175,14 +175,42 @@ class RecallMemories(Extension):
                     ),
                 )
             elif qh is not None and qh.available is False:
-                log_item.update(
-                    heading="Memory recall DEGRADED (qdrant unreachable)",
-                    content=(
-                        "Long-term memory is currently unavailable (qdrant unreachable); "
-                        "recall is impaired, not empty — do not claim you have no relevant "
-                        "memories. Proceed cautiously and note that memory could not be consulted."
-                    ),
-                )
+                # D-05 (P7): classify the EXISTING failure_reason so a swallowed code
+                # bug (the 2026-08-12 qdrant_host NameError, surfaced by D-04's init
+                # report) reads as an honest "internal error" rather than the
+                # misleading "vector store unreachable". code-class = a bug in our
+                # code; anything else (connect-class or unknown) stays the
+                # conservative "unreachable" so an outage is never silently downgraded
+                # to plain-empty. T-135-01: name the CLASS only — never a host:port.
+                _CODE_CLASS = {
+                    "NameError",
+                    "AttributeError",
+                    "TypeError",
+                    "KeyError",
+                    "ImportError",
+                    "ModuleNotFoundError",
+                    "UnboundLocalError",
+                }
+                if (qh.failure_reason or "") in _CODE_CLASS:
+                    log_item.update(
+                        heading="Memory recall DEGRADED (internal error)",
+                        content=(
+                            "Long-term memory is currently unavailable (qdrant recall hit "
+                            "an internal error); recall is impaired, not empty — do not "
+                            "claim you have no relevant memories. Proceed cautiously and "
+                            "note that memory could not be consulted."
+                        ),
+                    )
+                else:
+                    log_item.update(
+                        heading="Memory recall DEGRADED (vector store unreachable)",
+                        content=(
+                            "Long-term memory is currently unavailable (qdrant vector "
+                            "store unreachable); recall is impaired, not empty — do not "
+                            "claim you have no relevant memories. Proceed cautiously and "
+                            "note that memory could not be consulted."
+                        ),
+                    )
             else:
                 log_item.update(
                     heading="No memories or solutions found",

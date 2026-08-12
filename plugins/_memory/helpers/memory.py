@@ -173,7 +173,30 @@ class Memory:
                     _qp = config_dict.get("qdrant_port") or os.environ.get("QDRANT_PORT", "?")
                     PrintStyle.standard(f"Qdrant backend initialized ({_qh}:{_qp})")
                 except Exception as e:
-                    PrintStyle.error(f"Qdrant init failed, falling back to FAISS: {e}")
+                    # D-04 (P7): report the init failure to the health bus with a
+                    # cause CLASS so a swallowed code bug (e.g. the 2026-08-12
+                    # qdrant_host NameError) is observable instead of a silent FAISS
+                    # fallback that renders as "no memories". Construction here never
+                    # runs QdrantBackend.search, so search()'s own D3-02 report never
+                    # fires on this path — this is the only place the init cause surfaces.
+                    from emitters.source_health_registry import SourceHealthRegistry
+
+                    reg = SourceHealthRegistry.get_shared_instance()
+                    ctxid = getattr(getattr(agent, "context", None), "id", None)
+                    # WR-04 / T-135-01: failure_reason = type(e).__name__ ONLY, never
+                    # str(e) (which can leak qdrant host:port). failure_reason already
+                    # exists on SourceHealth — no dataclass change.
+                    reg.report("qdrant", available=False, failure_reason=type(e).__name__)
+                    if ctxid:
+                        # Context-scoped (135-06): same immutable per-context key the
+                        # reader prefers (qdrant:{ctxid}) so a concurrent context's
+                        # health cannot mask this one.
+                        reg.report(
+                            f"qdrant:{ctxid}", available=False, failure_reason=type(e).__name__
+                        )
+                    PrintStyle.error(
+                        f"Qdrant init failed, falling back to FAISS: {type(e).__name__}"
+                    )
                     backend = None
 
             # Create a separate knowledge backend with bge-base-en-v1.5 (768-dim)
