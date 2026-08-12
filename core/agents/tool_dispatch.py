@@ -14,6 +14,22 @@ from __future__ import annotations
 
 
 def get_tool(agent, name, method, args, message, loop_data, **kwargs):
+    # SC-2 (P7): time the tool-dispatch seam (resolve + load) into
+    # SLORegistry('tool_dispatch'). Additive timing ONLY — the tri-state return
+    # (Unknown / FailedToLoad / tool class) that Plan 04 guards is unchanged, and
+    # the finally never swallows an exception raised by the dispatch body.
+    # Imported lazily to keep get_tool host-importable (deps stay inside the body).
+    import time as _time
+    _slo_start = _time.perf_counter()
+    try:
+        return _get_tool_impl(agent, name, method, args, message, loop_data, **kwargs)
+    finally:
+        from core.observability.slo_registry import SLORegistry
+        _elapsed_ms = (_time.perf_counter() - _slo_start) * 1000.0
+        SLORegistry.get_shared_instance().record("tool_dispatch", _elapsed_ms)
+
+
+def _get_tool_impl(agent, name, method, args, message, loop_data, **kwargs):
     from tools.unknown import Unknown
     from tools.failed_to_load import FailedToLoad
     from helpers.tool import Tool
