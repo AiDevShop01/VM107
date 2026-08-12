@@ -32,9 +32,10 @@ GUARDED_COMMITS: dict[str, list[str]] = {
     "test_p1_loop_stall": ["7e25765", "ac6e4dc", "78f7800"],
     # P3-D1 — FailedToLoad sentinel + tri-state (+ 138-05 extract get_tool).
     "test_p3d1_tool_load": ["0321329", "dcbe600"],
-    # P3-D3 — freshen bus in search + render DEGRADED + context-scope.
-    #   The NEW D-04/D-05 cause-carrying commit is appended by Plan 02.
-    "test_p3d3_degraded_cause": ["2a7ff89", "35e23ee", "514e4ca", "e01bd54"],
+    # P3-D3 — freshen bus in search + render DEGRADED + context-scope, PLUS the
+    #   Plan 02 D-04/D-05 cause-carrying commit (0816788): the init-failure health
+    #   report + the reader's code-vs-connect cause classification.
+    "test_p3d3_degraded_cause": ["2a7ff89", "35e23ee", "514e4ca", "e01bd54", "0816788"],
     # P2 — time clients + factory liveness degrade + neutralize retry loop.
     "test_p2_chaos": ["747117a", "519f522", "0050c0d"],
 }
