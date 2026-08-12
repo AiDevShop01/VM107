@@ -69,6 +69,38 @@ _SNAPSHOT_KEY = "vm107:agent_telemetry:snapshot"
 _HEALTHZ_SUCCESS_TTL_SEC = 30
 
 
+def _slo_vitals() -> dict:
+    """Compact, additive SLO/vitals summary folded into the telemetry snapshot.
+
+    Phase 139 / P7 (SC-2, decision D-01, reuse-first vitals surface). Reads the
+    in-app ``SLORegistry`` percentiles (recall / tool_dispatch / model_call
+    p50/p95) plus a dependency-down count from ``SourceHealthRegistry`` — the
+    "degraded but healthy-looking" signal the P6 soak missed. Best-effort: any
+    failure yields ``{}`` so the agents payload is never blocked.
+
+    Registries are imported lazily so this module stays host-importable and the
+    percentile primitive is only touched when a snapshot is actually built.
+
+    NOTE (D-01 limitation): ``SLORegistry`` is an in-PROCESS ring buffer. When
+    this publisher runs as its own service the values reflect THIS process's
+    registry (empty), not the agent process's — the cross-process scrape target
+    (Prometheus histogram export) is explicitly deferred (CONTEXT Deferred). The
+    field/shape is wired here so the vitals surface exists and is correct when
+    the registry is read in-process (the SC-2 endpoint + the test).
+    """
+    try:
+        from core.observability.slo_registry import SLORegistry
+        from emitters.source_health_registry import SourceHealthRegistry
+
+        slo = SLORegistry.get_shared_instance().snapshot()
+        health = SourceHealthRegistry.get_shared_instance().snapshot()
+        dep_down = sum(1 for h in health.values() if not h.available)
+        return {"paths": slo, "dep_down_count": dep_down}
+    except Exception as exc:  # noqa: BLE001
+        log.debug("agent_telemetry.slo_vitals_failed: %s", exc)
+        return {}
+
+
 def _required(key: str) -> str:
     v = os.environ.get(key)
     if not v:
@@ -215,7 +247,13 @@ def main() -> int:
     while not stop.is_set():
         try:
             snap = state.snapshot()
-            r.set(_SNAPSHOT_KEY, json.dumps(snap))
+            # Additive: wrap the agent list in {agents, slo}. The VM100 consumer
+            # (agent_activity_client.get_agent_activity_snapshot) already reads
+            # `data if isinstance(data, list) else data.get("agents", [])`, so the
+            # dict form is forward-compatible and no existing per-agent field is
+            # removed or renamed — the `slo` key is a pure addition (SC-2 vitals).
+            payload = {"agents": snap, "slo": _slo_vitals()}
+            r.set(_SNAPSHOT_KEY, json.dumps(payload))
             _HealthHandler.state["last_publish_ts"] = time.time()
         except Exception as exc:
             log.exception("publish failed: %s", exc)
