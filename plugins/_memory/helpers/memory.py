@@ -165,7 +165,13 @@ class Memory:
                         collection_name="agent_memory",
                         vector_size=384,  # all-MiniLM-L6-v2
                     )
-                    PrintStyle.standard(f"Qdrant backend initialized ({qdrant_host}:{qdrant_port})")
+                    # host/port are resolved inside create_qdrant_client (D-04/SC-2);
+                    # mirror its resolution here for the log so this line never NameErrors
+                    # (138-04 removed the old inline qdrant_host/qdrant_port locals — the
+                    # stale reference was silently swallowed as a fake "qdrant unreachable").
+                    _qh = config_dict.get("qdrant_host") or os.environ.get("QDRANT_HOST", "?")
+                    _qp = config_dict.get("qdrant_port") or os.environ.get("QDRANT_PORT", "?")
+                    PrintStyle.standard(f"Qdrant backend initialized ({_qh}:{_qp})")
                 except Exception as e:
                     PrintStyle.error(f"Qdrant init failed, falling back to FAISS: {e}")
                     backend = None
