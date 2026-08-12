@@ -6,7 +6,6 @@ Composite of 14 sections + SnapshotHealth. Persisted forever per §A.
 from __future__ import annotations
 
 from datetime import datetime
-
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
