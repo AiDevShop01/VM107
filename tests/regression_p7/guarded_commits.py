@@ -39,3 +39,40 @@ GUARDED_COMMITS: dict[str, list[str]] = {
     # P2 — time clients + factory liveness degrade + neutralize retry loop.
     "test_p2_chaos": ["747117a", "519f522", "0050c0d"],
 }
+
+# ---------------------------------------------------------------------------
+# EFFECTIVE_REVERTS — the *runnable* revert plan the D-03 harness
+# (`revert_guard.py`, Plan 05) uses to turn each guarded fix RED on current
+# `develop`. `GUARDED_COMMITS` above stays the human-readable ANNOTATION source
+# (the ORIGINAL fix shas each F5 test cites); this map is the harness's
+# execution plan — Pitfall 3 resolved and re-verified in-session (139-05).
+#
+# Why two maps: several original fix shas do NOT single-commit-revert cleanly on
+# current `develop` because later phases refactored the code out from under them
+# (Pitfall 3, confirmed in 139-04-SUMMARY):
+#   * P1 `ac6e4dc` (offload query_points to_thread) — `qdrant_backend.py` moved by 133/138.
+#   * P2 `519f522` (factory liveness degrade signal) — `factory.py` consolidated by 138-04.
+#   * P3-D1 `0321329` (FailedToLoad tri-state) — `get_tool` extracted to
+#     `core/agents/tool_dispatch.py` by 138-05; a raw `git revert` also DELETES
+#     `tools/failed_to_load.py`, which the guarding test imports — that would surface
+#     as a ModuleNotFoundError (a HARNESS ERROR, never the required assertion-RED).
+# For those three, the effective revert is a hunk-level reverse patch against
+# CURRENT develop that removes ONLY the guarded behavior (leaving imported modules
+# intact so the RED is a genuine AssertionError, not an import error).
+#
+# The two clean cases (P0 `fe21a20`/`be52083`, P3-D3 `0816788`) revert cleanly via
+# `git revert`, so they carry `shas`.
+#
+# Spec shape per test_id (exactly one key):
+#   {"shas": [sha, ...]}   -> `git -C <worktree> revert --no-edit -n <sha>` (newest-first)
+#   {"patch": "revert_patches/<name>.patch"} -> `git -C <worktree> apply <patch>`
+# A non-clean revert / non-applying patch is a HARD FAIL LOUD in the harness
+# ("cannot cleanly revert ... — guarded-commit map is stale"), never a silent pass.
+# Every key here MUST also exist in GUARDED_COMMITS (the harness asserts this).
+EFFECTIVE_REVERTS: dict[str, dict[str, object]] = {
+    "test_p0_boot_restart":     {"shas": ["be52083", "fe21a20"]},
+    "test_p3d3_degraded_cause": {"shas": ["0816788"]},
+    "test_p1_loop_stall":       {"patch": "revert_patches/p1_loop_stall.patch"},
+    "test_p2_chaos":            {"patch": "revert_patches/p2_chaos.patch"},
+    "test_p3d1_tool_load":      {"patch": "revert_patches/p3d1_tool_load.patch"},
+}

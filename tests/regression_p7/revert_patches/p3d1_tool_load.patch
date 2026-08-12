@@ -1,0 +1,25 @@
+diff --git a/core/agents/tool_dispatch.py b/core/agents/tool_dispatch.py
+index 8e26f34..dd026c9 100644
+--- a/core/agents/tool_dispatch.py
++++ b/core/agents/tool_dispatch.py
+@@ -76,17 +76,10 @@ def _get_tool_impl(agent, name, method, args, message, loop_data, **kwargs):
+     #   no path anywhere        -> Unknown       (unchanged: tool genuinely not found)
+     #   path(s) found, all fail -> FailedToLoad  (exists-but-failed; log the real cause)
+     #   a path loaded           -> that class
+-    if not paths:
++    # [139-05 effective revert of 0321329] tri-state collapsed: a broken-but-present
++    # tool is masked back to Unknown (the pre-fix masking bug).
++    if not classes:
+         tool_class = Unknown
+-    elif not classes:
+-        import logging as _logging
+-        _logging.getLogger("fingpt.agent.get_tool").warning(
+-            "Tool '%s' found at %s but failed to load; returning FailedToLoad sentinel",
+-            name,
+-            paths[0],
+-            exc_info=_last_load_err,
+-        )
+-        tool_class = FailedToLoad
+     else:
+         tool_class = classes[0]
+     return tool_class(

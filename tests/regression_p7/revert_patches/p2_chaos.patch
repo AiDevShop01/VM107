@@ -1,0 +1,31 @@
+diff --git a/plugins/_memory/backend/factory.py b/plugins/_memory/backend/factory.py
+index 96fbf6f..d6c0841 100644
+--- a/plugins/_memory/backend/factory.py
++++ b/plugins/_memory/backend/factory.py
+@@ -77,25 +77,7 @@ def create_qdrant_client(
+     # The ONE raw construction line in the runtime import graph (SC-2).
+     client = QdrantClient(**kwargs)
+ 
+-    if not probe:
+-        return client
+-
+-    from emitters.source_health_registry import SourceHealthRegistry
+-
+-    # Bounded liveness probe. QdrantClient construction is lazy — against a down
+-    # host the version check only *warns*, so a broken backend would be handed back
+-    # and fail (silently swallowed) on first real use with NO degrade signal. Probe
+-    # an actual op here so a down Qdrant fast-fails WITHIN the client timeout and
+-    # emits its `qdrant` degrade signal (SC-2 observability), instead of deferring an
+-    # unobserved failure. Healthy path cost: one bounded round-trip (D-07 fail-fast).
+-    try:
+-        client.get_collections()
+-    except Exception as exc:
+-        SourceHealthRegistry.get_shared_instance().report(
+-            "qdrant", available=False, failure_reason=str(exc)
+-        )
+-        raise
+-    SourceHealthRegistry.get_shared_instance().report("qdrant", available=True)
++    # [139-05 effective revert of 519f522] liveness probe + degrade signal removed
+     return client
+ 
+ 

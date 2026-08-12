@@ -1,0 +1,13 @@
+diff --git a/plugins/_memory/backend/qdrant_backend.py b/plugins/_memory/backend/qdrant_backend.py
+index 29cc3e2..9d86535 100644
+--- a/plugins/_memory/backend/qdrant_backend.py
++++ b/plugins/_memory/backend/qdrant_backend.py
+@@ -296,7 +296,7 @@ class QdrantBackend:
+             if self.vector_name is not None:
+                 qp_kwargs["using"] = self.vector_name
+             # Offloaded off the event loop — A1/D-03 (network vector I/O)
+-            search_response = await asyncio.to_thread(lambda: self.client.query_points(**qp_kwargs))
++            search_response = self.client.query_points(**qp_kwargs)
+ 
+             # Convert to dict format
+             results = []
