@@ -44,6 +44,37 @@ def test_nearest_rank_p50_p95_over_1_to_100():
     assert 90 <= s["p95"] <= 100
 
 
+def test_nearest_rank_non_multiple_of_100_uses_ceiling():
+    """Regression for WR-01: when n*pct is not a multiple of 100 the index must
+    use ceiling (ceil(pct/100 * n) - 1), not floor. Floor understated p50/p95 —
+    e.g. n=3 p50 returned the minimum (idx 0) instead of the median (idx 1).
+    The n=1..100 test above can't catch this (100*pct is always a multiple).
+    """
+    # n=3 -> p50 = ceil(1.5)-1 = idx 1 (median); p95 = ceil(2.85)-1 = idx 2 (max)
+    r = SLORegistry()
+    for v in (10.0, 20.0, 30.0):
+        r.record("recall", v)
+    s = r.snapshot()["recall"]
+    assert s["p50"] == 20.0, "p50 of [10,20,30] must be the median, not the minimum"
+    assert s["p95"] == 30.0
+
+    # n=2 -> p50 = ceil(1.0)-1 = idx 0; p95 = ceil(1.9)-1 = idx 1
+    r2 = SLORegistry()
+    for v in (5.0, 15.0):
+        r2.record("recall", v)
+    s2 = r2.snapshot()["recall"]
+    assert s2["p50"] == 5.0
+    assert s2["p95"] == 15.0
+
+    # n=7 sorted 1..7 -> p50 = ceil(3.5)-1 = idx 3 -> 4.0; p95 = ceil(6.65)-1 = idx 6 -> 7.0
+    r3 = SLORegistry()
+    for v in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0):
+        r3.record("recall", v)
+    s3 = r3.snapshot()["recall"]
+    assert s3["p50"] == 4.0
+    assert s3["p95"] == 7.0
+
+
 def test_bounded_deque_maxlen_1024():
     r = SLORegistry.get_shared_instance()
     for i in range(2000):

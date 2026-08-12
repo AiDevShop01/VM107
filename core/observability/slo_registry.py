@@ -28,11 +28,14 @@ from collections import deque
 def _nearest_rank(sorted_xs: list[float], pct: int) -> float:
     """Nearest-rank percentile of an already-sorted, non-empty list.
 
-    Index = max(0, ceil(pct/100 * n) - 1), computed with integer math as
-    ``(n*pct)//100 - 1`` clamped to [0, n-1].
+    Index = max(0, ceil(pct/100 * n) - 1). The ceiling is computed with exact
+    integer math as ``-(-(n*pct)//100)`` (floor of the negation, negated) and
+    clamped to [0, n-1]. Floor division here would understate percentiles
+    whenever ``n*pct`` is not an exact multiple of 100 (e.g. n=3, pct=50 must
+    return the median at index 1, not the minimum at index 0).
     """
     n = len(sorted_xs)
-    idx = (n * pct) // 100 - 1
+    idx = -(-(n * pct) // 100) - 1
     if idx < 0:
         idx = 0
     elif idx >= n:
