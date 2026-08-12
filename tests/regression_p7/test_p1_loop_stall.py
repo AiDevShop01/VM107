@@ -60,10 +60,15 @@ def test_recall_does_not_stall_loop_under_concurrency():
     from plugins._memory.backend.qdrant_backend import QdrantBackend
 
     class _FastEmbed:
-        """Async embed that returns immediately — the ONLY blocking source is the
-        query client, so the stall (if any) isolates the query offload (ac6e4dc)."""
+        """Async embed that yields once then returns — the ONLY blocking source is
+        the query client, so the stall (if any) isolates the query offload (ac6e4dc).
+        The real `await asyncio.sleep(0.001)` yield is required: it hands control to
+        the loop so the heartbeat is actually scheduled and can measure drift ACROSS a
+        sync-on-loop query block (a non-yielding embed would let the recalls hog the
+        loop start-to-finish, starving the heartbeat and masking the stall)."""
 
         async def embed(self, texts=None, project_id=None, model=None, normalize=True, **kwargs):
+            await asyncio.sleep(0.001)
             return SimpleNamespace(embeddings=[[0.1] * 768])
 
     class _BlockingClient:
@@ -101,11 +106,10 @@ def test_recall_does_not_stall_loop_under_concurrency():
         hb = asyncio.create_task(heartbeat())
         results = await asyncio.gather(*[_recall(i) for i in range(_N_CONCURRENT)])
         stop.set()
-        hb.cancel()
-        try:
-            await hb
-        except asyncio.CancelledError:
-            pass
+        # Natural exit (NOT cancel): let the in-flight heartbeat sleep resolve so the
+        # overshoot that SPANS a sync-on-loop block is recorded before the loop exits.
+        # Cancelling here would discard that delayed sample and mask the stall (RED).
+        await hb
         return results, (max(stalls) * 1000 if stalls else 0.0)
 
     results, worst_stall_ms = asyncio.run(_run())
