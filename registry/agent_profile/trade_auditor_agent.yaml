@@ -72,3 +72,31 @@ tags:
 impact_on_decision: HIGH
 allowed_agent_profiles: []
 deprecated: false
+
+# P167C (167-07) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+# PARENT contract — the ._reader/._analyzer/._writer sub-profiles INHERIT this (canon() strips the
+# ._role suffix; they are stage roles, not separately-catalogued agents — no orphan entries).
+agent_contract:
+  contract_version: 1
+  catalogue_ref: trading/trade-auditor-agent.md
+  status: built                              # per-trade auditor pipeline parent (Phase 60 Wave 2)
+  authority: recommend                       # allowed_tools empty + trade/code/subordinate denied — narration only
+  trigger_normalized: [event-driven]         # no shipped `trigger` scalar — authored fresh per 04 §A (per-execution critique)
+  memory_rw:
+    reads: [phase56_events, phase57_analytics, phase58_behavioral_patterns]  # execution-scoped; NEVER cross-trade, NEVER prior narratives
+    writes: [narrative_envelope_per_trade_critique]
+  collaboration:
+    invoked_by: [MentorPipelineOrchestrator]
+    may_invoke: [trade_auditor_agent._reader, trade_auditor_agent._analyzer, trade_auditor_agent._writer]  # nested stage roles inherit this contract
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "thin execution evidence -> narrow the critique and say so; never fabricate a per-trade finding"
+    stale_data: "stale execution analytics surfaced as stale, not presented as current"
+    conflict: "conflicting execution signals surfaced as tension, not blended into one verdict"
+    tool_failure: "an evidence-source outage -> critique from the remaining named sources; no silent confident narrative"
+  evaluation:
+    correctness_kpi: "citation-discipline held = 1.0 (every critique sentence cites execution evidence); execution-scope integrity = 1.0; narrative-isolation = 1.0"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
