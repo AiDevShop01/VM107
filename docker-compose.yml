@@ -511,6 +511,12 @@ services:
       - ./prompts:/a0/prompts:ro
       - ./registry:/a0/registry:ro
       - ./config/templates:/a0/config/templates:ro
+      # core.belief.belief_store imports emitters.source_health_registry;
+      # emitters/ imports lib/. This override-CMD sidecar skips the /a0
+      # population step, so both must be bind-mounted or the runner ModuleNotFounds
+      # on 'emitters' at import time (2026-08-27 fix — pre-existing compose drift).
+      - ./emitters:/a0/emitters:ro
+      - ./lib:/a0/lib:ro
       # Heartbeat file is written under /app/logs by the runner; the
       # healthcheck reads it from the same path.
       - ./logs:/app/logs
@@ -912,6 +918,12 @@ services:
       - ./scripts:/a0/scripts:ro
       - ./services:/a0/services:ro
       - ./core:/a0/core:ro
+      # core.boundary.budget_tracker imports emitters.source_health_registry;
+      # emitters/ imports lib/. These override-CMD sidecars skip the /a0
+      # population step, so both must be bind-mounted or the runner ModuleNotFounds
+      # on 'emitters' at import time (2026-08-27 fix — pre-existing compose drift).
+      - ./emitters:/a0/emitters:ro
+      - ./lib:/a0/lib:ro
       # Heartbeat file is written under /app/logs by the runner; the healthcheck
       # reads it from the same path.
       - ./logs:/app/logs
