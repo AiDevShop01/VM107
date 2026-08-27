@@ -64,7 +64,11 @@ class EconomicEvent(BaseModel):
     payload: dict[str, Any] = Field(
         description="Event-type-specific payload (open dict here).",
     )
-    schema_version: str = Field(default="1", min_length=1)
+    # knowledge_time (Phase 168, D-06 event carrier): the as-of the MACRO_RELEASE
+    # fan-out should honor. Optional-defaulted so existing publishers keep working;
+    # immutable forwarding through the fan-out is closed by 168-04.
+    knowledge_time: datetime | None = None
+    schema_version: str = Field(default="2", min_length=1)
 
     @field_validator("country")
     @classmethod
