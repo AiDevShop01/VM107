@@ -21,12 +21,42 @@ from __future__ import annotations
 import inspect
 from datetime import datetime, timezone
 
-from fingpt_core.contracts.evidence_pack import DomainEvidencePack, PriorAssessmentFacet
+from fingpt_core.contracts.evidence_pack import (
+    DomainEvidencePack,
+    DomainStateFacet,
+    FacetIntegrity,
+    PriorAssessmentFacet,
+    StateDiffFacet,
+)
 
 from core.evidence import assembler as A
+from core.evidence import tiers as T
 from core.evidence.facets import evidence_ranking as ev_mod
 
 _NOW = datetime.now(timezone.utc)
+
+
+def _healthy_required_composers() -> dict:
+    """Wire the 2 REQUIRED reuse facets healthy so the ENRICHMENT Evidence facet
+    is isolated (unwired REQUIRED facets would dominate the pack as ``degraded``)."""
+
+    def _ds(ctx):
+        return T.FacetOutcome(
+            name="domain_state",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=DomainStateFacet(state_version="US:inf:v1", label="Cooling", score=0.1),
+        )
+
+    def _sd(ctx):
+        return T.FacetOutcome(
+            name="state_diff",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=StateDiffFacet(changed=False, current_label="Cooling"),
+        )
+
+    return {"domain_state": _ds, "state_diff": _sd}
 
 _HITS = [
     {"assessment_id": "a-mid", "outcome": "hawkish-hold", "knowledge_time": "2026-06-01T00:00:00+00:00", "score": 0.71},
@@ -119,7 +149,8 @@ def test_no_evidence_reader_omits_with_reason():
 
 def test_registered_populates_prior_assessment():
     deps = A.FacetDeps(evidence_reader=_FakeEvidenceReader(_HITS))
-    pack = A.EvidencePackAssembler().assemble(_req(), deps=deps)  # must NOT raise
+    assembler = A.EvidencePackAssembler(composers=_healthy_required_composers())
+    pack = assembler.assemble(_req(), deps=deps)  # must NOT raise
     assert isinstance(pack.prior_assessment, PriorAssessmentFacet)
     assert pack.prior_assessment.assessment_id == "a-top"
     assert pack.pack_integrity.pack_outcome != "degraded"

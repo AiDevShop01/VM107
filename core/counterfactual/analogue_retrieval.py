@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 # updating the agent profile YAML and the architecture doc.
 K_ANALOGUES_MINIMUM = 5
 
+# VM105 analogue endpoint timeout — short so a dev-unreachable graph fails fast
+# and the ENRICHMENT HistoricalContext facet omits the analogue path promptly.
+_ANALOGUE_TIMEOUT_S = 0.5
+
 
 # ─── Analogue data structure ─────────────────────────────────────────────────
 
@@ -98,24 +102,32 @@ def _call_neo4j_query_analogues(
             "Set VM105_NEO4J_URL=<url> (no fallback per project lock)."
         )
 
-    # Real implementation would call the vm105 graph walker via the Phase 47.6
-    # capability registry. Kept as a stub here — the patchable seam means tests
-    # never reach this branch.
-    try:
-        from registry.lookup import lookup_capability  # type: ignore[import]
-        walker_meta = lookup_capability(id="vm105.neo4j_macro_graph_walker")
-    except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(
-            f"analogue_retrieval: could not resolve vm105.neo4j_macro_graph_walker "
-            f"from capability registry: {exc}"
-        ) from exc
+    # Phase 168 Plan 06 (D-01) — de-stub. Per the Phase 39 typed-API lock VM107
+    # never bolt://s Neo4j directly: it queries the VM105-hosted analogue endpoint
+    # over HTTP (env-driven base URL, NO fallback). Any connection / HTTP / parse
+    # error propagates to the CALLER (the HistoricalContext facet), which — as an
+    # ENRICHMENT sub-facet — catches it and omits the analogue path with a reason.
+    # The env lock means this is inert until VM105_NEO4J_URL is set in dev/prod.
+    import httpx  # local import: keep the pure-logic layer import-light
 
-    # Actual HTTP call to vm105 would go here; stub raises for transparency.
-    raise NotImplementedError(
-        "analogue_retrieval._call_neo4j_query_analogues: live Neo4j call not yet "
-        "wired in development (tests mock this seam). Production wiring comes in "
-        "Phase 89 Wave 6 deployment."
-    )
+    base = neo4j_url.rstrip("/")
+    low, high = surprise_range
+    params = {
+        "indicator": indicator,
+        "surprise_low": low,
+        "surprise_high": high,
+        "k": k,
+    }
+    if current_regime:
+        params["current_regime"] = current_regime
+
+    with httpx.Client(timeout=_ANALOGUE_TIMEOUT_S) as client:
+        resp = client.get(f"{base}/api/macro/internal/query-analogues", params=params)
+        resp.raise_for_status()
+        payload = resp.json()
+
+    analogues = payload.get("analogues", payload if isinstance(payload, list) else [])
+    return list(analogues)
 
 
 # ─── Public API ──────────────────────────────────────────────────────────────

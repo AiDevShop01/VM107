@@ -21,14 +21,41 @@ from datetime import datetime, timezone
 
 from fingpt_core.contracts.evidence_pack import (
     DomainEvidencePack,
+    DomainStateFacet,
+    FacetIntegrity,
     HistoricalPercentileFacet,
+    StateDiffFacet,
 )
 
 from core.counterfactual import analogue_retrieval
 from core.evidence import assembler as A
+from core.evidence import tiers as T
 from core.evidence.facets import historical_context as hc_mod
 
 _NOW = datetime.now(timezone.utc)
+
+
+def _healthy_required_composers() -> dict:
+    """Wire the 2 REQUIRED reuse facets healthy so an ENRICHMENT facet is isolated
+    (unwired REQUIRED facets would dominate the pack as ``degraded``)."""
+
+    def _ds(ctx):
+        return T.FacetOutcome(
+            name="domain_state",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=DomainStateFacet(state_version="US:inf:v1", label="Cooling", score=0.1),
+        )
+
+    def _sd(ctx):
+        return T.FacetOutcome(
+            name="state_diff",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=StateDiffFacet(changed=False, current_label="Cooling"),
+        )
+
+    return {"domain_state": _ds, "state_diff": _sd}
 
 
 class _FakePercentileReader:
@@ -122,7 +149,8 @@ def test_no_percentile_data_omits_with_reason(monkeypatch):
 def test_registered_populates_historical_percentile(monkeypatch):
     monkeypatch.delenv("VM105_NEO4J_URL", raising=False)
     deps = A.FacetDeps(percentile_reader=_FakePercentileReader(_PCT))
-    pack = A.EvidencePackAssembler().assemble(_req(), deps=deps)  # must NOT raise
+    assembler = A.EvidencePackAssembler(composers=_healthy_required_composers())
+    pack = assembler.assemble(_req(), deps=deps)  # must NOT raise
     assert isinstance(pack.historical_percentile, HistoricalPercentileFacet)
     assert pack.historical_percentile.percentile == 72.5
     assert pack.pack_integrity.pack_outcome != "degraded"
