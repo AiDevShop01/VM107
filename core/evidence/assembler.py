@@ -116,6 +116,10 @@ class FacetDeps:
     domain_state_reader: Any | None = None
     contribution_reader: Any | None = None
     contradiction_engine: Any | None = None
+    # Detection inputs (predicted/actual/sigma_historical/active_beliefs) the
+    # ENRICHMENT contradiction facet feeds to the wired-as-is ContradictionEngine.
+    # Concrete plumbing (transmission engine + VM101) is a 169 dependency.
+    contradiction_inputs: dict[str, Any] | None = None
 
 
 @dataclass

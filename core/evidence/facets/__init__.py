@@ -9,22 +9,79 @@ typed client seams (G10): never a raw parquet/DB store, never ``compute_domain``
 state_diff / contribution / contradiction) the assembler registers over its
 deferred-placeholder defaults. The net-new signal_importance /
 historical_context / prior_assessment facets land in 168-06.
-
-Task 1 ships this package with an empty registry (the assembler's honest
-UNAVAILABLE defaults stand); Task 2 wires the real composers.
 """
 
 from __future__ import annotations
 
-from typing import Callable
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable
 
-__all__ = ["reuse_composers"]
+__all__ = [
+    "reuse_composers",
+    "bounded",
+    "parse_dt",
+    "to_iso",
+    "is_latest_only_lookahead",
+]
+
+# A live run stamps knowledge_time ~ now; a small tolerance keeps sub-second
+# clock skew from being mistaken for a historical (look-ahead) replay. Mirrors
+# core/evidence/tools/quant_tools.py::_LOOKAHEAD_TOLERANCE.
+LOOKAHEAD_TOLERANCE = timedelta(seconds=5)
+
+
+def bounded(value: Any, lo: float, hi: float) -> float | None:
+    """Coerce to a float clamped into [lo, hi]; ``None`` stays ``None`` (honest)."""
+    if value is None:
+        return None
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(lo, min(hi, f))
+
+
+def parse_dt(value: Any) -> datetime | None:
+    """Best-effort ISO-8601 -> datetime; never raises (returns None on failure)."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def to_iso(value: datetime | None) -> str | None:
+    return value.isoformat() if isinstance(value, datetime) else None
+
+
+def is_latest_only_lookahead(knowledge_time: datetime, *, latest_only: bool = True) -> bool:
+    """Constitution 18: a latest-only read served for a MATERIALLY-PAST as-of is
+    a look-ahead. A live run (kt ~ now) is not flagged."""
+    if not latest_only:
+        return False
+    now = datetime.now(timezone.utc)
+    kt = knowledge_time
+    if kt.tzinfo is None:
+        kt = kt.replace(tzinfo=timezone.utc)
+    return kt < now - LOOKAHEAD_TOLERANCE
 
 
 def reuse_composers() -> dict[str, Callable]:
     """Return the reuse/typed facet composers to register on the assembler.
 
-    Populated in Plan-05 Task 2. Until then the assembler keeps its honest
-    UNAVAILABLE defaults for the reuse facets.
+    Lazy imports avoid an import cycle (submodules import shared helpers from
+    this package). The assembler registers these over its honest UNAVAILABLE
+    defaults for the four reuse facets.
     """
-    return {}
+    from core.evidence.facets.contradiction import compose_contradiction
+    from core.evidence.facets.contribution import compose_contribution
+    from core.evidence.facets.domain_state import compose_domain_state
+    from core.evidence.facets.state_diff import compose_state_diff
+
+    return {
+        "domain_state": compose_domain_state,
+        "state_diff": compose_state_diff,
+        "contribution": compose_contribution,
+        "contradiction": compose_contradiction,
+    }
