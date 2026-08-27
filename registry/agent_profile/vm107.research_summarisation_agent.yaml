@@ -82,3 +82,29 @@ tags:
   - phase-92
   - wave-5
   - summarisation
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: research/research-summarisation-agent.md
+  status: built                              # resolves to the shared agents/research/ bundle — NOT skeleton
+  authority: recommend                       # belief_store.propose DENIED — summarisation is narration, not a belief
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: dagster_sensor` (per-doc summarisation RPC) (04 §A)
+  memory_rw:
+    reads: [research_document_classified, linked_economic_indicators, qdrant_knowledge]
+    writes: [research_intelligence_summaries]
+  collaboration:
+    invoked_by: [dagster:research_summarisation_sensor]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "a doc too sparse to summarise faithfully -> emit fewer/zero bullets, flagged"
+    stale_data: "a stale doc/link is refreshed; a fully-stale source aborts, flagged"
+    conflict: "contradictory findings surfaced as such, not blended into one bullet"
+    tool_failure: "a search/RAG outage -> degrade to body-only summarisation, named; no silent empty summary"
+  evaluation:
+    correctness_kpi: "summary faithfulness >= 0.95 (key findings traceable to source doc, no fabrication)"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

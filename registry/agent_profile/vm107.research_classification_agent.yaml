@@ -100,3 +100,29 @@ tags:
   - hybrid-linker
   - pitfall-3-softreject
   - ld-92-7-indicator-link-required
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: research/research-classification-agent.md
+  status: built                              # resolves to the shared agents/research/ bundle — NOT skeleton
+  authority: recommend                       # belief_store.propose DENIED — classification is metadata, not a belief
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: dagster_sensor` (sensor on processed rows, per-row RPC) (04 §A)
+  memory_rw:
+    reads: [research_document_processed, economic_indicator_catalog, asset_universe, qdrant_knowledge]
+    writes: [research_document_classified, research_document_unlinked]
+  collaboration:
+    invoked_by: [dagster:research_classification_sensor]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "no defensible indicator link -> status='unlinked' soft-reject, retained (Pitfall 3)"
+    stale_data: "a stale catalog/asset-universe read is refreshed; a fully-stale input aborts, flagged"
+    conflict: "competing indicator links -> tie-break lookup adjudicates; unresolved -> unlinked"
+    tool_failure: "a search/RAG outage -> degrade to synonym-only or unlinked; named, never silent"
+  evaluation:
+    correctness_kpi: "indicator-link coverage = 1.0 of classified docs (LD-92-7); link precision >= 0.90"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

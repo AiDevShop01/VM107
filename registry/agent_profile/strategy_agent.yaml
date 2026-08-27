@@ -48,3 +48,29 @@ tags:
 impact_on_decision: MEDIUM
 allowed_agent_profiles: []
 deprecated: false
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: research/strategy-agent.md
+  status: partial                            # prompt-shaped output, no typed StrategySpec contract yet (migration-map §A)
+  authority: recommend                       # belief_store.propose not granted — a candidate spec, never approve/execute
+  trigger_normalized: [reactive]             # no shipped `trigger` scalar — authored fresh per 04 §A (responds to a caller's hypothesis)
+  memory_rw:
+    reads: [input_hypothesis, qdrant_knowledge, document_query]
+    writes: [strategy_spec_returned_to_caller]  # prompt-shaped; no persistent store in Phase 37
+  collaboration:
+    invoked_by: [idea_agent, any_caller]     # source-agnostic
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "an under-specified hypothesis -> request refinement, don't fabricate a spec"
+    stale_data: "stale grounding is refreshed; a fully-stale context is flagged, not silently used"
+    conflict: "a self-contradictory hypothesis surfaced as such, not forced into a spec"
+    tool_failure: "a retrieval outage -> degrade to hypothesis-only derivation, named; no silent empty spec"
+  evaluation:
+    correctness_kpi: "spec well-formedness >= 0.90 (defensible entry/exit/risk framing; measured post typed-StrategySpec upgrade)"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
