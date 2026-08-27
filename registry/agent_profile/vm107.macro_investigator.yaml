@@ -164,3 +164,29 @@ tags:
   - investigator
   - b5-self-eval
   - free-form-qa
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: orchestration/macro-investigator.md
+  status: partial                            # profile-only but WIRED (agent.py/api_message.py/profile_aware_dispatch.py) — NOT skeleton (migration-map §C)
+  authority: recommend                       # belief_store denied — evidence-grounded answer, not a belief
+  trigger_normalized: [user-invoked]         # alias of shipped `trigger: user_driven` (04 §A)
+  memory_rw:
+    reads: [vm102_indicator_tools, phase99_1_economic_data_tools, research_rag, episodic_memory, belief_store_via_visibility, b1_worm]
+    writes: [b5_scored_answer, b1_reasoning_artifact]
+  collaboration:
+    invoked_by: [user_via_profile_aware_dispatch, api_message]
+    may_invoke: [phase90_layer4_market_impact_api]   # a service, not an agent call (D-12)
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "a thin series -> surface insufficient_history, answer with the caveat, never fabricate"
+    stale_data: "below-freshness series flagged; a fully-stale scope aborts the confident emit"
+    conflict: "a blocking contradiction refuses the confident emit (D-7 gate)"
+    tool_failure: "a vm102 / economic-data tool down degrades to the available tools, named; no silent answer"
+  evaluation:
+    correctness_kpi: "B5 self-eval pass rate + contradiction-gate held = 1.0 (no confident emit while blocked); word-cap <=400"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

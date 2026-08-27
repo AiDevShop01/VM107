@@ -37,3 +37,29 @@ tags:
   - event-driven
   - executive-summary
   - composer
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: orchestration/executive-summary-writer.md
+  status: skeleton                           # RETIRE candidate — executive_summary (Phase 94) is the built canonical (migration-map §C)
+  authority: recommend                       # intended narration ceiling; no propose/compute tools granted
+  trigger_normalized: [event-driven]         # no shipped `trigger` scalar — authored fresh per 04 §A (Brain DAG last-node); not wired as a skeleton
+  memory_rw:
+    reads: [release_analyst_output, asset_exposure_analyst_output, b1_reasoning_artifact]
+    writes: []                               # intended hero-card summary + B1; not wired as a skeleton
+  collaboration:
+    invoked_by: [dagster:phase85_brain_dag]  # intended; not wired as a skeleton
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "missing upstream -> return low-confidence 'Awaiting' envelope, never block (REQ-85-7)"
+    stale_data: "stale upstream would flag the section"
+    conflict: "conflicting analyst outputs surfaced, not smoothed"
+    tool_failure: "an artifact-lookup outage -> 'Awaiting' envelope, named"
+  evaluation:
+    correctness_kpi: "retire decision resolved (RETIRE in favour of executive_summary, confirmed via AGENT-1 follow-up)"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile (intended 60s budget, REQ-85-2)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

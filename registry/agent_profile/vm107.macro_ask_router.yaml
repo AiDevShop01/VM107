@@ -97,3 +97,29 @@ tags:
   - never-answers
   - registry-driven
   - economic-intelligence
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: orchestration/macro-ask-router.md
+  status: built
+  authority: route-only                      # pure classifier — never answers/recommends; sits below `recommend` (migration-map §A: none/route-only)
+  trigger_normalized: [reactive]             # alias of shipped `trigger: on_demand` (04 §A)
+  memory_rw:
+    reads: [capability_registry]
+    writes: [conversation_plan]              # emitted to caller; no persistent write
+  collaboration:
+    invoked_by: [dashboard, chief_economist_synthesizer]
+    may_invoke: []                           # names required specialists in the plan; the synthesizer runs them
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "query too vague to classify -> route to a safe default / escalate; never guess an answer"
+    stale_data: "n/a — stateless; the registry is read fresh each query"
+    conflict: "ambiguous multi-intent query -> include all plausible specialists, let the synthesizer adjudicate"
+    tool_failure: "a lookup_capability outage -> fall back to the heuristic keyword map, named"
+  evaluation:
+    correctness_kpi: "never-answers held = 1.0 (static-grep guard); routing precision >= 0.90"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

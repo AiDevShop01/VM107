@@ -108,3 +108,29 @@ tags:
   - cached
   - narrative-only
   - economic-intelligence
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: orchestration/executive-summary.md
+  status: built                              # canonical executive-summary composer (executive_summary_writer is the retire candidate)
+  authority: recommend                       # no compute/propose tools granted — narrative composition only
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: event_driven` (EventBus HIGH+ subscriber) (04 §A)
+  memory_rw:
+    reads: [phase94_event_bus, pillars_section, per_country_summary_cache]
+    writes: [executive_summary_section, per_country_summary_cache]
+  collaboration:
+    invoked_by: [sibling:executive_summary_subscriber]
+    may_invoke: []                           # consumes the pillar section as a capability, not an agent call
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "missing upstream section -> return the cached summary + a staleness flag, don't fabricate"
+    stale_data: "cache older than the last HIGH+ event is regenerated; a fully-stale input flags the section"
+    conflict: "conflicting inputs surfaced in the summary as tension, not smoothed away"
+    tool_failure: "a lookup_capability outage -> serve the cache, named; no silent empty section"
+  evaluation:
+    correctness_kpi: "HIGH+-only regeneration held = 1.0 (zero regen on LOW/MEDIUM, §K.3); 30-60 word budget compliance"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

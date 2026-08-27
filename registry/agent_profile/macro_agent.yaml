@@ -49,3 +49,29 @@ tags:
 impact_on_decision: HIGH
 allowed_agent_profiles: []
 deprecated: false
+
+# P167C (167-06) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: orchestration/macro-agent.md
+  status: built                              # Agent-Zero conversational persona (prompt-hosted; no typed 5/8/9)
+  authority: recommend                       # no propose/compute tools granted — read-only conversational surface
+  trigger_normalized: [user-invoked]         # no shipped `trigger` scalar — authored fresh per 04 §A (macro_chat host)
+  memory_rw:
+    reads: [vm102_regime_current, vm100_analytics_calendar, vm107_intelligence_feed_macro]
+    writes: []                               # conversational turns; no persistent write
+  collaboration:
+    invoked_by: [chat_handler:macro_chat]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "thin context -> say so and answer conservatively, don't fabricate a macro read"
+    stale_data: "a stale regime/feed is surfaced as stale, not presented as current"
+    conflict: "conflicting anchors surfaced as tension, not smoothed into one view"
+    tool_failure: "a context-tool outage -> answer from the remaining anchors, named; no silent confident reply"
+  evaluation:
+    correctness_kpi: "citation-discipline held = 1.0 (every macro assertion attributes its anchor); account-scope integrity = 1.0"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
