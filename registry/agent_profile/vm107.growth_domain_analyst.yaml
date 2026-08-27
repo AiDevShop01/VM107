@@ -111,3 +111,29 @@ tags:
   - narrative-only
   - explain-not-calculate
   - economic-intelligence
+
+# P167C (167-04) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/growth-domain-analyst.md
+  status: built
+  authority: recommend                       # narrative-only; ceiling grounded to runtime (belief_store.propose denied)
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: on_demand` + trigger_events macro_release (04 §A)
+  memory_rw:
+    reads: []                                # in-request domain state + prior assessment; memory_scope NONE
+    writes: []                               # template wave — no persistent writes
+  collaboration:
+    invoked_by: [domain_analyst_subscriber, macro_ask_router]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "emit with an explicit limitation; low confidence; never fabricate a driver"
+    stale_data: "surface the upstream state's as-of/staleness; age confidence down"
+    conflict: "present tailwinds vs headwinds explicitly; never average away"
+    tool_failure: "get_domain_health miss (critical) -> abstain honestly; research-lookup miss degrades citations only"
+  evaluation:
+    correctness_kpi: "engine-lock respected = 1.0 (0 recompute violations, static guard); narrative-grounded >= 0.98"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
