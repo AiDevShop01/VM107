@@ -20,9 +20,16 @@ from __future__ import annotations
 import inspect
 from datetime import datetime, timezone
 
-from fingpt_core.contracts.evidence_pack import DomainEvidencePack, FacetIntegrity, SignalFacet
+from fingpt_core.contracts.evidence_pack import (
+    DomainEvidencePack,
+    DomainStateFacet,
+    FacetIntegrity,
+    SignalFacet,
+    StateDiffFacet,
+)
 
 from core.evidence import assembler as A
+from core.evidence import tiers as T
 from core.evidence.facets import signal_importance as si_mod
 
 _NOW = datetime.now(timezone.utc)
@@ -58,6 +65,31 @@ def _deps(rows) -> A.FacetDeps:
 
 def _records(pack: DomainEvidencePack) -> dict:
     return {f.facet: f for f in pack.pack_integrity.facets}
+
+
+def _healthy_required_composers() -> dict:
+    """The 2 REQUIRED reuse facets wired healthy so a signal_importance failure
+    surfaces as IMPORTANT-``partial`` in isolation (REQUIRED down would dominate
+    as ``degraded``). The net-new facets stay on the assembler's real composers."""
+
+    def _ds(ctx):
+        ctx.scratch["previous_state"] = DomainStateFacet(state_version="US:inf:v0", label="Rising")
+        return T.FacetOutcome(
+            name="domain_state",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=DomainStateFacet(state_version="US:inf:v1", label="Cooling", score=0.1),
+        )
+
+    def _sd(ctx):
+        return T.FacetOutcome(
+            name="state_diff",
+            ok=True,
+            integrity=FacetIntegrity.NEUTRAL,
+            value=StateDiffFacet(changed=True, previous_label="Rising", current_label="Cooling", delta_score=0.2),
+        )
+
+    return {"domain_state": _ds, "state_diff": _sd}
 
 
 # ---------------------------------------------------------------------------
@@ -123,8 +155,10 @@ def test_payload_is_a_struct_never_a_series():
 
 def test_missing_inputs_warns_not_raises():
     # seam present but returns None (provider outage) => IMPORTANT down => partial.
+    # REQUIRED facets wired healthy so the IMPORTANT-partial signal is isolated.
     deps = A.FacetDeps(signal_reader=_FakeSignalReader(None))
-    pack = A.EvidencePackAssembler().assemble(_req(), deps=deps)  # must NOT raise
+    assembler = A.EvidencePackAssembler(composers=_healthy_required_composers())
+    pack = assembler.assemble(_req(), deps=deps)  # must NOT raise
     assert isinstance(pack, DomainEvidencePack)
     assert pack.top_signals == ()
     assert pack.pack_integrity.pack_outcome == "partial"

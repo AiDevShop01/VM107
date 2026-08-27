@@ -121,6 +121,17 @@ class FacetDeps:
     # Concrete plumbing (transmission engine + VM101) is a 169 dependency.
     contradiction_inputs: dict[str, Any] | None = None
 
+    # -- 168-06 net-new facet seams (G10; concrete adapters are a 169 dependency) --
+    # signal_importance (IMPORTANT): typed candidate-signal read (quant/lead-lag).
+    signal_reader: Any | None = None
+    signal_top_k: int | None = None
+    # historical_context (ENRICHMENT): VM102 percentile read (always-available sub-path).
+    percentile_reader: Any | None = None
+    # evidence_ranking (ENRICHMENT, prior_assessment slot): Qdrant retrieval + the
+    # SourceHealthRegistry consulted hits-first (only `if not hits`).
+    evidence_reader: Any | None = None
+    source_health: Any | None = None
+
 
 @dataclass
 class AssemblyContext:
@@ -192,6 +203,11 @@ def _default_composers() -> dict[str, Composer]:
         from core.evidence import facets
 
         composers.update(facets.reuse_composers())
+        # 168-06 net-new REAL composers replace the deferred-placeholder slots
+        # (signal_importance / historical_context / prior_assessment) over the
+        # same seam — no structural assembler change. Each degrades gracefully
+        # (deferred/omit) when its concrete reader seam is absent (169 wiring).
+        composers.update(facets.netnew_composers())
     except Exception:  # pragma: no cover - defensive: never let wiring brick import
         pass
     return composers

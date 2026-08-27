@@ -18,6 +18,7 @@ from typing import Any, Callable
 
 __all__ = [
     "reuse_composers",
+    "netnew_composers",
     "bounded",
     "parse_dt",
     "to_iso",
@@ -85,3 +86,30 @@ def reuse_composers() -> dict[str, Callable]:
         "contribution": compose_contribution,
         "contradiction": compose_contradiction,
     }
+
+
+def netnew_composers() -> dict[str, Callable]:
+    """Return the 168-06 NET-NEW facet composers (D-01) to register on the
+    assembler over its 168-05 deferred-placeholder slots.
+
+    Each real composer degrades gracefully when its concrete reader seam is
+    absent (169 wiring): signal_importance -> deferred (non-downgrading);
+    historical_context / prior_assessment (evidence ranking) -> ENRICHMENT
+    omit-with-reason. Lazy imports avoid an import cycle.
+    """
+    from core.evidence.facets.signal_importance import compose_signal_importance
+
+    composers: dict[str, Callable] = {
+        "signal_importance": compose_signal_importance,
+    }
+    # historical_context + prior_assessment (evidence ranking) land in Task 2;
+    # wired-as-available so Task 1 stays green standalone.
+    try:
+        from core.evidence.facets.evidence_ranking import compose_evidence_ranking
+        from core.evidence.facets.historical_context import compose_historical_context
+
+        composers["historical_context"] = compose_historical_context
+        composers["prior_assessment"] = compose_evidence_ranking
+    except Exception:  # pragma: no cover - Task 1 standalone: modules not yet present
+        pass
+    return composers
