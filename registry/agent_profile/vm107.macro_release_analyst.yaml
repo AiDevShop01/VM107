@@ -33,3 +33,30 @@ tags:
   - phase-85
   - event-driven
   - release-analyst
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# SKELETON (D-03, implement-or-retire) — decision record, profile NEVER deleted (09 §5).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-release-analyst.md
+  status: skeleton                           # rich Phase-85 profile, NO code module (AGENT-1) — implement (§C)
+  authority: recommend                       # declared ceiling; no belief_store.propose granted; unbuilt
+  trigger_normalized: [event-driven]         # intended Wave-3 Brain fan-out on macro.release_events; no shipped trigger scalar (04 §A)
+  memory_rw:
+    reads: [vm102_indicator_history, vm102_indicator_releases, vm102_indicator_distribution, vm102_indicator_regime]  # intended
+    writes: [regime_impact_label_result, b1_reasoning_artifact]  # intended — nothing written today
+  collaboration:
+    invoked_by: [brain_fanout]               # intended — nothing invokes it today (unbuilt)
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "(intended) thin release context -> abstain with limitation"
+    stale_data: "(intended) surface VM102 read as-of/staleness"
+    conflict: "(intended) present divergent signals, never average"
+    tool_failure: "actual: agent is absent — dispatcher must reject the profile gracefully (AGENT-1)"
+  evaluation:
+    correctness_kpi: "implement-or-retire decision recorded = 1.0 (disposition: implement, D-03)"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile (REQ-85-2 60s SLA)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0 (skeleton never reported as built)"

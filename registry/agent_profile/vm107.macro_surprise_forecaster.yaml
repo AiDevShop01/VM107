@@ -81,3 +81,30 @@ tags:
   - surprise
   - stub
   - ld-90-1-llm-narrative-only
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# SKELETON (D-03, implement-or-retire) — decision record, profile NEVER deleted (09 §5).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-surprise-forecaster.md
+  status: skeleton                           # status: stub — profile exists so vm102_forecast_surprise allow-list resolves; no module — implement-or-retire (§C)
+  authority: recommend                       # declared ceiling; belief_store.propose denied; unbuilt
+  trigger_normalized: [reactive]             # intended: narrate a VM102 Layer-2 surprise result; no shipped trigger scalar (04 §A)
+  memory_rw:
+    reads: [vm102_forecast_surprise, vm102_forecast_indicator]  # intended
+    writes: [explanation_result]             # intended — nothing written today
+  collaboration:
+    invoked_by: [forecast_production_path]   # intended — nothing invokes it today (unbuilt)
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "(intended) missing surprise read -> abstain with limitation"
+    stale_data: "(intended) surface endpoint as-of/staleness"
+    conflict: "(intended) Layer-1 vs Layer-2 tension presented, not averaged"
+    tool_failure: "actual: agent is absent — dispatcher must reject the profile gracefully (AGENT-1)"
+  evaluation:
+    correctness_kpi: "implement-or-retire decision recorded = 1.0 (skeleton catalogued, D-03)"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0 (skeleton never reported as built)"

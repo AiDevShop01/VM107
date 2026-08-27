@@ -50,3 +50,30 @@ tags:
   - backfill
   - editorial
 deprecated: false
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# SKELETON (D-03, implement-or-retire) — decision record, profile NEVER deleted (09 §5).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-indicator-describer.md
+  status: skeleton                           # Phase-85 editorial profile, NO code module (AGENT-1); overlaps built domain analysts — likely retire (§C)
+  authority: recommend                       # declared ceiling; no belief_store.propose granted; leaf agent, unbuilt
+  trigger_normalized: [user-invoked]         # intended: backfill harness, one invocation per indicator; no shipped trigger scalar (04 §A)
+  memory_rw:
+    reads: [economic_indicator_metadata]     # intended (no live data)
+    writes: [economic_indicator_ai_description]  # intended — nothing written today
+  collaboration:
+    invoked_by: [phase85_backfill_harness]   # intended — nothing invokes it today (unbuilt)
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "(intended) sparse indicator metadata -> abstain with limitation"
+    stale_data: "n/a — describes static indicator identity, not a live series"
+    conflict: "n/a — editorial description, no competing signals"
+    tool_failure: "actual: agent is absent — dispatcher must reject the profile gracefully (AGENT-1)"
+  evaluation:
+    correctness_kpi: "retire-or-implement decision recorded = 1.0 (disposition: likely retire — overlaps domain analysts, D-03)"
+    cost_slo: max_cost_usd
+    latency_slo: "n/a — no latency_budget_ms on this profile"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0 (skeleton never reported as built)"
