@@ -44,6 +44,10 @@ def run():
 def run_migration_checks() -> None:
     initialize.initialize_migration()
     initialize.initialize_validate_phase60_profiles()
+    # Phase 167 (AGV-05 / P167D): additive, env-gated agent_contract: presence check over
+    # registry/agent_profile/*.yaml. INVERTED default — WARN-and-continue unless
+    # CONTRACT_BOOT_STRICT=1 (D-02 fragile-tree guard; enforcement flip lands in 167-09).
+    initialize.initialize_validate_agent_contracts()
     # Phase 47.6: boot CapabilityRegistry BEFORE any agent dispatch (LD-8).
     # Must run after initialize_migration() (env vars are loaded) but before
     # init_a0() (which dispatches agents that call CapabilityRegistry.get()).

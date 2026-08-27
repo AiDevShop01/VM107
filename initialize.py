@@ -151,10 +151,15 @@ def initialize_migration():
 def initialize_validate_phase60_profiles():
     """Phase 60.1 (G8): hard-fail on invalid v2 profiles at container startup.
 
-    Iterates every SubAgent loaded from VM107/agents/ AND every entry under
-    VM107/registry/agent_profile/. Calls validate_agent_yaml_v2() on each.
+    Iterates every SubAgent loaded from VM107/agents/ via subagents.get_agents_dict()
+    (which reads the agents/*/agent.yaml persona dirs ONLY — it does NOT touch the
+    registry/agent_profile/*.yaml manifests, despite an earlier version of this
+    docstring claiming otherwise). Calls validate_agent_yaml_v2() on each.
     v1 profiles (schema_version=None) get a deprecation warning, not a fail.
     v2 profiles with semantic errors halt container startup.
+
+    The registry/agent_profile/ manifests are validated by the separate, additive,
+    env-gated initialize_validate_agent_contracts() hook (Phase 167 / AGV-05).
 
     This hook is invoked by run_ui.py during boot, after initialize_migration().
     CTX-§7 LOCKED: invalid v2 profiles must NEVER reach runtime with None defaults.
@@ -204,6 +209,101 @@ def initialize_validate_phase60_profiles():
         raise AgentYamlV2Error(f"Phase 60 boot validation failed for {len(errors)} profile(s): {msg}")
 
     return len(profiles_to_check)
+
+
+@extension.extensible
+def initialize_validate_agent_contracts(profile_dir: Path | None = None) -> int:
+    """Phase 167 (AGV-05 / P167D): presence-validate the agent_contract: block on every
+    canon-base registry manifest — a NEW, additive, env-gated boot hook.
+
+    This is a genuinely new code path (D-08 / research Fact 2): the older
+    initialize_validate_phase60_profiles() reads ONLY the agents/*/agent.yaml persona
+    dirs via get_agents_dict() and structurally never sees the registry manifests. This
+    hook globs registry/agent_profile/*.yaml directly, yaml.safe_load()s each (ALWAYS
+    safe_load — ASVS V5 / T-167-01), and asserts each in-scope canon-base profile carries
+    an agent_contract: block. It does PRESENCE/PARITY ONLY — it NEVER mutates a profile.
+
+    Env-gate with the INVERTED default (D-02 fragile-tree guard — a prior session bricked
+    this tree, so the security-safe default is to never brick boot):
+
+        CONTRACT_BOOT_STRICT absent OR != "1"  => WARN-and-continue (never raises)
+        CONTRACT_BOOT_STRICT == "1"            => raise SystemExit on any finding
+
+    This mirrors the CAPABILITY_REGISTRY_PERMISSIVE precedent above but inverts its
+    default (permissive/warn by default; strict is opt-in). The strict raise is the
+    security-POSITIVE state, flipped ON only after the all-green gate + the 167-09 live
+    verify — reversible by unsetting the flag with NO code change.
+
+    Scope (reuses canon() + EXCLUDED_IDS from scripts/agent_contract_lint.py — the SAME
+    normalizer the lint uses, never forked):
+      * The 3 infra profiles (default / agent_zero / vm107) are skipped (D-07) — never
+        counted, never a finding.
+      * The 9 nested ._role sub-profiles (behavioral_mentor / trade_auditor /
+        weekly_review × _reader/_analyzer/_writer) INHERIT their canon-base parent's
+        contract (167-07 decision): the presence check runs on the parent ONLY, so a
+        blockless sub-profile MUST NOT independently produce a missing-block finding.
+
+    Args:
+        profile_dir: glob root for the manifests. Defaults to VM107/registry/agent_profile/
+                     (the real corpus); tests point it at a fixture dir.
+
+    Returns:
+        The count of canon-base (in-scope, non-excluded, non-sub-profile) manifests validated.
+
+    Raises:
+        SystemExit: ONLY when CONTRACT_BOOT_STRICT == "1" AND >=1 canon-base manifest is
+                    missing its agent_contract: block.
+    """
+    import yaml  # 6.0.3 — the only YAML lib in the tree; safe_load ONLY (ASVS V5)
+
+    # Reuse the lint's exact join-key normalizer + infra allowlist (do not fork).
+    from scripts.agent_contract_lint import canon, EXCLUDED_IDS, is_subprofile
+
+    if profile_dir is None:
+        profile_dir = Path(__file__).resolve().parent / "registry" / "agent_profile"
+    profile_dir = Path(profile_dir)
+
+    strict = os.environ.get("CONTRACT_BOOT_STRICT") == "1"
+
+    validated = 0
+    missing: list[str] = []
+    for yml in sorted(profile_dir.glob("*.yaml")):
+        try:
+            data = yaml.safe_load(yml.read_text()) or {}
+        except yaml.YAMLError as exc:
+            # Malformed manifest => WARN + skip, never arbitrary code (T-167-01).
+            PrintStyle().print(f"WARN: skipping unparseable profile {yml.name}: {exc}")
+            continue
+        if not isinstance(data, dict):
+            PrintStyle().print(f"WARN: skipping non-mapping profile {yml.name}")
+            continue
+
+        agent_id = str(data.get("id", yml.stem))
+        key = canon(agent_id)
+        if key in EXCLUDED_IDS:
+            continue  # infra persona (D-07) — never counted, never a finding
+        if is_subprofile(agent_id):
+            continue  # nested ._role sub-profile — inherits the canon-base parent (167-07)
+
+        validated += 1
+        if "agent_contract" not in data:
+            missing.append(f"{yml.name} ({agent_id})")
+
+    if missing:
+        detail = "; ".join(missing)
+        if strict:
+            raise SystemExit(
+                f"CONTRACT_BOOT_STRICT: {len(missing)} registry profile(s) missing "
+                f"agent_contract: block — VM107 cannot start (AGV-05). "
+                f"Author the block(s) and restart, or unset CONTRACT_BOOT_STRICT to boot. "
+                f"Missing: {detail}"
+            )
+        PrintStyle().print(
+            f"WARN: {len(missing)} profile(s) missing agent_contract: block (boot continues; "
+            f"set CONTRACT_BOOT_STRICT=1 to enforce). Missing: {detail}"
+        )
+
+    return validated
 
 
 def _args_override(config):
