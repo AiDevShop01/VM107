@@ -1,0 +1,70 @@
+# =============================================================================
+# Agent-profile TEMPLATE — canonical grammar reference for registry/agent_profile/*.yaml
+# =============================================================================
+# This is the schema-by-example every profile follows. It is NOT loaded as a live
+# profile (leading-underscore filename). Copy it to `<agent_id>.yaml` and fill in.
+#
+# Phase 168 Plan 03 (A2 resolution): the Contract §6 tool-economy budget fields
+# `default_tool_detail` / `max_tool_result_tokens` / `raw_access` were NET-NEW at
+# this plan — a filesystem grep of registry/agent_profile/ before 168-03 found
+# ZERO occurrences (the CONTEXT claim that they were "already in the v2 schema
+# from 167" was INCORRECT; 167 shipped the `agent_contract` governance block but
+# not the per-profile tool-budget fields). They are declared here so profiles can
+# cap tool detail per-agent, and so the budgeted tool surface
+# (core/evidence/tools/) can read an authoritative per-profile cap.
+# -----------------------------------------------------------------------------
+
+id: _template
+type: agent_profile
+status: template
+shipped: 0
+last_changed: 2026-08-27
+name: _template
+description: |
+  Canonical agent-profile grammar reference. Replace every value below.
+version: 1.0.0
+phase: 0
+parent_profile: null
+hard_scoped: false
+sub_profiles: []
+
+# --- Field 6 (tools): which deterministic services the agent may call ---------
+allowed_tools: []
+denied_tools: []
+
+# --- Contract §6 tool-economy budget (Constitution 17 — minimum sufficient state)
+# NET-NEW at Phase 168 Plan 03 (A2). These bound how much a tool result may cost
+# this agent's context window. The budgeted tool surface (core/evidence/tools/
+# budget.py) enforces effective_cap = min(tier cap, max_tool_result_tokens); the
+# profile may only TIGHTEN a tier's default cap, never loosen it.
+#
+#   default_tool_detail:    one of COMPACT | STANDARD | DETAILED | RAW
+#                           (the detail_level a tool defaults to for this agent)
+#   max_tool_result_tokens: int — hard per-result cap; combined with the tier cap
+#   raw_access:             none | conditional | allowed
+#                           (whether this agent may request the RAW tier at all)
+default_tool_detail: COMPACT
+max_tool_result_tokens: 750
+raw_access: conditional
+
+# --- Skills -------------------------------------------------------------------
+constitutional_skills: []
+optional_skills: []
+allowed_skills: []
+
+# --- Memory scope -------------------------------------------------------------
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+# --- Governor budgets ---------------------------------------------------------
+max_iterations: 10
+max_cost_usd: 1.0
+impact_on_decision: LOW
+allowed_agent_profiles: []
+deprecated: false
+tags:
+  - agent-profile
+  - template
