@@ -437,6 +437,14 @@ services:
       - ./prompts:/a0/prompts:ro
       - ./registry:/a0/registry:ro
       - ./config/templates:/a0/config/templates:ro
+      # core.memory.episodic_memory_service imports plugins._memory.backend.factory;
+      # plugins/_memory imports emitters/, which imports lib/. This override-CMD
+      # sidecar skips the /a0 population step, so all three must be bind-mounted or
+      # the runner ModuleNotFounds on 'plugins' at import time (2026-08-27 fix —
+      # pre-existing compose drift, same class as the cost/regime-monitor emitters fix).
+      - ./plugins:/a0/plugins:ro
+      - ./emitters:/a0/emitters:ro
+      - ./lib:/a0/lib:ro
       # Heartbeat file is written under /app/logs by the runner; the
       # healthcheck reads it from the same path.
       - ./logs:/app/logs
