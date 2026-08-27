@@ -93,3 +93,31 @@ tags:
   - event-driven
   - contradiction-detector
   - b13
+
+# P167C (167-07) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+# SKELETON (migration-map §C): registered profile, agent module not built — disposition: wire to the
+# existing core/contradiction/ engine. Additive-only; never deleted (09 §5).
+agent_contract:
+  contract_version: 1
+  catalogue_ref: critics/macro-contradiction-detector.md
+  status: skeleton                           # registered profile, no agent module — wire to core/contradiction/
+  authority: reject                          # critic veto — blocking severity disables confident emit (Decision 7); belief_store.propose granted (contradicting_count++)
+  trigger_normalized: [event-driven]         # aliases shipped `trigger: event_driven` per 04 §A
+  memory_rw:
+    reads: [belief_store, indicator_event_study]                    # prior beliefs + actual-vs-predicted
+    writes: [belief_store_contradicting_count, evidence_drawer, alert_candidate]  # propose increment + B1 drawer + phase91 UAE
+  collaboration:
+    invoked_by: [phase85_release_event_listener]  # _dispatch_agent_sync after reaction_settled_at
+    may_invoke: []                           # a critic does not fan out to producers
+    may_challenge: [affected_indicator_confident_emit]  # blocking severity vetoes macro reads/forecasts on that indicator
+  failure_behavior:
+    insufficient_evidence: "missing event-study for the release -> no grade; surface the gap, never a default info-grade"
+    stale_data: "a release older than the reaction window surfaced as stale, not graded as live"
+    conflict: "the contradiction IS the output — blocking severity disables confident emit (refuse_stands, Decision 7)"
+    tool_failure: "an event-study/graph outage -> fail loud, name the tool, escalate; never a silent blind grade"
+  evaluation:
+    correctness_kpi: "blocking-recall = 1.0 (every true blocking contradiction disables confident emit); false-block rate <= 0.05; refuse_stands held = 1.0"
+    cost_slo: cost_budget_per_invocation
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

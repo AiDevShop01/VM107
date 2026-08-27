@@ -161,3 +161,31 @@ tags:
   - b5-self-eval
   - analogue-grounded
   - phase-90-stub
+
+# P167C (167-07) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+# SKELETON (migration-map §C): registered profile, agent module not built — disposition: wire to the
+# existing core/counterfactual/ engine. Additive-only; never deleted (09 §5).
+agent_contract:
+  contract_version: 1
+  catalogue_ref: world-model/counterfactual-engine.md
+  status: skeleton                           # registered profile, no agent module — wire to core/counterfactual/
+  authority: recommend                       # belief_store.propose NOT granted (only .query) — analogue-grounded estimate, not a decision
+  trigger_normalized: [user-invoked]         # aliases shipped `trigger: user_driven` per 04 §A (user_driven -> user-invoked)
+  memory_rw:
+    reads: [episodic_memory_service, belief_store, reasoning_artifact]  # Phase 87 analogue recall + blocking check + B1 WORM
+    writes: [reasoning_artifact, evidence_drawer]                        # B1 artifact + phase71.evidence_drawer.write
+  collaboration:
+    invoked_by: [user_what_if_request]
+    may_invoke: []                           # queries deterministic tools, not agents
+    may_challenge: []                        # gated by core/contradiction/ active_blocking() before emit (Decision 7)
+  failure_behavior:
+    insufficient_evidence: "fewer than 5 analogues -> refuse with 'insufficient analogues, N=X'; never fabricate a move (Decision 2)"
+    stale_data: "analogue period span >20y -> low_confidence_flag; stale event-study surfaced, not presented as current"
+    conflict: "an active blocking contradiction -> refuse confident emit (Decision 7, refuse_stands)"
+    tool_failure: "Phase 90 forecast absent -> fall back to the Phase 86 event-study path (never a silent error, Pitfall 5)"
+  evaluation:
+    correctness_kpi: "analogue-grounding = 1.0 (every ExpectedMove cell traces to a cited analogue; zero fabricated moves); floor-honesty = 1.0 (refuses every N<5)"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
