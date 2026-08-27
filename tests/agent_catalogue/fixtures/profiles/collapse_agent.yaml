@@ -1,0 +1,4 @@
+id: collapse_agent
+allowed_tools:
+  - tool_a
+  - tool_b

@@ -1,0 +1,6 @@
+id: vm107.valid_agent
+allowed_tools:
+  - tool_a
+  - tool_b
+denied_tools:
+  - tool_x

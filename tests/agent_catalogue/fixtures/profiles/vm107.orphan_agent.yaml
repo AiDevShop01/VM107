@@ -1,0 +1,3 @@
+id: vm107.orphan_agent
+allowed_tools:
+  - tool_a

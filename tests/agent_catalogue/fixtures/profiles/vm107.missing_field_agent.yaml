@@ -1,0 +1,3 @@
+id: vm107.missing_field_agent
+allowed_tools:
+  - tool_a

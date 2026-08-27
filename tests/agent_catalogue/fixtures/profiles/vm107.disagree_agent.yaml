@@ -1,0 +1,5 @@
+id: vm107.disagree_agent
+allowed_tools:
+  - tool_a
+denied_tools:
+  - tool_x

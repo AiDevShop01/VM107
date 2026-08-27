@@ -1,0 +1,6 @@
+# Role-scoped sub-profile: NARROWER allowed_tools than its canon-base parent.
+# check-(c) must collapse this onto `collapse_agent` by canon() and evaluate ONLY
+# the parent — never flag this narrower allow-list as a tools/authority disagreement.
+id: collapse_agent._reader
+allowed_tools:
+  - tool_a
