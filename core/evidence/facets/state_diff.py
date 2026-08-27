@@ -48,13 +48,25 @@ def compose_state_diff(ctx) -> tiers.FacetOutcome:
     if delta is not None and delta != 0.0:
         changed = True
 
+    # Propagate the REQUIRED spine's point-in-time / degradation honesty onto the
+    # diff (GAP 2): when the current DomainStateFacet is STALE (a degraded VM102
+    # read) the diff of a degraded spine is itself STALE — not silently NEUTRAL;
+    # a look-ahead flagged on domain_state is carried onto the diff's reason too.
+    spine_stale = getattr(current, "integrity", None) == FacetIntegrity.STALE
+    lookahead_reason = ctx.scratch.get("state_lookahead_reason")
+    resolved_integrity = FacetIntegrity.STALE if spine_stale else FacetIntegrity.NEUTRAL
+
     facet = StateDiffFacet(
         changed=bool(changed),
         previous_label=previous.label,
         current_label=current.label,
         delta_score=delta,
-        integrity=FacetIntegrity.NEUTRAL,
+        integrity=resolved_integrity,
     )
     return tiers.FacetOutcome(
-        name="state_diff", ok=True, integrity=FacetIntegrity.NEUTRAL, value=facet
+        name="state_diff",
+        ok=True,
+        integrity=resolved_integrity,
+        reason=lookahead_reason,
+        value=facet,
     )
