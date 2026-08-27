@@ -30,7 +30,15 @@ from typing import Any
 from fingpt_core.contracts.evidence_pack import FacetIntegrity, HistoricalPercentileFacet
 
 from core.evidence import tiers
-from core.evidence.facets import bounded
+from core.evidence.facets import bounded, is_latest_only_lookahead, to_iso
+
+# Look-ahead honesty (Constitution 18): the percentile read is latest-only, so a
+# run whose knowledge_time is materially in the past served a look-ahead — flagged
+# on the outcome reason (mirroring contribution.py's is_latest_only_flagged shape).
+_LATEST_ONLY_REASON = (
+    "is_latest_only_flagged: latest-only historical-percentile read served a past "
+    "as-of (look-ahead honesty — Constitution 18)"
+)
 
 
 def _percentile_facet(read: dict) -> HistoricalPercentileFacet | None:
@@ -82,7 +90,12 @@ def compose_historical_context(ctx) -> tiers.FacetOutcome:
         )
 
     req = ctx.request
-    read: Any = reader.historical_percentile(req.country, req.domain_slug, knowledge_time=None)
+    # Forward the run's as-of to the reader seam (GAP 3): a hardcoded None was a
+    # silent look-ahead. The concrete reader is latest-only today, so we ALSO flag
+    # a materially-past as-of on the outcome reason (never a silent point-in-time lie).
+    read: Any = reader.historical_percentile(
+        req.country, req.domain_slug, knowledge_time=to_iso(req.knowledge_time)
+    )
     if not isinstance(read, dict):
         read = {} if read is None else dict(getattr(read, "__dict__", {}))
 
@@ -96,11 +109,14 @@ def compose_historical_context(ctx) -> tiers.FacetOutcome:
         )
 
     # Percentile serves; the analogue sub-path is best-effort and recorded honestly.
-    analogue_reason = _analogue_reason(read)
+    # Carry BOTH the analogue sub-path status AND the look-ahead flag on the reason.
+    reason = _analogue_reason(read)
+    if is_latest_only_lookahead(req.knowledge_time, latest_only=True):
+        reason = f"{reason} | {_LATEST_ONLY_REASON}"
     return tiers.FacetOutcome(
         name="historical_context",
         ok=True,
         integrity=FacetIntegrity.NEUTRAL,
-        reason=analogue_reason,
+        reason=reason,
         value=facet,
     )

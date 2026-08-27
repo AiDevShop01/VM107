@@ -26,7 +26,15 @@ from typing import Any
 from fingpt_core.contracts.evidence_pack import FacetIntegrity, PriorAssessmentFacet
 
 from core.evidence import tiers
-from core.evidence.facets import parse_dt
+from core.evidence.facets import is_latest_only_lookahead, parse_dt, to_iso
+
+# Look-ahead honesty (Constitution 18): the evidence retrieval is latest-only, so
+# a run whose knowledge_time is materially in the past served a look-ahead —
+# flagged on the outcome reason (contribution.py's is_latest_only_flagged shape).
+_LATEST_ONLY_REASON = (
+    "is_latest_only_flagged: latest-only evidence retrieval served a past as-of "
+    "(look-ahead honesty — Constitution 18)"
+)
 
 # The source_id the Evidence facet registers under in the SourceHealthRegistry —
 # consulted hits-first (only when a retrieval returned no hits).
@@ -94,7 +102,11 @@ def compose_evidence_ranking(ctx) -> tiers.FacetOutcome:
 
     req = ctx.request
     limit = getattr(ctx.deps, "evidence_limit", None) or DEFAULT_LIMIT
-    raw = reader.search(req.country, req.domain_slug, knowledge_time=None, limit=limit)
+    # Forward the run's as-of to the retrieval seam (GAP 3): a hardcoded None was a
+    # silent look-ahead. Hits-first discipline below is unchanged.
+    raw = reader.search(
+        req.country, req.domain_slug, knowledge_time=to_iso(req.knowledge_time), limit=limit
+    )
     hits = _normalize_hits(raw)
 
     # HITS-FIRST: only consult the health bus when NO real results came back — a
@@ -116,9 +128,11 @@ def compose_evidence_ranking(ctx) -> tiers.FacetOutcome:
         )
 
     top = sorted(hits, key=_rank_key)[0]
+    reason = _LATEST_ONLY_REASON if is_latest_only_lookahead(req.knowledge_time, latest_only=True) else None
     return tiers.FacetOutcome(
         name="prior_assessment",
         ok=True,
         integrity=FacetIntegrity.NEUTRAL,
+        reason=reason,
         value=_to_prior_assessment(top),
     )
