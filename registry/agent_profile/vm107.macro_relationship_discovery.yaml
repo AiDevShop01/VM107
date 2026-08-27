@@ -111,3 +111,29 @@ tags:
   - discovery
   - nightly
   - not-sibling-service
+
+# P167C (167-03) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: research/macro-relationship-discovery.md
+  status: built
+  authority: propose                         # lowest constructive authority — emits candidates, never a signal
+  trigger_normalized: [scheduled]            # alias of shipped `trigger: schedule` (04 §A) — raw scalar kept in place
+  memory_rw:
+    reads: [vm102.indicator_series, neo4j.macro_graph]
+    writes: [postgres.macro_discovery_proposals, neo4j.shadow_edge, phase71.evidence_drawer]
+  collaboration:
+    invoked_by: [dagster.nightly_discovery_job]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "no pair clears r/p/n => zero proposals + discovery_health_warning; never lower the bar"
+    stale_data: "series older than the 12-month window excluded; fully-stale input aborts the pair, flagged"
+    conflict: "a proposal contradicting an existing edge surfaced as contested, not blended"
+    tool_failure: "vm102/vm105 tool down fails loud and names the tool; affected scan degrades, never silent []"
+  evaluation:
+    correctness_kpi: "candidate -> validated-hypothesis conversion rate >= 0.20; throughput 1-10/week"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

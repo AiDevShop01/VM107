@@ -62,3 +62,29 @@ tags:
   - neo4j
   - qdrant
   - economic-intelligence
+
+# P167C (167-03) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: world-model/country-dna-generator.md
+  status: built
+  authority: recommend                       # produces a structural state assessment; ceiling grounded to runtime least-privilege
+  trigger_normalized: [event-driven, reactive]   # alias of shipped `trigger: on_demand` + `country_profile_refreshed` (04 §A) — raw scalars kept in place
+  memory_rw:
+    reads: [qdrant.country_profiles, neo4j.country_knowledge_graph]
+    writes: []
+  collaboration:
+    invoked_by: [dagster.country_dna_recompute, event.country_profile_refreshed]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "thin coverage => fewer tags + enumerate gaps; never pad to 10 with invented traits"
+    stale_data: "profile older than weekly cadence flagged; tag confidence aged down, as-of stated"
+    conflict: "graph vs profile disagreement surfaced as contested, not averaged"
+    tool_failure: "Qdrant/Neo4j down (both REQUIRED) => fail loud, name the tool, degrade affected tags; never silent []"
+  evaluation:
+    correctness_kpi: "tag-grounding rate = 1.0; provenance-completeness >= 0.95"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
