@@ -50,6 +50,12 @@ services:
       # ran. Pointed at the live volume-mounted ./registry instead so host
       # YAML edits propagate without rebuild.
       CAPABILITY_REGISTRY_ROOT: /a0/registry
+      # Phase 167 (AGV-05) — agent-contract boot-enforcement lever. Passthrough
+      # so `CONTRACT_BOOT_STRICT=1` in the default .env actually reaches the
+      # process (read by initialize_validate_agent_contracts()). Default EMPTY =>
+      # WARN-and-continue (env-absent must NEVER brick boot — fragile-tree, D-02).
+      # Set to 1 in .env + plain recreate to enforce; unset + recreate to revert.
+      CONTRACT_BOOT_STRICT: ${CONTRACT_BOOT_STRICT:-}
       # Phase 67 Plan 12 — FastMCP server env (fail-fast — Phase 47.3 lock).
       # The ${VAR:?msg} syntax is docker-compose's fail-fast operator: missing
       # env at `docker compose up` aborts with the message. No fallback defaults.
