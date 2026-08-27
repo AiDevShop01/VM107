@@ -121,3 +121,29 @@ tags:
   - event-driven
   - regime
   - classifier
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-regime-analyst.md
+  status: built
+  authority: propose                         # belief_store.propose IS granted at the profile (B9)
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: event_driven` (econ_release / brain regime_assessment) (04 §A)
+  memory_rw:
+    reads: [episodic_memory, belief_store]
+    writes: [macro_regime_classification_envelope, b1_reasoning_artifact, belief_store_proposal]
+  collaboration:
+    invoked_by: [macro_release_event_listener, brain_fanout]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "missing anchors -> emit with limitation; never guess a regime"
+    stale_data: "surface anchor as-of/staleness; age confidence down"
+    conflict: "anchors disagree -> present the split; table ambiguous-row handling applies"
+    tool_failure: "event_study miss degrades analogues; retry-once then degraded_fallback() marks envelope degraded"
+  evaluation:
+    correctness_kpi: "classifier-lock respected = 1.0 (0 narrative/table regime mismatches); analogue-citation rate = 1.0"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

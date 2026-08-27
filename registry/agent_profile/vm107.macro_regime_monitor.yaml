@@ -95,3 +95,29 @@ tags:
   - regime-monitor
   - sibling-service
   - brain-b9
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-regime-monitor.md
+  status: built
+  authority: propose                         # belief_store.propose IS granted (proposer_id=macro_regime_monitor)
+  trigger_normalized: [scheduled]            # alias of shipped `trigger: schedule` (cron 0 */6 * * *) (04 §A)
+  memory_rw:
+    reads: [belief_store_regime_posterior, last_12h_anchor_deltas]
+    writes: [belief_store_transition_proposal, regime_transition_detected_event]
+  collaboration:
+    invoked_by: [cron:vm107-macro-regime-monitor]
+    may_invoke: []
+    may_challenge: [macro_regime_analyst]
+  failure_behavior:
+    insufficient_evidence: "thin 12h window -> no transition; surface insufficient_history"
+    stale_data: "below-freshness releases discounted from the update; surfaced"
+    conflict: "split posterior below threshold -> honest no-op, never an averaged transition"
+    tool_failure: "belief_store outage -> skip sweep, log, retry next cadence (no partial emit)"
+  evaluation:
+    correctness_kpi: "false-transition rate = 0 (no emit below 0.65 threshold); dedup-honoured rate = 1.0 (LOCK-9 12h)"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

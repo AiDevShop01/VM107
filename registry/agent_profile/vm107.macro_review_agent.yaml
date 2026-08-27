@@ -118,3 +118,29 @@ tags:
   - review
   - synchronous
   - not-sibling-service
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-review-agent.md
+  status: built
+  authority: recommend                       # belief_store.propose DENIED; read-only reviewer
+  trigger_normalized: [reactive]             # alias of shipped `trigger: on_demand` (synchronous VM100 dispatch) (04 §A)
+  memory_rw:
+    reads: [alert_payload, phase87_regime_state, phase89_correlation_data]
+    writes: [discovery_alert_candidate]
+  collaboration:
+    invoked_by: [vm100_alert_dispatcher]
+    may_invoke: []
+    may_challenge: [fired_alert_premise]
+  failure_behavior:
+    insufficient_evidence: "missing regime/correlation read -> inconclusive findings, no pivot"
+    stale_data: "surface read as-of/staleness; age confidence down"
+    conflict: "present corroboration-vs-contradiction split explicitly"
+    tool_failure: "reader miss degrades the cross-check; inconclusive, no fabricated corroboration"
+  evaluation:
+    correctness_kpi: "self-loop-ban respected = 1.0 (0 self-targeted dispatches); within-60s-SLA rate at p95"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

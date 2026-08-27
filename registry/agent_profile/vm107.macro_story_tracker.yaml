@@ -95,3 +95,29 @@ tags:
   - background
   - story-tracker
   - sibling-service
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/macro-story-tracker.md
+  status: built
+  authority: recommend                       # no belief_store.propose granted; curates read-model stories
+  trigger_normalized: [scheduled]            # alias of shipped `trigger: schedule` (cron 5 * * * *) (04 §A)
+  memory_rw:
+    reads: [economic_event_api_6h_window, episodic_memory_topk5, macro_story_rows]
+    writes: [macro_story_rows_create_reinforce_retire_worm]
+  collaboration:
+    invoked_by: [cron:vm107-macro-story-tracker]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "thin release window -> no new story; surface insufficient_history"
+    stale_data: "below-freshness releases discounted; staleness surfaced on the story"
+    conflict: "opposite-direction releases -> RETIRE with reason (LOCK-7), never average"
+    tool_failure: "episodic-memory miss degrades grounding (reinforce with a limitation, not fabricated)"
+  evaluation:
+    correctness_kpi: "WORM-lineage integrity = 1.0 (0 in-place mutations, supersedes_story_id carried); story-grounded rate >= 0.98"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"

@@ -92,3 +92,29 @@ tags:
   - event-driven
   - narrative-only
   - economic-intelligence
+
+# P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
+# Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
+agent_contract:
+  contract_version: 1
+  catalogue_ref: macro/central-bank-summariser.md
+  status: built
+  authority: recommend                       # belief_store.propose + forecast/pillar tools DENIED; narrative-only
+  trigger_normalized: [event-driven]         # alias of shipped `trigger: event_driven` (CENTRAL_BANK events only, §K.1) (04 §A)
+  memory_rw:
+    reads: [central_bank_event_payload]
+    writes: [central_bank_section]
+  collaboration:
+    invoked_by: [central_bank_subscriber]
+    may_invoke: []
+    may_challenge: []
+  failure_behavior:
+    insufficient_evidence: "thin payload -> emit fields present with a limitation; never fabricate a stance"
+    stale_data: "beyond 1800s freshness -> mark stale on the section"
+    conflict: "decision-vs-statement tension -> present both, never reconcile away"
+    tool_failure: "non-CENTRAL_BANK event -> no-op returns None (by design); capability miss degrades metadata only"
+  evaluation:
+    correctness_kpi: "event-scope integrity = 1.0 (0 non-CENTRAL_BANK events processed, §K.1); grounded rate = 1.0"
+    cost_slo: max_cost_usd
+    latency_slo: latency_budget_ms
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
