@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any, Final, Optional
 
 from core.contracts.schemas import (
@@ -135,12 +136,30 @@ def _call_subordinate_sync(
     message: str,
     *,
     parent_context: Optional[Any] = None,
+    knowledge_time: Optional[datetime] = None,
 ) -> tuple[str, dict]:
     """Invoke a subordinate Agent with the given profile and return (raw_output, telemetry).
 
     Synchronous wrapper. In production, constructs a minimal subordinate AgentContext
     using Agent Zero's existing primitives (Research § 7 resolution option 2).
     Late imports to avoid circular dependencies (agent.py → core → invocation).
+
+    Phase 168 (D-06b / AGV-08): ``knowledge_time`` threads the parent run's
+    point-in-time as-of onto the subordinate/collaboration request so a nested
+    call honors the SAME knowledge horizon and never re-mints to ``now()`` on the
+    delegation hop. It is carried through the EXISTING in-VM107 kwargs structure
+    (there is no typed ``fingpt_core.contracts.agents.*Request`` with a
+    knowledge_time field yet — that typed-contract upgrade is a 169 dependency,
+    RESEARCH Open Q2 / Assumption A3; threaded defensively here, scope not
+    expanded). If not passed explicitly, it is derived from the parent
+    InvocationContext's immutable ``knowledge_time``.
+
+    Args:
+        profile: Subordinate agent profile id.
+        message: Prompt payload for the subordinate.
+        parent_context: Optional parent InvocationContext (carries knowledge_time).
+        knowledge_time: Explicit as-of override; falls back to
+            ``parent_context.knowledge_time`` when omitted.
 
     Returns:
         (raw_output, telemetry) where telemetry is a dict with:
@@ -149,6 +168,10 @@ def _call_subordinate_sync(
     Raises:
         RuntimeError: If Agent Zero bootstrap fails.
     """
+    # D-06b: carry the parent run's as-of onto the subordinate call immutably —
+    # forward the value, never re-stamp to now() on the delegation hop.
+    if knowledge_time is None and parent_context is not None and hasattr(parent_context, "knowledge_time"):
+        knowledge_time = parent_context.knowledge_time
     # Late imports — avoid circular dependency: agent.py imports core; core must not
     # import agent.py at module level.
     try:
@@ -174,6 +197,16 @@ def _call_subordinate_sync(
     # Inject routing agent_id for affinity map lookup (CONTEXT § Agent Identity).
     from core.agents.tool_scope import resolve_agent_id_from_profile
     sub.data["agent_id"] = resolve_agent_id_from_profile(profile)
+
+    # Phase 168 (D-06b / AGV-08): thread the parent run's point-in-time as-of onto
+    # the subordinate request via the existing ``data`` kwargs structure so the
+    # subordinate's stamp-once site (agent.py process_tools, 168-07) honors the
+    # SAME knowledge_time as the parent instead of re-minting to now(). The
+    # loop_data hook ``_knowledge_time`` is the replay seam 168-07 already reads.
+    if knowledge_time is not None:
+        sub.data["knowledge_time"] = knowledge_time
+        if getattr(sub, "loop_data", None) is not None:
+            sub.loop_data._knowledge_time = knowledge_time
 
     # Add the user message to subordinate's history, then run its monologue.
     # Agent.monologue() takes no arguments — the message must be in history.

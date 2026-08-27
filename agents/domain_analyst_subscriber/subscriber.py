@@ -158,6 +158,16 @@ class DomainAnalystSubscriber:
             return
         snapshot_version = event.payload.get("snapshot_version")
 
+        # Phase 168 (D-06a / AGV-08 / T-168-10): read the run's point-in-time
+        # as-of off the inbound EconomicEvent envelope and carry it IMMUTABLY
+        # down the fan-out. This async MACRO_RELEASE hop is exactly where a
+        # re-mint to ``now()`` would silently introduce temporal look-ahead
+        # (the "collapse to latest" pitfall) — we NEVER re-stamp here, we
+        # forward ``event.knowledge_time`` verbatim. ``None`` means the event
+        # predates the knowledge_time carrier (168-01), in which case the
+        # downstream analyst falls back to its own as-of.
+        knowledge_time = event.knowledge_time
+
         for slug in affected:
             analyst = self.analysts.get(slug)
             if analyst is None:
@@ -197,7 +207,11 @@ class DomainAnalystSubscriber:
                         slug, event.event_id,
                     )
                 else:
-                    analyst.invoke(domain)
+                    # D-06a: forward the event's as-of onto the analyst
+                    # invocation via the existing ``context`` param (all 12
+                    # domain analysts accept ``context: dict | None``) — an
+                    # immutable passthrough, not a fresh stamp.
+                    analyst.invoke(domain, {"knowledge_time": knowledge_time})
                 # Successful (or log-only) dispatch marks the key.
                 self.processed.add(key)
                 self._last_invoke_ts[slug] = now
