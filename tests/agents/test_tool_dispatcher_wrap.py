@@ -72,6 +72,7 @@ def _make_ctx(
         agent_id="test_agent",
         conversation_id="conv-abc",
         execution_depth=depth,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 

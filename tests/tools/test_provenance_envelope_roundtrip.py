@@ -67,6 +67,7 @@ def _make_ctx() -> InvocationContext:
         agent_id="agent_zero",
         conversation_id=None,
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 

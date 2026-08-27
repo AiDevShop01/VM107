@@ -150,6 +150,10 @@ def _derive_child_ctx(ctx: InvocationContext, new_envelope_id: uuid.UUID) -> Inv
         agent_id=ctx.agent_id,
         conversation_id=ctx.conversation_id,
         execution_depth=ctx.execution_depth + 1,
+        # Phase 168 (D-06c / AGV-08): forward the run's as-of UNCHANGED so the
+        # child ctx equals the parent's knowledge_time — the frozen model forbids
+        # mutation, so look-ahead is never silently re-minted at nesting.
+        knowledge_time=ctx.knowledge_time,
     )
 
 

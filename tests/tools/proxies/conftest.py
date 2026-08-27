@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -100,4 +101,5 @@ def mock_dispatcher_ctx():
         agent_id="agent_zero",
         conversation_id=None,
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )

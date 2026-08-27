@@ -1014,6 +1014,15 @@ class Agent:
                         if not getattr(self.loop_data, "_current_trace_id", None):
                             self.loop_data._current_trace_id = _uuid4()
 
+                        # Phase 168 (D-06c / AGV-08): STAMP-ONCE the run's as-of.
+                        # This is the SINGLE authority that mints knowledge_time —
+                        # a replay/historical time on loop_data (if present) wins so
+                        # a backtest run carries its horizon; otherwise a live run is
+                        # now(). _derive_child_ctx propagates it UNCHANGED to every
+                        # nested tool via dispatch_tool (never re-minted downstream).
+                        _knowledge_time = getattr(
+                            self.loop_data, "_knowledge_time", None
+                        ) or datetime.now(timezone.utc)
                         ctx = InvocationContext(
                             envelope_id=_uuid4(),
                             parent_envelope_id=None,
@@ -1021,6 +1030,7 @@ class Agent:
                             agent_id=getattr(self, "agent_name", "agent_zero"),
                             conversation_id=getattr(self.context, "id", None),
                             execution_depth=0,
+                            knowledge_time=_knowledge_time,
                         )
 
                         # Bind self into the agent contextvar so the resolver can

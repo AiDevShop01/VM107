@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
@@ -44,6 +45,7 @@ def _make_ctx() -> InvocationContext:
         trace_id=uuid.uuid4(),
         agent_id="agent_zero",
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 

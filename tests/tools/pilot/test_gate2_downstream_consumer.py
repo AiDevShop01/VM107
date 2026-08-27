@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import sys
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -49,6 +50,7 @@ def _make_ctx() -> InvocationContext:
         trace_id=uuid.uuid4(),
         agent_id="agent_zero",
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 
@@ -224,6 +226,7 @@ async def test_gate2_refused_envelope_distinct_from_failure(mock_dispatcher_ctx)
         trace_id=uuid.uuid4(),
         agent_id="agent_zero",
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
     failure_ctx = InvocationContext(
@@ -232,6 +235,7 @@ async def test_gate2_refused_envelope_distinct_from_failure(mock_dispatcher_ctx)
         trace_id=uuid.uuid4(),
         agent_id="agent_zero",
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
     with patch("core.agents.tool_dispatcher._get_registry", return_value=mock_reg):

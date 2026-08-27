@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -61,6 +62,7 @@ def _make_invocation_context():
         agent_id="test_agent",
         conversation_id=None,
         execution_depth=0,
+        knowledge_time=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
 
 
