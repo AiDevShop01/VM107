@@ -7,9 +7,9 @@ adversarially reviews a producer's typed `DomainAssessment` PLUS its pre-compres
 `DomainEvidencePack` facets and emits a real, falsifiable `CriticVerdict`
 (ACCEPT / REFINE / REJECT) with typed `RefinementTarget[]`.
 
-Determinism (D-02, NON-NEGOTIABLE): this package is LLM-free — no
-openai/anthropic/litellm import anywhere — and the critique path's effective
-`max_cost_usd` stays 0.0. Its engine-lock is closed by the sibling test
+Determinism (D-02, NON-NEGOTIABLE): this package is LLM-free — no LLM-SDK import
+anywhere — and the critique path's effective `max_cost_usd` stays 0.0. Its
+engine-lock is closed by the sibling test
 `tests/agents/test_specialized_critic_engine_lock.py`, whose glob covers BOTH
 this package and `core/causal/` so a future file cannot silently smuggle an LLM
 or engine-recompute import back in (Pitfall 3). Lenses are transformation-pure:

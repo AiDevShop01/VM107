@@ -7,7 +7,7 @@ concrete behavior is config, not subclasses.
 Path choice (mirror `core/agents/domain_agent.py`): this file lives OUTSIDE any
 per-slug static-grep path; its own engine-lock is closed by the sibling test
 `tests/agents/test_specialized_critic_engine_lock.py` (Task 3). The base is
-LLM-free (no openai/anthropic/litellm — Pitfall 5); the critique path's effective
+LLM-free (no LLM-SDK import — Pitfall 5); the critique path's effective
 `max_cost_usd` stays 0.0.
 
 `critique(assessment, pack) -> CriticVerdict`:
