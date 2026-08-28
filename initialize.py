@@ -348,6 +348,67 @@ def initialize_validate_agent_contracts(profile_dir: Path | None = None) -> int:
             f"Findings: {dd_detail}"
         )
 
+    # --- P170 (170-05, D-01a / AGV-12): additive critic_definition: check ---
+    # Presence + schema validation of the net-new `critic_definition:` block — the five
+    # deterministic specialized-critic lens configs authored as ONE authoritative index
+    # (registry/agent_profile/vm107.specialized_critics.yaml). Each lens entry is validated
+    # via LensConfig.from_profile (yaml.safe_load ONLY — ASVS V5 / T-170-05-02;
+    # presence/schema ONLY — NEVER mutates a profile).
+    #
+    # Gated with its OWN inverted-default flag CRITIC_DEF_BOOT_STRICT (independent of
+    # CONTRACT_BOOT_STRICT / DOMAIN_DEF_BOOT_STRICT) — the fragile-tree guard (D-02 / D-07 /
+    # T-170-05-01): absent/!=1 => WARN-and-continue (boot NEVER bricks); ==1 => raise
+    # SystemExit. Left OFF in this phase; flipped ON only after all-green + the Plan 06 live
+    # verify. Reversible by unsetting the flag with NO code change. Leading-underscore
+    # scaffold files are skipped (established 169-05/169-06 convention).
+    cd_strict = os.environ.get("CRITIC_DEF_BOOT_STRICT") == "1"
+    cd_findings: list[str] = []
+    try:
+        from core.agents.specialized_critic.lens_config import LensConfig
+    except Exception as exc:  # loader import failure => a finding, never a bare crash
+        LensConfig = None  # type: ignore[assignment]
+        cd_findings.append(f"<lens_config loader import>: {type(exc).__name__}: {exc}")
+
+    if LensConfig is not None:
+        for yml in sorted(profile_dir.glob("*.yaml")):
+            if yml.name.startswith("_"):
+                continue  # template/scaffold manifest — never a finding (169-05/169-06)
+            try:
+                data = yaml.safe_load(yml.read_text()) or {}  # safe_load ONLY — ASVS V5
+            except yaml.YAMLError as exc:
+                cd_findings.append(f"{yml.name}: YAMLError: {exc}")
+                continue
+            if not isinstance(data, dict) or "critic_definition" not in data:
+                continue  # not a lens-config index — nothing to validate
+            block = data["critic_definition"]
+            if isinstance(block, dict):
+                entries = list(block.values())
+            elif isinstance(block, list):
+                entries = list(block)
+            else:
+                cd_findings.append(f"{yml.name}: critic_definition is not a mapping/list")
+                continue
+            for entry in entries:
+                try:
+                    LensConfig.from_profile({"critic_definition": entry})  # schema validation
+                except Exception as exc:
+                    cd_findings.append(f"{yml.name}: {type(exc).__name__}: {exc}")
+
+    if cd_findings:
+        cd_detail = "; ".join(cd_findings)
+        if cd_strict:
+            raise SystemExit(
+                f"CRITIC_DEF_BOOT_STRICT: {len(cd_findings)} critic-definition finding(s) — a "
+                f"missing/invalid lens-config block — VM107 cannot start (AGV-12). "
+                f"Author/fix the critic_definition: block(s) and restart, or unset "
+                f"CRITIC_DEF_BOOT_STRICT to boot. Findings: {cd_detail}"
+            )
+        PrintStyle().print(
+            f"WARN: {len(cd_findings)} critic-definition finding(s) — missing/invalid "
+            f"critic_definition: block (boot continues; set CRITIC_DEF_BOOT_STRICT=1 to enforce). "
+            f"Findings: {cd_detail}"
+        )
+
     return validated
 
 
