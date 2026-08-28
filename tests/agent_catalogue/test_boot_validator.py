@@ -145,3 +145,121 @@ def test_all_real_profiles_green_strict(monkeypatch):
     # No profile_dir arg => the real registry corpus. Must not raise.
     count = initialize_validate_agent_contracts(profile_dir=_REAL_PROFILE_DIR)
     assert count >= 40  # all in-scope canon-base agents validated green
+
+
+# ---------------------------------------------------------------------------
+# P169 (169-05, D-11 / AGV-09 / AGV-11) — domain_definition: boot-check coverage
+#
+# The SAME env-gated boot hook now also presence/schema-validates the net-new
+# `domain_definition:` block on the 12 vm107.*_domain_analyst.yaml manifests via
+# DomainDefinition.from_profile (yaml.safe_load ONLY). It carries its OWN inverted-
+# default flag DOMAIN_DEF_BOOT_STRICT (absent/!=1 => WARN-and-continue; ==1 => raise)
+# so boot NEVER bricks on the fragile tree before all 12 blocks land (Pitfall 3).
+# ---------------------------------------------------------------------------
+
+# A minimal, schema-valid domain_definition: block (version/knowledge_version +
+# a reasoning_rules with a default_state is the smallest thing that parses).
+_VALID_DOMAIN_DEF = {
+    "version": "1.0.0",
+    "knowledge_version": "test-domain-v1",
+    "reasoning_rules": {"default_state": "Neutral"},
+}
+
+# The 12 canonical domain slugs the block is authored for (Plan 169-05).
+_DOMAIN_SLUGS = [
+    "inflation", "growth", "labour", "housing", "credit", "monetary_policy",
+    "fiscal", "external_sector", "manufacturing", "consumer",
+    "financial_conditions", "commodities",
+]
+
+
+def test_domain_def_default_warn_never_raises(tmp_path, monkeypatch):
+    """Flag unset => a domain-analyst manifest MISSING domain_definition does NOT raise."""
+    from initialize import initialize_validate_agent_contracts
+
+    monkeypatch.delenv("DOMAIN_DEF_BOOT_STRICT", raising=False)
+    monkeypatch.delenv("CONTRACT_BOOT_STRICT", raising=False)
+    d = tmp_path / "agent_profile"
+    d.mkdir()
+    # A domain-analyst profile WITH agent_contract but WITHOUT domain_definition.
+    _write_profile(d, "vm107.inflation_domain_analyst.yaml",
+                   id="vm107.inflation_domain_analyst",
+                   allowed_tools=["tool_a"], agent_contract=dict(_VALID_CONTRACT))
+
+    # Env-absent for BOTH flags => WARN-and-continue; must not raise.
+    initialize_validate_agent_contracts(profile_dir=d)
+
+
+def test_domain_def_strict_raises_on_missing(tmp_path, monkeypatch):
+    """DOMAIN_DEF_BOOT_STRICT=1 + a domain-analyst manifest missing the block => SystemExit."""
+    from initialize import initialize_validate_agent_contracts
+
+    monkeypatch.setenv("DOMAIN_DEF_BOOT_STRICT", "1")
+    monkeypatch.delenv("CONTRACT_BOOT_STRICT", raising=False)
+    d = tmp_path / "agent_profile"
+    d.mkdir()
+    _write_profile(d, "vm107.inflation_domain_analyst.yaml",
+                   id="vm107.inflation_domain_analyst",
+                   allowed_tools=["tool_a"], agent_contract=dict(_VALID_CONTRACT))
+
+    with pytest.raises(SystemExit):
+        initialize_validate_agent_contracts(profile_dir=d)
+
+
+def test_domain_def_strict_raises_on_malformed(tmp_path, monkeypatch):
+    """DOMAIN_DEF_BOOT_STRICT=1 + a domain_definition block missing a required key
+    (reasoning_rules) => SystemExit (schema validation, not just presence)."""
+    from initialize import initialize_validate_agent_contracts
+
+    monkeypatch.setenv("DOMAIN_DEF_BOOT_STRICT", "1")
+    monkeypatch.delenv("CONTRACT_BOOT_STRICT", raising=False)
+    d = tmp_path / "agent_profile"
+    d.mkdir()
+    malformed = {"version": "1.0.0", "knowledge_version": "x"}  # no reasoning_rules
+    _write_profile(d, "vm107.inflation_domain_analyst.yaml",
+                   id="vm107.inflation_domain_analyst",
+                   allowed_tools=["tool_a"], agent_contract=dict(_VALID_CONTRACT),
+                   domain_definition=malformed)
+
+    with pytest.raises(SystemExit):
+        initialize_validate_agent_contracts(profile_dir=d)
+
+
+def test_domain_def_valid_block_no_raise_under_strict(tmp_path, monkeypatch):
+    """A schema-valid domain_definition block passes even under strict (no false-fail)."""
+    from initialize import initialize_validate_agent_contracts
+
+    monkeypatch.setenv("DOMAIN_DEF_BOOT_STRICT", "1")
+    monkeypatch.delenv("CONTRACT_BOOT_STRICT", raising=False)
+    d = tmp_path / "agent_profile"
+    d.mkdir()
+    _write_profile(d, "vm107.inflation_domain_analyst.yaml",
+                   id="vm107.inflation_domain_analyst",
+                   allowed_tools=["tool_a"], agent_contract=dict(_VALID_CONTRACT),
+                   domain_definition=dict(_VALID_DOMAIN_DEF))
+
+    # Valid block => no finding => no raise.
+    initialize_validate_agent_contracts(profile_dir=d)
+
+
+def test_all_12_real_domain_defs_parse():
+    """Every one of the 12 real domain-analyst manifests carries a conforming
+    domain_definition: block (DomainDefinition.from_profile parses each)."""
+    from core.agents.domain_definition import DomainDefinition
+
+    for slug in _DOMAIN_SLUGS:
+        path = _REAL_PROFILE_DIR / f"vm107.{slug}_domain_analyst.yaml"
+        dd = DomainDefinition.from_profile(str(path))
+        assert dd.version  # non-empty version
+        assert dd.reasoning_rules.default_state  # classifier default present
+
+
+def test_all_real_domain_defs_green_strict(monkeypatch):
+    """DOMAIN_DEF_BOOT_STRICT=1 over the REAL corpus raises nothing — all 12 blocks
+    are present + schema-valid (the green gate after 169-05 authoring)."""
+    from initialize import initialize_validate_agent_contracts
+
+    monkeypatch.setenv("DOMAIN_DEF_BOOT_STRICT", "1")
+    monkeypatch.delenv("CONTRACT_BOOT_STRICT", raising=False)
+    # Real corpus; the domain_definition strict pass must not raise.
+    initialize_validate_agent_contracts(profile_dir=_REAL_PROFILE_DIR)

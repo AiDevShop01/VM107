@@ -268,6 +268,11 @@ def initialize_validate_agent_contracts(profile_dir: Path | None = None) -> int:
     validated = 0
     missing: list[str] = []
     for yml in sorted(profile_dir.glob("*.yaml")):
+        if yml.name.startswith("_"):
+            # Template/scaffold manifest (e.g. _TEMPLATE.yaml) — not a shippable agent.
+            # Never counted, never a finding (P169-05: closes a latent CONTRACT_BOOT_STRICT
+            # boot-brick introduced when a `_TEMPLATE.yaml` landed in registry/agent_profile/).
+            continue
         try:
             data = yaml.safe_load(yml.read_text()) or {}
         except yaml.YAMLError as exc:
@@ -301,6 +306,46 @@ def initialize_validate_agent_contracts(profile_dir: Path | None = None) -> int:
         PrintStyle().print(
             f"WARN: {len(missing)} profile(s) missing agent_contract: block (boot continues; "
             f"set CONTRACT_BOOT_STRICT=1 to enforce). Missing: {detail}"
+        )
+
+    # --- P169 (169-05, D-11 / AGV-09 / AGV-11): additive domain_definition: check ---
+    # Presence + schema validation of the net-new `domain_definition:` block on the 12
+    # vm107.*_domain_analyst.yaml manifests, delegated to DomainDefinition.from_profile
+    # (yaml.safe_load ONLY — ASVS V5 / T-169-05-01; presence/schema ONLY — never mutates).
+    #
+    # Gated with its OWN inverted-default flag DOMAIN_DEF_BOOT_STRICT (independent of
+    # CONTRACT_BOOT_STRICT) — the fragile-tree guard (D-02 / Pitfall 3): absent/!=1 =>
+    # WARN-and-continue (boot NEVER bricks); ==1 => raise SystemExit. Left OFF in this
+    # phase; flipped ON only after all-green + the Plan 07 live verify. Reversible by
+    # unsetting the flag with NO code change (T-169-05-02).
+    dd_strict = os.environ.get("DOMAIN_DEF_BOOT_STRICT") == "1"
+    dd_findings: list[str] = []
+    try:
+        from core.agents.domain_definition import DomainDefinition
+    except Exception as exc:  # loader import failure => a finding, never a bare crash
+        DomainDefinition = None  # type: ignore[assignment]
+        dd_findings.append(f"<domain_definition loader import>: {type(exc).__name__}: {exc}")
+
+    if DomainDefinition is not None:
+        for yml in sorted(profile_dir.glob("vm107.*_domain_analyst.yaml")):
+            try:
+                DomainDefinition.from_profile(str(yml))  # safe_load + schema validation
+            except Exception as exc:
+                dd_findings.append(f"{yml.name}: {type(exc).__name__}: {exc}")
+
+    if dd_findings:
+        dd_detail = "; ".join(dd_findings)
+        if dd_strict:
+            raise SystemExit(
+                f"DOMAIN_DEF_BOOT_STRICT: {len(dd_findings)} domain-analyst profile(s) with a "
+                f"missing/invalid domain_definition: block — VM107 cannot start (AGV-09/AGV-11). "
+                f"Author/fix the block(s) and restart, or unset DOMAIN_DEF_BOOT_STRICT to boot. "
+                f"Findings: {dd_detail}"
+            )
+        PrintStyle().print(
+            f"WARN: {len(dd_findings)} domain-analyst profile(s) with missing/invalid "
+            f"domain_definition: block (boot continues; set DOMAIN_DEF_BOOT_STRICT=1 to enforce). "
+            f"Findings: {dd_detail}"
         )
 
     return validated
