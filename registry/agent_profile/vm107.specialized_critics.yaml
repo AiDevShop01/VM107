@@ -1,0 +1,109 @@
+id: vm107.specialized_critics
+type: agent_profile
+status: real
+shipped: 170
+last_changed: "2026-08-28"
+name: vm107.specialized_critics
+
+description: >-
+  Phase 170 (D-01a / AGV-12) — the SOLE authoritative index of the five deterministic
+  specialized-critic lens configs (Evidence / Causality / Market / Risk / Model). This
+  is NOT an agent persona: it carries no tools, no invoke, no LLM engine. It is the
+  validated `critic_definition:` block the config-driven `SpecializedCritic(lens)` base
+  (core/agents/specialized_critic/) consumes to run an LLM-free, transformation-pure
+  critique of a DomainAssessment + its DomainEvidencePack. Each lens entry conforms to
+  the frozen `extra="forbid"` LensConfig schema (core/agents/specialized_critic/
+  lens_config.py, Plan 170-03) — one authoritative index, mirrors the 167 `agent_contract:`
+  / 169 `domain_definition:` registry placement. NOT a parallel config tree.
+
+# This index is a deterministic critic panel — no per-account context, no persistent
+# memory, no LLM engine (D-02 / authority-05). The critics judge artifacts; they never
+# approve or rewrite an assessment (reject-ceiling only, D-05).
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_cost_usd: 0.0
+is_deterministic: true
+
+tags:
+  - critic-panel
+  - specialized-critic
+  - lens-config
+  - deterministic
+  - phase-170
+  - engine-lock
+
+owner: engineering
+
+# P170 (170-05, D-01a / AGV-12) — the five validated lens configs as ONE `critic_definition:`
+# block, one entry per lens (EVIDENCE / CAUSALITY / MARKET / RISK / MODEL). Each entry is a
+# frozen LensConfig (core/agents/specialized_critic/lens_config.py): the lens identity, the
+# pre-compressed pack facets it may read (SPEC §2 — a DIFFERENT slice per lens), its canonical
+# failure-mode ID(s), its RefinementTarget scope/target_field coordinates, and its rule
+# thresholds. Presence/schema-validated at boot by initialize_validate_agent_contracts via
+# LensConfig.from_profile (yaml.safe_load ONLY, ASVS V5) behind the inverted-default
+# CRITIC_DEF_BOOT_STRICT flag (WARN by default — boot never bricks; ==1 to enforce).
+critic_definition:
+  EVIDENCE:
+    version: "1.0.0"
+    lens: EVIDENCE
+    facets:
+      - top_contributors
+      - top_signals
+      - data_quality
+    failure_modes:
+      - EVIDENCE_UNSUPPORTED
+    scope: CLAIM
+    target_field: claims
+    min_data_quality: 0.5
+    min_supporting_evidence: 1
+
+  CAUSALITY:
+    version: "1.0.0"
+    lens: CAUSALITY
+    facets:
+      - contradictions
+    failure_modes:
+      - MECHANISM_UNREGISTERED
+    scope: CLAIM
+    target_field: claims
+    contradiction_severity_threshold: 0.75
+
+  MARKET:
+    version: "1.0.0"
+    lens: MARKET
+    facets:
+      - state_diff
+      - historical_percentile
+    failure_modes:
+      - ALREADY_PRICED_IN
+    scope: DOMAIN_ASSESSMENT
+    target_field: momentum
+    priced_in_percentile: 90.0
+
+  RISK:
+    version: "1.0.0"
+    lens: RISK
+    facets:
+      - excluded_signals
+    failure_modes:
+      - NO_INVALIDATION_CONDITION
+    scope: DOMAIN_ASSESSMENT
+    target_field: invalidation_conditions
+    material_excluded_importance: 0.5
+
+  MODEL:
+    version: "1.0.0"
+    lens: MODEL
+    facets:
+      - pack_integrity
+      - domain_state
+      - data_quality
+    failure_modes:
+      - MODEL_DEGRADING
+    scope: DOMAIN_ASSESSMENT
+    target_field: integrity_state
+    min_model_coverage: 0.5

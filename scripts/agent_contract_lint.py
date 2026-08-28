@@ -51,7 +51,14 @@ DEFAULT_CATALOGUE_DIR = _VM107_ROOT.parent / "Documentation" / "Agent Zero" / "a
 
 # Infra/framework personas excluded from contract authoring + the lint join (D-07).
 # Post-canon() values.
-EXCLUDED_IDS = {"default", "agent-zero", "vm107"}
+#
+# P170 (170-05, D-01a): `vm107.specialized_critics` is NOT an agent persona — it is the
+# sole authoritative `critic_definition:` lens-config INDEX (no tools, no invoke, no LLM
+# engine), presence/schema-validated by its OWN boot check (CRITIC_DEF_BOOT_STRICT), not the
+# agent_contract: check. Excluded here so the agent-persona contract gate never false-flags
+# it as a canon-base profile missing agent_contract:, mirroring the default/agent-zero/vm107
+# infra exclusions.
+EXCLUDED_IDS = {"default", "agent-zero", "vm107", "specialized-critics"}
 
 # The required catalogue frontmatter fields (from agent-catalogue/_TEMPLATE.md). This
 # list — together with REQUIRED_CONTRACT_SECTIONS below — IS the schema every authoring
