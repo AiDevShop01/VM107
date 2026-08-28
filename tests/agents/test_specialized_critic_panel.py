@@ -180,3 +180,126 @@ def test_aggregate_empty_raises():
 
     with pytest.raises(ValueError):
         aggregate_panel([])
+
+
+# ===========================================================================
+# Task 3 — panel runner: five lenses + SC#2 green gate + purity + short-circuit
+# ===========================================================================
+_EXPECTED_LENSES = {"EVIDENCE", "CAUSALITY", "MARKET", "RISK", "MODEL"}
+
+
+def test_panel_registers_exactly_five_lenses(bare_correlation_assessment, minimal_evidence_pack):
+    """run_panel fans EXACTLY five lenses; each returns a real CriticVerdict."""
+    from core.agents.specialized_critic.base import SpecializedCritic
+    from core.agents.specialized_critic.lens_config import default_lens_configs
+
+    configs = default_lens_configs()
+    assert set(configs) == _EXPECTED_LENSES
+    assert len(configs) == 5
+
+    for name, config in configs.items():
+        verdict = SpecializedCritic(lens_config=config).critique(
+            bare_correlation_assessment, minimal_evidence_pack
+        )
+        assert isinstance(verdict, CriticVerdict)
+        assert verdict.verdict in {"ACCEPT", "REFINE", "REJECT"}
+        assert config.lens in _EXPECTED_LENSES
+
+
+def test_sc2_green_gate_bare_correlation_is_causality_rejected(
+    bare_correlation_assessment, minimal_evidence_pack
+):
+    """SC#2 GREEN GATE (Constitution 11): a bare-correlation 'signal' with no
+    registered transmission mechanism -> panel REJECT/REFINE driven by the
+    Causality lens, with a MECHANISM_UNREGISTERED RefinementTarget citing the
+    missing mechanism."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    panel = run_panel(bare_correlation_assessment, minimal_evidence_pack)
+
+    assert panel.verdict in {"REJECT", "REFINE"}
+    mech_targets = [
+        t
+        for t in panel.refinement_targets
+        if t.canonical_issue_id == CanonicalIssueId.MECHANISM_UNREGISTERED
+    ]
+    assert mech_targets, "expected a MECHANISM_UNREGISTERED RefinementTarget in the union"
+    # The target's prose cites the MISSING transmission mechanism (Constitution 11).
+    assert any("mechanism" in t.issue.lower() for t in mech_targets)
+    assert "MECHANISM_UNREGISTERED" in panel.failure_modes
+
+
+def test_panel_reject_ceiling_holds_over_causality_reject(
+    bare_correlation_assessment, minimal_evidence_pack
+):
+    """Even though Evidence/Market/etc. may ACCEPT, the Causality REJECT holds the
+    panel ceiling at REJECT (cannot be talked into ACCEPT)."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    panel = run_panel(bare_correlation_assessment, minimal_evidence_pack)
+    assert panel.verdict == "REJECT"
+
+
+def test_panel_accept_path_supported_assessment(supported_assessment, minimal_evidence_pack):
+    """A well-supported claim with a seeded mechanism -> panel ACCEPT (no REJECT/REFINE)."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    panel = run_panel(supported_assessment, minimal_evidence_pack)
+    assert panel.verdict == "ACCEPT"
+    assert panel.refinement_targets == []
+    assert panel.failure_modes == []
+
+
+def test_purity_input_assessment_unchanged_after_run_panel(
+    bare_correlation_assessment, minimal_evidence_pack
+):
+    """Transformation-purity (T-170-04-01): the input assessment is byte-identical
+    after run_panel — no lens/aggregate mutates it, no ACCEPT-with-rewrite."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    before = bare_correlation_assessment.model_dump(mode="json")
+    panel = run_panel(bare_correlation_assessment, minimal_evidence_pack)
+    after = bare_correlation_assessment.model_dump(mode="json")
+
+    assert before == after  # input unchanged
+    # The panel is a verdict only — it never returns a rewritten assessment.
+    assert isinstance(panel, CriticVerdict)
+
+
+def test_purity_pack_unchanged_after_run_panel(supported_assessment, minimal_evidence_pack):
+    """The evidence pack is also read-only — unchanged after the panel runs."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    before = minimal_evidence_pack.model_dump(mode="json")
+    run_panel(supported_assessment, minimal_evidence_pack)
+    after = minimal_evidence_pack.model_dump(mode="json")
+    assert before == after
+
+
+def test_domain_native_short_circuit_on_abstention(
+    supported_assessment, minimal_evidence_pack
+):
+    """An assessment whose producer abstained -> panel REJECT/abstain WITHOUT a lens
+    crash (domain-native short-circuit, Pitfall 2 — no backtest-gate call)."""
+    from fingpt_core.contracts.assessment import AbstentionOutcome
+
+    from core.agents.specialized_critic.panel import run_panel
+
+    abstained = supported_assessment.model_copy(
+        update={"abstention_outcome": AbstentionOutcome.STATE_STALE}
+    )
+    panel = run_panel(abstained, minimal_evidence_pack)
+
+    assert panel.verdict == "REJECT"
+    assert "short-circuit" in panel.rationale.lower()
+
+
+def test_domain_native_short_circuit_on_degraded_integrity(
+    supported_assessment, degraded_evidence_pack
+):
+    """A pack whose domain_state integrity is STALE -> panel REJECT (short-circuit)."""
+    from core.agents.specialized_critic.panel import run_panel
+
+    panel = run_panel(supported_assessment, degraded_evidence_pack)
+    assert panel.verdict == "REJECT"
+    assert panel.failure_modes == [CanonicalIssueId.MODEL_DEGRADING.value]
