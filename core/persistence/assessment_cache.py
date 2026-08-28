@@ -210,3 +210,71 @@ class AssessmentCache:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
+
+
+# ---------------------------------------------------------------------------
+# G5 — work_key (single-flight dedup fingerprint) + Redis SET NX EX acquire
+# ---------------------------------------------------------------------------
+
+
+def compute_work_key(
+    agent_type: str,
+    domain: str,
+    geography: str,
+    sector: Optional[str],
+    state_version: str,
+    knowledge_time: datetime | str,
+    detail_level: str,
+    horizon: str,
+    narrative_mode: str,
+    task: str,
+) -> str:
+    """Return the deterministic single-flight `work_key` over the D-09/G5 tuple.
+
+    `work_key = "wk_" + sha256_hex(canonical(agent_type, domain, geography, sector,
+    state_version, knowledge_time, detail_level, horizon, narrative_mode, task))`. Two calls
+    with the same tuple → the same key (dedup); a different `knowledge_time` (replay vs live),
+    `detail_level`/`horizon` (output shape), `narrative_mode`, `task`, or `sector` scope →
+    a distinct key. `knowledge_time` is canonicalized to ISO-8601 UTC so the key is stable
+    across the async fan-out (T-169-04-03).
+    """
+    payload = {
+        "agent_type": agent_type,
+        "domain": domain,
+        "geography": geography,
+        "sector": sector,
+        "state_version": state_version,
+        "knowledge_time": _canonical_knowledge_time(knowledge_time),
+        "detail_level": detail_level,
+        "horizon": horizon,
+        "narrative_mode": narrative_mode,
+        "task": task,
+    }
+    return _sha256(payload, prefix="wk_")
+
+
+def acquire_single_flight(redis_client: Any, work_key: str, ttl: int = 30) -> bool:
+    """Attempt a cross-process single-flight lock via Redis `SET key val NX EX ttl`.
+
+    Returns True if THIS caller acquired the lock (first-in wins), False while another
+    holder has it. **Degrades safely**: if `redis_client` is None or the SET raises (Redis
+    down), logs a warning and returns True — i.e. *proceed without a lock* rather than brick
+    the compute path (T-169-04-02). The `NX` guarantees only one concurrent acquire; the
+    `EX ttl` guarantees the lock self-expires so a crashed holder never wedges the key.
+    """
+    if redis_client is None:
+        logger.warning(
+            "acquire_single_flight: no Redis client wired for %s — proceeding without lock.",
+            work_key,
+        )
+        return True
+    try:
+        acquired = redis_client.set(work_key, "1", nx=True, ex=ttl)
+        return bool(acquired)
+    except Exception as e:  # noqa: BLE001 - any Redis failure degrades, never bricks compute
+        logger.warning(
+            "acquire_single_flight: Redis unavailable for %s (%s) — proceeding without lock.",
+            work_key,
+            e,
+        )
+        return True
