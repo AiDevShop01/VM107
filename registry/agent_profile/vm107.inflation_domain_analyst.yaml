@@ -137,3 +137,95 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-inflation-v1"
+  indicators:
+    - core_cpi_3m_annualized
+    - headline_cpi_yoy
+    - core_goods_cpi
+    - shelter_cpi
+    - core_services_ex_shelter_cpi
+    - wage_growth_eci
+    - trimmed_mean_pce
+    - inflation_breadth_share_above_target
+  signal_roles:
+    lead:
+      - wage_growth_eci
+      - core_services_ex_shelter_cpi
+      - inflation_breadth_share_above_target
+    lag:
+      - shelter_cpi
+      - headline_cpi_yoy
+  horizons:
+    - NOWCAST
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: monthly_cpi_release
+  materiality_thresholds:
+    core_cpi_3m_annualized_bps: 20.0
+    breadth_share_pct: 5.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled CPI regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/inflation-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Elevated
+        level_min: 0.60
+        momentum_min: 0.05
+      - state: Reaccelerating
+        level_min: 0.40
+        momentum_min: 0.15
+      - state: StickyServices
+        level_min: 0.50
+        momentum_min: -0.05
+        momentum_max: 0.05
+      - state: Moderating
+        momentum_max: -0.05
+      - state: Disinflation
+        level_max: 0.35
+        momentum_max: -0.10
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NOWCAST
+        invalidation_conditions:
+          - "core_cpi_3m_annualized revised by more than 20bps"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "core services ex-shelter"
+        predicate: "is the dominant driver of"
+        object: "the {state} inflation reading"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "core_services_ex_shelter_cpi momentum flips sign for two consecutive prints"
+          - "inflation_breadth_share_above_target falls more than 5 percentage points"
+        assumptions:
+          - "shelter continues to lag observed market rents"
+      - claim_class: IMPLICATION
+        subject: "monetary_policy"
+        predicate: "faces"
+        object: "hawkish pressure while inflation is {state}"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "wage_growth_eci decelerates below 3.5% annualized"
+        assumptions:
+          - "policy reaction function unchanged"
+    invalidation_conditions:
+      - "trimmed_mean_pce and core_cpi_3m_annualized diverge in direction (contradiction — surface, do not average)"
+      - "inflation_breadth_share_above_target contradicts the level-based state label"

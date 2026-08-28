@@ -137,3 +137,89 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-growth-v1"
+  indicators:
+    - real_gdp_qoq_annualized
+    - composite_pmi
+    - industrial_production
+    - retail_sales_control
+    - nonfarm_payrolls
+    - leading_economic_index
+  signal_roles:
+    lead:
+      - composite_pmi
+      - leading_economic_index
+      - new_orders_pmi
+    lag:
+      - real_gdp_qoq_annualized
+      - industrial_production
+  horizons:
+    - NOWCAST
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: gdp_and_pmi_release
+  materiality_thresholds:
+    gdp_qoq_pct: 0.3
+    pmi_points: 1.5
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/growth-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Expansion
+        level_min: 0.55
+        momentum_min: 0.05
+      - state: Recovery
+        level_max: 0.45
+        momentum_min: 0.15
+      - state: Slowing
+        momentum_max: -0.05
+        level_min: 0.4
+      - state: Contraction
+        level_max: 0.35
+        momentum_max: -0.1
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NOWCAST
+        invalidation_conditions:
+          - "composite_pmi crosses the 50 boundary against the state label"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "the services PMI"
+        predicate: "is leading"
+        object: "the {state} growth reading"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "new_orders_pmi diverges from output_pmi for two prints"
+        assumptions:
+          - "labour market transmission unchanged"
+      - claim_class: IMPLICATION
+        subject: "labour"
+        predicate: "faces"
+        object: "hiring pressure consistent with {state} growth"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "leading_economic_index inflects against the growth state"
+        assumptions:
+          - "policy reaction function unchanged"
+    invalidation_conditions:
+      - "composite_pmi and industrial_production diverge in direction (surface, do not average)"

@@ -137,3 +137,86 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-labour-v1"
+  indicators:
+    - nonfarm_payrolls
+    - unemployment_rate
+    - average_hourly_earnings
+    - labour_force_participation
+    - initial_jobless_claims
+    - job_openings_jolts
+  signal_roles:
+    lead:
+      - initial_jobless_claims
+      - job_openings_jolts
+      - average_hourly_earnings
+    lag:
+      - unemployment_rate
+      - labour_force_participation
+  horizons:
+    - NOWCAST
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: monthly_employment_report
+  materiality_thresholds:
+    payrolls_thousands: 75.0
+    unemployment_rate_pct: 0.2
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/labour-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Balanced
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Tight
+        level_min: 0.6
+        momentum_min: 0.0
+      - state: Loosening
+        momentum_max: -0.05
+        level_min: 0.45
+      - state: Slack
+        level_max: 0.35
+        momentum_max: -0.05
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NOWCAST
+        invalidation_conditions:
+          - "unemployment_rate revised by more than 0.2 percentage points"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "wage growth"
+        predicate: "confirms"
+        object: "a {state} labour market"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "average_hourly_earnings decelerates for two consecutive prints"
+        assumptions:
+          - "participation trend stable"
+      - claim_class: IMPLICATION
+        subject: "inflation"
+        predicate: "faces"
+        object: "wage-driven pressure while labour is {state}"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "initial_jobless_claims rise above the recession threshold"
+        assumptions:
+          - "Okun relationship holds"
+    invalidation_conditions:
+      - "job_openings_jolts contradicts the unemployment_rate-based state (surface, do not average)"

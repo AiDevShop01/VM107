@@ -137,3 +137,86 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-monetary-policy-v1"
+  indicators:
+    - policy_rate
+    - real_policy_rate
+    - balance_sheet_size
+    - market_implied_path
+    - forward_guidance_tone
+    - term_premium
+  signal_roles:
+    lead:
+      - market_implied_path
+      - forward_guidance_tone
+      - real_policy_rate
+    lag:
+      - balance_sheet_size
+      - policy_rate
+  horizons:
+    - NEAR_TERM
+    - CYCLICAL
+    - STRUCTURAL
+  calendar: fomc_meeting_cycle
+  materiality_thresholds:
+    rate_bps: 25.0
+    real_rate_bps: 25.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/monetary-policy-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Restrictive
+        level_min: 0.65
+        momentum_min: 0.0
+      - state: Hawkish
+        level_min: 0.5
+        momentum_min: 0.1
+      - state: Dovish
+        momentum_max: -0.1
+        level_max: 0.5
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "policy_rate changes by more than 25bps versus the assessed path"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "the real policy rate"
+        predicate: "confirms"
+        object: "a {state} policy stance"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "real_policy_rate crosses the neutral estimate against the state"
+        assumptions:
+          - "neutral-rate estimate stable"
+      - claim_class: IMPLICATION
+        subject: "financial_conditions"
+        predicate: "faces"
+        object: "transmission consistent with {state} policy"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "market_implied_path re-prices against the policy state"
+        assumptions:
+          - "reaction function unchanged"
+    invalidation_conditions:
+      - "market_implied_path contradicts forward_guidance_tone (surface, do not average)"

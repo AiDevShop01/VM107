@@ -137,3 +137,85 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-housing-v1"
+  indicators:
+    - housing_starts
+    - building_permits
+    - existing_home_sales
+    - case_shiller_home_price
+    - mortgage_rate_30y
+    - months_supply_inventory
+  signal_roles:
+    lead:
+      - building_permits
+      - mortgage_rate_30y
+      - mortgage_applications
+    lag:
+      - case_shiller_home_price
+      - existing_home_sales
+  horizons:
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: housing_starts_and_sales_release
+  materiality_thresholds:
+    starts_pct: 5.0
+    home_price_yoy_pct: 1.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/housing-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Booming
+        level_min: 0.6
+        momentum_min: 0.05
+      - state: Cooling
+        momentum_max: -0.05
+        level_min: 0.4
+      - state: Contracting
+        level_max: 0.35
+        momentum_max: -0.1
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "building_permits revised by more than 5 percent"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "mortgage rates"
+        predicate: "are constraining"
+        object: "the {state} housing activity"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "mortgage_rate_30y falls more than 75bps and demand does not respond"
+        assumptions:
+          - "credit availability unchanged"
+      - claim_class: IMPLICATION
+        subject: "consumer"
+        predicate: "faces"
+        object: "wealth-effect changes consistent with {state} housing"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "case_shiller_home_price inflects against the housing state"
+        assumptions:
+          - "household leverage stable"
+    invalidation_conditions:
+      - "building_permits and case_shiller_home_price diverge in direction (surface, do not average)"
