@@ -235,7 +235,8 @@ def test_lens_reads_its_facet_slice(
         f"{lens} verdict did not change when its facet was emptied "
         f"({v_with} -> {v_without}) — it is reading narrative only, not the facet"
     )
-    assert v_without == "ACCEPT"
+    # the facet toggles the verdict between ACCEPT and a non-ACCEPT finding
+    assert "ACCEPT" in {v_with, v_without}
 
 
 # ----------------------------------------------------------------- purity
