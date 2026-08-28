@@ -28,6 +28,11 @@ memory_scope:
 max_cost_usd: 0.0
 is_deterministic: true
 
+# P170 (170-06) — required by the CapabilityRegistry Stage-2 schema (LD-2 boot gate).
+# HIGH: the reject-ceiling panel emits REJECT verdicts that directly gate whether a
+# DomainAssessment is refined/rejected (mirrors the sibling strategy_refinement_critic).
+impact_on_decision: HIGH
+
 tags:
   - critic-panel
   - specialized-critic
