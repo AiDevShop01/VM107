@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from core.contracts.base import BaseContract
 
@@ -148,6 +148,21 @@ class CanonicalIssueId(StrEnum):
     OVERFIT_SIGNATURE = "OVERFIT_SIGNATURE"
     REGIME_FRAGILITY = "REGIME_FRAGILITY"
     EXPECTANCY_UNSTABLE = "EXPECTANCY_UNSTABLE"
+
+    # Phase 170 § D-06 / D-07 — domain-critique members (additive; the 15 strategy
+    # members above are unchanged). New IDs are a planning-time decision (NO
+    # LLM-emitted free-form IDs), one per specialized-critic lens failure mode:
+    #   MECHANISM_UNREGISTERED     — Causality: a directional read with no registered
+    #                                transmission mechanism (Constitution 11, SC#2)
+    #   EVIDENCE_UNSUPPORTED       — Evidence: a claim not backed by the pack's evidence
+    #   ALREADY_PRICED_IN          — Market: the read is already reflected in state_diff
+    #   NO_INVALIDATION_CONDITION  — Risk: a claim carries no falsification condition
+    #   MODEL_DEGRADING            — Model: integrity/degradation of the underlying read
+    MECHANISM_UNREGISTERED = "MECHANISM_UNREGISTERED"
+    EVIDENCE_UNSUPPORTED = "EVIDENCE_UNSUPPORTED"
+    ALREADY_PRICED_IN = "ALREADY_PRICED_IN"
+    NO_INVALIDATION_CONDITION = "NO_INVALIDATION_CONDITION"
+    MODEL_DEGRADING = "MODEL_DEGRADING"
 
 
 # =============================================================================
@@ -402,6 +417,35 @@ def _build_target_field_vocabulary() -> frozenset[str]:
 _TARGET_FIELD_VOCABULARY: frozenset[str] = _build_target_field_vocabulary()
 
 
+# Phase 170 § D-06 / Pitfall 1 — scope-aware vocabulary for domain-critique targets.
+# The strategy vocabulary above is StrategySpec ∪ CodeModule ∪ metrics.*; a domain
+# RefinementTarget instead targets DomainAssessment / Claim fields (e.g. "claims",
+# "invalidation_conditions", "integrity_state"). DomainAssessment/Claim are READ-ONLY
+# input contracts owned by fingpt_core (Pitfall 4 — never redefine); the import is lazy
+# so importing schemas.py in a context without fingpt_core does not hard-fail, and the
+# result is cached once (mirrors _build_target_field_vocabulary's build-once discipline).
+_DOMAIN_TARGET_FIELD_VOCABULARY: Optional[frozenset[str]] = None
+
+
+def _get_domain_target_field_vocabulary() -> frozenset[str]:
+    """Controlled vocabulary for domain-scoped RefinementTarget.target_field.
+
+    Built ONCE (lazily) from ``DomainAssessment.model_fields ∪ Claim.model_fields``,
+    imported read-only from ``fingpt_core.contracts.assessment``. Dotted paths (e.g.
+    "claims.0") are handled by the validator's head-segment check, mirroring the
+    strategy vocabulary's dotted-prefix behavior.
+    """
+    global _DOMAIN_TARGET_FIELD_VOCABULARY
+    if _DOMAIN_TARGET_FIELD_VOCABULARY is None:
+        from fingpt_core.contracts.assessment import Claim, DomainAssessment
+
+        fields: set[str] = set()
+        fields.update(DomainAssessment.model_fields.keys())
+        fields.update(Claim.model_fields.keys())
+        _DOMAIN_TARGET_FIELD_VOCABULARY = frozenset(fields)
+    return _DOMAIN_TARGET_FIELD_VOCABULARY
+
+
 class RefinementTarget(BaseContract):
     """Phase 48 § Decision 1 + 5 — structured refinement target.
 
@@ -412,7 +456,7 @@ class RefinementTarget(BaseContract):
     key (Decision 7).
     """
 
-    scope: Literal["STRATEGY_SPEC", "CODE_MODULE"]
+    scope: Literal["STRATEGY_SPEC", "CODE_MODULE", "DOMAIN_ASSESSMENT", "CLAIM"]
     canonical_issue_id: CanonicalIssueId
     target_field: str
     issue: str
@@ -424,22 +468,33 @@ class RefinementTarget(BaseContract):
 
     @field_validator("target_field")
     @classmethod
-    def validate_target_field_in_vocabulary(cls, v: str) -> str:
+    def validate_target_field_in_vocabulary(cls, v: str, info: ValidationInfo) -> str:
         """Reject unknown target_field names (controlled vocabulary discipline).
 
-        Allowed: any top-level field name on StrategySpec or CodeModule, plus
-        explicitly-enumerated nested paths (e.g., "metrics.win_rate"). Dotted
-        prefix match is also allowed for forward extension.
+        Scope-aware (Phase 170 § D-06 / Pitfall 1): for the strategy scopes the
+        vocabulary is StrategySpec ∪ CodeModule ∪ metrics.* (unchanged); for the
+        domain scopes ("DOMAIN_ASSESSMENT"/"CLAIM") it is DomainAssessment ∪ Claim
+        fields (e.g. "claims", "invalidation_conditions", "integrity_state"). In
+        both cases a dotted path whose head segment is in the vocabulary is allowed
+        (e.g. "metrics.win_rate", "claims.0"). `scope` is declared before
+        `target_field` so it is available on `info.data` at validation time.
         """
-        if v in _TARGET_FIELD_VOCABULARY:
+        scope = info.data.get("scope")
+        if scope in ("DOMAIN_ASSESSMENT", "CLAIM"):
+            vocabulary = _get_domain_target_field_vocabulary()
+            allowed_desc = "DomainAssessment or Claim"
+        else:
+            vocabulary = _TARGET_FIELD_VOCABULARY
+            allowed_desc = "StrategySpec or CodeModule"
+        if v in vocabulary:
             return v
         # Allow any dotted path whose top-level segment is in the vocabulary.
         head = v.split(".", 1)[0]
-        if head in _TARGET_FIELD_VOCABULARY:
+        if head in vocabulary:
             return v
         raise ValueError(
-            f"target_field={v!r} is not a recognized StrategySpec or CodeModule "
-            f"field. Allowed root vocabulary: {sorted(_TARGET_FIELD_VOCABULARY)}"
+            f"target_field={v!r} is not a recognized {allowed_desc} field "
+            f"(scope={scope!r}). Allowed root vocabulary: {sorted(vocabulary)}"
         )
 
 
