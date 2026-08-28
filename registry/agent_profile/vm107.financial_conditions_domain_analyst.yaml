@@ -137,3 +137,86 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-financial-conditions-v1"
+  indicators:
+    - financial_conditions_index
+    - equity_implied_volatility
+    - credit_spread_composite
+    - trade_weighted_dollar
+    - real_10y_yield
+    - equity_risk_premium
+  signal_roles:
+    lead:
+      - financial_conditions_index
+      - equity_implied_volatility
+      - credit_spread_composite
+    lag:
+      - real_10y_yield
+      - trade_weighted_dollar
+  horizons:
+    - NOWCAST
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: daily_market_close
+  materiality_thresholds:
+    fci_sigma: 0.5
+    vol_points: 5.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/financial-conditions-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Loose
+        level_min: 0.6
+        momentum_min: 0.0
+      - state: Tightening
+        momentum_max: -0.05
+        level_min: 0.4
+      - state: Tight
+        level_max: 0.3
+        momentum_max: -0.1
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NOWCAST
+        invalidation_conditions:
+          - "financial_conditions_index moves more than 0.5 sigma against the state"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "credit spreads and equity vol"
+        predicate: "are driving"
+        object: "the {state} financial conditions"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "credit_spread_composite and equity_implied_volatility diverge for two sessions"
+        assumptions:
+          - "policy path unchanged"
+      - claim_class: IMPLICATION
+        subject: "growth"
+        predicate: "faces"
+        object: "transmission consistent with {state} financial conditions"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "trade_weighted_dollar inflects against the conditions state"
+        assumptions:
+          - "risk appetite regime stable"
+    invalidation_conditions:
+      - "financial_conditions_index contradicts credit_spread_composite direction (surface, do not average)"

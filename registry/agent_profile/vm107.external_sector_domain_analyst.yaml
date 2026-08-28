@@ -137,3 +137,85 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-external-sector-v1"
+  indicators:
+    - trade_balance
+    - current_account_gdp
+    - real_effective_exchange_rate
+    - export_growth
+    - import_growth
+    - terms_of_trade
+  signal_roles:
+    lead:
+      - real_effective_exchange_rate
+      - terms_of_trade
+      - export_orders
+    lag:
+      - current_account_gdp
+      - trade_balance
+  horizons:
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: trade_balance_release
+  materiality_thresholds:
+    trade_balance_pct: 1.0
+    reer_pct: 2.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/external-sector-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Balanced
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Improving
+        level_min: 0.55
+        momentum_min: 0.05
+      - state: Deteriorating
+        momentum_max: -0.05
+        level_max: 0.5
+      - state: Stressed
+        level_max: 0.3
+        momentum_max: -0.1
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "trade_balance revised by more than 1 percent of GDP"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "the real effective exchange rate"
+        predicate: "is driving"
+        object: "the {state} external position"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "real_effective_exchange_rate moves more than 2 percent against the state"
+        assumptions:
+          - "global demand backdrop unchanged"
+      - claim_class: IMPLICATION
+        subject: "growth"
+        predicate: "faces"
+        object: "net-export contribution consistent with {state} external sector"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "terms_of_trade inflects against the external state"
+        assumptions:
+          - "trade-policy regime stable"
+    invalidation_conditions:
+      - "export_growth contradicts current_account_gdp direction (surface, do not average)"

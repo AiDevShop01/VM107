@@ -137,3 +137,85 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-commodities-v1"
+  indicators:
+    - brent_crude
+    - industrial_metals_index
+    - agricultural_index
+    - energy_inventories
+    - commodity_curve_shape
+    - dollar_index
+  signal_roles:
+    lead:
+      - commodity_curve_shape
+      - energy_inventories
+      - industrial_metals_index
+    lag:
+      - brent_crude
+      - agricultural_index
+  horizons:
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: daily_commodity_close
+  materiality_thresholds:
+    price_pct: 5.0
+    inventory_pct: 3.0
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/commodities-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: RangeBound
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Bullish
+        level_min: 0.55
+        momentum_min: 0.05
+      - state: Bearish
+        momentum_max: -0.05
+        level_max: 0.5
+      - state: Stressed
+        level_max: 0.3
+        momentum_max: -0.1
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "brent_crude moves more than 5 percent against the state label"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "the commodity curve shape"
+        predicate: "is signalling"
+        object: "the {state} commodity regime"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "commodity_curve_shape flips backwardation/contango against the state"
+        assumptions:
+          - "global demand backdrop unchanged"
+      - claim_class: IMPLICATION
+        subject: "inflation"
+        predicate: "faces"
+        object: "cost-push pressure consistent with {state} commodities"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "industrial_metals_index inflects against the commodity state"
+        assumptions:
+          - "supply regime stable"
+    invalidation_conditions:
+      - "brent_crude contradicts industrial_metals_index direction (surface, do not average)"

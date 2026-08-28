@@ -137,3 +137,87 @@ agent_contract:
     cost_slo: max_cost_usd
     latency_slo: latency_budget_ms
     honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+
+# P169 (169-05, D-11/G7) — additive domain-knowledge block; existing scalars above are UNCHANGED (D-05).
+# The versioned per-domain DomainDefinition (AGV-09/AGV-11) the deterministic DomainAgent.assess()
+# consumes LLM-free (D-07). Schema: core/agents/domain_definition.py (Plan 169-02). Large prose
+# (ontology, knowledge.md) is referenced BY PATH — never inlined. NOT a parallel macro/config/ tree.
+
+domain_definition:
+  version: "1.0.0"
+  knowledge_version: "2026-08-manufacturing-v1"
+  indicators:
+    - ism_manufacturing_pmi
+    - industrial_production
+    - capacity_utilization
+    - new_orders
+    - inventories_to_sales
+    - durable_goods_orders
+  signal_roles:
+    lead:
+      - ism_manufacturing_pmi
+      - new_orders
+      - durable_goods_orders
+    lag:
+      - industrial_production
+      - capacity_utilization
+  horizons:
+    - NOWCAST
+    - NEAR_TERM
+    - CYCLICAL
+  calendar: ism_and_industrial_production_release
+  materiality_thresholds:
+    pmi_points: 1.5
+    ip_pct: 0.5
+    momentum_percentile: 0.15
+  evaluation:
+    correctness_kpi: "current_state matches labelled regime >= 0.9; narrative-grounded >= 0.98"
+    change_explanation: "job-2 diff matches state delta on labelled set (Phase 158 harness)"
+    honesty: "fabrication_rate=0; degradation_surfaced=1.0"
+  ontology_path: "Documentation/Agent Zero/agent-catalogue/macro/manufacturing-domain-analyst.md"
+  knowledge_path: "Documentation/Agent Zero/agent-catalogue/macro/_DOMAIN-AGENT-FRAMEWORK.md"
+  reasoning_rules:
+    default_state: Neutral
+    # First-matching-rule-wins classifier over the copied level (domain_state.score)
+    # and momentum (state_diff.delta_score, bounded [-1,1]) — LLM-free (Constitution 16).
+    state_rules:
+      - state: Expanding
+        level_min: 0.55
+        momentum_min: 0.05
+      - state: Stabilizing
+        level_min: 0.45
+        momentum_min: -0.05
+        momentum_max: 0.05
+      - state: Contracting
+        level_max: 0.4
+        momentum_max: -0.05
+    claim_templates:
+      - claim_class: OBSERVATION
+        subject: "{domain} in {geography}"
+        predicate: "is assessed as"
+        object: "{state} (level={level}, momentum={momentum})"
+        horizon: NOWCAST
+        invalidation_conditions:
+          - "ism_manufacturing_pmi crosses 50 against the state label"
+        assumptions:
+          - "upstream domain-health state is fresh (< 300s)"
+      - claim_class: INTERPRETATION
+        subject: "new orders"
+        predicate: "are leading"
+        object: "the {state} manufacturing cycle"
+        horizon: NEAR_TERM
+        invalidation_conditions:
+          - "new_orders and inventories_to_sales diverge for two prints"
+        assumptions:
+          - "supply-chain conditions stable"
+      - claim_class: IMPLICATION
+        subject: "growth"
+        predicate: "faces"
+        object: "goods-sector momentum consistent with {state} manufacturing"
+        horizon: CYCLICAL
+        invalidation_conditions:
+          - "durable_goods_orders inflects against the manufacturing state"
+        assumptions:
+          - "capex intentions stable"
+    invalidation_conditions:
+      - "ism_manufacturing_pmi contradicts industrial_production direction (surface, do not average)"
