@@ -95,6 +95,42 @@ class MongoCachedCollection:
 
         return doc
 
+    def put(self, doc_id: str, document: Dict[str, Any]) -> Dict[str, Any]:
+        """Idempotent write-through upsert (Phase 169-04, D-09 compute-at-write-time).
+
+        Unlike ``update`` (which requires an existing doc + version for optimistic
+        concurrency), ``put`` upserts the full document — the fit for a cache that writes a
+        freshly-computed value keyed by a content fingerprint. Writes MongoDB first
+        (authoritative), then mirrors to Redis with the same TTL ``setex`` + graceful
+        Redis-down degradation as ``get``/``update``. Additive: no existing behaviour is
+        changed.
+
+        Args:
+            doc_id: Document ID (also written as ``_id``).
+            document: Full document to store.
+
+        Returns:
+            The stored document (with ``_id`` set).
+        """
+        doc = dict(document)
+        doc["_id"] = doc_id
+
+        # MongoDB authoritative write (upsert).
+        self.collection.replace_one({"_id": doc_id}, doc, upsert=True)
+
+        # Mirror to Redis hot cache with TTL; degrade gracefully if Redis is down.
+        cache_key = self._cache_key(doc_id)
+        try:
+            self.redis.setex(
+                cache_key,
+                self.ttl,
+                json.dumps(doc, default=str)
+            )
+        except Exception as e:
+            logger.warning(f"Redis setex failed for {doc_id}: {e}. Continuing without cache.")
+
+        return doc
+
     def update(
         self,
         doc_id: str,
