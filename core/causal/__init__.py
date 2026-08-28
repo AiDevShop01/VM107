@@ -18,8 +18,10 @@ Design locks (mirrored from `core/agents/domain_definition.py`, the 169 analog):
 from __future__ import annotations
 
 from core.causal.mechanism_registry import CausalMechanismRegistry, MechanismRecord
+from core.causal.seed import build_registry
 
 __all__ = [
     "CausalMechanismRegistry",
     "MechanismRecord",
+    "build_registry",
 ]
