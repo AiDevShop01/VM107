@@ -1,4 +1,4 @@
-"""Phase 169 Plan 02 Task 2 — DomainAgent.assess() behavior proof (fixture-based).
+"""Phase 169 Plan 02 Task 2 + Plan 06 Task 2 — DomainAgent.assess() behavior proof.
 
 Proves the net-new deterministic `assess(pack) -> DomainAssessment` path (AGV-10 / D-07):
 - emits a real, non-empty, falsifiable claim set (NOT stubs),
@@ -7,20 +7,48 @@ Proves the net-new deterministic `assess(pack) -> DomainAssessment` path (AGV-10
 - threads pack.knowledge_time immutably (reproducible claim_ids; no datetime.now),
 - maps a degraded pack to an explicit abstention outcome via the tier engine.
 
-Single-slug reference path only — parameterization over all 12 slugs against REAL
-profile blocks lands in Plan 169-06. The legacy `invoke()` surface is guarded by the
-existing tests/agents/test_domain_analyst_contract.py (unchanged this plan).
+Two layers coexist:
+- The fixture-based single-slug reference path (Plan 02) — the sample_domain_definition
+  fixture drives the base's assess() against a synthetic inflation-shaped block.
+- The Plan-06 12-slug sweep proof (bottom of file) — parameterized over ALL 12 real
+  `agents/<slug>_domain_analyst/agent.py` migrated subclasses, each loading its REAL
+  `domain_definition:` block from `registry/agent_profile/vm107.<slug>_domain_analyst.yaml`
+  via DomainDefinition.from_profile, and asserting the minimum-falsifiable DomainAssessment
+  set (non-empty claims, integrity_state set, state_version pass-through, no new counter,
+  claim_id stability across a fixed (state_version, knowledge_time) rerun). This is where
+  AGV-09/AGV-10 for all 12 is proven green against the migrated on-disk config subclasses.
+
+The legacy `invoke()` surface is guarded by the existing
+tests/agents/test_domain_analyst_contract.py (unchanged this plan).
 """
 from __future__ import annotations
+
+import importlib
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
 
 from fingpt_core.contracts.assessment import (
     AbstentionOutcome,
     DomainAssessment,
     Horizon,
 )
-from fingpt_core.contracts.evidence_pack import FacetIntegrity
+from fingpt_core.contracts.evidence_pack import (
+    ContributorFacet,
+    DomainEvidencePack,
+    DomainStateFacet,
+    FacetIntegrity,
+    FacetIntegrityRecord,
+    FacetTier,
+    PackIdentity,
+    PackIntegrity,
+    SignalFacet,
+    StateDiffFacet,
+)
 
 from core.agents.domain_agent import DomainAgent
+from core.agents.domain_definition import DomainDefinition
 
 
 class _RefInflationAgent(DomainAgent):
@@ -123,3 +151,155 @@ def test_knowledge_time_threaded_immutably(domain_evidence_pack, sample_domain_d
 def test_assessment_horizon_from_definition(domain_evidence_pack, sample_domain_definition):
     out = _agent(sample_domain_definition).assess(domain_evidence_pack)
     assert out.horizon == Horizon.NOWCAST
+
+
+# ---------------------------------------------------------------------------
+# Plan 06 Task 2 — 12-slug assess() sweep against the REAL domain_definition:
+# blocks + the migrated on-disk config subclasses (AGV-09/AGV-10 for all 12).
+# ---------------------------------------------------------------------------
+
+# CONTEXT §A canonical 12 (mirrors test_domain_analyst_contract.DOMAIN_SLUGS).
+DOMAIN_SLUGS = [
+    "inflation",
+    "growth",
+    "labour",
+    "housing",
+    "credit",
+    "monetary_policy",
+    "fiscal",
+    "external_sector",
+    "manufacturing",
+    "consumer",
+    "financial_conditions",
+    "commodities",
+]
+
+_VM107_ROOT = Path(__file__).resolve().parent.parent.parent
+_SWEEP_KNOWLEDGE_TIME = datetime(2026, 8, 20, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _class_name(slug: str) -> str:
+    return "".join(part.title() for part in slug.split("_")) + "DomainAnalyst"
+
+
+def _agent_class(slug: str):
+    module = importlib.import_module(f"agents.{slug}_domain_analyst.agent")
+    return getattr(module, _class_name(slug))
+
+
+def _profile_path(slug: str) -> Path:
+    return (
+        _VM107_ROOT
+        / "registry"
+        / "agent_profile"
+        / f"vm107.{slug}_domain_analyst.yaml"
+    )
+
+
+def _real_definition(slug: str) -> DomainDefinition:
+    """Load the slug's REAL domain_definition: block from its profile manifest."""
+    return DomainDefinition.from_profile(_profile_path(slug))
+
+
+def _sweep_pack(
+    slug: str,
+    *,
+    knowledge_time: datetime = _SWEEP_KNOWLEDGE_TIME,
+    level: float | None = 0.42,
+    momentum: float | None = 0.15,
+) -> DomainEvidencePack:
+    """A representative, healthy DomainEvidencePack keyed to `slug` (state_version v128)."""
+    facets = (
+        FacetIntegrityRecord(
+            facet="domain_state", tier=FacetTier.REQUIRED, integrity=FacetIntegrity.NEUTRAL, reason=None
+        ),
+        FacetIntegrityRecord(
+            facet="state_diff", tier=FacetTier.REQUIRED, integrity=FacetIntegrity.NEUTRAL, reason=None
+        ),
+        FacetIntegrityRecord(
+            facet="contribution", tier=FacetTier.IMPORTANT, integrity=FacetIntegrity.NEUTRAL, reason=None
+        ),
+    )
+    return DomainEvidencePack(
+        identity=PackIdentity(country="US", domain_slug=slug, state_version="v128"),
+        domain_state=DomainStateFacet(
+            state_version="v128",
+            as_of=knowledge_time,
+            label="reference-state",
+            score=level,
+            confidence=0.71,
+            integrity=FacetIntegrity.NEUTRAL,
+        ),
+        state_diff=StateDiffFacet(
+            changed=True,
+            previous_label="prior",
+            current_label="reference-state",
+            delta_score=momentum,
+            integrity=FacetIntegrity.NEUTRAL,
+        ),
+        knowledge_time=knowledge_time,
+        pack_integrity=PackIntegrity(pack_outcome="success", facets=facets),
+        top_contributors=(
+            ContributorFacet(name="DriverA", contribution=-0.3, confidence=0.8),
+            ContributorFacet(name="DriverB", contribution=0.5, confidence=0.9),
+        ),
+        top_signals=(
+            SignalFacet(signal_id="SIG_LEAD", importance=0.9),
+            SignalFacet(signal_id="SIG_LAG", importance=0.7),
+        ),
+    )
+
+
+@pytest.mark.parametrize("slug", DOMAIN_SLUGS)
+def test_migrated_subclass_assess_emits_domain_assessment_from_real_block(slug):
+    """Each migrated on-disk subclass, loading its REAL domain_definition: block,
+    emits a falsifiable DomainAssessment with the minimum set — no recomputed state,
+    no new state counter (AGV-09/AGV-10)."""
+    defn = _real_definition(slug)
+    Analyst = _agent_class(slug)
+    assert issubclass(Analyst, DomainAgent)
+
+    pack = _sweep_pack(slug)
+    out = Analyst(domain_definition=defn).assess(pack)
+
+    assert isinstance(out, DomainAssessment)
+    # state facts COPIED from the pack — never recomputed
+    assert out.level == pack.domain_state.score
+    assert out.momentum == pack.state_diff.delta_score
+    # no parallel counter — state_version passes straight through PackIdentity (D-10)
+    assert out.state_version == pack.identity.state_version == "v128"
+    assert out.manifest.state_version == "v128"
+    # integrity_state is set (not None) from the pack
+    assert out.integrity_state is not None
+    assert out.integrity_state == pack.domain_state.integrity
+    # knowledge_time threaded immutably; deterministic manifest (LLM-free)
+    assert out.knowledge_time == pack.knowledge_time
+    assert out.manifest.execution_time == pack.knowledge_time
+    assert out.manifest.model == "deterministic"
+
+    # non-empty, falsifiable claims from the REAL block's templates (not stubs)
+    assert len(out.claims) >= 1
+    for claim in out.claims:
+        assert claim.claim_id.startswith("clm_")
+        assert claim.subject and claim.predicate and claim.object
+        assert claim.invalidation_conditions  # falsifiable
+        assert claim.generated_by == Analyst.AGENT_ID
+        assert claim.state_version == "v128"
+    # assessment-level falsifiers present
+    assert out.invalidation_conditions
+
+
+@pytest.mark.parametrize("slug", DOMAIN_SLUGS)
+def test_migrated_subclass_claim_ids_stable_across_rerun(slug):
+    """claim_id is stable across a rerun of the same (state_version, knowledge_time) —
+    deterministic + reproducible per slug (no wall-clock re-stamp)."""
+    defn = _real_definition(slug)
+    Analyst = _agent_class(slug)
+    agent = Analyst(domain_definition=defn)
+
+    p1 = _sweep_pack(slug)
+    p2 = _sweep_pack(slug)
+    ids1 = [c.claim_id for c in agent.assess(p1).claims]
+    ids2 = [c.claim_id for c in agent.assess(p2).claims]
+    assert ids1 == ids2
+    assert ids1  # non-empty
