@@ -55,6 +55,7 @@ PKG_PARITY_FILES = [
     "tool_envelope.py",
     "evidence_pack.py",
     "invocation_context.py",  # UNEDITED baseline — 168-07 inherits this live gate
+    "assessment.py",  # DomainAssessment + Claim (169-01, D-02) — byte-gated across 4 copies
 ]
 # events.py has a fifth surface (VM107 vendored) — handled separately.
 EVENTS_REL = "economic_intelligence/events.py"
@@ -164,6 +165,15 @@ def test_schema_version_constants_match_across_copies():
         _parse_str_constant(p, "EVIDENCE_PACK_SCHEMA_VERSION") for p in ep_paths
     }
     assert ep_versions == {"1.0"}, f"EVIDENCE_PACK_SCHEMA_VERSION mismatch: {ep_versions}"
+
+    # ASSESSMENT_SCHEMA_VERSION across the 4 assessment.py copies == "1.0" (169-01, D-02)
+    as_paths = [CANONICAL_CONTRACTS / "assessment.py"] + [
+        d / "assessment.py" for d in PKG_MIRROR_CONTRACTS
+    ]
+    as_versions = {
+        _parse_str_constant(p, "ASSESSMENT_SCHEMA_VERSION") for p in as_paths
+    }
+    assert as_versions == {"1.0"}, f"ASSESSMENT_SCHEMA_VERSION mismatch: {as_versions}"
 
     # events schema_version default across all 5 copies == "2"
     events_paths = [CANONICAL_CONTRACTS / EVENTS_REL] + _events_copies()
