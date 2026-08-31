@@ -160,3 +160,52 @@ def test_model_call_hooks_record_sample():
     reg.clear()
     asyncio.run(after.execute(call_data={}))
     assert "model_call" not in reg.snapshot()
+
+
+# ---------------------------------------------------------------------------
+# integration tier — cross-process /metrics scrape (AZI-05, Phase 154)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.requires_deps
+def test_metrics_endpoint_exposes_cross_process_histogram():
+    """AZI-05 (RED until 154-05): the vm107 agent process must export a
+    Prometheus histogram ``vm107_slo_latency_ms`` (with a ``path`` label) over
+    a cross-process ``/metrics`` endpoint — the fix for the publisher's empty
+    ``paths: {}`` (its in-process SLORegistry copy is always empty).
+
+    This is RED today: no ``prometheus_client`` histogram is wired and no
+    ``/metrics`` server listens on the metrics port, so the scrape either
+    connection-refuses or the body lacks the metric. It flips GREEN when 154-05
+    lands the histogram + endpoint. Marked ``requires_deps`` so the host-clean
+    fast loop (``-m "not requires_deps"``) skips it.
+    """
+    # Deferred stdlib imports keep host-clean collection dep-free.
+    import os
+    import urllib.request
+
+    # Canonical SLO paths (api/v1/telemetry/slo.py budgets): recall <300ms,
+    # tool_dispatch <100ms, model_call <30000ms. Drive one sample per path so a
+    # correctly-wired histogram has something to export.
+    reg = SLORegistry.get_shared_instance()
+    reg.record("recall", 42.0)
+    reg.record("tool_dispatch", 5.0)
+    reg.record("model_call", 1234.0)
+
+    metrics_url = os.environ.get("VM107_METRICS_URL", "http://localhost:9107/metrics")
+
+    # RED today: connection refused (no server) OR metric absent. Either way the
+    # assertions below fail — that is the intended pending-AZI-05 signal.
+    with urllib.request.urlopen(metrics_url, timeout=5) as resp:  # noqa: S310 (fixed localhost target)
+        body = resp.read().decode("utf-8", "replace")
+
+    # The literal histogram metric name AZI-05 must export...
+    assert "vm107_slo_latency_ms" in body, (
+        "cross-process histogram vm107_slo_latency_ms not found at "
+        f"{metrics_url} — AZI-05 (154-05) not yet delivered"
+    )
+    # ...carrying a per-path label so p50/p95 are broken out by SLO path.
+    assert "path=" in body, (
+        "vm107_slo_latency_ms present but has no `path=` label — the histogram "
+        "must be labelled by SLO path (recall/tool_dispatch/model_call)"
+    )
