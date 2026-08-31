@@ -1011,6 +1011,48 @@ services:
       - "com.tradetracker.component=worker"
       - "com.tradetracker.phase=notification-wireup"
 
+  # ---------------------------------------------------------------------------
+  # Phase 154-02 (AZI-03) — willfarrell/autoheal sidecar
+  #
+  # Watches the HEALTHCHECK state the engine already computes for every
+  # container and restarts any that go `unhealthy`. Delivered compose-native
+  # (survives `compose down/up` + host restart via restart: unless-stopped) so
+  # there is NO host crontab — the AZI-03 requirement.
+  #
+  # AUTOHEAL_CONTAINER_LABEL=all watches every container on the host, so new
+  # services are covered with no per-service edit. All 16 VM107 services already
+  # declare a real healthcheck, so coverage is complete on day one.
+  #
+  # Image is pinned BY DIGEST (not :latest) for immutability — a compromised
+  # tag cannot inject a new binary (threat T-154-03 primary control, alongside
+  # keeping the sidecar off any public interface: vm107_network is internal and
+  # no host port is published). Digest resolved 2026-08-31 from the official
+  # Docker Hub registry (willfarrell/autoheal, current released tag).
+  #
+  # docker.sock is mounted read-only (:ro) as defense-in-depth; note this only
+  # restricts filesystem-metadata ops on the socket file, NOT the Docker API
+  # calls (container restart) issued over the connection — the effective control
+  # is the network isolation + digest pin above. Residual EoP is accepted for a
+  # dev-host sidecar; revisit if this pattern travels to prod in Phase 174.
+  #
+  # Pitfall 3 (RESEARCH): repeated autoheal restarts of the SAME container are a
+  # signal a service is genuinely broken, not a fix — the per-service
+  # start_periods bound churn and the AZI-01 caps ensure a churning container
+  # cannot host-OOM.
+  # ---------------------------------------------------------------------------
+  autoheal:
+    image: willfarrell/autoheal@sha256:1c00ddf723629daf91a70f2f8c74500db4e4ac1b3c27d2e7b610dced267511f5
+    container_name: vm107-autoheal
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: all
+      AUTOHEAL_INTERVAL: 30
+      AUTOHEAL_START_PERIOD: 60
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - vm107_network
+
 volumes:
   redis_data:
 
