@@ -1,0 +1,88 @@
+# P7 regression CI (AZI-04, Phase 154).
+#
+# Runs the full P7 regression suite + the AZI-07 import-smoke gate on EVERY
+# push / PR to the VM107 repo, so a boot-timeout / degraded-recall / tool-load
+# regression in the hardened brain is caught in CI, not in production
+# (Phase 154 Success Criterion 3).
+#
+# WHY self-hosted (D-07): the P7 suite (regression_p7 + boot + browser regressions)
+# includes tests that reach LIVE dev stores — Qdrant .151:6333 and Redis .151:6379.
+# GitHub-hosted runners cannot reach the dev network, so this runs on a self-hosted
+# runner registered on a dev-net box reachable to .151. Runner maintenance is the
+# accepted cost of test fidelity.
+#
+# Security notes (threat register 154):
+#   - T-154-15 (untrusted PR code on a dev-net runner): the runner is scoped to this
+#     repo only, has dev-net (not prod) reach, and GitHub's default "approval required
+#     for first-time contributors" gates fork PRs. permissions are least-privilege below.
+#   - T-154-16 (creds in logs): the pre-flight uses an unauthenticated collections list
+#     + a Redis PING — no credentials are echoed. Store creds come from the runner env.
+#   - T-154-17 (green-but-hollow): the pre-flight FAILS the build if a live store is
+#     unreachable rather than silently skipping the live-store tests.
+#   - T-154-SC (action pinning): marketplace actions are pinned to a major tag, matching
+#     the VM101 analog; the suite runs on the runner's baked venv, not ad-hoc pip installs.
+
+name: P7 Regression CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  p7-regression:
+    name: P7 suite + import-smoke (self-hosted, live dev stores)
+    runs-on: [self-hosted]
+    env:
+      # Live dev stores the P7 suite depends on (D-07). Overridable via runner env.
+      QDRANT_HOST: "192.168.1.151"
+      QDRANT_PORT: "6333"
+      REDIS_HOST: "192.168.1.151"
+      REDIS_PORT: "6379"
+      # The runner's baked image venv carries the full app deps the suite needs.
+      VENV_PY: "/opt/venv-a0/bin/python"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Pre-flight — live dev store reachability (fail, never skip)
+        # T-154-17 / Pitfall 5: refuse to run a green-but-hollow build. If Qdrant .151
+        # or Redis .151 is unreachable, FAIL here rather than let live-store tests skip.
+        run: |
+          set -euo pipefail
+          echo "[preflight] Qdrant ${QDRANT_HOST}:${QDRANT_PORT}/collections"
+          curl -sf "http://${QDRANT_HOST}:${QDRANT_PORT}/collections" >/dev/null
+          echo "[preflight] Qdrant reachable"
+
+          echo "[preflight] Redis ${REDIS_HOST}:${REDIS_PORT} PING"
+          if command -v redis-cli >/dev/null 2>&1; then
+            [ "$(redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping)" = "PONG" ]
+          else
+            # TCP/RESP fallback if redis-cli is not on the runner: a real PING/PONG,
+            # still a genuine reachability check (not a skip).
+            exec 3<>"/dev/tcp/${REDIS_HOST}/${REDIS_PORT}"
+            printf 'PING\r\n' >&3
+            head -c1 <&3 | grep -q '+'
+          fi
+          echo "[preflight] Redis reachable — live dev stores are up, proceeding"
+
+      - name: Run P7 regression suite (no failure masking — SC-3)
+        # No failure-masking suffix here (unlike the VM101 analog): the build MUST exit
+        # non-zero on a boot-timeout / degraded-recall / tool-load regression.
+        # -x stops at the first failure for a clear signal.
+        run: |
+          set -euo pipefail
+          "${VENV_PY}" -m pytest \
+            tests/regression_p7 \
+            tests/boot \
+            tests/test_browser_agent_regressions.py \
+            -x
+
+      - name: AZI-07 import-smoke gate
+        # The shared boot import-smoke gate (154-01/154-04): fails the build if a
+        # rebuild dropped a boot-critical dep (packaging/httptools/h11) that would
+        # crash-loop the app on restart while health still reads 200.
+        run: bash scripts/import_smoke.sh
