@@ -43,6 +43,13 @@ services:
       # Phase 67 Plan 12 — FastMCP server streamable-HTTP transport.
       # Host port and container port both come from VM107_MCP_PORT (fail-fast).
       - "${VM107_MCP_PORT:?VM107_MCP_PORT is required (Phase 47.3 lock — no fallback defaults)}:${VM107_MCP_PORT:?VM107_MCP_PORT is required (Phase 47.3 lock — no fallback defaults)}"
+      # AZI-05 (Phase 154-05) — cross-process SLO metrics endpoint (/metrics).
+      # Bound to a NON-public interface by default (loopback); set
+      # VM107_METRICS_BIND to the dev-host LAN IP in .env so the deployed VM106
+      # Prometheus can scrape it. NEVER 0.0.0.0 (T-154-12: unauthenticated
+      # latency/health data must not be publicly reachable). Container-internal
+      # bind is 0.0.0.0:9107; this host publish interface is the security boundary.
+      - "${VM107_METRICS_BIND:-127.0.0.1}:9107:9107"
     env_file:
       - .env.local
     environment:

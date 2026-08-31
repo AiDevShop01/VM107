@@ -101,6 +101,16 @@ def create_flush_callback():
 
 @extension.extensible
 def init_a0():
+    # AZI-05 (Phase 154-05): start the cross-process SLO /metrics server ONCE in
+    # the agent process (where SLORegistry.record fires, so the histogram here is
+    # the one that actually carries samples — not the empty publisher copy).
+    # Guarded + idempotent: a missing prometheus_client or a bind error degrades
+    # to no-metrics-endpoint and never breaks boot.
+    from core.observability.slo_registry import start_metrics_server
+
+    if start_metrics_server():
+        PrintStyle().print("SLO /metrics server started on :9107 (AZI-05).")
+
     init_chats = initialize.initialize_chats()
     # Bound the one blocking init wait: an expiry raises InitTimeout and aborts
     # boot (propagating to the watchdog backstop) instead of parking forever.

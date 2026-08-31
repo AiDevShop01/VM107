@@ -24,9 +24,11 @@ def get_tool(agent, name, method, args, message, loop_data, **kwargs):
     try:
         return _get_tool_impl(agent, name, method, args, message, loop_data, **kwargs)
     finally:
-        from core.observability.slo_registry import SLORegistry
+        from core.observability.slo_registry import SLORegistry, observe_slo_latency
         _elapsed_ms = (_time.perf_counter() - _slo_start) * 1000.0
         SLORegistry.get_shared_instance().record("tool_dispatch", _elapsed_ms)
+        # AZI-05 (154-05): cross-process export alongside the in-process record.
+        observe_slo_latency("tool_dispatch", _elapsed_ms)
 
 
 def _get_tool_impl(agent, name, method, args, message, loop_data, **kwargs):

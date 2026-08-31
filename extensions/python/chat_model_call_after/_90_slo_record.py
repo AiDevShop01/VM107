@@ -21,7 +21,9 @@ class ChatModelCallSloRecord(Extension):
         start = call_data.get("_slo_start")
         if start is None:
             return
-        from core.observability.slo_registry import SLORegistry
+        from core.observability.slo_registry import SLORegistry, observe_slo_latency
 
         elapsed_ms = (time.perf_counter() - start) * 1000.0
         SLORegistry.get_shared_instance().record("model_call", elapsed_ms)
+        # AZI-05 (154-05): cross-process export alongside the in-process record.
+        observe_slo_latency("model_call", elapsed_ms)

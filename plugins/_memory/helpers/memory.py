@@ -589,7 +589,7 @@ class Memory:
         # flow are unchanged, and the finally never swallows an exception raised by
         # the recall body. Imported lazily to avoid any import-time coupling.
         import time as _time
-        from core.observability.slo_registry import SLORegistry
+        from core.observability.slo_registry import SLORegistry, observe_slo_latency
 
         _slo_start = _time.perf_counter()
         try:
@@ -609,6 +609,8 @@ class Memory:
         finally:
             _elapsed_ms = (_time.perf_counter() - _slo_start) * 1000.0
             SLORegistry.get_shared_instance().record("recall", _elapsed_ms)
+            # AZI-05 (154-05): cross-process export alongside the in-process record.
+            observe_slo_latency("recall", _elapsed_ms)
 
     def _get_knowledge_v2_backend(self):
         """Lazily build (and cache) a direct reader for the knowledge_base_v2 corpus.
