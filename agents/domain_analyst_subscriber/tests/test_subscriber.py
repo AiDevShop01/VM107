@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -26,6 +26,9 @@ from contracts.economic_intelligence.events import (
     EventSeverity,
     EventType,
 )
+
+# Contract-faithful Domain builder (all 12 slugs) — reuse, never hand-roll.
+from tests.agents.test_domain_analyst_contract import _fake_domain
 
 
 def _event(
@@ -55,14 +58,16 @@ def _stub_analysts(slugs: list[str] | None = None) -> dict[str, MagicMock]:
 
 
 def _domain_fetcher_factory():
-    """Returns a fetcher that yields a sentinel Domain object per call.
+    """Returns a fetcher that yields a real, validated ``Domain`` per call.
 
-    A plain object suffices — the subscriber forwards it to
-    ``analyst.invoke`` opaquely.
+    D-03 fidelity: the production fetcher returns a validated VM107-local
+    ``Domain`` (not a bare ``object()``), so the tests must exercise the real
+    contract — otherwise ``invoke()``'s ``assert domain.slug == DOMAIN_SLUG``
+    (domain_agent.py:122) is never reached in test.
     """
 
     def fetcher(slug: str, event: EconomicEvent):
-        return object()
+        return _fake_domain(slug)
 
     return fetcher
 
@@ -250,3 +255,63 @@ def test_failed_analyst_does_not_burn_idempotency_slot():
     # idempotency slot was NOT marked, so the retry fires.
     sub.handle(evt)
     assert analysts["growth"].invoke.call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# 9. main() wires a real (non-None) DomainSnapshotFetcher (AZE-02 acceptance #1)
+# ---------------------------------------------------------------------------
+
+
+def test_main_wires_real_fetcher():
+    """``main()`` constructs the subscriber with a real ``DomainSnapshotFetcher``
+    (no longer ``domain_fetcher=None``) — the blocker-B1 fix."""
+    with patch(
+        "agents.domain_analyst_subscriber.subscriber.EventBus"
+    ), patch(
+        "agents.domain_analyst_subscriber.subscriber.DomainAnalystSubscriber"
+    ) as MockSub, patch(
+        "agents.domain_analyst_subscriber.domain_fetcher.DomainSnapshotFetcher"
+    ) as MockFetcher, patch(
+        "agents.domain_analyst_subscriber.subscriber._install_signal_handlers"
+    ):
+        # main() logs len(subscriber.analysts) — give the mock a real length.
+        MockSub.return_value.analysts = {}
+
+        from agents.domain_analyst_subscriber.subscriber import main
+
+        main()
+
+    MockSub.assert_called_once()
+    _, kwargs = MockSub.call_args
+    assert kwargs.get("domain_fetcher") is not None
+    assert kwargs["domain_fetcher"] is MockFetcher.return_value
+
+
+# ---------------------------------------------------------------------------
+# 10. Transient miss (fetcher returns None) does NOT burn the idempotency slot
+# ---------------------------------------------------------------------------
+
+
+def test_transient_miss_does_not_burn_idempotency_slot():
+    """A transient miss (fetcher returns ``None`` — snapshot not ready) must NOT
+    mark the idempotency/debounce slot, so the release is re-processed when the
+    snapshot lands (D-02 permanent-drop fix — subscriber EDIT 2)."""
+    analysts = _stub_analysts()
+
+    calls = {"n": 0}
+
+    def fetcher(slug: str, event: EconomicEvent):
+        calls["n"] += 1
+        return None if calls["n"] == 1 else _fake_domain(slug)
+
+    clock = MagicMock()
+    clock.side_effect = [0.0, float(DEBOUNCE_SECONDS) + 1.0]
+    sub = DomainAnalystSubscriber(
+        analysts=analysts,
+        domain_fetcher=fetcher,
+        clock=clock,
+    )
+    evt = _event(event_id="evt-1", affected_domains=["growth"], snapshot_version=1)
+    sub.handle(evt)  # miss -> None -> NOT marked
+    sub.handle(evt)  # retry -> real Domain -> analyst fires
+    assert analysts["growth"].invoke.call_count == 1
