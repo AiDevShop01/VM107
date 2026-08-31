@@ -112,10 +112,12 @@ class DomainAnalystSubscriber:
         tuples. Defaults to an in-memory ``set``. Production deployments
         may swap in a Redis-backed set for cross-restart durability.
     domain_fetcher:
-        Callable ``(slug, event) -> Domain`` resolving the Domain payload
-        from snapshot storage. Optional — if ``None`` the subscriber logs
-        the event without invoking analysts (Wave 6 stub; SnapshotRepository
-        wiring lands in 95-13).
+        Callable ``(slug, event) -> Domain | None`` resolving the current
+        Domain snapshot for a release. Wired in ``main()`` to the production
+        :class:`~agents.domain_analyst_subscriber.domain_fetcher.DomainSnapshotFetcher`
+        (Phase 156 / AZE-02). Optional — if ``None`` the subscriber logs the
+        event without invoking analysts. A fetcher returning ``None`` (transient
+        miss) leaves the idempotency/debounce slots unmarked (D-02).
     debounce_seconds:
         Override the 30s debounce window (default :data:`DEBOUNCE_SECONDS`).
     """
@@ -171,6 +173,15 @@ class DomainAnalystSubscriber:
         for slug in affected:
             analyst = self.analysts.get(slug)
             if analyst is None:
+                # D-02 unknown-slug drop — a slug not in the canonical 12 is
+                # logged at WARNING (not silently skipped) so a malformed /
+                # drifted producer payload is visible, never fabricated.
+                logger.warning(
+                    "domain_analyst_subscriber: unknown domain slug %r in "
+                    "affected_domains event_id=%s — dropping (not one of the "
+                    "canonical 12)",
+                    slug, event.event_id,
+                )
                 continue
 
             # Idempotency check — same (slug, event_id, snapshot_version) ⇒ skip.
@@ -201,9 +212,14 @@ class DomainAnalystSubscriber:
             try:
                 domain = self._fetch_domain(slug, event)
                 if domain is None:
+                    # D-02 (permanent-drop fix): a transient miss (snapshot not
+                    # ready yet) must NOT mark the idempotency / debounce slots,
+                    # so the release is re-processed when the snapshot lands.
+                    # The marking below is now gated inside the ``else`` branch.
                     logger.info(
                         "domain_analyst_subscriber: no domain payload "
-                        "available slug=%s event_id=%s — logging only",
+                        "available slug=%s event_id=%s — logging only "
+                        "(idempotency/debounce NOT marked, retry-friendly)",
                         slug, event.event_id,
                     )
                 else:
@@ -212,9 +228,10 @@ class DomainAnalystSubscriber:
                     # domain analysts accept ``context: dict | None``) — an
                     # immutable passthrough, not a fresh stamp.
                     analyst.invoke(domain, {"knowledge_time": knowledge_time})
-                # Successful (or log-only) dispatch marks the key.
-                self.processed.add(key)
-                self._last_invoke_ts[slug] = now
+                    # Mark keys ONLY on a real dispatch (D-02) — see the
+                    # ``domain is None`` branch above for why a miss is unmarked.
+                    self.processed.add(key)
+                    self._last_invoke_ts[slug] = now
             except Exception as exc:  # noqa: BLE001 — one bad analyst must not kill the rest
                 logger.exception(
                     "domain_analyst_subscriber: analyst %s raised on "
@@ -259,11 +276,21 @@ def main() -> None:
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
 
+    # Phase 156 (AZE-02 / blocker B1): construct and inject the real
+    # DomainSnapshotFetcher so the 12 analysts fire on real, validated Domain
+    # data (previously domain_fetcher was omitted → None → log-and-drop).
+    # Imported inside main() so the module stays import-light and the fetcher's
+    # fail-fast env read only fires when the service actually starts.
+    from agents.domain_analyst_subscriber.domain_fetcher import DomainSnapshotFetcher
+
     # EventBus constructor reads REDIS_HOST + REDIS_PORT from env with NO
     # fallback defaults — KeyError at instantiation if missing (per
     # feedback_env_driven_no_fallbacks).
     bus = EventBus()
-    subscriber = DomainAnalystSubscriber(event_bus=bus)
+    subscriber = DomainAnalystSubscriber(
+        event_bus=bus,
+        domain_fetcher=DomainSnapshotFetcher(),
+    )
     bus.subscribe(EventType.MACRO_RELEASE, subscriber.handle)
 
     _install_signal_handlers()
