@@ -916,6 +916,15 @@ services:
       # Fail-fast — no fallback defaults per feedback_env_driven_no_fallbacks.
       REDIS_HOST: "${REDIS_HOST:?REDIS_HOST is required (Phase 95 Plan 12 — domain_analyst_subscriber)}"
       REDIS_PORT: "${REDIS_PORT:?REDIS_PORT is required (Phase 95 Plan 12 — domain_analyst_subscriber)}"
+      # ── Phase 156 (AZE-02) — DomainSnapshotFetcher required env vars ──────
+      # Fail-fast syntax: ${VAR:?msg} aborts `docker compose up` if unset, so
+      # the VM107→VM100 domain read path can never boot silently mis-configured
+      # and fail at the first MACRO_RELEASE instead. Both vars are supplied by
+      # env_file: .env.local above; these guards only convert a silent-missing
+      # into a loud compose-up failure. The var NAME is referenced, never the
+      # JWT value (T-156-03 — no secret is echoed).
+      VM100_API_URL: "${VM100_API_URL:?VM100_API_URL is required (Phase 156 — domain snapshot fetcher base URL)}"
+      VM107_SERVICE_JWT: "${VM107_SERVICE_JWT:?VM107_SERVICE_JWT is required (Phase 156 — VM100 domain read JWT bearer)}"
     volumes:
       - ./usr:/a0/usr
       - "/Volumes/ HardDrive/FinGPT/Dagster/fingpt_core/src/fingpt_core:/a0_extras/fingpt_core:ro"
