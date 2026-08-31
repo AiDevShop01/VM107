@@ -129,4 +129,18 @@ class DomainSnapshotFetcher:
         # 200 — validate at the boundary. A ValidationError surfaces loudly
         # (Pitfall 1) rather than being swallowed as a "retryable analyst
         # failure"; the frozen + extra="forbid" Domain enforces exact shape.
-        return Domain.model_validate(resp.json())
+        payload = resp.json()
+
+        # A1 field-adapter (156-04): dev-VM100 serializes a frontend-only
+        # presentational field, `cross_asset_transmissions` (Plan 13 §10
+        # DomainCrossAssetTransmissions), that the VM107-local frozen `Domain`
+        # deliberately omits under extra="forbid". The 12 domain analysts do
+        # NOT need it. Strip ONLY this one known-benign key here in the fetcher
+        # (never relax the contract, never add the field to the model). Any
+        # OTHER unexpected extra is intentionally left in place so
+        # Domain.model_validate below still raises loudly — genuine future
+        # contract drift must stay visible (fail-fast).
+        if isinstance(payload, dict):
+            payload.pop("cross_asset_transmissions", None)
+
+        return Domain.model_validate(payload)
