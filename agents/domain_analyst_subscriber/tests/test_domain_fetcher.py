@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from agents.domain_analyst_subscriber.domain_fetcher import DomainSnapshotFetcher
 from agents.domain_analyst_subscriber.subscriber import (
@@ -75,6 +76,65 @@ def _ok_response(slug: str) -> MagicMock:
     resp.json.return_value = _fake_domain(slug).model_dump(mode="json")
     resp.raise_for_status = MagicMock()
     return resp
+
+
+def _vm100_shaped_response(slug: str, extra: dict | None = None) -> MagicMock:
+    """A 200 body shaped like the *live* dev-VM100 domain endpoint: the
+    contract-faithful Domain dump PLUS the VM100 frontend-only presentational
+    key(s) the VM107-local frozen ``Domain`` deliberately omits.
+
+    The known drift (verified programmatically in 156-03/156-04) is the single
+    EXTRA key ``cross_asset_transmissions`` (Plan 13 §10
+    DomainCrossAssetTransmissions). ``extra`` lets a test inject an *additional*
+    unexpected key to prove the adapter is a named pop, not a blanket relax.
+    """
+    body = _fake_domain(slug).model_dump(mode="json")
+    body["cross_asset_transmissions"] = []  # VM100 frontend-only (Plan 13 §10 / A1)
+    if extra:
+        body.update(extra)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = body
+    resp.raise_for_status = MagicMock()
+    return resp
+
+
+# ---------------------------------------------------------------------------
+# A1 field-adapter (156-04): VM100 ships an extra frontend-only
+# `cross_asset_transmissions` that the frozen VM107 Domain rejects under
+# extra="forbid". The fetcher strips that ONE known-benign key and validates.
+# ---------------------------------------------------------------------------
+
+
+def test_vm100_cross_asset_transmissions_stripped_yields_valid_domain():
+    """RED→GREEN (A1): a live-shaped VM100 body carrying the frontend-only
+    ``cross_asset_transmissions`` key must now round-trip into a validated
+    ``Domain`` (was raising ``ValidationError`` under ``extra="forbid"``).
+
+    The adapter strips only that known presentational field in the fetcher —
+    the VM107 contract is NOT relaxed and the key is NOT added to the model.
+    """
+    with patch("httpx.get", return_value=_vm100_shaped_response("inflation")):
+        fetcher = _make_fetcher()
+        result = fetcher("inflation", _event(affected_domains=["inflation"]))
+    assert isinstance(result, Domain)
+    assert result.slug == "inflation"
+    # The stripped key never leaks onto the model (extra="forbid" would have
+    # rejected it anyway; this asserts the adapter dropped it, not stored it).
+    assert not hasattr(result, "cross_asset_transmissions")
+
+
+def test_unexpected_extra_still_raises():
+    """The A1 adapter is a NAMED pop, not a blanket relax: any OTHER unknown
+    extra key must STILL raise ``ValidationError`` so genuine future contract
+    drift stays visible (fail-fast; ``extra="forbid"`` intact)."""
+    resp = _vm100_shaped_response(
+        "growth", extra={"some_unexpected_future_field": 123}
+    )
+    with patch("httpx.get", return_value=resp):
+        fetcher = _make_fetcher()
+        with pytest.raises(ValidationError):
+            fetcher("growth", _event(affected_domains=["growth"]))
 
 
 # ---------------------------------------------------------------------------
