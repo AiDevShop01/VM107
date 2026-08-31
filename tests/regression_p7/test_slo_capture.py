@@ -209,3 +209,57 @@ def test_metrics_endpoint_exposes_cross_process_histogram():
         "vm107_slo_latency_ms present but has no `path=` label — the histogram "
         "must be labelled by SLO path (recall/tool_dispatch/model_call)"
     )
+
+
+@pytest.mark.requires_deps
+def test_vm106_scrape_target_up():
+    """AZI-05 (154-05): the reused VM106 Prometheus scrapes the vm107 :9107
+    ``/metrics`` endpoint and reports the target ``up`` — proving p50/p95 are
+    observable CROSS-PROCESS (Grafana-queryable), the whole point of the fix.
+
+    Queries the live VM106 Prometheus HTTP API (``/api/v1/targets``) and asserts
+    the vm107 SLO job's target health is ``up``. Marked ``requires_deps`` so the
+    host-clean fast loop skips it. If VM106 is unreachable OR the job has not been
+    added to ``/opt/vm106/prometheus-config.prod.yml`` yet (the out-of-tree,
+    operator-applied step), the test SKIPS rather than fails — the scrape target
+    lives on a non-git live host, so its presence is an environment precondition,
+    not a repo invariant.
+
+      Env overrides:
+        VM106_PROM_URL       default http://192.168.1.206:9090
+        VM107_SLO_JOB        default vm107-slo   (the scrape_config job_name)
+    """
+    import json
+    import os
+    import urllib.error
+    import urllib.request
+
+    prom_url = os.environ.get("VM106_PROM_URL", "http://192.168.1.206:9090").rstrip("/")
+    job = os.environ.get("VM107_SLO_JOB", "vm107-slo")
+    targets_url = f"{prom_url}/api/v1/targets?state=active"
+
+    try:
+        with urllib.request.urlopen(targets_url, timeout=6) as resp:  # noqa: S310
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+    except (urllib.error.URLError, OSError) as exc:
+        pytest.skip(f"VM106 Prometheus unreachable at {targets_url}: {exc}")
+
+    active = payload.get("data", {}).get("activeTargets", [])
+    slo_targets = [
+        t for t in active
+        if t.get("labels", {}).get("job") == job
+        or t.get("scrapePool") == job
+    ]
+    if not slo_targets:
+        pytest.skip(
+            f"VM106 has no '{job}' scrape target yet — the out-of-tree scrape_config "
+            "on /opt/vm106/prometheus-config.prod.yml is an operator-applied step "
+            "(see 154-05-SUMMARY User Setup / VM106 scrape_config block)"
+        )
+
+    healths = {t.get("labels", {}).get("instance"): t.get("health") for t in slo_targets}
+    assert any(h == "up" for h in healths.values()), (
+        f"VM106 '{job}' target(s) present but not up: {healths} — check that vm107 "
+        "9107 is bound to a VM106-reachable interface (VM107_METRICS_BIND) and the "
+        "container is running"
+    )
