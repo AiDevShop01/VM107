@@ -2,6 +2,11 @@ services:
   vm107-redis:
     image: redis:7-alpine
     container_name: vm107-redis
+    # AZI-01 (Phase 154-02) Tier D infra — hard mem/cpu cap so a runaway
+    # multi-agent run OOM-kills THIS container, never the Docker Desktop host.
+    # Service-level keys (NOT deploy.resources — silent no-op on `compose up`).
+    mem_limit: 384m
+    cpus: 0.5
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     # Bucket-A3 (2026-06-08): expose to host so vm100-backend's Phase 74
@@ -22,6 +27,12 @@ services:
 
   vm107:
     container_name: vm107-agent-zero
+    # AZI-01 (Phase 154-02) Tier A brain/LLM — the heavy service (6 GiB image,
+    # browser-use, whisper, embeddings). Generous ceiling + a 2g reservation so
+    # the kernel prioritises it under pressure. Service-level keys (NOT deploy.).
+    mem_limit: 8g
+    mem_reservation: 2g
+    cpus: 4.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -145,6 +156,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-macro-emitter:
     container_name: vm107-macro-emitter
+    # AZI-01 (Phase 154-02) Tier B worker — HTTP handler + LLM path.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -216,6 +230,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-agent-telemetry-publisher:
     container_name: vm107-agent-telemetry-publisher
+    # AZI-01 (Phase 154-02) Tier B worker — coalescing aggregator.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -270,6 +287,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-macro-release-event-listener:
     container_name: vm107-macro-release-event-listener
+    # AZI-01 (Phase 154-02) Tier B worker — brain goal/task creation.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -329,6 +349,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-task-dispatcher:
     container_name: vm107-task-dispatcher
+    # AZI-01 (Phase 154-02) Tier B worker — brain_state poll + dispatch.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -404,6 +427,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-macro-story-tracker:
     container_name: vm107-macro-story-tracker
+    # AZI-01 (Phase 154-02) Tier B worker — APScheduler story tracker.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -490,6 +516,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-macro-regime-monitor:
     container_name: vm107-macro-regime-monitor
+    # AZI-01 (Phase 154-02) Tier B worker — APScheduler + BeliefStore.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -572,6 +601,9 @@ services:
   # ---------------------------------------------------------------------------
   event_bus:
     container_name: vm107-event-bus
+    # AZI-01 (Phase 154-02) Tier B worker — Redis pub/sub relay.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -622,6 +654,9 @@ services:
   # backend restarts.
   theme_engine:
     container_name: vm107-theme-engine
+    # AZI-01 (Phase 154-02) Tier B worker — theme catalog re-evaluation.
+    mem_limit: 1g
+    cpus: 1.0
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -682,6 +717,9 @@ services:
 
   executive_summary_subscriber:
     container_name: vm107-executive-summary-subscriber
+    # AZI-01 (Phase 154-02) Tier C subscriber.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -721,6 +759,9 @@ services:
 
   theme_monitor_subscriber:
     container_name: vm107-theme-monitor-subscriber
+    # AZI-01 (Phase 154-02) Tier C subscriber.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -760,6 +801,9 @@ services:
 
   timeline_subscriber:
     container_name: vm107-timeline-subscriber
+    # AZI-01 (Phase 154-02) Tier C subscriber.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -799,6 +843,9 @@ services:
 
   central_bank_subscriber:
     container_name: vm107-central-bank-subscriber
+    # AZI-01 (Phase 154-02) Tier C subscriber.
+    mem_limit: 512m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -845,6 +892,10 @@ services:
   # docker-compose sibling per feedback_mgmt_commands_need_compose_service.
   domain_analyst_subscriber:
     container_name: vm107-domain-analyst-subscriber
+    # AZI-01 (Phase 154-02) Tier C subscriber — 12 domain analysts in one
+    # container; Phase 156 will make it fetch real data, so it gets headroom.
+    mem_limit: 768m
+    cpus: 0.5
     build:
       context: .
       dockerfile: DockerfileLocal
@@ -902,6 +953,9 @@ services:
   # ---------------------------------------------------------------------------
   vm107-cost-monitor:
     container_name: vm107-cost-monitor
+    # AZI-01 (Phase 154-02) Tier C monitor — lightest worker (5-min tick).
+    mem_limit: 384m
+    cpus: 0.25
     build:
       context: .
       dockerfile: DockerfileLocal
