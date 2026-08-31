@@ -69,6 +69,7 @@ Pillow>=10.2.0  # security floor: heap buffer overflow CWE-122, eval injection C
 nltk>=3.9.3  # security floor: RCE CWE-94, code injection CWE-94
 h11>=0.16.0  # security floor: HTTP request smuggling CWE-444
 packaging>=23.2,<25  # AZI-07 boot-crash floor: litellm imports `packaging`; a rebuild that drops this transitive dep bricks litellm boot (crash-loop while health still reads 200) — see memory project_vm107_packaging_boot_defect. Bounded <25 to avoid an unvetted major bump; image resolves 24.2. Verified by VM107/scripts/import_smoke.sh.
+prometheus-client>=0.21,<1  # AZI-05 (Phase 154-05) cross-process SLO export: core/observability/slo_registry.py exports a vm107_slo_latency_ms Histogram + /metrics :9107 so p50/p95 are observable OUTSIDE the in-process SLORegistry singleton (the telemetry-publisher process reads its own empty copy → paths: {}). Official CNCF client (RESEARCH audit: Approved); floor 0.21 confirmed via `pip index versions` (image resolves 0.26.0). Bounded <1 to hard-stop an unvetted 1.x major.
 urllib3>=2.6.0  # security floor: resource exhaustion CWE-770, data amplification CWE-409
 cryptography>=46.0.0  # security floor: insufficient data authenticity CWE-345
 werkzeug>=3.0.3  # security floor: RCE CWE-94
