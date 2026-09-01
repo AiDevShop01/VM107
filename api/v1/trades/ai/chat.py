@@ -270,6 +270,12 @@ class TradeAiChat(ApiHandler):
     - LLM failure → persist failure envelope → 502.
     """
 
+    def __init__(self, app=None, thread_lock=None) -> None:
+        # Phase 155 (D-04): permit no-arg construction for unit-level dispatch
+        # tests (the production dispatch in ui_server.py always passes the Flask
+        # app + thread lock). ApiHandler only stores these two references.
+        super().__init__(app, thread_lock)
+
     @classmethod
     def requires_api_key(cls) -> bool:
         return True
@@ -286,10 +292,126 @@ class TradeAiChat(ApiHandler):
     def get_methods(cls) -> list[str]:
         return ["POST"]
 
-    async def process(self, input: Input, request) -> Output:  # type: ignore[override]
-        # Extract journal_id from parametric URL segment.
+    async def _handle_macro_ask(self, input: Input, request, conversation_type: str) -> Output:
+        """Phase 155 (D-04): early-intercept branch for conversation_type == "macro_ask".
+
+        Routes the user's macro question through the router → specialist fan-out →
+        chief-economist synthesizer pipeline (``MacroAskExecutor``), then persists the
+        composed answer via the existing one-envelope-per-turn ``build_envelope`` /
+        ``write_envelope`` contract (status ∈ {success, degraded, failure}). Additive:
+        the macro_chat coordinator-monologue path and the shared CONVERSATION_TYPES
+        frozenset are left untouched (Pitfall 7, D-04).
+        """
+        # Lazy import so the tests monkeypatch the SAME class object, and the heavy
+        # executor deps are not pulled at chat.py module-import time.
+        from agents.macro_ask_executor.executor import MacroAskExecutor
+
         journal_id = (getattr(request, "view_args", None) or {}).get("journal_id", "").strip()
-        if not journal_id:
+        message = (input.get("message", "") or input.get("query", "") or "").strip()
+
+        # Tier-1 context is best-effort — the executor's router/pillar reads honestly
+        # degrade when it is unavailable; never fail the turn on a context-build miss.
+        context: dict = {}
+        if journal_id:
+            try:
+                context = await build_tier1_context(journal_id)
+            except Exception as exc:  # pragma: no cover - defensive
+                log.warning(
+                    "macro_ask: tier1 context build failed journal_id=%s: %s",
+                    journal_id, exc,
+                )
+
+        task_id = f"chat-{uuid.uuid4().hex}"
+        host_agent_id = "vm107.macro_ask_router"
+
+        # run() is sync (it drives the async specialist batch internally, 155-03).
+        executor = MacroAskExecutor()
+        sections = executor.run(query=message, context=context, journal_id=journal_id)
+
+        sections = sections if isinstance(sections, dict) else {}
+        answer: str = sections.get("answer", "") or ""
+        limitations = sections.get("limitations", []) or []
+        # Map the executor's status hint onto the envelope status vocabulary; fall
+        # back to a truthiness read so a fabricated success is never emitted (T-155-03).
+        status = sections.get("status")
+        if status not in {"success", "degraded", "failure"}:
+            status = "success" if answer else "failure"
+
+        # One envelope per turn — best-effort persistence: an envelope-store outage
+        # must not drop the composed answer the caller already earned (AC#2). Chain
+        # source_envelope_id to the prior macro_ask turn for this journal thread.
+        env_id = None
+        if journal_id:
+            try:
+                db = get_mongo_db()
+                prev_doc = db["agent_envelopes"].find_one(
+                    {"journal_id": journal_id, "agent_id": host_agent_id},
+                    sort=[("timestamp", -1)],
+                )
+                source_env_id: str | None = (prev_doc or {}).get("envelope_id")
+                env = build_envelope(
+                    task_id=task_id,
+                    parent_task_id=None,
+                    agent_id=host_agent_id,
+                    input_payload={
+                        "message": message,
+                        "context": context,
+                        "conversation_type": conversation_type,
+                    },
+                    output_payload={"response": answer},
+                    telemetry={
+                        "host_agent_id": host_agent_id,
+                        "conversation_type": conversation_type,
+                    },
+                    status=status,
+                    source_envelope_id=source_env_id,
+                    journal_id=journal_id,
+                )
+                env_id = write_envelope(db, env)
+            except Exception as exc:  # pragma: no cover - defensive store path
+                log.warning(
+                    "macro_ask: envelope persist failed journal_id=%s: %s",
+                    journal_id, exc,
+                )
+
+        http_status = 200 if status != "failure" else 502
+        return Response(
+            json.dumps({
+                "response": answer,
+                "limitations": limitations,
+                "envelope_id": env_id,
+                "status": status,
+                "degraded": status == "degraded",
+                "host_agent_id": host_agent_id,
+                "conversation_type": conversation_type,
+            }),
+            http_status,
+            mimetype="application/json",
+        )
+
+    async def process(self, input: Input, request) -> Output:  # type: ignore[override]
+        # Phase 155 (D-04): parse conversation_type FIRST so the macro_ask fan-out
+        # mode is early-intercepted BEFORE journal_id/message validation and BEFORE
+        # conversation_type_to_profile(). This keeps the shared
+        # fingpt_core.CONVERSATION_TYPES frozenset (vendored across VM100/101/102/
+        # Dagster) untouched (Pitfall 7) and leaves the macro_chat coordinator-
+        # monologue path additive/unchanged (low blast radius).
+        raw_conversation_type = input.get("conversation_type")
+        conversation_type: str | None = (
+            raw_conversation_type.strip() if isinstance(raw_conversation_type, str) and raw_conversation_type.strip() else None
+        )
+        if conversation_type == "macro_ask":
+            return await self._handle_macro_ask(input, request, conversation_type)
+
+        # Extract journal_id from parametric URL segment.
+        # NOTE (Phase 155 D-04): the two 422 guards below are gated on
+        # ``request is not None``. In production the dispatch in ui_server.py ALWAYS
+        # passes a live Flask Request, so both guards fire byte-for-byte as before —
+        # the coordinator-monologue path is unchanged for every real request. The
+        # ``request is None`` seam exists only for request-less unit-dispatch tests
+        # (which exercise the routing decision, not the HTTP validation).
+        journal_id = (getattr(request, "view_args", None) or {}).get("journal_id", "").strip()
+        if not journal_id and request is not None:
             return Response(
                 json.dumps({"error": "Missing journal_id"}),
                 422,
@@ -298,21 +420,17 @@ class TradeAiChat(ApiHandler):
 
         # Validate message is non-empty.
         message = (input.get("message", "") or "").strip()
-        if not message:
+        if not message and request is not None:
             return Response(
                 json.dumps({"error": "Empty message — 'message' field is required and must be non-empty"}),
                 422,
                 mimetype="application/json",
             )
 
-        # Phase 71 Plan 02: extract optional conversation_type and resolve it
-        # to a host-agent profile via the single source-of-truth dispatch
-        # helper. Unknown values return 400 (client error), preserving the
-        # 422 path for malformed bodies and the 502 path for server failures.
-        raw_conversation_type = input.get("conversation_type")
-        conversation_type: str | None = (
-            raw_conversation_type.strip() if isinstance(raw_conversation_type, str) and raw_conversation_type.strip() else None
-        )
+        # Phase 71 Plan 02: conversation_type parsed above; resolve it to a
+        # host-agent profile via the single source-of-truth dispatch helper.
+        # Unknown values return 400 (client error), preserving the 422 path for
+        # malformed bodies and the 502 path for server failures.
         try:
             profile_name, _skill_addendum = conversation_type_to_profile(conversation_type)
         except UnknownConversationType as exc:
@@ -344,30 +462,48 @@ class TradeAiChat(ApiHandler):
                 "Tier-1 builder owns context retrieval. journal_id=%s",
                 journal_id,
             )
-        context: dict = await build_tier1_context(journal_id)
         task_id = f"chat-{uuid.uuid4().hex}"
-        db = get_mongo_db()
         start = time.perf_counter()
 
-        # source_envelope_id: chain to the most recent envelope for this
-        # journal thread. Phase 47 scopes history by agent_id="agent_zero"
-        # (pre_trade); Phase 71 scopes per host_agent_id so each conversation
-        # mode owns its own thread within the journal.
-        prev_doc = db["agent_envelopes"].find_one(
-            {"journal_id": journal_id, "agent_id": host_agent_id},
-            sort=[("timestamp", -1)],
-        )
-        source_env_id: str | None = (prev_doc or {}).get("envelope_id")
+        # Tier-1 context + envelope-store reads. Production (request is not None)
+        # re-raises on any failure, preserving the existing 500 behavior EXACTLY.
+        # The ``request is None`` branch is the request-less unit-dispatch seam:
+        # it degrades to an empty context / empty history so the routing decision
+        # (macro_chat → coordinator monologue) can be exercised without Mongo.
+        try:
+            context: dict = await build_tier1_context(journal_id)
+        except Exception:
+            if request is not None:
+                raise
+            context = {}
 
-        # Pull conversation history for this journal + host_agent thread
-        # (ordered ASC by timestamp). Pre-loaded into the host agent's history
-        # before monologue() runs so the LLM has context-aware continuity
-        # across turns (HTTP layer remains stateless).
-        history_cursor = db["agent_envelopes"].find(
-            {"journal_id": journal_id, "agent_id": host_agent_id},
-            sort=[("timestamp", 1)],
-        )
-        history_envelopes: list[dict] = list(history_cursor)
+        db = None
+        source_env_id: str | None = None
+        history_envelopes: list[dict] = []
+        try:
+            db = get_mongo_db()
+            # source_envelope_id: chain to the most recent envelope for this
+            # journal thread. Phase 47 scopes history by agent_id="agent_zero"
+            # (pre_trade); Phase 71 scopes per host_agent_id so each conversation
+            # mode owns its own thread within the journal.
+            prev_doc = db["agent_envelopes"].find_one(
+                {"journal_id": journal_id, "agent_id": host_agent_id},
+                sort=[("timestamp", -1)],
+            )
+            source_env_id = (prev_doc or {}).get("envelope_id")
+
+            # Pull conversation history for this journal + host_agent thread
+            # (ordered ASC by timestamp). Pre-loaded into the host agent's history
+            # before monologue() runs so the LLM has context-aware continuity
+            # across turns (HTTP layer remains stateless).
+            history_cursor = db["agent_envelopes"].find(
+                {"journal_id": journal_id, "agent_id": host_agent_id},
+                sort=[("timestamp", 1)],
+            )
+            history_envelopes = list(history_cursor)
+        except Exception:
+            if request is not None:
+                raise
 
         # Build prompts.
         try:
@@ -396,25 +532,27 @@ class TradeAiChat(ApiHandler):
                 "Chat LLM failure for journal_id=%s task_id=%s: %s",
                 journal_id, task_id, exc,
             )
-            env = build_envelope(
-                task_id=task_id,
-                parent_task_id=None,
-                agent_id=host_agent_id,
-                input_payload={
-                    "message": message,
-                    "context": context,
-                    "conversation_type": effective_conversation_type,
-                },
-                output_payload={"error": str(exc)},
-                telemetry={
-                    "host_agent_id": profile_name,
-                    "conversation_type": conversation_type,
-                },
-                status="failure",
-                source_envelope_id=source_env_id,
-                journal_id=journal_id,
-            )
-            env_id = write_envelope(db, env)
+            env_id = None
+            if request is not None and db is not None:
+                env = build_envelope(
+                    task_id=task_id,
+                    parent_task_id=None,
+                    agent_id=host_agent_id,
+                    input_payload={
+                        "message": message,
+                        "context": context,
+                        "conversation_type": effective_conversation_type,
+                    },
+                    output_payload={"error": str(exc)},
+                    telemetry={
+                        "host_agent_id": profile_name,
+                        "conversation_type": conversation_type,
+                    },
+                    status="failure",
+                    source_envelope_id=source_env_id,
+                    journal_id=journal_id,
+                )
+                env_id = write_envelope(db, env)
             return Response(
                 json.dumps({
                     "error": "LLM failure — AI service unavailable",
@@ -433,22 +571,27 @@ class TradeAiChat(ApiHandler):
         )
         status = "degraded" if fallback_used else "success"
 
-        env = build_envelope(
-            task_id=task_id,
-            parent_task_id=None,
-            agent_id=host_agent_id,
-            input_payload={
-                "message": message,
-                "context": context,
-                "conversation_type": effective_conversation_type,
-            },
-            output_payload={"response": response_text},
-            telemetry=telemetry if isinstance(telemetry, dict) else {},
-            status=status,
-            source_envelope_id=source_env_id,
-            journal_id=journal_id,
-        )
-        env_id = write_envelope(db, env)
+        # Persist one envelope per turn. Skipped only on the request-less unit-
+        # dispatch seam (request is None); production always carries a live Flask
+        # Request and an initialized CapabilityRegistry / envelope store.
+        env_id = None
+        if request is not None and db is not None:
+            env = build_envelope(
+                task_id=task_id,
+                parent_task_id=None,
+                agent_id=host_agent_id,
+                input_payload={
+                    "message": message,
+                    "context": context,
+                    "conversation_type": effective_conversation_type,
+                },
+                output_payload={"response": response_text},
+                telemetry=telemetry if isinstance(telemetry, dict) else {},
+                status=status,
+                source_envelope_id=source_env_id,
+                journal_id=journal_id,
+            )
+            env_id = write_envelope(db, env)
 
         log.info(
             "Chat envelope persisted journal_id=%s envelope_id=%s status=%s "
