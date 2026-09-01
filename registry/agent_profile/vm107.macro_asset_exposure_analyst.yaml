@@ -1,6 +1,6 @@
 id: vm107.macro_asset_exposure_analyst
 type: agent_profile
-status: real
+status: deprecated
 shipped: 85
 last_changed: "2026-06-13"
 name: vm107.macro_asset_exposure_analyst
@@ -25,7 +25,7 @@ max_iterations: 5
 max_cost_usd: 0.25
 impact_on_decision: HIGH
 hard_scoped: false
-deprecated: false
+deprecated: true
 tags:
   - agent-profile
   - macro
@@ -39,7 +39,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: macro/macro-asset-exposure-analyst.md
-  status: skeleton                           # registered profile, NO code module (AGENT-1) — implement-or-retire (§C)
+  status: retired                            # RETIRED Phase 173 (D-01) — deprecate-in-place; top-level status: deprecated drops it from dispatch, profile file KEPT (09 §5)
   authority: recommend                       # declared ceiling; no belief_store.propose granted; unbuilt (no authority exercised today)
   trigger_normalized: [event-driven]         # intended Phase-85 macro.release_events fan-out; no shipped trigger scalar (04 §A)
   memory_rw:
