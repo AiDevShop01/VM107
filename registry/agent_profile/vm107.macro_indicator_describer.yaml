@@ -1,6 +1,6 @@
 id: vm107.macro_indicator_describer
 type: agent_profile
-status: real
+status: deprecated
 shipped: 85
 last_changed: "2026-06-12"
 name: vm107.macro_indicator_describer
@@ -49,7 +49,7 @@ tags:
   - phase-85
   - backfill
   - editorial
-deprecated: false
+deprecated: true
 
 # P167C (167-05) — additive governance block; existing scalars above are UNCHANGED (D-05).
 # SKELETON (D-03, implement-or-retire) — decision record, profile NEVER deleted (09 §5).
@@ -57,7 +57,7 @@ deprecated: false
 agent_contract:
   contract_version: 1
   catalogue_ref: macro/macro-indicator-describer.md
-  status: skeleton                           # Phase-85 editorial profile, NO code module (AGENT-1); overlaps built domain analysts — likely retire (§C)
+  status: retired                            # RETIRED Phase 173 (D-04) — editorial describe-an-indicator already delivered by the 12 built domain analysts; deprecate-in-place, profile file KEPT (4 inbound refs, 09 §5)
   authority: recommend                       # declared ceiling; no belief_store.propose granted; leaf agent, unbuilt
   trigger_normalized: [user-invoked]         # intended: backfill harness, one invocation per indicator; no shipped trigger scalar (04 §A)
   memory_rw:
