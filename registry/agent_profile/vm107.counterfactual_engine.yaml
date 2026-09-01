@@ -11,7 +11,7 @@
 
 id: vm107.counterfactual_engine
 type: agent_profile
-status: real
+status: deprecated
 shipped: 89
 last_changed: "2026-06-21"
 name: vm107.counterfactual_engine
@@ -31,7 +31,7 @@ capability_type: agent
 vm: vm107
 impact_on_decision: HIGH
 hard_scoped: true
-deprecated: false
+deprecated: true                    # P173 (D-06) RETIRED — redundant agent surface; the built core/counterfactual/ lib stays wired into the evidence facet
 phase: 89
 parent_profile: null
 sub_profiles: []
@@ -169,7 +169,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: world-model/counterfactual-engine.md
-  status: skeleton                           # registered profile, no agent module — wire to core/counterfactual/
+  status: retired                            # P173 (D-06) RETIRED — agent surface redundant; the built core/counterfactual/ lib remains wired into the evidence facet (historical_context.py). No capability lost.
   authority: recommend                       # belief_store.propose NOT granted (only .query) — analogue-grounded estimate, not a decision
   trigger_normalized: [user-invoked]         # aliases shipped `trigger: user_driven` per 04 §A (user_driven -> user-invoked)
   memory_rw:
