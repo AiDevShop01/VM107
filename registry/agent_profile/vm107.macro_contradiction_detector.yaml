@@ -96,12 +96,13 @@ tags:
 
 # P167C (167-07) — additive governance block; existing scalars above are UNCHANGED (D-05).
 # Grammar frozen in Documentation/Agent Zero/agent-catalogue/AGENT-CONTRACT-BLOCK-SCHEMA.md
-# SKELETON (migration-map §C): registered profile, agent module not built — disposition: wire to the
-# existing core/contradiction/ engine. Additive-only; never deleted (09 §5).
+# BUILT (Phase 173 D-05): agent module wired to the existing core/contradiction/ engine at
+# agents/macro_contradiction_detector/agent.py (thin binding — engine logic unchanged).
+# Additive-only; never deleted (09 §5).
 agent_contract:
   contract_version: 1
   catalogue_ref: critics/macro-contradiction-detector.md
-  status: skeleton                           # registered profile, no agent module — wire to core/contradiction/
+  status: built                              # Phase 173 D-05 — thin agent binds core/contradiction/ engine
   authority: reject                          # critic veto — blocking severity disables confident emit (Decision 7); belief_store.propose granted (contradicting_count++)
   trigger_normalized: [event-driven]         # aliases shipped `trigger: event_driven` per 04 §A
   memory_rw:

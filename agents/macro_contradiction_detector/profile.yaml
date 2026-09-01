@@ -1,0 +1,57 @@
+# Phase 173 (D-05) — vm107.macro_contradiction_detector agent runtime profile.
+#
+# Thin binding over core/contradiction/ContradictionEngine. Event-driven —
+# invoked per Phase-85 release-completed event after reaction_settled_at. No
+# background loop; no schedule of its own. The Phase 85 listener is the invoker.
+#
+# Capability Registry agent_profile YAML lives separately at
+# VM107/registry/agent_profile/vm107.macro_contradiction_detector.yaml.
+
+id: vm107.macro_contradiction_detector
+name: vm107.macro_contradiction_detector
+version: "1.0.0"
+phase: 89
+
+description: >-
+  Thin agent binding the built B13 ContradictionEngine
+  (detect_divergence / grade_severity / write_contradiction). Reimplements no
+  detection/grading/persistence logic — it wires a Phase-85 release event to the
+  engine, persists the ContradictionArtifact, and fans warning/blocking
+  contradictions out to the Phase 91 UAE via
+  core/alerts/phase91_emit.emit_alert_candidate.
+
+trigger: on_demand           # Phase 85 listener invokes after reaction_settled_at
+sibling_service: null         # NOT a docker-compose sibling (listener is the invoker)
+schedule_cron: null
+
+# Tools — imports the phase91_emit shim directly (mirror emitter); the denied
+# list documents the safety surface (a critic cannot run or fire what it judges).
+allowed_tools: []
+denied_tools:
+  - call_subordinate
+  - code_execution_tool
+  - trade_execution_tool
+  - filesystem_write
+
+# Memory scope — stateless binding surface
+memory_scope:
+  account_scope: NONE
+  execution_scope: NONE
+  cross_trade_visibility: NONE
+  narrative_visibility: NONE
+
+max_iterations: 1
+max_cost_usd: 0.0
+latency_budget_ms: 3000
+
+is_deterministic: true       # sigma computation is deterministic (engine-owned)
+typical_confidence: 0.70
+expected_freshness_seconds: 1800
+
+owner: engineering
+tags:
+  - agent-profile
+  - macro
+  - phase-89
+  - contradiction
+  - event-driven
