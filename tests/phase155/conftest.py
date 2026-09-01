@@ -19,6 +19,16 @@ import sys
 
 import pytest
 
+# ── Fail-fast env for the 155-02 PillarSnapshotFetcher (mirrors the
+# domain_analyst_subscriber/tests/conftest.py precedent) ──
+# ``agents.macro_ask_executor.pillar_fetcher`` reads VM100_API_URL / VM107_SERVICE_JWT at
+# import time (CLAUDE.md env-driven-config lock, NO defaults). The CI host does not export
+# them, so set harmless test placeholders BEFORE test_pillar_fetcher.py imports the module.
+# ``setdefault`` (not ``[...] =``) so a real environment that already exports these is never
+# clobbered and the fail-fast import path stays exercised in production.
+os.environ.setdefault("VM100_API_URL", "http://test-vm100.local:8000")
+os.environ.setdefault("VM107_SERVICE_JWT", "test-jwt-not-real")
+
 # ── Repo-root bootstrap (copied from tests/phase135/conftest.py, PATTERNS.md L210-215) ──
 # tests/phase155/ → tests/ → <repo root>. Insert so `import agents...` / `import contracts...`
 # resolve to the VM107 tree regardless of the invoking interpreter's cwd.
