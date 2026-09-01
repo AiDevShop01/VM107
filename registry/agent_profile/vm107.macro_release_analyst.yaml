@@ -1,6 +1,6 @@
 id: vm107.macro_release_analyst
 type: agent_profile
-status: real
+status: deprecated
 shipped: 85
 last_changed: "2026-06-13"
 name: vm107.macro_release_analyst
@@ -26,7 +26,7 @@ max_iterations: 5
 max_cost_usd: 0.25
 impact_on_decision: HIGH
 hard_scoped: false
-deprecated: false
+deprecated: true
 tags:
   - agent-profile
   - macro
@@ -40,7 +40,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: macro/macro-release-analyst.md
-  status: skeleton                           # rich Phase-85 profile, NO code module (AGENT-1) — implement (§C)
+  status: retired                            # RETIRED Phase 173 (D-02, RESOLVED 2026-09-01 was IMPLEMENT) — superseded by built domain-analyst pipeline; deprecate-in-place, profile file KEPT (9 inbound refs, 09 §5)
   authority: recommend                       # declared ceiling; no belief_store.propose granted; unbuilt
   trigger_normalized: [event-driven]         # intended Wave-3 Brain fan-out on macro.release_events; no shipped trigger scalar (04 §A)
   memory_rw:
