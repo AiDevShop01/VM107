@@ -70,6 +70,10 @@ class MacroContradictionDetector:
         agent_id: str | None = None,
     ) -> None:
         self._engine = engine
+        # Ownership seam (CR-01): an engine this agent lazily constructs opens a
+        # Postgres connection it must release; a DI-injected engine is owned by
+        # the caller and is never closed here.
+        self._owns_engine = engine is None
         if agent_id is not None:
             self.agent_id = agent_id
 
@@ -80,6 +84,19 @@ class MacroContradictionDetector:
             # engine reports its own Postgres health on connect.
             self._engine = ContradictionEngine()
         return self._engine
+
+    def close(self) -> None:
+        """Release the lazily-constructed engine's Postgres connection (CR-01).
+
+        Resource lifecycle only — no detection/grading/persistence logic. Closes
+        an engine this agent constructed itself; a DI-injected engine is left
+        untouched because its lifecycle belongs to the caller.
+        """
+        if self._owns_engine and self._engine is not None:
+            close = getattr(self._engine, "close", None)
+            if callable(close):
+                close()
+            self._engine = None
 
     def emit_for_release(self, release_event: dict[str, Any]) -> dict[str, Any]:
         """Grade one release event via the engine and fan out on contradiction.
@@ -192,8 +209,17 @@ class MacroContradictionDetector:
 # Module-level shim so the Phase 85 dispatcher (or an external caller) can fire
 # without instantiating the class.
 def emit_for_release(release_event: dict[str, Any]) -> dict[str, Any]:
-    """Module-level convenience wrapper — MacroContradictionDetector().emit_for_release."""
-    return MacroContradictionDetector().emit_for_release(release_event)
+    """Module-level convenience wrapper — MacroContradictionDetector().emit_for_release.
+
+    Owns the engine it lazily constructs, so it releases the per-call Postgres
+    connection on every path — success AND exception (CR-01) — to avoid leaking
+    one connection per event for the life of the long-running VM107 process.
+    """
+    detector = MacroContradictionDetector()
+    try:
+        return detector.emit_for_release(release_event)
+    finally:
+        detector.close()
 
 
 __all__ = ["MacroContradictionDetector", "emit_for_release"]

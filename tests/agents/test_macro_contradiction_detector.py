@@ -181,3 +181,42 @@ def test_missing_indicator_id_is_honest_noop():
     assert result["indicator_id"] is None
     assert result["emitted_count"] == 0
     assert result["skipped_no_indicator"] is True
+
+
+# ── Test 6 (CR-01): the shim closes the engine it owns on every path ──────────
+
+
+def test_shim_closes_owned_engine_on_success_and_exception():
+    """The module-level shim lazily builds an engine it OWNS, so it must release
+    the per-call Postgres connection on both the success and exception paths
+    (CR-01 — else one connection leaks per event on the long-running process)."""
+    from agents.macro_contradiction_detector import agent as agent_mod
+
+    # ── Success path ──────────────────────────────────────────────────────────
+    ok_engine = _FakeEngine(severity="warning")
+    with patch.object(agent_mod, "ContradictionEngine", return_value=ok_engine), \
+         patch.object(agent_mod, "emit_alert_candidate"):
+        agent_mod.emit_for_release(_release_event())
+    # The shim released the lazily-constructed engine's connection.
+    assert ok_engine.calls.get("close") is True
+
+    # ── Exception path ────────────────────────────────────────────────────────
+    boom_engine = _FakeEngine(severity="warning")
+
+    def _raise(_artifact):
+        raise RuntimeError("write blew up")
+
+    boom_engine.write_contradiction = _raise  # type: ignore[assignment]
+    with patch.object(agent_mod, "ContradictionEngine", return_value=boom_engine), \
+         patch.object(agent_mod, "emit_alert_candidate"):
+        with pytest.raises(RuntimeError, match="write blew up"):
+            agent_mod.emit_for_release(_release_event())
+    # try/finally still closed the connection despite the raised exception.
+    assert boom_engine.calls.get("close") is True
+
+    # A DI-injected engine (caller-owned) is NOT closed by the agent.
+    from agents.macro_contradiction_detector.agent import MacroContradictionDetector
+
+    injected = _FakeEngine(severity="info")
+    MacroContradictionDetector(engine=injected).close()
+    assert "close" not in injected.calls
