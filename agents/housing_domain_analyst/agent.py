@@ -11,7 +11,7 @@ Only the per-slug identity (``DOMAIN`` / ``DOMAIN_SLUG`` / ``AGENT_ID``) stays o
 concrete class — kept here so the per-slug static guard ``test_never_recomputes_score``
 reads a real file. The base lives OUTSIDE the grepped path; its own ban is closed by
 ``test_domain_base_engine_lock``. LLM-FREE — no engine/LLM import (Phase 94 §F.3 +
-LD-90-1). D-06: the pre-migration copy is retained as ``agent.py.bak`` (reversible floor).
+LD-90-1).
 """
 
 from __future__ import annotations
