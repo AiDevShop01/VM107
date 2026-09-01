@@ -54,7 +54,7 @@ deprecated: false
 agent_contract:
   contract_version: 1
   catalogue_ref: research/strategy-agent.md
-  status: partial                            # prompt-shaped output, no typed StrategySpec contract yet (migration-map §A)
+  status: partial                            # D-11 terminal (P173, AZE-10 SC-2): intentional prompt-shaped persona; typed StrategySpec contract deferred to a future research-pipeline phase (migration-map §A)
   authority: recommend                       # belief_store.propose not granted — a candidate spec, never approve/execute
   trigger_normalized: [reactive]             # no shipped `trigger` scalar — authored fresh per 04 §A (responds to a caller's hypothesis)
   memory_rw:

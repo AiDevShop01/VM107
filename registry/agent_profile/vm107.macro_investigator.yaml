@@ -170,7 +170,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: orchestration/macro-investigator.md
-  status: partial                            # profile-only but WIRED (agent.py/api_message.py/profile_aware_dispatch.py) — NOT skeleton (migration-map §C)
+  status: built                              # D-09 terminal (P173, AZE-10 SC-2): intentional profile-only dispatch persona — WIRED via agent.py/api_message.py/profile_aware_dispatch.py, no standalone module needed (migration-map §C)
   authority: recommend                       # belief_store denied — evidence-grounded answer, not a belief
   trigger_normalized: [user-invoked]         # alias of shipped `trigger: user_driven` (04 §A)
   memory_rw:

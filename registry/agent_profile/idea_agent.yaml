@@ -53,7 +53,7 @@ deprecated: false
 agent_contract:
   contract_version: 1
   catalogue_ref: research/idea-agent.md
-  status: partial                            # prompt-shaped output, no typed Hypothesis contract yet (migration-map §A)
+  status: partial                            # D-10 terminal (P173, AZE-10 SC-2): intentional prompt-shaped persona; typed Hypothesis contract deferred to a future research-pipeline phase (migration-map §A)
   authority: recommend                       # belief_store.propose not granted — a candidate idea, not a belief
   trigger_normalized: [user-invoked]         # no shipped `trigger` scalar — authored fresh per 04 §A (human-initiated)
   memory_rw:
