@@ -21,6 +21,7 @@ Bootstrap pattern mirrors core/agents/invocation.py:_call_subordinate_sync
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -324,9 +325,31 @@ class TradeAiChat(ApiHandler):
         task_id = f"chat-{uuid.uuid4().hex}"
         host_agent_id = "vm107.macro_ask_router"
 
-        # run() is sync (it drives the async specialist batch internally, 155-03).
+        # run() is sync (it drives the async specialist batch internally via
+        # asyncio.run(), 155-03). process() is an async coroutine already executing
+        # inside a running event loop, so calling run() DIRECTLY would trip
+        # ``RuntimeError: asyncio.run() cannot be called from a running event loop``
+        # (CR-01). Offload it to a worker thread so its private loop is legal.
+        # WR-03: guard the offload — a hard fault (the empty-plan fail-loud
+        # ValueError, an executor raise, or the RuntimeError above if it ever
+        # regressed) degrades THIS turn honestly into the failure envelope instead
+        # of propagating as a bare HTTP 500. The fail-loud semantics INSIDE the
+        # executor are untouched; the handler simply refuses to fabricate a success.
         executor = MacroAskExecutor()
-        sections = executor.run(query=message, context=context, journal_id=journal_id)
+        try:
+            sections = await asyncio.to_thread(
+                executor.run, query=message, context=context, journal_id=journal_id
+            )
+        except Exception as exc:  # noqa: BLE001 - honest turn-level degradation (WR-03)
+            log.warning(
+                "macro_ask: executor.run failed journal_id=%s: %s",
+                journal_id, exc,
+            )
+            sections = {
+                "status": "failure",
+                "answer": "",
+                "limitations": [f"internal error: {type(exc).__name__}"],
+            }
 
         sections = sections if isinstance(sections, dict) else {}
         answer: str = sections.get("answer", "") or ""
