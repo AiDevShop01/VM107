@@ -32,6 +32,8 @@ from typing import Any
 
 from core.alerts.phase91_emit import emit_alert_candidate
 
+from .contract import LiquidityScore
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +83,62 @@ def compute_liquidity_score(substrate: dict[str, Any]) -> float | None:
         return None
 
     return max(0.0, min(100.0, score))
+
+
+# Recognised substrate signal keys — provenance source for the typed contract.
+# Mirrors (does NOT alter) the contribution logic in ``compute_liquidity_score``.
+_SIGNAL_KEYS = ("credit_spreads_widened", "funding_stress_index", "dxy_spike_24h")
+
+
+def _contributing_keys(substrate: dict[str, Any]) -> list[str]:
+    """Return the substrate keys that contributed to the score (provenance).
+
+    Matches ``compute_liquidity_score`` exactly: ``credit_spreads_widened`` when
+    present; the two numeric signals when they are int/float. Empty when nothing
+    contributed (degraded).
+    """
+    keys: list[str] = []
+    if "credit_spreads_widened" in substrate:
+        keys.append("credit_spreads_widened")
+    if isinstance(substrate.get("funding_stress_index"), (int, float)):
+        keys.append("funding_stress_index")
+    if isinstance(substrate.get("dxy_spike_24h"), (int, float)):
+        keys.append("dxy_spike_24h")
+    return keys
+
+
+def _tier_for(score: float | None) -> str | None:
+    """Map a score to its threshold tier using the single-source constants.
+
+    None → None (honest-null: no tier asserted on degraded substrate).
+    """
+    if score is None:
+        return None
+    if score < _BLOCKING_THRESHOLD:
+        return "blocking"
+    if score < _WARNING_THRESHOLD:
+        return "warning"
+    return "normal"
+
+
+def score_liquidity(substrate: dict[str, Any]) -> LiquidityScore:
+    """Typed boundary over ``compute_liquidity_score``.
+
+    Wraps the EXISTING deterministic scorer in a :class:`LiquidityScore`,
+    preserving honest-null semantics: an empty / non-contributing substrate
+    yields ``score=None, degraded=True, tier=None`` — NEVER coerced to 0. The
+    thresholds, ``_should_emit`` and the ``emit_alert_candidate`` fan-out are
+    untouched by this wrapper.
+    """
+    score = compute_liquidity_score(substrate)
+    return LiquidityScore(
+        score=score,
+        tier=_tier_for(score),
+        substrate_keys_present=_contributing_keys(substrate),
+        computed_at=datetime.now(tz=timezone.utc),
+        producer_agent_id=_PRODUCER_AGENT_ID,
+        degraded=(score is None),
+    )
 
 
 def _event_id_for(score: float, ts_iso: str) -> str:
@@ -192,4 +250,9 @@ class MacroLiquidityMonitor:
         }
 
 
-__all__ = ["MacroLiquidityMonitor", "compute_liquidity_score"]
+__all__ = [
+    "MacroLiquidityMonitor",
+    "compute_liquidity_score",
+    "score_liquidity",
+    "LiquidityScore",
+]

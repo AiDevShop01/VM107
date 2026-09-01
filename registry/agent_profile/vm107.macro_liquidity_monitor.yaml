@@ -93,7 +93,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: macro/macro-liquidity-monitor.md
-  status: partial                            # experimental: compute returns None until Phase 86 substrate ships
+  status: built                              # P173-04 (D-08): typed LiquidityScore contract wraps the deterministic scorer; honest-null preserved
   authority: recommend                       # no belief_store.propose granted; surfaces alert candidates
   trigger_normalized: [reactive]             # alias of shipped `trigger: on_demand` (04 §A)
   memory_rw:
