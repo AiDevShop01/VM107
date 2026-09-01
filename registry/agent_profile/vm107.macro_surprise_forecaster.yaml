@@ -1,6 +1,6 @@
 id: vm107.macro_surprise_forecaster
 type: agent_profile
-status: stub
+status: deprecated
 shipped: 90
 last_changed: "2026-06-23"
 name: vm107.macro_surprise_forecaster
@@ -20,7 +20,7 @@ capability_type: agent
 vm: vm107
 impact_on_decision: HIGH
 hard_scoped: true
-deprecated: false
+deprecated: true                    # P173 (D-03) RETIRED — deprecate-in-place; profile kept (09 §5)
 phase: 90
 parent_profile: null
 sub_profiles: []
@@ -88,7 +88,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: macro/macro-surprise-forecaster.md
-  status: skeleton                           # status: stub — profile exists so vm102_forecast_surprise allow-list resolves; no module — implement-or-retire (§C)
+  status: retired                            # P173 (D-03) RETIRED — existed only to satisfy the Phase-90 boot allow-list lookup; scrubbed from forecast_surprise.yaml + lookup_capability.yaml
   authority: recommend                       # declared ceiling; belief_store.propose denied; unbuilt
   trigger_normalized: [reactive]             # intended: narrate a VM102 Layer-2 surprise result; no shipped trigger scalar (04 §A)
   memory_rw:

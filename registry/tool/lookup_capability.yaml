@@ -81,7 +81,7 @@ allowed_agent_profiles:
   - vm107.macro_release_analyst
   - vm107.macro_review_agent
   - vm107.macro_story_tracker
-  - vm107.macro_surprise_forecaster
+  # P173 (D-03): the surprise-forecaster agent entry scrubbed — RETIRED (deprecate-in-place).
   - vm107.macro_transmission_analyst
   - vm107.manufacturing_domain_analyst
   - vm107.monetary_policy_domain_analyst

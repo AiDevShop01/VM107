@@ -58,7 +58,7 @@ location:
 contracts:
   response_contract: VM102.backend.api.v2.forecast.surprise.SurpriseForecastResponse
 consumed_by:
-  - vm107.macro_surprise_forecaster        # Plan 05 Task 1 agent_profile (stub — full wiring is Plan 06)
+  # P173 (D-03): the surprise-forecaster agent entry scrubbed — RETIRED (deprecate-in-place); boot no longer depends on it.
   - vm107.macro_forecast_narrator           # READ-only; narrator emits ExplanationResult per LD-90-1
   - vm100.frontend.indicator_page.section_11_forecast_widget
 related_capabilities:
@@ -68,7 +68,7 @@ related_capabilities:
 hard_scoped: false
 impact_on_decision: HIGH
 allowed_agent_profiles:
-  - vm107.macro_surprise_forecaster
+  # P173 (D-03): the surprise-forecaster agent entry scrubbed — RETIRED; scope narrowed (never broadened).
   - vm107.macro_forecast_narrator
 deprecated: false
 tags:

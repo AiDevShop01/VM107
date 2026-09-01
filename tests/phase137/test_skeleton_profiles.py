@@ -39,7 +39,11 @@ _PROFILE_DIR = Path(__file__).resolve().parent.parent.parent / "registry" / "age
 SKELETON_SET_CONFIRMED = True
 # Confirmed skeleton ids — genuinely module-less / dispatch-unreachable and already
 # non-REAL (status: stub, so excluded from the REAL set at index.py:44).
-SKELETON_CANDIDATES: tuple[str, ...] = ("vm107.macro_surprise_forecaster",)
+# P173 (D-03): vm107.macro_surprise_forecaster was the last remaining candidate and has
+# been RETIRED (deprecate-in-place: registry status: deprecated + agent_contract.status:
+# retired). It is no longer a skeleton, so the candidate list is now empty — the terminal
+# zero-skeleton state for this suite.
+SKELETON_CANDIDATES: tuple[str, ...] = ()
 # Accepted confirmed-skeleton status: a confirmed skeleton is one whose status is non-REAL.
 # D-08's `planned` retargeted to the existing valid enum value `stub` per operator decision
 # (no enum change, reconciliation scope).
@@ -78,7 +82,10 @@ def test_confirmed_skeletons_are_non_real_stub():
     """
     if not SKELETON_SET_CONFIRMED:
         pytest.skip("skeleton set pending 137-07 confirmation")
-    assert SKELETON_CANDIDATES, "SKELETON_SET_CONFIRMED but SKELETON_CANDIDATES is empty"
+    if not SKELETON_CANDIDATES:
+        # P173 (D-03): the last confirmed skeleton (macro_surprise_forecaster) was RETIRED —
+        # an empty candidate list is now the valid terminal zero-skeleton state.
+        pytest.skip("no confirmed skeletons remain — all retired (P173 D-03)")
     for profile_id in SKELETON_CANDIDATES:
         status = _profile_status(profile_id)
         assert status is not None, f"skeleton candidate {profile_id!r} has no profile yaml"
