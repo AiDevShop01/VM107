@@ -1,6 +1,6 @@
 id: vm107.executive_summary_writer
 type: agent_profile
-status: real
+status: deprecated
 shipped: 85
 last_changed: "2026-06-13"
 name: vm107.executive_summary_writer
@@ -29,7 +29,7 @@ max_iterations: 3
 max_cost_usd: 0.10
 impact_on_decision: HIGH
 hard_scoped: false
-deprecated: false
+deprecated: true                    # P173 (D-07) RETIRED — superseded by the built canonical vm107.executive_summary
 tags:
   - agent-profile
   - macro
@@ -43,7 +43,7 @@ tags:
 agent_contract:
   contract_version: 1
   catalogue_ref: orchestration/executive-summary-writer.md
-  status: skeleton                           # RETIRE candidate — executive_summary (Phase 94) is the built canonical (migration-map §C)
+  status: retired                            # P173 (D-07) RETIRED — superseded by the built canonical vm107.executive_summary (agents/executive_summary/agent.py + executive_summary_subscriber). No capability lost.
   authority: recommend                       # intended narration ceiling; no propose/compute tools granted
   trigger_normalized: [event-driven]         # no shipped `trigger` scalar — authored fresh per 04 §A (Brain DAG last-node); not wired as a skeleton
   memory_rw:
