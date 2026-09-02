@@ -33,6 +33,7 @@ naturally via citation count.
 from __future__ import annotations
 
 import importlib
+import inspect
 import logging
 import signal
 import sys
@@ -493,13 +494,36 @@ class DomainAnalystSubscriber:
         still honored (backward-compatible — it just does not observe the verdict).
         """
         if self.assessment_sink is not None:
+            # WR-01: detect the sink arity STRUCTURALLY (inspect.signature) rather
+            # than catching TypeError from a trial two-arg call. A catch-TypeError
+            # retry cannot distinguish a genuine arity mismatch (a pre-172-05
+            # single-arg sink) from a TypeError raised INSIDE a two-arg sink body —
+            # the latter would be silently swallowed AND cause a duplicate emit /
+            # side-effect on the retry. Structural detection invokes the sink exactly
+            # once with the arity it actually declares, so a TypeError from within the
+            # sink body propagates honestly (and is caught by the governance-block
+            # try/except in handle(), never disturbing the legacy emit — CR-01).
+            sink = self.assessment_sink
             try:
-                self.assessment_sink(assessment, verdict)
-            except TypeError:
+                params = list(inspect.signature(sink).parameters.values())
+                positional = [
+                    p for p in params
+                    if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+                ]
+                accepts_two = len(positional) >= 2 or any(
+                    p.kind == p.VAR_POSITIONAL for p in params
+                )
+            except (TypeError, ValueError):
+                # No introspectable signature (e.g. some C callables) — assume the
+                # SC-2 two-arg contract (the current default emit shape).
+                accepts_two = True
+            if accepts_two:
+                sink(assessment, verdict)
+            else:
                 # Backward-compat: a pre-172-05 single-arg sink only takes the
-                # assessment. (The panel verdict is still logged below is skipped —
-                # the sink owner opted into the assessment-only channel.)
-                self.assessment_sink(assessment)
+                # assessment (it opted into the assessment-only channel; the panel
+                # verdict is simply not observed by it).
+                sink(assessment)
             return
         claim_ids = [c.claim_id for c in assessment.claims]
         logger.info(
