@@ -313,83 +313,100 @@ class DomainAnalystSubscriber:
                     # immutable passthrough, not a fresh stamp.
                     analyst.invoke(domain, {"knowledge_time": knowledge_time})
 
+                    # CR-01: the legacy producer has now run + emitted. Commit the
+                    # idempotency/debounce marking IMMEDIATELY — before the additive
+                    # governance block below — so a governance-side failure can never
+                    # leave the slots unmarked and re-fire the legacy invoke on the
+                    # next event of a release burst (the module docstring's "collapse
+                    # to one analyst invocation" guarantee). Marking here is gated on
+                    # legacy dispatch success only; a transient ``domain is None`` miss
+                    # stays unmarked in the branch above (D-02 retry-friendly).
+                    self.processed.add(key)
+                    self._last_invoke_ts[slug] = now
+
                     # SC-1 (D-01): the additive governance path runs ALONGSIDE the
                     # legacy invoke above — BOTH producers emit per release per slug.
-                    # It lives INSIDE this per-slug try/except so a failure here logs
-                    # + is retryable (no marking) and never breaks the legacy emit or
-                    # the other 11 slugs. ``assess()`` is pack-sourced / LLM-free —
-                    # NEVER coupled to the analyst's SpecialistResponse (engine-lock,
-                    # enforced by test_domain_base_engine_lock). The pack is read from
-                    # VM102 via ``facet_deps`` (D-05 Option A); a honest-empty pack
+                    # It is wrapped in its OWN inner try/except (CR-01) so a failure
+                    # anywhere in assemble->assess->cache->run_panel->emit degrades
+                    # honest-empty (logged, no fabrication) and NEVER disturbs the
+                    # legacy emit, the marking above, or the other 11 slugs.
+                    # ``assess()`` is pack-sourced / LLM-free — NEVER coupled to the
+                    # analyst's SpecialistResponse (engine-lock, enforced by
+                    # test_domain_base_engine_lock). The pack is read from VM102 via
+                    # ``facet_deps`` (D-05 Option A); a honest-empty pack
                     # (unwired/unreachable VM102) makes ``assess()`` abstain rather
                     # than fabricate. Optional-DI: skipped entirely unless both the
                     # assembler and facet_deps were injected.
                     if self.assembler is not None and self.facet_deps is not None:
-                        request = AssemblyRequest(
-                            country=event.country,
-                            domain_slug=slug,
-                            knowledge_time=knowledge_time,
-                        )
-                        pack = self.assembler.assemble(request, deps=self.facet_deps)
+                        try:
+                            request = AssemblyRequest(
+                                country=event.country,
+                                domain_slug=slug,
+                                knowledge_time=knowledge_time,
+                            )
+                            pack = self.assembler.assemble(request, deps=self.facet_deps)
 
-                        # SC-4 (D-04): consult the AssessmentCache AFTER assemble()
-                        # (cheap — the pack.identity.state_version is now known) but
-                        # BEFORE assess()/run_panel() (the expensive work to skip).
-                        # On a HIT we reuse the cached DomainAssessment; on a MISS we
-                        # single-flight, run assess(), and populate. When no cache is
-                        # wired the seam is skipped entirely (proceed uncached — still
-                        # correct). The single-flight lock degrades safely when Redis
-                        # is down (acquire_single_flight returns True — no-lock).
-                        assessment = None
-                        doc_id = None
-                        cache_key = None
-                        if self.assessment_cache is not None:
-                            doc_id, cache_key = self._assessment_cache_keys(
-                                analyst, slug, pack, knowledge_time
-                            )
-                            assessment = self.assessment_cache.get(
-                                doc_id, request_key=cache_key
-                            )
-
-                        if assessment is None:
-                            # MISS (or no cache) — acquire the cross-process
-                            # single-flight lock, then run the expensive path.
+                            # SC-4 (D-04): consult the AssessmentCache AFTER assemble()
+                            # (cheap — the pack.identity.state_version is now known) but
+                            # BEFORE assess()/run_panel() (the expensive work to skip).
+                            # On a HIT we reuse the cached DomainAssessment; on a MISS we
+                            # single-flight, run assess(), and populate. When no cache is
+                            # wired the seam is skipped entirely (proceed uncached — still
+                            # correct). The single-flight lock degrades safely when Redis
+                            # is down (acquire_single_flight returns True — no-lock).
+                            assessment = None
+                            doc_id = None
+                            cache_key = None
                             if self.assessment_cache is not None:
-                                acquire_single_flight(self.redis_client, doc_id)
-                            # Reuse the already-loaded analyst instance (subclasses
-                            # DomainAgent) — no parallel agent set. knowledge_time is
-                            # the event's immutable as-of (no wall-clock re-stamp —
-                            # D-06a).
-                            assessment = analyst.assess(
-                                pack, knowledge_time=knowledge_time
-                            )
-                            if self.assessment_cache is not None:
-                                valid_until = datetime.now(timezone.utc) + timedelta(
-                                    seconds=_ASSESS_CACHE_TTL_SECONDS
+                                doc_id, cache_key = self._assessment_cache_keys(
+                                    analyst, slug, pack, knowledge_time
                                 )
-                                self.assessment_cache.put(
-                                    doc_id,
-                                    assessment,
-                                    cache_key=cache_key,
-                                    valid_until=valid_until,
+                                assessment = self.assessment_cache.get(
+                                    doc_id, request_key=cache_key
                                 )
 
-                        # SC-2 (D-02a): every DomainAssessment is adjudicated by the
-                        # 5-lens panel (reject-ceiling aggregate_panel) BEFORE it is
-                        # emitted — including a reused (cached) assessment, so no emit
-                        # is ever ungoverned. run_panel short-circuits DOMAIN-NATIVE to
-                        # a REJECT verdict WITHOUT running the lenses when the producer
-                        # abstained or the pack's domain_state integrity is degraded
-                        # (check_domain_vetoes) — we rely on that built-in guard, we do
-                        # NOT add a parallel one. DOMAIN path only: main_loop.py's
-                        # strategy critic is untouched (D-02b SPLIT).
-                        verdict = run_panel(assessment, pack)
-                        self._emit_assessment(assessment, verdict)
+                            if assessment is None:
+                                # MISS (or no cache) — acquire the cross-process
+                                # single-flight lock, then run the expensive path.
+                                if self.assessment_cache is not None:
+                                    acquire_single_flight(self.redis_client, doc_id)
+                                # Reuse the already-loaded analyst instance (subclasses
+                                # DomainAgent) — no parallel agent set. knowledge_time is
+                                # the event's immutable as-of (no wall-clock re-stamp —
+                                # D-06a).
+                                assessment = analyst.assess(
+                                    pack, knowledge_time=knowledge_time
+                                )
+                                if self.assessment_cache is not None:
+                                    valid_until = datetime.now(timezone.utc) + timedelta(
+                                        seconds=_ASSESS_CACHE_TTL_SECONDS
+                                    )
+                                    self.assessment_cache.put(
+                                        doc_id,
+                                        assessment,
+                                        cache_key=cache_key,
+                                        valid_until=valid_until,
+                                    )
 
-                    # Mark keys ONLY on a real dispatch (D-02) — see the
-                    # ``domain is None`` branch above for why a miss is unmarked.
-                    self.processed.add(key)
-                    self._last_invoke_ts[slug] = now
+                            # SC-2 (D-02a): every DomainAssessment is adjudicated by the
+                            # 5-lens panel (reject-ceiling aggregate_panel) BEFORE it is
+                            # emitted — including a reused (cached) assessment, so no emit
+                            # is ever ungoverned. run_panel short-circuits DOMAIN-NATIVE to
+                            # a REJECT verdict WITHOUT running the lenses when the producer
+                            # abstained or the pack's domain_state integrity is degraded
+                            # (check_domain_vetoes) — we rely on that built-in guard, we do
+                            # NOT add a parallel one. DOMAIN path only: main_loop.py's
+                            # strategy critic is untouched (D-02b SPLIT).
+                            verdict = run_panel(assessment, pack)
+                            self._emit_assessment(assessment, verdict)
+                        except Exception as gov_exc:  # noqa: BLE001 — governance is additive; never disturb legacy dispatch/marking
+                            logger.exception(
+                                "domain_analyst_subscriber: governance path failed "
+                                "slug=%s event_id=%s: %s — legacy emit + "
+                                "idempotency/debounce marking preserved "
+                                "(honest-empty degrade, other slugs unaffected)",
+                                slug, event.event_id, gov_exc,
+                            )
             except Exception as exc:  # noqa: BLE001 — one bad analyst must not kill the rest
                 logger.exception(
                     "domain_analyst_subscriber: analyst %s raised on "
