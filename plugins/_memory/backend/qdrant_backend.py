@@ -243,6 +243,19 @@ class QdrantBackend:
                 normalize=True,
             )
             query_vector = embed_response.embeddings[0]
+            # WR-03 (recovery, hits-first): the embed SUCCEEDED — freshen the health
+            # bus healthy so a prior transient embedding fault does NOT stick as a
+            # false "DEGRADED (embedding unavailable)". The failure path (below) only
+            # ever reports available=False; without this success report the bare
+            # process-wide "embedding" record would never clear on recovery and the
+            # recall extension (which checks embedding health first) would keep
+            # surfacing a stale degradation. Mirrors the qdrant success report at the
+            # end of the search block (and the _50_recall_memories hits-first pattern).
+            SourceHealthRegistry.get_shared_instance().report("embedding", available=True)
+            if ctxid:
+                SourceHealthRegistry.get_shared_instance().report(
+                    SourceHealthKey("embedding", ctxid), available=True
+                )
         except Exception as e:
             self._log_structured(
                 "warning",

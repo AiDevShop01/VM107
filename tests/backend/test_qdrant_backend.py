@@ -139,6 +139,43 @@ async def test_search_graceful_degradation(mock_qdrant_client, mock_embedding_se
 
 
 @pytest.mark.asyncio
+async def test_search_success_reports_embedding_healthy_on_recovery(
+    mock_qdrant_client, mock_embedding_service, test_context
+):
+    """WR-03: a successful embed must report embedding healthy so a prior transient
+    embedding fault does NOT stick as a false 'DEGRADED (embedding unavailable)'.
+
+    Seeds the shared SourceHealthRegistry with a sticky embedding=unavailable (as the
+    failure path leaves it), runs a successful search, and asserts the record flipped
+    back to available=True — the hits-first recovery pattern the failure-only reporting
+    never provided.
+    """
+    from emitters.source_health_registry import SourceHealthRegistry
+
+    reg = SourceHealthRegistry.get_shared_instance()
+    reg.report("embedding", available=False, failure_reason="RuntimeError")
+    assert reg.snapshot()["embedding"].available is False
+
+    backend = QdrantBackend(
+        client=mock_qdrant_client,
+        embedding_service=mock_embedding_service,
+        collection_name="agent_memory",
+    )
+
+    # A well-formed (empty) query_points result — the success path still freshens
+    # embedding health even with zero hits.
+    resp = Mock()
+    resp.points = []
+    mock_qdrant_client.query_points = Mock(return_value=resp)
+
+    await backend.search("test query", top_k=5, context=test_context)
+
+    assert reg.snapshot()["embedding"].available is True, (
+        "a successful embed must clear the sticky DEGRADED embedding record (WR-03)"
+    )
+
+
+@pytest.mark.asyncio
 async def test_delete_by_ids(mock_qdrant_client, mock_embedding_service, test_context):
     """QdrantBackend.delete should remove points by ID within project scope."""
     backend = QdrantBackend(
