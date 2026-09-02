@@ -37,11 +37,18 @@ import logging
 import signal
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from contracts.economic_intelligence.events import EconomicEvent, EventType
+from core.agents.specialized_critic.panel import run_panel
 from core.event_bus import EventBus
 from core.evidence.assembler import AssemblyRequest
+from core.persistence.assessment_cache import (
+    acquire_single_flight,
+    compute_cache_key,
+    compute_work_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +73,30 @@ DOMAIN_SLUGS: list[str] = [
 
 
 DEBOUNCE_SECONDS: int = 30
+
+
+# ---------------------------------------------------------------------------
+# SC-4 (D-04) — AssessmentCache single-flight identity constants.
+#
+# The D-04 single-flight identity is (domain_slug, pack.identity.state_version)
+# with the run's immutable knowledge_time. `compute_work_key` also fingerprints
+# the OUTPUT shape (detail_level / horizon / narrative_mode / task) so a replay
+# at a different shape gets a distinct key. The deterministic ``assess()`` path
+# has ONE fixed output shape, so these are constants (not per-request) — the key
+# then varies ONLY on (slug, state_version, knowledge_time), exactly D-04.
+# ``prompt_version`` / ``model`` mirror the deterministic manifest ``assess()``
+# stamps (domain_agent.py:302-310) so the cache_key is the true anti-stale
+# fingerprint (a change to the agent/definition version invalidates the entry).
+# ---------------------------------------------------------------------------
+_ASSESS_DETAIL_LEVEL: str = "standard"
+_ASSESS_HORIZON: str = "default"
+_ASSESS_NARRATIVE_MODE: str = "deterministic"
+_ASSESS_TASK: str = "assess"
+_ASSESS_PROMPT_VERSION: str = "deterministic-v1"
+_ASSESS_MODEL: str = "deterministic"
+# Operational freshness of a CACHED compute (wall-clock TTL) — independent of the
+# assessment's knowledge_time as-of, which is part of the KEY, never the clock.
+_ASSESS_CACHE_TTL_SECONDS: int = 300
 
 
 # ---------------------------------------------------------------------------
@@ -132,11 +163,29 @@ class DomainAnalystSubscriber:
         produce a NON-empty pack; without it (or with an all-``None`` FacetDeps)
         the pack degrades honest-empty and ``assess()`` abstains.
     assessment_sink:
-        Optional ``Callable[[DomainAssessment], None]`` the governance path emits
-        through (RESEARCH Open Q2). ``None`` (default) => a structured ``logger``
-        line carrying per-claim ``claim_id`` + ``manifest.state_version`` +
-        ``integrity_state``. NEVER overloads the EventBus ``SpecialistResponse``
-        topic — a durable pub/sub ``EventType`` is a documented follow-up.
+        Optional ``Callable[[DomainAssessment], None]`` (or
+        ``Callable[[DomainAssessment, CriticVerdict], None]``) the governance path
+        emits through (RESEARCH Open Q2). ``None`` (default) => a structured
+        ``logger`` line carrying per-claim ``claim_id`` + ``manifest.state_version``
+        + ``integrity_state`` + the panel ``verdict``. NEVER overloads the EventBus
+        ``SpecialistResponse`` topic — a durable pub/sub ``EventType`` is a
+        documented follow-up. SC-2 (172-05): every emit now carries the
+        :class:`CriticVerdict` alongside the assessment; a single-arg sink
+        (pre-172-05) is still honored (backward-compatible).
+    assessment_cache:
+        Optional :class:`~core.persistence.assessment_cache.AssessmentCache`
+        (SC-4 / D-04). When supplied the governance path is single-flight: AFTER
+        ``assemble()`` (cheap) but BEFORE ``assess()``/``run_panel()`` (expensive)
+        the cache is consulted on ``work_key = (domain_slug,
+        pack.identity.state_version)`` + immutable ``knowledge_time``; a HIT reuses
+        the cached ``DomainAssessment`` (``assess()`` is skipped), a MISS acquires
+        the Redis single-flight lock, runs ``assess()``, and populates the cache.
+        ``None`` (default) => proceed WITHOUT cache (still correct — degrade-safe).
+    redis_client:
+        Optional Redis client for the SC-4 ``acquire_single_flight`` cross-process
+        lock (``SET NX EX``). ``None`` (default, or Redis down) => proceed WITHOUT
+        a lock (``acquire_single_flight`` returns ``True``) — degrade-safe, never
+        bricks the compute path.
     debounce_seconds:
         Override the 30s debounce window (default :data:`DEBOUNCE_SECONDS`).
     """
@@ -149,7 +198,9 @@ class DomainAnalystSubscriber:
         domain_fetcher: Callable[[str, EconomicEvent], Any] | None = None,
         assembler: Any | None = None,
         facet_deps: Any | None = None,
-        assessment_sink: Callable[[Any], None] | None = None,
+        assessment_sink: Callable[..., None] | None = None,
+        assessment_cache: Any | None = None,
+        redis_client: Any | None = None,
         debounce_seconds: int = DEBOUNCE_SECONDS,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -168,6 +219,11 @@ class DomainAnalystSubscriber:
         self.assembler = assembler
         self.facet_deps = facet_deps
         self.assessment_sink = assessment_sink
+        # SC-4 / D-04 optional-DI single-flight seam (consult after assemble,
+        # before assess). Both guarded: absent => proceed without cache/lock
+        # (still correct — degrade-safe).
+        self.assessment_cache = assessment_cache
+        self.redis_client = redis_client
         self.debounce_seconds = debounce_seconds
         self._clock = clock
 
@@ -275,11 +331,60 @@ class DomainAnalystSubscriber:
                             knowledge_time=knowledge_time,
                         )
                         pack = self.assembler.assemble(request, deps=self.facet_deps)
-                        # Reuse the already-loaded analyst instance (subclasses
-                        # DomainAgent) — no parallel agent set. knowledge_time is the
-                        # event's immutable as-of (no wall-clock re-stamp — D-06a).
-                        assessment = analyst.assess(pack, knowledge_time=knowledge_time)
-                        self._emit_assessment(assessment)
+
+                        # SC-4 (D-04): consult the AssessmentCache AFTER assemble()
+                        # (cheap — the pack.identity.state_version is now known) but
+                        # BEFORE assess()/run_panel() (the expensive work to skip).
+                        # On a HIT we reuse the cached DomainAssessment; on a MISS we
+                        # single-flight, run assess(), and populate. When no cache is
+                        # wired the seam is skipped entirely (proceed uncached — still
+                        # correct). The single-flight lock degrades safely when Redis
+                        # is down (acquire_single_flight returns True — no-lock).
+                        assessment = None
+                        doc_id = None
+                        cache_key = None
+                        if self.assessment_cache is not None:
+                            doc_id, cache_key = self._assessment_cache_keys(
+                                analyst, slug, pack, knowledge_time
+                            )
+                            assessment = self.assessment_cache.get(
+                                doc_id, request_key=cache_key
+                            )
+
+                        if assessment is None:
+                            # MISS (or no cache) — acquire the cross-process
+                            # single-flight lock, then run the expensive path.
+                            if self.assessment_cache is not None:
+                                acquire_single_flight(self.redis_client, doc_id)
+                            # Reuse the already-loaded analyst instance (subclasses
+                            # DomainAgent) — no parallel agent set. knowledge_time is
+                            # the event's immutable as-of (no wall-clock re-stamp —
+                            # D-06a).
+                            assessment = analyst.assess(
+                                pack, knowledge_time=knowledge_time
+                            )
+                            if self.assessment_cache is not None:
+                                valid_until = datetime.now(timezone.utc) + timedelta(
+                                    seconds=_ASSESS_CACHE_TTL_SECONDS
+                                )
+                                self.assessment_cache.put(
+                                    doc_id,
+                                    assessment,
+                                    cache_key=cache_key,
+                                    valid_until=valid_until,
+                                )
+
+                        # SC-2 (D-02a): every DomainAssessment is adjudicated by the
+                        # 5-lens panel (reject-ceiling aggregate_panel) BEFORE it is
+                        # emitted — including a reused (cached) assessment, so no emit
+                        # is ever ungoverned. run_panel short-circuits DOMAIN-NATIVE to
+                        # a REJECT verdict WITHOUT running the lenses when the producer
+                        # abstained or the pack's domain_state integrity is degraded
+                        # (check_domain_vetoes) — we rely on that built-in guard, we do
+                        # NOT add a parallel one. DOMAIN path only: main_loop.py's
+                        # strategy critic is untouched (D-02b SPLIT).
+                        verdict = run_panel(assessment, pack)
+                        self._emit_assessment(assessment, verdict)
 
                     # Mark keys ONLY on a real dispatch (D-02) — see the
                     # ``domain is None`` branch above for why a miss is unmarked.
@@ -307,23 +412,83 @@ class DomainAnalystSubscriber:
             return None
         return self.domain_fetcher(slug, event)
 
-    def _emit_assessment(self, assessment: Any) -> None:
-        """Emit a ``DomainAssessment`` on its own channel (RESEARCH Open Q2).
+    def _assessment_cache_keys(
+        self, analyst: Any, slug: str, pack: Any, knowledge_time: Any
+    ) -> tuple[str, str]:
+        """Derive the SC-4 (``work_key``/``doc_id``) + ``cache_key`` for one release.
+
+        Both are computed from values available AFTER ``assemble()`` but BEFORE
+        ``assess()`` — the pack's identity (``state_version``/``country``), the
+        immutable ``knowledge_time``, and the analyst/definition version constants —
+        so the cache consult never has to run the expensive assess path first.
+
+        * ``work_key`` (returned as ``doc_id``, the identity-stable cache document id)
+          is the D-04 single-flight identity: it varies ONLY on ``(slug,
+          pack.identity.state_version, knowledge_time)`` because the deterministic
+          ``assess()`` output shape is fixed (module constants). Two identical
+          releases => the same key => a single-flight hit.
+        * ``cache_key`` is the full anti-stale manifest fingerprint (mirrors the
+          deterministic ``assess()`` manifest: agent/definition versions + prompt +
+          model). A change to any of those invalidates the entry even on a state
+          match (``AssessmentCache.is_valid`` enforces hash-match AND TTL).
+        """
+        state_version = pack.identity.state_version
+        geography = pack.identity.country
+        defn = analyst._resolve_definition()
+
+        work_key = compute_work_key(
+            agent_type=getattr(analyst, "AGENT_ID", "") or type(analyst).__name__,
+            domain=slug,
+            geography=geography,
+            sector=None,
+            state_version=state_version,
+            knowledge_time=knowledge_time,
+            detail_level=_ASSESS_DETAIL_LEVEL,
+            horizon=_ASSESS_HORIZON,
+            narrative_mode=_ASSESS_NARRATIVE_MODE,
+            task=_ASSESS_TASK,
+        )
+        cache_key = compute_cache_key(
+            agent_version=getattr(analyst, "AGENT_VERSION", "1.0.0"),
+            domain_definition_version=defn.domain_definition_version,
+            state_version=state_version,
+            knowledge_version=defn.knowledge_version,
+            feature_set_version=f"dd-{defn.domain_definition_version}",
+            prompt_version=_ASSESS_PROMPT_VERSION,
+            model=_ASSESS_MODEL,
+            knowledge_time=knowledge_time,
+        )
+        return work_key, cache_key
+
+    def _emit_assessment(self, assessment: Any, verdict: Any = None) -> None:
+        """Emit a ``DomainAssessment`` + its panel ``verdict`` (RESEARCH Open Q2).
 
         Uses the injected ``assessment_sink`` when present; otherwise a structured
         ``logger.info`` line carrying per-claim provenance (``claim_id``) +
-        ``manifest.state_version`` + ``integrity_state``. This deliberately does NOT
-        overload the EventBus ``SpecialistResponse`` topic (channel separation) — a
-        durable pub/sub ``EventType`` is a documented follow-up.
+        ``manifest.state_version`` + ``integrity_state`` + the SC-2 panel
+        ``verdict``. This deliberately does NOT overload the EventBus
+        ``SpecialistResponse`` topic (channel separation) — a durable pub/sub
+        ``EventType`` is a documented follow-up.
+
+        SC-2 (172-05): the panel ``verdict`` (ACCEPT/REFINE/REJECT) is emitted
+        ALONGSIDE the assessment. A two-arg sink receives ``(assessment, verdict)``;
+        a pre-172-05 single-arg sink (``Callable[[DomainAssessment], None]``) is
+        still honored (backward-compatible — it just does not observe the verdict).
         """
         if self.assessment_sink is not None:
-            self.assessment_sink(assessment)
+            try:
+                self.assessment_sink(assessment, verdict)
+            except TypeError:
+                # Backward-compat: a pre-172-05 single-arg sink only takes the
+                # assessment. (The panel verdict is still logged below is skipped —
+                # the sink owner opted into the assessment-only channel.)
+                self.assessment_sink(assessment)
             return
         claim_ids = [c.claim_id for c in assessment.claims]
         logger.info(
             "domain_analyst_subscriber: DomainAssessment domain=%s geography=%s "
             "state_version=%s integrity_state=%s abstention=%s knowledge_time=%s "
-            "claims=%d claim_ids=%s",
+            "claims=%d claim_ids=%s verdict=%s",
             assessment.domain,
             assessment.geography_id,
             assessment.manifest.state_version,
@@ -332,6 +497,7 @@ class DomainAnalystSubscriber:
             assessment.knowledge_time,
             len(claim_ids),
             claim_ids,
+            getattr(verdict, "verdict", None),
         )
 
 
