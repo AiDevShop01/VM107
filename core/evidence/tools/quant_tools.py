@@ -188,6 +188,16 @@ def _is_latest_only_lookahead(read: _QuantRead, ctx: InvocationContext) -> bool:
         return False
     now = datetime.now(timezone.utc)
     kt = ctx.knowledge_time
+    # WR-05: the comparison below is tz-aware UTC. A None as-of (the subscriber
+    # forwards ``event.knowledge_time`` verbatim, which is None for pre-carrier
+    # events — see docstring) or a tz-naive as-of would raise here
+    # ("'<' not supported between ... NoneType" / "can't compare offset-naive and
+    # offset-aware datetimes"). Guard both: no as-of => cannot be a past-dated
+    # look-ahead (treat as live); normalize a naive as-of to UTC before comparing.
+    if kt is None:
+        return False
+    if kt.tzinfo is None:
+        kt = kt.replace(tzinfo=timezone.utc)
     # Only a materially-past as-of is a look-ahead; live runs (kt ~ now) are fine.
     return kt < now - _LOOKAHEAD_TOLERANCE
 

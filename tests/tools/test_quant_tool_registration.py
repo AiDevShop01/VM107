@@ -112,6 +112,38 @@ def _ctx() -> InvocationContext:
     )
 
 
+def test_is_latest_only_lookahead_guards_none_and_naive_knowledge_time():
+    """WR-05: ``_is_latest_only_lookahead`` must not raise on a None or tz-naive as-of.
+
+    A latest-only read served for a None/naive ``knowledge_time`` previously raised
+    ``TypeError`` on the tz-aware comparison. Guard contract: None => not a look-ahead
+    (treated as live); a tz-naive PAST as-of is normalized to UTC and correctly flagged.
+    """
+    from types import SimpleNamespace
+
+    read = quant_tools.PercentileRead(percentile=50.0, latest_only=True)
+
+    # None as-of (duck-typed ctx) — must NOT raise; treated as live (not a look-ahead).
+    none_ctx = SimpleNamespace(knowledge_time=None)
+    assert quant_tools._is_latest_only_lookahead(read, none_ctx) is False
+
+    # tz-naive PAST as-of via a real InvocationContext (knowledge_time accepts naive) —
+    # must NOT raise; normalized to UTC and flagged as a materially-past look-ahead.
+    naive_ctx = InvocationContext(
+        envelope_id=uuid.uuid4(),
+        parent_envelope_id=None,
+        trace_id=uuid.uuid4(),
+        agent_id="agent_zero",
+        execution_depth=0,
+        knowledge_time=datetime(2020, 1, 1),  # tz-naive on purpose
+    )
+    assert quant_tools._is_latest_only_lookahead(read, naive_ctx) is True
+
+    # A non-latest-only read short-circuits regardless of the as-of shape.
+    non_latest = quant_tools.PercentileRead(percentile=50.0, latest_only=False)
+    assert quant_tools._is_latest_only_lookahead(non_latest, none_ctx) is False
+
+
 def _entry_from_yaml(tool_id: str) -> ToolEntry:
     """Build a ToolEntry from the ACTUAL registry YAML (proves live registration).
 
