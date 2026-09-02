@@ -147,3 +147,174 @@ def mock_eval_db():
         side_effect=lambda name: envelopes_col if name == "agent_envelopes" else MagicMock()
     )
     return db
+
+
+# ================================================================
+# PHASE 172-01 ADDITIONS — shared Wave-0 subscriber-wiring harness
+# ================================================================
+#
+# Every downstream subscriber-wiring plan (SC-1 / SC-2 / SC-4 in 172-04 / 172-05)
+# drives the same synthetic MACRO_RELEASE through `subscriber.handle` and then
+# through `assemble() -> assess() -> run_panel()`. Rather than let each test
+# hand-roll its own EconomicEvent + fake readers (drift-prone, and easy to get
+# the immutable knowledge_time wrong — Phase 168 D-06a look-ahead pitfall), the
+# three fixtures below centralise that harness:
+#
+#   * macro_release_event  — a valid, frozen MACRO_RELEASE EconomicEvent carrying
+#                            a FIXED, immutable, PAST, tz-aware knowledge_time
+#                            (never wall-clock now()).
+#   * stub_domain_fetcher  — the Callable[[str, EconomicEvent], Any] the
+#                            subscriber injects: a lightweight Domain stand-in for
+#                            "growth", None for unknown slugs (mirrors the real
+#                            DomainSnapshotFetcher transient-miss -> None contract).
+#   * stub_facet_deps      — a FacetDeps whose domain_state_reader returns a
+#                            populated {"status":"ok",...} envelope so assemble()
+#                            yields a NON-empty pack with a real state_version
+#                            (not the "unavailable" sentinel that makes assess()
+#                            abstain -> SC-1 "real claims" fails silently).
+#
+# All three are import-light (no network clients constructed) and module-scope
+# friendly so downstream plans can parametrise them.
+
+from datetime import datetime, timezone
+
+from contracts.economic_intelligence.events import (
+    EconomicEvent,
+    EventSeverity,
+    EventType,
+)
+from core.evidence.assembler import FacetDeps
+
+# The synthetic event's immutable as-of. FIXED in the past + tz-aware UTC so a
+# test can assert it is NOT wall-clock now() — the whole point of the 168 D-06a
+# no-re-stamp guarantee is that this value flows through the fan-out verbatim.
+MACRO_RELEASE_KNOWLEDGE_TIME = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+
+# The single domain slug the synthetic event affects (one of the canonical 12).
+MACRO_RELEASE_SLUG = "growth"
+
+
+class _DomainStandin:
+    """Lightweight Domain stand-in the subscriber's ``analyst.invoke`` accepts.
+
+    The subscriber only passes the fetched object straight into
+    ``analyst.invoke(domain, {...})`` — for the Wave-0 harness a real
+    (heavy, ``extra='forbid'``) ``Domain`` is unnecessary; a stand-in carrying
+    the ``slug`` is enough for the wiring tests to inject. Downstream plans that
+    need a real ``Domain`` can override this fixture.
+    """
+
+    def __init__(self, slug: str) -> None:
+        self.slug = slug
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"<_DomainStandin slug={self.slug!r}>"
+
+
+class _StubDomainStateReader:
+    """Fake VM102-backed ``domain_state_reader`` for ``FacetDeps``.
+
+    Exposes the typed ``get_domain_state(country, domain_slug, *,
+    knowledge_time=None, previous=False)`` seam consumed by the REQUIRED
+    ``domain_state`` composer (core/evidence/facets/domain_state.py:88). Returns
+    a populated ``status="ok"`` envelope carrying a real ``state_version`` so the
+    assembled pack is NON-empty (``state_version`` is not the ``"unavailable"``
+    sentinel) and ``assess()`` produces real claims instead of abstaining.
+
+    Records every call on ``.calls`` so downstream tests can assert the
+    country/slug/knowledge_time actually threaded through.
+    """
+
+    def __init__(self, state_version: str = "US:growth:v1") -> None:
+        self.state_version = state_version
+        self.calls: list[dict] = []
+
+    def get_domain_state(
+        self, country, domain_slug, *, knowledge_time=None, previous=False
+    ):
+        self.calls.append(
+            {
+                "country": country,
+                "domain_slug": domain_slug,
+                "knowledge_time": knowledge_time,
+                "previous": previous,
+            }
+        )
+        return {
+            "status": "ok",
+            "data": {
+                "current": {
+                    "label": "Expanding",
+                    "score": 0.35,
+                    "confidence": 0.8,
+                    "state_version": self.state_version,
+                },
+                "previous": {
+                    "label": "Stable",
+                    "score": 0.10,
+                    "confidence": 0.8,
+                    "state_version": "US:growth:v0",
+                },
+            },
+            "meta": {
+                "state_version": self.state_version,
+                "previous_state_version": "US:growth:v0",
+                "knowledge_time": None,
+                "latest_only": True,
+                "as_of_honored": True,
+                "reason": None,
+            },
+        }
+
+
+@pytest.fixture
+def macro_release_event() -> EconomicEvent:
+    """A valid, frozen MACRO_RELEASE event with an immutable PAST knowledge_time.
+
+    ``payload.affected_domains`` intersects the canonical 12 (``growth``) so the
+    subscriber dispatches; ``knowledge_time`` is the fixed past tz-aware
+    ``MACRO_RELEASE_KNOWLEDGE_TIME`` (asserted != now() by consumers).
+    """
+    return EconomicEvent(
+        event_id="evt-172-macro-growth-0001",
+        event_type=EventType.MACRO_RELEASE,
+        severity=EventSeverity.HIGH,
+        country="US",
+        occurred_at=MACRO_RELEASE_KNOWLEDGE_TIME,
+        source="vm101.economic_event",
+        payload={
+            "affected_domains": [MACRO_RELEASE_SLUG],
+            "snapshot_version": "gs_2024_01_15",
+        },
+        knowledge_time=MACRO_RELEASE_KNOWLEDGE_TIME,
+    )
+
+
+@pytest.fixture
+def stub_domain_fetcher():
+    """A ``Callable[[str, EconomicEvent], Any]`` for the subscriber's fetcher seam.
+
+    Returns a lightweight ``Domain`` stand-in for ``"growth"`` and ``None`` for
+    any unknown slug — mirroring the real ``DomainSnapshotFetcher`` contract
+    (transient miss / unknown slug -> ``None``).
+    """
+
+    def _fetch(slug: str, event: EconomicEvent):
+        if slug == MACRO_RELEASE_SLUG:
+            return _DomainStandin(slug)
+        return None
+
+    return _fetch
+
+
+@pytest.fixture
+def stub_facet_deps() -> FacetDeps:
+    """A ``FacetDeps`` whose ``domain_state_reader`` yields a NON-empty pack.
+
+    Only the REQUIRED ``domain_state_reader`` is supplied (populated
+    ``status="ok"`` envelope with a real ``state_version``); the ENRICHMENT
+    readers stay ``None`` and degrade honest-empty. This is enough for
+    ``assemble()`` to produce a pack whose ``state_version`` is a real version
+    (not the ``"unavailable"`` sentinel) so ``assess()`` yields real claims.
+    """
+    return FacetDeps(domain_state_reader=_StubDomainStateReader())
