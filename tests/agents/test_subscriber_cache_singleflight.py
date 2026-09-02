@@ -227,3 +227,77 @@ def test_no_cache_wired_runs_assess_each_time(
 
     assert spy.assess_calls == 2, "uncached path must run assess per distinct release"
     assert len(captured) == 2
+
+
+class _HolderLandsCache:
+    """AssessmentCache-shaped double for the WR-02 single-flight LOSER path.
+
+    The pre-lock consult MISSes (get_calls == 1 -> None); by the time the loser
+    re-reads (``_await_cached_assessment``) the competing HOLDER has landed its
+    ``put()``, so the bounded re-read HITs and returns the shared assessment. Records
+    ``put_calls`` so the test can assert the loser did NOT re-populate the cache.
+    """
+
+    def __init__(self, value) -> None:
+        self._value = value
+        self.get_calls = 0
+        self.put_calls = 0
+
+    def get(self, doc_id, request_key=None):
+        self.get_calls += 1
+        return None if self.get_calls == 1 else self._value
+
+    def put(self, doc_id, assessment, *, cache_key=None, valid_until=None):
+        self.put_calls += 1
+
+
+class _LockHeldRedis:
+    """Fake Redis whose ``SET NX`` always fails — a competing process holds the lock."""
+
+    def set(self, key, value, nx=False, ex=None):
+        return False
+
+
+def test_lock_not_acquired_reuses_cache_no_recompute(
+    macro_release_event, stub_domain_fetcher, stub_facet_deps
+):
+    """WR-02: when acquire_single_flight returns False (another process holds the
+    single-flight lock) the LOSER must NOT recompute/re-emit — it re-reads the cache
+    for the holder's put() and reuses it. assess() spy count == 0, cache NOT
+    re-populated, exactly one emit (the reused assessment)."""
+    # Prime a genuine DomainAssessment the "holder" would have populated.
+    ref_assembler = EvidencePackAssembler()
+    ref_pack = ref_assembler.assemble(
+        AssemblyRequest(
+            country=macro_release_event.country,
+            domain_slug=MACRO_RELEASE_SLUG,
+            knowledge_time=macro_release_event.knowledge_time,
+        ),
+        deps=stub_facet_deps,
+    )
+    prebuilt = GrowthDomainAnalyst().assess(
+        ref_pack, knowledge_time=macro_release_event.knowledge_time
+    )
+
+    spy = _AssessSpyAnalyst()
+    captured: list = []
+    cache = _HolderLandsCache(prebuilt)
+
+    subscriber = DomainAnalystSubscriber(
+        analysts={MACRO_RELEASE_SLUG: spy},
+        domain_fetcher=stub_domain_fetcher,
+        assembler=EvidencePackAssembler(),
+        facet_deps=stub_facet_deps,
+        assessment_cache=cache,
+        redis_client=_LockHeldRedis(),
+        assessment_sink=lambda assessment, verdict: captured.append(assessment),
+        debounce_seconds=0,
+    )
+
+    subscriber.handle(macro_release_event)
+
+    # WR-02 core: the single-flight LOSER reused the holder's cached assessment.
+    assert spy.assess_calls == 0, "loser must NOT recompute — reuse the holder's cache"
+    assert cache.put_calls == 0, "loser must NOT re-populate the cache (holder owns put)"
+    assert len(captured) == 1, "loser still emits exactly once (the reused assessment)"
+    assert captured[0].state_version == prebuilt.state_version

@@ -98,6 +98,12 @@ _ASSESS_MODEL: str = "deterministic"
 # Operational freshness of a CACHED compute (wall-clock TTL) — independent of the
 # assessment's knowledge_time as-of, which is part of the KEY, never the clock.
 _ASSESS_CACHE_TTL_SECONDS: int = 300
+# WR-02 single-flight LOSER re-read: when acquire_single_flight returns False a
+# competing process holds the lock and is populating the cache. Poll for its put()
+# a bounded number of times (total ~0.5s) before degrading to a local compute so a
+# crashed holder never wedges this process.
+_SINGLE_FLIGHT_WAIT_ATTEMPTS: int = 10
+_SINGLE_FLIGHT_WAIT_SECONDS: float = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -368,26 +374,47 @@ class DomainAnalystSubscriber:
 
                             if assessment is None:
                                 # MISS (or no cache) — acquire the cross-process
-                                # single-flight lock, then run the expensive path.
+                                # single-flight lock. WR-02: HONOR the return value.
+                                # ``True`` => THIS process is the lock holder: compute
+                                # + populate. ``False`` => a competing process already
+                                # holds the lock and is computing; do NOT double-
+                                # compute/double-emit — re-read the cache (bounded
+                                # wait) for the holder's put() and reuse it. Degrade-
+                                # safe: if the holder never lands (crash / lock self-
+                                # expiry) the bounded re-read returns None and we fall
+                                # through to compute locally (assess() is
+                                # deterministic — no divergence). With no Redis wired
+                                # acquire_single_flight returns True (proceed w/o lock).
+                                acquired = True
                                 if self.assessment_cache is not None:
-                                    acquire_single_flight(self.redis_client, doc_id)
-                                # Reuse the already-loaded analyst instance (subclasses
-                                # DomainAgent) — no parallel agent set. knowledge_time is
-                                # the event's immutable as-of (no wall-clock re-stamp —
-                                # D-06a).
-                                assessment = analyst.assess(
-                                    pack, knowledge_time=knowledge_time
-                                )
-                                if self.assessment_cache is not None:
-                                    valid_until = datetime.now(timezone.utc) + timedelta(
-                                        seconds=_ASSESS_CACHE_TTL_SECONDS
+                                    acquired = acquire_single_flight(
+                                        self.redis_client, doc_id
                                     )
-                                    self.assessment_cache.put(
-                                        doc_id,
-                                        assessment,
-                                        cache_key=cache_key,
-                                        valid_until=valid_until,
+                                if not acquired and self.assessment_cache is not None:
+                                    assessment = self._await_cached_assessment(
+                                        doc_id, cache_key
                                     )
+                                if assessment is None:
+                                    # Lock holder (or degrade-on-timeout) computes.
+                                    # Reuse the already-loaded analyst instance
+                                    # (subclasses DomainAgent) — no parallel agent set.
+                                    # knowledge_time is the event's immutable as-of (no
+                                    # wall-clock re-stamp — D-06a).
+                                    assessment = analyst.assess(
+                                        pack, knowledge_time=knowledge_time
+                                    )
+                                    # Only the process that actually computed
+                                    # populates the cache for the single-flight losers.
+                                    if self.assessment_cache is not None:
+                                        valid_until = datetime.now(
+                                            timezone.utc
+                                        ) + timedelta(seconds=_ASSESS_CACHE_TTL_SECONDS)
+                                        self.assessment_cache.put(
+                                            doc_id,
+                                            assessment,
+                                            cache_key=cache_key,
+                                            valid_until=valid_until,
+                                        )
 
                             # SC-2 (D-02a): every DomainAssessment is adjudicated by the
                             # 5-lens panel (reject-ceiling aggregate_panel) BEFORE it is
@@ -477,6 +504,25 @@ class DomainAnalystSubscriber:
             knowledge_time=knowledge_time,
         )
         return work_key, cache_key
+
+    def _await_cached_assessment(self, doc_id: str, cache_key: str) -> Any | None:
+        """WR-02 single-flight LOSER path — bounded re-read of the AssessmentCache.
+
+        Called only when ``acquire_single_flight`` returned ``False`` (a competing
+        process holds the lock and is computing+populating). Poll the cache a bounded
+        number of times for the holder's ``put()`` so this process REUSES the shared
+        result rather than double-computing/double-emitting — the mutual-exclusion the
+        single-flight lock advertises. Returns the cached ``DomainAssessment`` on a
+        hit, or ``None`` if the holder never lands within the window (crash / lock
+        self-expiry); the caller then degrades by computing locally (``assess()`` is
+        deterministic, so a degrade compute never diverges from the holder's result).
+        """
+        for _ in range(_SINGLE_FLIGHT_WAIT_ATTEMPTS):
+            cached = self.assessment_cache.get(doc_id, request_key=cache_key)
+            if cached is not None:
+                return cached
+            time.sleep(_SINGLE_FLIGHT_WAIT_SECONDS)
+        return None
 
     def _emit_assessment(self, assessment: Any, verdict: Any = None) -> None:
         """Emit a ``DomainAssessment`` + its panel ``verdict`` (RESEARCH Open Q2).
