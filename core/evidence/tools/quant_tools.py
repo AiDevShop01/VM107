@@ -45,11 +45,13 @@ from fingpt_core.contracts.invocation_context import InvocationContext
 
 from core.evidence.tools import budget
 
-# Sentinel registry-snapshot hash for the standalone (not-yet-registered) path.
-# When these tools are wired into the capability registry (169) and invoked
-# through ``dispatch_tool``, the dispatcher supplies the real ``snapshot_hash``;
-# the assembler that calls a wrapper directly passes it explicitly.
-_UNREGISTERED_SNAPSHOT: str = "sha-unregistered-quant-tool"
+# Phase 172-02 (SC-3): the L0-L4 quant tools are now registered in the LIVE
+# capability registry and invoked through the reader-bound wrappers in
+# ``core.evidence.tools.quant_tool_dispatch``. ``registry_snapshot_hash`` is a
+# keyword-REQUIRED argument on every tool below (no sentinel default): a caller —
+# the dispatch-path wrapper, or a direct assembler call — MUST supply the live
+# registry snapshot hash. The former ``_UNREGISTERED_SNAPSHOT`` sentinel was
+# removed so a missing registration can no longer be masked by a fallback hash.
 _PAYLOAD_SCHEMA_VERSION: str = "1.0"
 
 # A live run stamps knowledge_time ~ now; a small tolerance keeps sub-second clock
@@ -240,7 +242,7 @@ def historical_percentile(
     reader: QuantReader,
     detail_level: str = "COMPACT",
     profile_cap: int | None = None,
-    registry_snapshot_hash: str = _UNREGISTERED_SNAPSHOT,
+    registry_snapshot_hash: str,
 ) -> ToolResultEnvelope[PercentilePayload]:
     """``historical_percentile(series="US_CORE_CPI") -> 71.4`` — the scalar, not the series."""
     read = reader.historical_percentile(series_id, knowledge_time=ctx.knowledge_time)
@@ -269,7 +271,7 @@ def change_point(
     reader: QuantReader,
     detail_level: str = "COMPACT",
     profile_cap: int | None = None,
-    registry_snapshot_hash: str = _UNREGISTERED_SNAPSHOT,
+    registry_snapshot_hash: str,
 ) -> ToolResultEnvelope[ChangePointPayload]:
     """Change-point summary: a count + recency struct, never the change-index series."""
     read = reader.change_point(series_id, knowledge_time=ctx.knowledge_time)
@@ -298,7 +300,7 @@ def surprise_score(
     reader: QuantReader,
     detail_level: str = "COMPACT",
     profile_cap: int | None = None,
-    registry_snapshot_hash: str = _UNREGISTERED_SNAPSHOT,
+    registry_snapshot_hash: str,
 ) -> ToolResultEnvelope[SurprisePayload]:
     """Economic-surprise category (INLINE/MILD/MODERATE/LARGE/EXTREME) + z-score struct."""
     read = reader.surprise(event_id, knowledge_time=ctx.knowledge_time)
@@ -328,7 +330,7 @@ def lead_lag_correlation(
     reader: QuantReader,
     detail_level: str = "COMPACT",
     profile_cap: int | None = None,
-    registry_snapshot_hash: str = _UNREGISTERED_SNAPSHOT,
+    registry_snapshot_hash: str,
 ) -> ToolResultEnvelope[CorrelationPayload]:
     """Lead-lag: the best-lag correlation SCALAR + direction, never the lag table."""
     read = reader.lead_lag(series_a, series_b, knowledge_time=ctx.knowledge_time)

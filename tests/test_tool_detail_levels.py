@@ -44,6 +44,11 @@ _NOW = datetime.now(timezone.utc)
 _PAST = _NOW - timedelta(days=30)
 _WINDOW_START = _NOW - timedelta(days=365 * 15)
 
+# Phase 172-02 (SC-3): ``registry_snapshot_hash`` is now keyword-REQUIRED on every
+# quant tool (the ``_UNREGISTERED_SNAPSHOT`` sentinel default was removed). Direct
+# callers must supply it explicitly — these unit tests pass a fixed test hash.
+_SNAP = "sha-test-quant"
+
 
 class _FakeReader:
     """Typed-read seam stand-in. Returns rich scalar/struct reads (no series)."""
@@ -96,10 +101,10 @@ class _FakeReader:
 
 
 _TOOL_CALLS = [
-    ("historical_percentile", lambda t, ctx, r: t.historical_percentile(ctx, "US_CORE_CPI", reader=r)),
-    ("change_point", lambda t, ctx, r: t.change_point(ctx, "US_CORE_CPI", reader=r)),
-    ("surprise_score", lambda t, ctx, r: t.surprise_score(ctx, "US_NFP_2026_08", reader=r)),
-    ("lead_lag_correlation", lambda t, ctx, r: t.lead_lag_correlation(ctx, "US_CPI", "US_PPI", reader=r)),
+    ("historical_percentile", lambda t, ctx, r: t.historical_percentile(ctx, "US_CORE_CPI", reader=r, registry_snapshot_hash=_SNAP)),
+    ("change_point", lambda t, ctx, r: t.change_point(ctx, "US_CORE_CPI", reader=r, registry_snapshot_hash=_SNAP)),
+    ("surprise_score", lambda t, ctx, r: t.surprise_score(ctx, "US_NFP_2026_08", reader=r, registry_snapshot_hash=_SNAP)),
+    ("lead_lag_correlation", lambda t, ctx, r: t.lead_lag_correlation(ctx, "US_CPI", "US_PPI", reader=r, registry_snapshot_hash=_SNAP)),
 ]
 
 
@@ -122,7 +127,9 @@ def test_tool_returns_envelope_with_compact_default(name, call):
 
 
 def test_percentile_headline_is_the_scalar_not_a_series():
-    env = quant_tools.historical_percentile(_ctx(_NOW), "US_CORE_CPI", reader=_FakeReader())
+    env = quant_tools.historical_percentile(
+        _ctx(_NOW), "US_CORE_CPI", reader=_FakeReader(), registry_snapshot_hash=_SNAP
+    )
     assert env.payload.percentile == 71.4  # a number back, never the series
 
 
@@ -137,7 +144,7 @@ def test_percentile_detail_levels_strictly_widen_within_cap():
     populated: list[set[str]] = []
     for level in budget.DETAIL_TIERS:
         env = quant_tools.historical_percentile(
-            ctx, "US_CORE_CPI", reader=reader, detail_level=level
+            ctx, "US_CORE_CPI", reader=reader, detail_level=level, registry_snapshot_hash=_SNAP
         )
         assert env.detail_level == level
         # never exceeds the tier's cap
@@ -158,7 +165,8 @@ def test_percentile_detail_levels_strictly_widen_within_cap():
 def test_profile_cap_marks_envelope_partial():
     # RAW payload carries the widest struct; a tiny profile cap forces partial.
     env = quant_tools.historical_percentile(
-        _ctx(_NOW), "US_CORE_CPI", reader=_FakeReader(), detail_level="RAW", profile_cap=5
+        _ctx(_NOW), "US_CORE_CPI", reader=_FakeReader(), detail_level="RAW", profile_cap=5,
+        registry_snapshot_hash=_SNAP,
     )
     assert env.outcome_class == "partial"  # visible degradation, never silent
 
@@ -170,14 +178,14 @@ def test_profile_cap_marks_envelope_partial():
 
 def test_latest_only_read_with_past_knowledge_time_is_flagged():
     env = quant_tools.historical_percentile(
-        _ctx(_PAST), "US_CORE_CPI", reader=_FakeReader(latest_only=True)
+        _ctx(_PAST), "US_CORE_CPI", reader=_FakeReader(latest_only=True), registry_snapshot_hash=_SNAP
     )
     assert env.is_latest_only_flagged is True
 
 
 def test_latest_only_read_at_now_is_not_flagged():
     env = quant_tools.historical_percentile(
-        _ctx(_NOW), "US_CORE_CPI", reader=_FakeReader(latest_only=True)
+        _ctx(_NOW), "US_CORE_CPI", reader=_FakeReader(latest_only=True), registry_snapshot_hash=_SNAP
     )
     # knowledge_time is (approximately) now => not a look-ahead => not flagged
     assert env.is_latest_only_flagged is False
@@ -185,6 +193,6 @@ def test_latest_only_read_at_now_is_not_flagged():
 
 def test_point_in_time_read_is_never_flagged():
     env = quant_tools.historical_percentile(
-        _ctx(_PAST), "US_CORE_CPI", reader=_FakeReader(latest_only=False)
+        _ctx(_PAST), "US_CORE_CPI", reader=_FakeReader(latest_only=False), registry_snapshot_hash=_SNAP
     )
     assert env.is_latest_only_flagged is False
