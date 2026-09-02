@@ -1,0 +1,39 @@
+# Phase 172 Plan 02 Task 2 (SC-3) — register the L0 surprise-score quant tool in
+# the LIVE capability registry. Dispatch-callable = the reader-bound wrapper in
+# core/evidence/tools/quant_tool_dispatch.py (binds a concrete QuantReader so
+# dispatch never supplies reader= blind — RESEARCH Pitfall 4). Registration-only:
+# no agent_profile YAML edited. Shape mirrors registry/tool/search_knowledge.yaml.
+
+id: surprise_score
+name: surprise_score
+type: tool
+status: real
+description: >-
+  Progressive-disclosure economic-surprise read (L0): the surprise category
+  (INLINE/MILD/MODERATE/LARGE/EXTREME) plus a standardized-surprise struct for a
+  release event (a category + z-score, never the series). Reads the VM102 quant
+  substrate through a typed QuantReader seam (G10); returns a budgeted
+  ToolResultEnvelope[SurprisePayload] widening COMPACT->RAW under Contract §6
+  token caps.
+category: quant-analysis
+version: "1.0.0"
+producer: vm107
+phase: 172
+location:
+  source: VM107/core/evidence/tools/quant_tool_dispatch.py
+tags:
+  - quant
+  - surprise
+  - economic-event
+  - progressive-disclosure
+  - phase-172
+hard_scoped: false
+allowed_agent_profiles: []
+last_changed: 2026-09-02
+impact_on_decision: MEDIUM
+deprecated: false
+
+# Phase 70.5 envelope-provenance fields (Stage-8 loader-required for tools)
+typical_confidence: 0.85
+expected_freshness_seconds: 3600
+is_deterministic: true
