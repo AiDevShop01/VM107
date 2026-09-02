@@ -41,6 +41,7 @@ from typing import Any, Callable
 
 from contracts.economic_intelligence.events import EconomicEvent, EventType
 from core.event_bus import EventBus
+from core.evidence.assembler import AssemblyRequest
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,24 @@ class DomainAnalystSubscriber:
         (Phase 156 / AZE-02). Optional — if ``None`` the subscriber logs the
         event without invoking analysts. A fetcher returning ``None`` (transient
         miss) leaves the idempotency/debounce slots unmarked (D-02).
+    assembler:
+        Optional :class:`~core.evidence.assembler.EvidencePackAssembler`. When
+        supplied together with ``facet_deps`` the subscriber runs the SC-1 (D-01)
+        governance path — ``assemble(AssemblyRequest) -> assess(pack) ->
+        DomainAssessment`` — ALONGSIDE the unchanged legacy ``analyst.invoke``
+        (both producers emit). ``None`` (default) leaves the legacy-only behaviour
+        untouched (optional-DI: a missing dep degrades, never bricks).
+    facet_deps:
+        Optional :class:`~core.evidence.assembler.FacetDeps` (D-05 Option A —
+        VM102-backed ``domain_state_reader``). Required for the governance path to
+        produce a NON-empty pack; without it (or with an all-``None`` FacetDeps)
+        the pack degrades honest-empty and ``assess()`` abstains.
+    assessment_sink:
+        Optional ``Callable[[DomainAssessment], None]`` the governance path emits
+        through (RESEARCH Open Q2). ``None`` (default) => a structured ``logger``
+        line carrying per-claim ``claim_id`` + ``manifest.state_version`` +
+        ``integrity_state``. NEVER overloads the EventBus ``SpecialistResponse``
+        topic — a durable pub/sub ``EventType`` is a documented follow-up.
     debounce_seconds:
         Override the 30s debounce window (default :data:`DEBOUNCE_SECONDS`).
     """
@@ -128,6 +147,9 @@ class DomainAnalystSubscriber:
         analysts: dict[str, Any] | None = None,
         idempotency_store: set | None = None,
         domain_fetcher: Callable[[str, EconomicEvent], Any] | None = None,
+        assembler: Any | None = None,
+        facet_deps: Any | None = None,
+        assessment_sink: Callable[[Any], None] | None = None,
         debounce_seconds: int = DEBOUNCE_SECONDS,
         clock: Callable[[], float] = time.time,
     ) -> None:
@@ -140,6 +162,12 @@ class DomainAnalystSubscriber:
         # debounced against the 0.0 default.
         self._last_invoke_ts: dict[str, float] = {}
         self.domain_fetcher = domain_fetcher
+        # SC-1 / D-01 optional-DI governance path (assemble -> assess -> sink).
+        # All three guarded: the new block only runs when assembler AND facet_deps
+        # are both present, so legacy-only construction is byte-for-byte unchanged.
+        self.assembler = assembler
+        self.facet_deps = facet_deps
+        self.assessment_sink = assessment_sink
         self.debounce_seconds = debounce_seconds
         self._clock = clock
 
@@ -228,6 +256,31 @@ class DomainAnalystSubscriber:
                     # domain analysts accept ``context: dict | None``) — an
                     # immutable passthrough, not a fresh stamp.
                     analyst.invoke(domain, {"knowledge_time": knowledge_time})
+
+                    # SC-1 (D-01): the additive governance path runs ALONGSIDE the
+                    # legacy invoke above — BOTH producers emit per release per slug.
+                    # It lives INSIDE this per-slug try/except so a failure here logs
+                    # + is retryable (no marking) and never breaks the legacy emit or
+                    # the other 11 slugs. ``assess()`` is pack-sourced / LLM-free —
+                    # NEVER coupled to the analyst's SpecialistResponse (engine-lock,
+                    # enforced by test_domain_base_engine_lock). The pack is read from
+                    # VM102 via ``facet_deps`` (D-05 Option A); a honest-empty pack
+                    # (unwired/unreachable VM102) makes ``assess()`` abstain rather
+                    # than fabricate. Optional-DI: skipped entirely unless both the
+                    # assembler and facet_deps were injected.
+                    if self.assembler is not None and self.facet_deps is not None:
+                        request = AssemblyRequest(
+                            country=event.country,
+                            domain_slug=slug,
+                            knowledge_time=knowledge_time,
+                        )
+                        pack = self.assembler.assemble(request, deps=self.facet_deps)
+                        # Reuse the already-loaded analyst instance (subclasses
+                        # DomainAgent) — no parallel agent set. knowledge_time is the
+                        # event's immutable as-of (no wall-clock re-stamp — D-06a).
+                        assessment = analyst.assess(pack, knowledge_time=knowledge_time)
+                        self._emit_assessment(assessment)
+
                     # Mark keys ONLY on a real dispatch (D-02) — see the
                     # ``domain is None`` branch above for why a miss is unmarked.
                     self.processed.add(key)
@@ -253,6 +306,33 @@ class DomainAnalystSubscriber:
         if self.domain_fetcher is None:
             return None
         return self.domain_fetcher(slug, event)
+
+    def _emit_assessment(self, assessment: Any) -> None:
+        """Emit a ``DomainAssessment`` on its own channel (RESEARCH Open Q2).
+
+        Uses the injected ``assessment_sink`` when present; otherwise a structured
+        ``logger.info`` line carrying per-claim provenance (``claim_id``) +
+        ``manifest.state_version`` + ``integrity_state``. This deliberately does NOT
+        overload the EventBus ``SpecialistResponse`` topic (channel separation) — a
+        durable pub/sub ``EventType`` is a documented follow-up.
+        """
+        if self.assessment_sink is not None:
+            self.assessment_sink(assessment)
+            return
+        claim_ids = [c.claim_id for c in assessment.claims]
+        logger.info(
+            "domain_analyst_subscriber: DomainAssessment domain=%s geography=%s "
+            "state_version=%s integrity_state=%s abstention=%s knowledge_time=%s "
+            "claims=%d claim_ids=%s",
+            assessment.domain,
+            assessment.geography_id,
+            assessment.manifest.state_version,
+            assessment.integrity_state,
+            assessment.abstention_outcome,
+            assessment.knowledge_time,
+            len(claim_ids),
+            claim_ids,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -283,13 +363,37 @@ def main() -> None:
     # fail-fast env read only fires when the service actually starts.
     from agents.domain_analyst_subscriber.domain_fetcher import DomainSnapshotFetcher
 
+    # Phase 172 (SC-1 / D-01): construct the governance pipeline deps and inject
+    # them ALONGSIDE the legacy fetcher. Imported inside main() so the module stays
+    # import-light and the VM102 client's fail-fast env read only fires on first use.
+    from agents.domain_analyst_subscriber.facet_deps import build_facet_deps, probe_vm102
+    from core.evidence.assembler import EvidencePackAssembler
+
     # EventBus constructor reads REDIS_HOST + REDIS_PORT from env with NO
     # fallback defaults — KeyError at instantiation if missing (per
     # feedback_env_driven_no_fallbacks).
     bus = EventBus()
+
+    # D-05 Option A: build the VM102-backed FacetDeps and verify reachability from
+    # THIS container before declaring the path "wired". An unreachable VM102 does
+    # NOT block start-up — packs degrade honest-empty and assess() abstains (never
+    # a silent empty pack shipped as wired) until VM102 env/network is fixed.
+    assembler = EvidencePackAssembler()
+    facet_deps = build_facet_deps()
+    vm102_reachable = probe_vm102(facet_deps)
+    logger.info(
+        "domain_analyst_subscriber: VM102 reachability probe -> %s "
+        "(reachable => real packs / real claims; unreachable => honest-empty "
+        "packs, assess() abstains — Option B / follow-up).",
+        vm102_reachable,
+    )
+
     subscriber = DomainAnalystSubscriber(
         event_bus=bus,
         domain_fetcher=DomainSnapshotFetcher(),
+        assembler=assembler,
+        facet_deps=facet_deps,
+        # assessment_sink defaults to the structured logger (_emit_assessment).
     )
     bus.subscribe(EventType.MACRO_RELEASE, subscriber.handle)
 
