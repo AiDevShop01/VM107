@@ -179,7 +179,10 @@ class Memory:
                     # fallback that renders as "no memories". Construction here never
                     # runs QdrantBackend.search, so search()'s own D3-02 report never
                     # fires on this path — this is the only place the init cause surfaces.
-                    from emitters.source_health_registry import SourceHealthRegistry
+                    from emitters.source_health_registry import (
+                        SourceHealthKey,
+                        SourceHealthRegistry,
+                    )
 
                     reg = SourceHealthRegistry.get_shared_instance()
                     ctxid = getattr(getattr(agent, "context", None), "id", None)
@@ -192,7 +195,7 @@ class Memory:
                         # reader prefers (qdrant:{ctxid}) so a concurrent context's
                         # health cannot mask this one.
                         reg.report(
-                            f"qdrant:{ctxid}", available=False, failure_reason=type(e).__name__
+                            SourceHealthKey("qdrant", ctxid), available=False, failure_reason=type(e).__name__
                         )
                     PrintStyle.error(
                         f"Qdrant init failed, falling back to FAISS: {type(e).__name__}"

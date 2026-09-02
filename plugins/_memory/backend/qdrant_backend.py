@@ -25,7 +25,7 @@ from qdrant_client.models import (
     FilterSelector,
 )
 
-from emitters.source_health_registry import SourceHealthRegistry
+from emitters.source_health_registry import SourceHealthKey, SourceHealthRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -257,7 +257,7 @@ class QdrantBackend:
             )
             if ctxid:
                 SourceHealthRegistry.get_shared_instance().report(
-                    f"embedding:{ctxid}", available=False, failure_reason=type(e).__name__
+                    SourceHealthKey("embedding", ctxid), available=False, failure_reason=type(e).__name__
                 )
             return []
 
@@ -328,7 +328,7 @@ class QdrantBackend:
             if ctxid:
                 # Context-scoped success (135-06): isolates this context's health so a
                 # concurrent context's outage cannot be masked by (or mask) this success.
-                SourceHealthRegistry.get_shared_instance().report(f"qdrant:{ctxid}", available=True)
+                SourceHealthRegistry.get_shared_instance().report(SourceHealthKey("qdrant", ctxid), available=True)
 
             return results
 
@@ -349,7 +349,7 @@ class QdrantBackend:
                 # Context-scoped outage (135-06): the reader keys off qdrant:{ctxid} so a
                 # concurrent success on the bare key cannot clobber this context's outage.
                 SourceHealthRegistry.get_shared_instance().report(
-                    f"qdrant:{ctxid}", available=False, failure_reason=type(e).__name__
+                    SourceHealthKey("qdrant", ctxid), available=False, failure_reason=type(e).__name__
                 )
             return []
 

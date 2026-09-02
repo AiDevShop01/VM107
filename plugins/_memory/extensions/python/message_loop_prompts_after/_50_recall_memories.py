@@ -151,7 +151,7 @@ class RecallMemories(Extension):
             # (D3-01/03). Read the fresh health bus (freshened at search time by
             # qdrant_backend.search, D3-02) to distinguish them. WR-04 / T-135-01: the
             # degraded line names the failure CLASS, never a host:port.
-            from emitters.source_health_registry import SourceHealthRegistry
+            from emitters.source_health_registry import SourceHealthKey, SourceHealthRegistry
 
             # Context-scope the health read by this agent's immutable context id (135-06),
             # with a bare-key fallback (C floor): read qdrant:{ctxid}/embedding:{ctxid} first,
@@ -159,8 +159,8 @@ class RecallMemories(Extension):
             # ctxid degrades to today's working single-context signal, never plain-empty.
             ctxid = getattr(getattr(self.agent, "context", None), "id", "") or ""
             snap = SourceHealthRegistry.get_shared_instance().snapshot()
-            qh = (snap.get(f"qdrant:{ctxid}") if ctxid else None) or snap.get("qdrant")
-            eh = (snap.get(f"embedding:{ctxid}") if ctxid else None) or snap.get("embedding")
+            qh = (snap.get(SourceHealthKey("qdrant", ctxid).key) if ctxid else None) or snap.get("qdrant")
+            eh = (snap.get(SourceHealthKey("embedding", ctxid).key) if ctxid else None) or snap.get("embedding")
 
             # Name the REAL failing subsystem (WR-01). T-135-01: name the failure CLASS/
             # subsystem only — never a host:port.
